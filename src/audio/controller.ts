@@ -138,22 +138,22 @@ export class AudioController extends EventEmitter {
 
     playPattern(pattern: Pattern) {
         if (!this.song) return;
+        const tempo = this.song.tempo;
+        const speed = this.song.speed;
+        const DEFAULT_SPEED = 6;
+        const NOTES_PER_MINUTE = 900; // 60 fps * 60 sec / 4 rows-per-beat
+
+        let tick = 0;
         let rowNumber = 0;
-        let rowFrameNumber = 0;
         this.clearChannelStates();
         const frameCallback = () => {
-            if (rowFrameNumber === 0) {
+            const nextRow = Math.floor((tick * tempo * DEFAULT_SPEED) / (speed * NOTES_PER_MINUTE));
+            if (nextRow !== rowNumber) {
+                rowNumber = nextRow % 64;
                 this.readRow(pattern, rowNumber);
                 this.emit('row', rowNumber, pattern);
             }
-            rowFrameNumber++;
-            if (rowFrameNumber >= this.song!.speed) {
-                rowFrameNumber = 0;
-                rowNumber++;
-                if (rowNumber >= 64) {
-                    rowNumber = 0;
-                }
-            }
+            tick++;
             return this.channelStates.map((state) => (
                 state.instrumentCallback ? state.instrumentCallback(state.instrumentFrame++) : null
             ));
@@ -164,28 +164,31 @@ export class AudioController extends EventEmitter {
 
     playSong(startPosition: number) {
         if (!this.song) return;
+        const tempo = this.song.tempo;
+        const speed = this.song.speed;
+        const DEFAULT_SPEED = 6;
+        const NOTES_PER_MINUTE = 900;
+
         let positionNumber = startPosition;
         let rowNumber = 0;
-        let rowFrameNumber = 0;
+        let tick = 0;
         this.clearChannelStates();
         this.emit('position', positionNumber);
         const frameCallback = () => {
-            if (rowFrameNumber === 0) {
-                const patternNumber = this.song!.positions[positionNumber];
-                const pattern = this.song!.patterns[patternNumber];
-                this.readRow(pattern, rowNumber);
-                this.emit('row', rowNumber, pattern);
-            }
-            rowFrameNumber++;
-            if (rowFrameNumber >= this.song!.speed) {
-                rowFrameNumber = 0;
-                rowNumber++;
+            const nextRow = Math.floor((tick * tempo * DEFAULT_SPEED) / (speed * NOTES_PER_MINUTE));
+            if (nextRow !== rowNumber) {
+                rowNumber = nextRow;
                 if (rowNumber >= 64) {
                     rowNumber = 0;
                     positionNumber = (positionNumber + 1) % this.song!.length;
                     this.emit('position', positionNumber);
                 }
+                const patternNumber = this.song!.positions[positionNumber];
+                const pattern = this.song!.patterns[patternNumber];
+                this.readRow(pattern, rowNumber);
+                this.emit('row', rowNumber, pattern);
             }
+            tick++;
             return this.channelStates.map((state) => (
                 state.instrumentCallback ? state.instrumentCallback(state.instrumentFrame++) : null
             ));

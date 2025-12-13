@@ -19,6 +19,11 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
         onSongChange((s) => s.setSpeed(val));
     };
 
+    const onTempoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseInt(e.target.value, 10);
+        onSongChange((s) => s.setTempo(val));
+    };
+
     const onLengthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseInt(e.target.value, 10);
         onSongChange((s) => s.setLength(val));
@@ -43,6 +48,10 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 onEditorStateChange={onEditorStateChange}
                 audio={audio}
             />
+            <label>
+                Tempo
+                <input type="number" min={1} max={255} value={song.tempo} onChange={onTempoChange} />
+            </label>
             <label>
                 Speed
                 <input type="number" min={1} max={31} value={song.speed} onChange={onSpeedChange} />

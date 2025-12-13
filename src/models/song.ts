@@ -13,7 +13,7 @@ for i=0,3 do
  chan_states[i]={inst=1,iframe=0,nfreq=440}
 end
 
-row_frame=0
+row_tick=0
 row_num=0
 position_num=0
 pattern_num=0
@@ -47,10 +47,12 @@ function read_row()
 end
 
 function music_frame()
- if row_frame==0 then
+ local next_row = math.floor(row_tick*song_tempo*6/(song_speed*900))
+ if next_row~=row_num then
+  row_num=next_row%64
   read_row()
  end
- row_frame=(row_frame+1)%song_speed
+ row_tick=row_tick+1
  for c=0,3 do
   chan=chan_states[c]
   if chan.inst~=0 then
@@ -74,6 +76,7 @@ export type SongData = {
     instruments?: (InstrumentData | Partial<InstrumentData> | undefined)[];
     patterns?: (PatternData | undefined)[];
     positions?: number[];
+    tempo?: number;
     speed?: number;
     length?: number;
 };
@@ -96,6 +99,7 @@ export class Song {
     instruments: Wave[];
     patterns: Pattern[];
     positions: number[];
+    tempo: number;
     speed: number;
     length: number;
 
@@ -103,6 +107,7 @@ export class Song {
         this.instruments = makeInstrumentList(data.instruments);
         this.patterns = makePatternList(data.patterns);
         this.positions = Array.from({ length: 256 }, (_, i) => clamp(data.positions?.[i] ?? 0, 0, PATTERN_COUNT - 1));
+        this.tempo = clamp(data.tempo ?? 120, 1, 255);
         this.speed = clamp(data.speed ?? 6, 1, 31);
         this.length = clamp(data.length ?? 1, 1, 256);
     }
@@ -129,6 +134,10 @@ export class Song {
 
     setLength(value: number) {
         this.length = clamp(value, 1, 256);
+    }
+
+    setTempo(value: number) {
+        this.tempo = clamp(value, 1, 255);
     }
 
     setSpeed(value: number) {
@@ -164,6 +173,7 @@ patterns={
 ${patternsData}
 }
 positions={${positions.join(',')}}
+    song_tempo=${this.tempo}
 song_speed=${this.speed}
 
 ${PLAYER_CODE}
@@ -175,6 +185,7 @@ ${PLAYER_CODE}
             instruments: this.instruments.map((inst) => inst.toData()),
             patterns: this.patterns.map((pattern) => pattern.toData()),
             positions: [...this.positions],
+            tempo: this.tempo,
             speed: this.speed,
             length: this.length,
         };

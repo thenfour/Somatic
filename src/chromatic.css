@@ -51,7 +51,7 @@ body {
 }
 
 .instrument-panel {
-    width: 800px;
+    /* width: 800px; */
     background-color: #ddd;
     padding: 8px;
 }
