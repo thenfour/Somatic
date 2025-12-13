@@ -24,6 +24,29 @@ export class AudioController extends EventEmitter {
             };
         }
     }
+
+    ensureAudio() {
+        if (this.audioStarted && this.ticSynth && this.gainNode) return;
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioContext = new AudioContext({latencyHint: 'interactive'});
+
+        this.ticSynth = new TICSynth(audioContext.sampleRate);
+        const scriptNode = audioContext.createScriptProcessor(0, 0, 1);
+        scriptNode.onaudioprocess = (audioProcessingEvent) => {
+            const outputBuffer = audioProcessingEvent.outputBuffer;
+            const audioData = outputBuffer.getChannelData(0);
+            this.ticSynth.generate(audioData);
+        };
+        this.gainNode = audioContext.createGain();
+        this.gainNode.gain.value = this.volume;
+
+        scriptNode.connect(this.gainNode);
+        this.gainNode.connect(audioContext.destination);
+
+        this.audioStarted = true;
+    }
+
     play(frameCallback) {
         /* Start playback of TIC audio. The frameCallback function will
          * be called for each frame with the frame number as its argument,
@@ -32,24 +55,7 @@ export class AudioController extends EventEmitter {
          * 'volume' (0-15), and 'frequency' (in Hz) properties. If a channel
          * data object is null, that channel will be silent.
          */
-        if (!this.audioStarted) {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            const audioContext = new AudioContext({latencyHint: 'interactive'});
-    
-            this.ticSynth = new TICSynth(audioContext.sampleRate);
-            const scriptNode = audioContext.createScriptProcessor(0, 0, 1);
-            scriptNode.onaudioprocess = (audioProcessingEvent) => {
-                const outputBuffer = audioProcessingEvent.outputBuffer;
-                const audioData = outputBuffer.getChannelData(0);
-                this.ticSynth.generate(audioData);
-            }
-            this.gainNode = audioContext.createGain();
-            this.gainNode.gain.value = this.volume;
-    
-            scriptNode.connect(this.gainNode);
-            this.gainNode.connect(audioContext.destination);
-        }
-        this.audioStarted = true;
+        this.ensureAudio();
 
         this.ticSynth.frameNumber = 0;
         this.ticSynth.frameCallback = frameCallback;
@@ -58,6 +64,12 @@ export class AudioController extends EventEmitter {
         }
     }
     stop() {
+        if (!this.ticSynth) {
+            // stop may be called before audio ever started; just emit stop.
+            this.isPlaying = false;
+            this.emit('stop');
+            return;
+        }
         this.ticSynth.frameCallback = null;
         this.isPlaying = false;
         this.emit('stop');
