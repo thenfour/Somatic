@@ -25,7 +25,7 @@ module.exports = {
         use: [MiniCssExtractPlugin.loader, "css-loader"],
       },
       {
-        test: /\.js$/,
+        test: /\.([jt])sx?$/,
         exclude: /node_modules/,
         use: {
           loader: 'babel-loader',
@@ -35,12 +35,17 @@ module.exports = {
               [
                 "@babel/preset-react",
                 { runtime: "automatic" }
-              ]
+              ],
+              "@babel/preset-typescript"
             ],
           },
         },
       },
     ],
+  },
+
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js', '.jsx'],
   },
 
   plugins: [
