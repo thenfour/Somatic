@@ -4,6 +4,7 @@ import { OCTAVE_COUNT, PATTERN_COUNT } from '../defs';
 import { EditorState } from '../models/editor_state';
 import { Song } from '../models/song';
 import { PositionList } from './position_list';
+import { Tooltip } from './tooltip';
 
 type SongEditorProps = {
     song: Song;
@@ -14,6 +15,8 @@ type SongEditorProps = {
 };
 
 export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSongChange, onEditorStateChange, audio }) => {
+    const effectiveBpm = Math.round(((song.tempo * 6) / song.speed) * 10) / 10; // TIC BPM approximation
+
     const onSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseInt(e.target.value, 10);
         onSongChange((s) => s.setSpeed(val));
@@ -48,14 +51,30 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 onEditorStateChange={onEditorStateChange}
                 audio={audio}
             />
-            <label>
-                Tempo
-                <input type="number" min={1} max={255} value={song.tempo} onChange={onTempoChange} />
-            </label>
-            <label>
-                Speed
-                <input type="number" min={1} max={31} value={song.speed} onChange={onSpeedChange} />
-            </label>
+            <div className="field-row">
+                <label htmlFor="song-tempo">Tempo</label>
+                <Tooltip
+                    content={(
+                        <>
+                            Effective BPM ≈ tempo*6/speed. Higher tempo = faster; higher speed = slower rows.<br />
+                            Current ≈ {effectiveBpm} BPM.
+                        </>
+                    )}
+                />
+                <input id="song-tempo" type="number" min={1} max={255} value={song.tempo} onChange={onTempoChange} />
+            </div>
+            <div className="field-row">
+                <label htmlFor="song-speed">Speed</label>
+                <Tooltip
+                    content={(
+                        <>
+                            TIC tick divisor; rows advance slower as speed increases. Effective BPM ≈ tempo*6/speed.<br />
+                            Current ≈ {effectiveBpm} BPM.
+                        </>
+                    )}
+                />
+                <input id="song-speed" type="number" min={1} max={31} value={song.speed} onChange={onSpeedChange} />
+            </div>
             <label>
                 Length
                 <input type="number" min={1} max={256} value={song.length} onChange={onLengthChange} />
