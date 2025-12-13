@@ -37,6 +37,11 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
         onEditorStateChange((state) => state.setOctave(val));
     };
 
+    const onHighlightRowCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseInt(e.target.value, 10);
+        onSongChange((s) => s.setHighlightRowCount(val));
+    };
+
     const onPatternChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseInt(e.target.value, 10);
         onEditorStateChange((state) => state.setPattern(val));
@@ -78,6 +83,16 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
             <label>
                 Length
                 <input type="number" min={1} max={256} value={song.length} onChange={onLengthChange} />
+            </label>
+            <label>
+                Highlight rows
+                <input
+                    type="number"
+                    min={1}
+                    max={64}
+                    value={song.highlightRowCount}
+                    onChange={onHighlightRowCountChange}
+                />
             </label>
             <label>
                 Octave

@@ -79,6 +79,7 @@ export type SongData = {
     tempo?: number;
     speed?: number;
     length?: number;
+    highlightRowCount?: number;
 };
 
 const makeInstrumentList = (data?: SongData['instruments']): Wave[] => {
@@ -102,6 +103,7 @@ export class Song {
     tempo: number;
     speed: number;
     length: number;
+    highlightRowCount: number;
 
     constructor(data: SongData = {}) {
         this.instruments = makeInstrumentList(data.instruments);
@@ -110,6 +112,7 @@ export class Song {
         this.tempo = clamp(data.tempo ?? 120, 1, 255);
         this.speed = clamp(data.speed ?? 6, 1, 31);
         this.length = clamp(data.length ?? 1, 1, 256);
+        this.highlightRowCount = clamp(data.highlightRowCount ?? 16, 1, 64);
     }
 
     usedPatterns(): Set<number> {
@@ -142,6 +145,10 @@ export class Song {
 
     setSpeed(value: number) {
         this.speed = clamp(value, 1, 31);
+    }
+
+    setHighlightRowCount(value: number) {
+        this.highlightRowCount = clamp(value, 1, 64);
     }
 
     getLuaCode(): string {
@@ -188,6 +195,7 @@ ${PLAYER_CODE}
             tempo: this.tempo,
             speed: this.speed,
             length: this.length,
+            highlightRowCount: this.highlightRowCount,
         };
     }
 

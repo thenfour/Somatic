@@ -243,9 +243,26 @@ button {
     background-color: #88dd88;
 }
 
+.pattern-grid tr.row-section-a:not(.active-row) {
+    background-color: #eff;
+}
+
+.pattern-grid tr.row-section-b:not(.active-row) {
+    background-color: #ffe;
+}
+
 .pattern-grid td {
     cursor: default;
     padding: 1px 6px;
+}
+
+.pattern-grid td.note-cell,
+.pattern-grid td.instrument-cell {
+    transition: color 0.12s ease, opacity 0.12s ease;
+}
+
+.pattern-grid td.empty-cell {
+    color: #ccc;
 }
 
 .pattern-grid td:focus {
@@ -300,6 +317,8 @@ button {
 
 .pattern-grid-container {
     flex-grow: 1;
+    /* for comfort */
+    padding-bottom: 50vh;
 }
 
 .field-row {
