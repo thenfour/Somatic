@@ -3,11 +3,51 @@ body {
     margin: 0;
     padding: 0;
     font-family: sans-serif;
+    user-select: none;
 }
 
 .instrument-panel-positioner {
     position: absolute;
     left: 50%;
+}
+
+.menu {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 6px 8px;
+    border-bottom: 1px solid #ccc;
+}
+
+.menu-group {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.menu-separator {
+    color: #888;
+    padding: 0 4px;
+}
+
+.menu button {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 6px;
+    /* border: 0; 1px solid #bbb; */
+    border: 0;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.menu button:hover {
+    background: #fff;
+}
+
+.menu .icon {
+    display: inline-block;
 }
 
 .instrument-panel {
@@ -37,7 +77,10 @@ body {
 }
 
 #master-volume-container {
-    float: right;
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .left-col {
@@ -129,7 +172,7 @@ body {
 .stickyHeader {
     position: sticky;
     top: 0;
-    background-color: #ddd;
+    background-color: #eee;
     z-index: 10;
     padding-bottom: 4px;
     border-bottom: 2px solid black;
@@ -168,6 +211,7 @@ body {
 .position-list {
     padding: 0;
     width: 100%;
+    height: 40px;
     white-space: nowrap;
     overflow-x: scroll;
 }

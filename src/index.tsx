@@ -116,17 +116,28 @@ const App: React.FC = () => {
         <div className="app">
             <div className="stickyHeader">
                 <div className="menu">
-                    <button onClick={openSongFile}>Open</button>
-                    <button onClick={saveSongFile}>Save</button>
-                    <button onClick={copyNative}>Copy Native</button>
-                    <button onClick={copyTic}>Copy Tic-80</button>
-                    <button onClick={pasteSong}>Paste</button>
-                    <button onClick={exportLua}>Export</button>
-                    <button onClick={() => setInstrumentPanelOpen(true)}>Instruments</button>
-                    <button onClick={() => audio.stop()}>Stop</button>
-                    <button onClick={onPlayPattern}>Play Pattern</button>
-                    <button onClick={onPlayAll}>Play All</button>
-                    <button onClick={onPlayFromPosition}>Play From Position</button>
+                    <div className="menu-group">
+                        <button onClick={openSongFile}><span className="icon" aria-hidden="true">📂</span>Open</button>
+                        <button onClick={saveSongFile}><span className="icon" aria-hidden="true">💾</span>Save</button>
+                        <button onClick={exportLua}><span className="icon" aria-hidden="true">📤</span>Export</button>
+                    </div>
+                    <span className="menu-separator" aria-hidden="true">|</span>
+                    <div className="menu-group">
+                        <button onClick={copyNative}><span className="icon" aria-hidden="true">📋</span>Copy Native</button>
+                        <button onClick={copyTic}><span className="icon" aria-hidden="true">🧾</span>Copy Tic-80</button>
+                        <button onClick={pasteSong}><span className="icon" aria-hidden="true">📥</span>Paste</button>
+                    </div>
+                    <span className="menu-separator" aria-hidden="true">|</span>
+                    <div className="menu-group">
+                        <button onClick={() => setInstrumentPanelOpen(true)}><span className="icon" aria-hidden="true">🎛️</span>Instruments</button>
+                    </div>
+                    <span className="menu-separator" aria-hidden="true">|</span>
+                    <div className="menu-group">
+                        <button onClick={() => audio.stop()}><span className="icon" aria-hidden="true">⏹</span>Stop</button>
+                        <button onClick={onPlayPattern}><span className="icon" aria-hidden="true">▶</span>Play Pattern</button>
+                        <button onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">⏩</span>Play From Position</button>
+                        <button onClick={onPlayAll}><span className="icon" aria-hidden="true">🎵</span>Play All</button>
+                    </div>
                     <div id="master-volume-container">
                         <label htmlFor="master-volume">master volume</label>
                         <input
