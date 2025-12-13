@@ -60,6 +60,41 @@ const App = () => {
         saveSync(song.getLuaCode(), "song.lua");
     };
 
+    const copyNative = async () => {
+        const text = song.toJSON();
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (err) {
+            console.error("Copy failed", err);
+            alert("Failed to copy song to clipboard.");
+        }
+    };
+
+    const copyTic = async () => {
+        const text = song.getLuaCode();
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (err) {
+            console.error("Copy failed", err);
+            alert("Failed to copy TIC-80 export to clipboard.");
+        }
+    };
+
+    const pasteSong = async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            const loaded = Song.fromJSON(text);
+            setSong(loaded);
+            updateEditorState((s) => {
+                s.setPattern(0);
+                s.setSelectedPosition(0);
+            });
+        } catch (err) {
+            console.error("Paste failed", err);
+            alert("Failed to paste song from clipboard. Ensure it is a valid song JSON.");
+        }
+    };
+
     const onPlayPattern = () => {
         audio.playPattern(song.patterns[editorState.pattern]);
     };
@@ -77,6 +112,9 @@ const App = () => {
             <div className="menu">
                 <button onClick={openSongFile}>Open</button>
                 <button onClick={saveSongFile}>Save</button>
+                <button onClick={copyNative}>Copy Native</button>
+                <button onClick={copyTic}>Copy Tic-80</button>
+                <button onClick={pasteSong}>Paste</button>
                 <button onClick={exportLua}>Export</button>
                 <button onClick={() => setInstrumentPanelOpen(true)}>Instruments</button>
                 <button onClick={() => audio.stop()}>Stop</button>
