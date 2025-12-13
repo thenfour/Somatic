@@ -15,6 +15,7 @@ import { SongEditor } from './ui/song_editor';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
+type TransportState = 'stop' | 'play-pattern' | 'play-from-position' | 'play-all';
 
 const useAudioController = (): AudioController => useMemo(() => new AudioController(), []);
 
@@ -24,10 +25,19 @@ const App: React.FC = () => {
     const [editorState, setEditorState] = useState(() => new EditorState());
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);
     const [helpPanelOpen, setHelpPanelOpen] = useState(false);
+    const [transportState, setTransportState] = useState<TransportState>('stop');
 
     useEffect(() => {
         audio.song = song;
     }, [audio, song]);
+
+    useEffect(() => {
+        const handleStop = () => setTransportState('stop');
+        audio.on('stop', handleStop);
+        return () => {
+            audio.off('stop', handleStop);
+        };
+    }, [audio]);
 
     const updateSong = (mutator: SongMutator) => {
         setSong((prev) => {
@@ -102,15 +112,23 @@ const App: React.FC = () => {
         }
     };
 
+    const onStop = () => {
+        setTransportState('stop');
+        audio.stop();
+    };
+
     const onPlayPattern = () => {
+        setTransportState('play-pattern');
         audio.playPattern(song.patterns[editorState.pattern]);
     };
 
     const onPlayAll = () => {
+        setTransportState('play-all');
         audio.playSong(0);
     };
 
     const onPlayFromPosition = () => {
+        setTransportState('play-from-position');
         audio.playSong(editorState.selectedPosition);
     };
 
@@ -136,10 +154,10 @@ const App: React.FC = () => {
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
-                        <button onClick={() => audio.stop()}><span className="icon" aria-hidden="true">⏹</span>Stop</button>
-                        <button onClick={onPlayPattern}><span className="icon" aria-hidden="true">▶</span>Play Pattern</button>
-                        <button onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">⏩</span>Play From Position</button>
-                        <button onClick={onPlayAll}><span className="icon" aria-hidden="true">🎵</span>Play All</button>
+                        <button className={transportState === 'stop' ? 'active' : undefined} onClick={onStop}><span className="icon" aria-hidden="true">⏹</span>Stop</button>
+                        <button className={transportState === 'play-pattern' ? 'active' : undefined} onClick={onPlayPattern}><span className="icon" aria-hidden="true">▶</span>Play Pattern</button>
+                        <button className={transportState === 'play-from-position' ? 'active' : undefined} onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">⏩</span>Play From Position</button>
+                        <button className={transportState === 'play-all' ? 'active' : undefined} onClick={onPlayAll}><span className="icon" aria-hidden="true">🎵</span>Play All</button>
                     </div>
                     <div id="master-volume-container">
                         <label htmlFor="master-volume">master volume</label>
