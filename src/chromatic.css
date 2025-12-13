@@ -1,9 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap');
+
+:root {
+    --ff-mono: 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
 html,
 body {
     margin: 0;
     padding: 0;
-    font-family: sans-serif;
+    font-family: 'Roboto Mono', Consolas, 'Courier New', monospace;
     user-select: none;
+}
+
+button {
+    font-family: var(--ff-mono);
 }
 
 .instrument-panel-positioner {
@@ -85,7 +95,7 @@ body {
 }
 
 .help-panel .shortcut-key {
-    font-family: 'Cascadia Code', Consolas, monospace;
+    font-family: var(--ff-mono);
     font-size: 12px;
     background: rgba(255, 255, 255, 0.08);
     padding: 2px 6px;
@@ -220,7 +230,7 @@ body {
 }
 
 .pattern-grid {
-    font-family: monospace;
+    font-family: var(--ff-mono);
     border-collapse: collapse;
     margin: 15px;
 }
@@ -256,10 +266,10 @@ body {
 }
 
 .position-list button {
-    background-color: transparent;
+    background-color: white;
     border: 1px solid #ccc;
     display: inline-block;
-    font-family: monospace;
+    font-family: var(--ff-mono);
     padding: 4px 4px;
     width: 3em;
 }
@@ -278,7 +288,8 @@ body {
 }
 
 .position-list button.disabled {
-    color: #aaa;
+    color: #ccc;
+    background-color: #ddd;
 }
 
 .main-editor-area {
