@@ -1,54 +1,28 @@
-import { Component } from 'catwalk-ui';
+import React, { useEffect, useRef } from "react";
 
-export class Scope extends Component {
-    constructor() {
-        super();
-        this.width = 256;
-        this.height = 128;
-        this.waveformGenerator = null;
-        this._scrubControlNode = null;
-        this.changeHandler = () => {
-            this.waveformGenerator = this.model.getFrameCallback(440);
-            this.drawAtScrubPosition();
-        }
-    }
+const WIDTH = 256;
+const HEIGHT = 128;
 
-    set scrubControlNode(node) {
-        this._scrubControlNode = node;
-        this.drawAtScrubPosition();
-    }
+export const Scope = ({ instrument, scrub, audio }) => {
+    const canvasRef = useRef(null);
+    const ctxRef = useRef(null);
 
-    trackModel(model) {
-        if (this.model) {
-            this.model.removeListener("change", this.changeHandler);
-        }
-        super.trackModel(model);
-        this.model.addListener("change", this.changeHandler);
-        this.changeHandler();
-    }
+    const clear = () => {
+        const ctx = ctxRef.current;
+        if (!ctx) return;
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    };
 
-    createNode() {
-        const node = (
-            <canvas className="scope" width={this.width} height={this.height}></canvas>
-        );
-        this.ctx = node.getContext('2d');
-        this.drawAtScrubPosition();
-        return node;
-    }
-
-    clear() {
-        if (!this.ctx) return;
-        this.ctx.fillStyle = "black";
-        this.ctx.fillRect(0, 0, this.width, this.height);
-    }
-    drawFrame(frameData) {
-        if (!this.ctx) return;
-        this.clear();
-        this.ctx.fillStyle = "green";
+    const drawFrame = (frameData) => {
+        const ctx = ctxRef.current;
+        if (!ctx || !frameData) return;
+        clear();
+        ctx.fillStyle = "green";
 
         let waveformIsNoise = true;
         for (let i = 0; i < 32; i++) {
-            if (frameData.waveform[i] != 0) {
+            if (frameData.waveform[i] !== 0) {
                 waveformIsNoise = false;
                 break;
             }
@@ -61,14 +35,32 @@ export class Scope extends Component {
             } else {
                 waveLevel = frameData.waveform[i];
             }
-            const level = (waveLevel - 7.5) / 7.5 * frameData.volume / 15;
-            this.ctx.fillRect(i * this.width / 32, (-level + 1) / 2 * (this.height - 4), this.width / 32, 4);
+            const level = ((waveLevel - 7.5) / 7.5) * (frameData.volume / 15);
+            ctx.fillRect((i * WIDTH) / 32, ((-level + 1) / 2) * (HEIGHT - 4), WIDTH / 32, 4);
         }
-    }
+    };
 
-    drawAtScrubPosition() {
-        if (!this._scrubControlNode || !this.waveformGenerator) return;
-        const frameData = this.waveformGenerator(this._scrubControlNode.value);
-        this.drawFrame(frameData);
-    }
-}
+    useEffect(() => {
+        if (!canvasRef.current) return;
+        ctxRef.current = canvasRef.current.getContext("2d");
+        clear();
+    }, []);
+
+    useEffect(() => {
+        if (!instrument) return;
+        const generator = instrument.getFrameCallback(440);
+        const frameData = generator(scrub);
+        drawFrame(frameData);
+    }, [instrument, scrub]);
+
+    useEffect(() => {
+        if (!audio) return undefined;
+        const onFrame = (frameData) => {
+            if (frameData[0]) drawFrame(frameData[0]);
+        };
+        audio.on("frame", onFrame);
+        return () => audio.removeListener("frame", onFrame);
+    }, [audio]);
+
+    return <canvas className="scope" width={WIDTH} height={HEIGHT} ref={canvasRef}></canvas>;
+};

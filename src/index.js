@@ -1,5 +1,7 @@
-import { saveSync } from 'save-file';
-import fileDialog from 'file-dialog';
+import React, { useEffect, useMemo, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { saveSync } from "save-file";
+import fileDialog from "file-dialog";
 
 import "./chromatic.css";
 
@@ -7,96 +9,121 @@ import { AudioController } from "./audio/controller";
 import { EditorState } from "./models/editor_state";
 import { Song } from "./models/song";
 import { InstrumentPanel } from "./ui/instrument_editor";
-import { PatternGrid } from './ui/pattern_grid';
-import { SongEditor } from './ui/song_editor';
+import { PatternGrid } from "./ui/pattern_grid";
+import { SongEditor } from "./ui/song_editor";
 
-const audio = new AudioController();
+const useAudioController = () => useMemo(() => new AudioController(), []);
 
-let song;
-const editorState = new EditorState();
+const App = () => {
+    const audio = useAudioController();
+    const [song, setSong] = useState(() => new Song());
+    const [editorState, setEditorState] = useState(() => new EditorState());
+    const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);
 
-const instrumentPanel = new InstrumentPanel(audio);
-document.querySelector(".instrument-panel-positioner").appendChild(instrumentPanel.node);
-const songEditor = new SongEditor();
-document.body.appendChild(songEditor.node);
-songEditor.trackEditorState(editorState);
-songEditor.trackAudio(audio);
+    useEffect(() => {
+        audio.song = song;
+    }, [audio, song]);
 
-const patternGrid = new PatternGrid(audio);
-document.body.appendChild(patternGrid.node);
-patternGrid.trackEditorState(editorState);
-editorState.on("changePattern", (patternIndex) => {
-    if (song) {
-        patternGrid.trackModel(song.patterns[patternIndex]);
-    }
-});
-
-const openSong = (newSong) => {
-    song = newSong;
-    instrumentPanel.trackModel(song);
-    songEditor.trackModel(song);
-    audio.song = song;
-    editorState.pattern = 0;
-    patternGrid.trackModel(song.patterns[editorState.pattern]);
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const masterVolumeControl = document.getElementById("master-volume");
-    audio.setVolume(masterVolumeControl.value / 1000);
-    masterVolumeControl.addEventListener('input', () => {
-        audio.setVolume(masterVolumeControl.value / 1000);
-    })
-
-    const openButton = document.getElementById("open");
-    openButton.addEventListener('click', () => {
-        fileDialog().then(files => {
-            files[0].text().then(text => {
-                const newSong = Song.fromJSON(text);
-                openSong(newSong);
-            });
+    const updateSong = (mutator) => {
+        setSong((prev) => {
+            const next = prev.clone();
+            mutator(next);
+            return next;
         });
-    });
+    };
 
-    const saveButton = document.getElementById("save");
-    saveButton.addEventListener('click', () => {
+    const updateEditorState = (mutator) => {
+        setEditorState((prev) => {
+            const next = prev.clone();
+            mutator(next);
+            return next;
+        });
+    };
+
+    const openSongFile = async () => {
+        const files = await fileDialog();
+        if (!files?.length) return;
+        const text = await files[0].text();
+        const loaded = Song.fromJSON(text);
+        setSong(loaded);
+        updateEditorState((s) => {
+            s.setPattern(0);
+            s.setSelectedPosition(0);
+        });
+    };
+
+    const saveSongFile = () => {
         saveSync(song.toJSON(), "song.cmt");
-    });
+    };
 
-    const exportButton = document.getElementById("export");
-    exportButton.addEventListener('click', () => {
+    const exportLua = () => {
         saveSync(song.getLuaCode(), "song.lua");
-    });
+    };
 
-    const openInstrumentEditorButton = document.getElementById("open-instrument-panel");
-    const instrumentEditorContainer = document.querySelector(".instrument-panel");
-    instrumentEditorContainer.style.display = 'none';
-    openInstrumentEditorButton.addEventListener('click', () => {
-        instrumentEditorContainer.style.display = 'block';
-    });
-    const closeInstrumentEditorButton = document.getElementById("close-instrument-panel");
-    closeInstrumentEditorButton.addEventListener('click', () => {
-        instrumentEditorContainer.style.display = 'none';
-    });
-
-    const playPatternButton = document.getElementById("play-pattern");
-    playPatternButton.addEventListener('click', () => {
+    const onPlayPattern = () => {
         audio.playPattern(song.patterns[editorState.pattern]);
-    });
+    };
 
-    const stopButton = document.getElementById("stop");
-    stopButton.addEventListener('click', () => {
-        audio.stop();
-    });
-
-    const playAllButton = document.getElementById("play-all");
-    playAllButton.addEventListener('click', () => {
+    const onPlayAll = () => {
         audio.playSong(0);
-    });
+    };
 
-    const playFromPositionButton = document.getElementById("play-from-position");
-    playFromPositionButton.addEventListener('click', () => {
+    const onPlayFromPosition = () => {
         audio.playSong(editorState.selectedPosition);
-    });
+    };
 
-    openSong(new Song());
-});
+    return (
+        <div className="app">
+            <div className="menu">
+                <button onClick={openSongFile}>Open</button>
+                <button onClick={saveSongFile}>Save</button>
+                <button onClick={exportLua}>Export</button>
+                <button onClick={() => setInstrumentPanelOpen(true)}>Instruments</button>
+                <button onClick={() => audio.stop()}>Stop</button>
+                <button onClick={onPlayPattern}>Play Pattern</button>
+                <button onClick={onPlayAll}>Play All</button>
+                <button onClick={onPlayFromPosition}>Play From Position</button>
+                <div id="master-volume-container">
+                    <label htmlFor="master-volume">master volume</label>
+                    <input
+                        type="range"
+                        min="0"
+                        max="500"
+                        defaultValue={250}
+                        id="master-volume"
+                        onChange={(e) => audio.setVolume(e.target.value / 1000)}
+                    />
+                </div>
+            </div>
+
+            <div className="instrument-panel-positioner">
+                {instrumentPanelOpen && (
+                    <InstrumentPanel
+                        song={song}
+                        audio={audio}
+                        onSongChange={updateSong}
+                        onClose={() => setInstrumentPanelOpen(false)}
+                    />
+                )}
+            </div>
+
+            <SongEditor
+                song={song}
+                audio={audio}
+                editorState={editorState}
+                onSongChange={updateSong}
+                onEditorStateChange={updateEditorState}
+            />
+
+            <PatternGrid
+                song={song}
+                audio={audio}
+                editorState={editorState}
+                onSongChange={updateSong}
+            />
+        </div>
+    );
+};
+
+const rootEl = document.getElementById("root");
+createRoot(rootEl).render(<App />);

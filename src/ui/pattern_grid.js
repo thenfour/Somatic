@@ -1,232 +1,150 @@
-import { Component } from 'catwalk-ui';
-import { NOTES_BY_NUM, MAX_NOTE_NUM } from '../defs';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { NOTES_BY_NUM, MAX_NOTE_NUM } from "../defs";
 
-class Grid {
-    constructor(columnCount, rowCount) {
-        this.columnCount = columnCount;
-        this.rowCount = rowCount;
-        this.keyDown = null;
-        this.keyUp = null;
-        this.activeRowIndex = null;
+const formatNote = (note) => (note === 0 ? "---" : NOTES_BY_NUM[note].name);
+const formatInstrument = (val) => val.toString(16).toUpperCase();
 
-        this.node = (
-            <table className="pattern-grid">
-            </table>
-        );
-        this.cells = [];
-        this.rows = [];
-        for (let i = 0; i < rowCount; i++) {
-            const rowCells = [];
-            for (let j = 0; j < columnCount; j++) {
-                const cell = (
-                    <td tabindex="0">
-                    </td>
-                );
-                cell.addEventListener('keydown', (e) => {
-                    this.keyDownHandler(i, j, e);
-                });
-                cell.addEventListener('keyup', (e) => {
-                    this.keyUpHandler(i, j, e);
-                });
-                rowCells.push(cell);
+const noteKeyMap = "-zsxdcvgbhnjmq2w3er5t6y7ui".split("");
+const instrumentKeyMap = "0123456789abcdef".split("");
+
+export const PatternGrid = ({ song, audio, editorState, onSongChange }) => {
+    const pattern = song.patterns[editorState.pattern];
+    const [activeRow, setActiveRow] = useState(null);
+    const cellRefs = useMemo(() => Array.from({ length: 64 }, () => Array(8).fill(null)), []);
+
+    useEffect(() => {
+        if (!audio) return undefined;
+        const onRow = (rowNumber, patternPlaying) => {
+            if (patternPlaying === pattern) {
+                setActiveRow(rowNumber);
+            } else {
+                setActiveRow(null);
             }
-            this.cells.push(rowCells);
-            const rowNode = (
-                <tr>
-                    <td class="row-number">{i}</td>
-                </tr>
-            );
-            this.rows.push(rowNode);
-            rowCells.forEach((cell) => {
-                rowNode.appendChild(cell);
-            });
-            this.node.appendChild(rowNode);
-        }
-    }
+        };
+        const onStop = () => setActiveRow(null);
+        audio.on("row", onRow);
+        audio.on("stop", onStop);
+        return () => {
+            audio.removeListener("row", onRow);
+            audio.removeListener("stop", onStop);
+        };
+    }, [audio, pattern]);
 
-    keyDownHandlers = {
-        'ArrowUp': (row, col, e) => {
-            this.cells[(row + this.rowCount - 1) % this.rowCount][col].focus();
-            e.preventDefault();
-        },
-        'ArrowDown': (row, col, e) => {
-            this.cells[(row + 1) % this.rowCount][col].focus();
-            e.preventDefault();
-        },
-        'ArrowLeft': (row, col, e) => {
-            this.cells[row][(col + this.columnCount - 1) % this.columnCount].focus();
-            e.preventDefault();
-        },
-        'ArrowRight': (row, col, e) => {
-            this.cells[row][(col + 1) % this.columnCount].focus();
-            e.preventDefault();
-        },
-        'PageUp': (row, col, e) => {
-            this.cells[0][col].focus();
-            e.preventDefault();
-        },
-        'PageDown': (row, col, e) => {
-            this.cells[this.rowCount - 1][col].focus();
-            e.preventDefault();
-        }
-    }
+    const setRowValue = (channelIndex, rowIndex, field, value) => {
+        onSongChange((s) => {
+            s.patterns[editorState.pattern].channels[channelIndex].setRow(rowIndex, field, value);
+        });
+    };
 
-    keyDownHandler(row, col, e) {
-        if (e.key in this.keyDownHandlers) {
-            this.keyDownHandlers[e.key](row, col, e);
+    const playRow = (rowIndex) => {
+        audio.playRow(pattern, rowIndex);
+    };
+
+    const stopRow = () => audio.stop();
+
+    const handleNoteKey = (channelIndex, rowIndex, key) => {
+        const idx = noteKeyMap.indexOf(key);
+        if (idx === -1) return;
+        const noteVal = idx + (editorState.octave - 1) * 12;
+        if (noteVal > MAX_NOTE_NUM) return;
+        setRowValue(channelIndex, rowIndex, "note", noteVal);
+        if (!audio.isPlaying) playRow(rowIndex);
+    };
+
+    const handleInstrumentKey = (channelIndex, rowIndex, key) => {
+        const idx = instrumentKeyMap.indexOf(key);
+        if (idx === -1) return;
+        setRowValue(channelIndex, rowIndex, "instrument", idx);
+        if (!audio.isPlaying) playRow(rowIndex);
+    };
+
+    const focusCell = (row, col) => {
+        const target = cellRefs[row]?.[col];
+        if (target) target.focus();
+    };
+
+    const handleArrowNav = (row, col, key) => {
+        const rowCount = 64;
+        const colCount = 8;
+        if (key === "ArrowUp") return [((row + rowCount - 1) % rowCount), col];
+        if (key === "ArrowDown") return [((row + 1) % rowCount), col];
+        if (key === "ArrowLeft") return [row, ((col + colCount - 1) % colCount)];
+        if (key === "ArrowRight") return [row, ((col + 1) % colCount)];
+        if (key === "PageUp") return [0, col];
+        if (key === "PageDown") return [rowCount - 1, col];
+        return null;
+    };
+
+    const onCellKeyDown = (row, col, e) => {
+        const navTarget = handleArrowNav(row, col, e.key);
+        if (navTarget) {
+            focusCell(navTarget[0], navTarget[1]);
+            e.preventDefault();
             return;
         }
 
-        if (this.keyDown) {
-            this.keyDown(row, col, e);
+        const channelIndex = Math.floor(col / 2);
+        const channelColumn = col % 2;
+        if (channelColumn === 0 && noteKeyMap.includes(e.key) && !e.repeat) {
+            handleNoteKey(channelIndex, row, e.key);
+        } else if (channelColumn === 1 && instrumentKeyMap.includes(e.key) && !e.repeat) {
+            handleInstrumentKey(channelIndex, row, e.key);
+        } else if (e.key === "0" && channelColumn === 0 && !e.repeat) {
+            setRowValue(channelIndex, row, "note", 0);
         }
-    }
+    };
 
-    keyUpHandler() {
-        if (this.keyUp) {
-            this.keyUp();
-        }
-    }
+    const onCellKeyUp = () => {
+        stopRow();
+    };
 
-    setCell(row, col, value) {
-        this.cells[row][col].innerText = value;
-    }
-
-    setActiveRow(row) {
-        if (this.activeRowIndex !== null) {
-            this.rows[this.activeRowIndex].classList.remove('active-row');
-        }
-        if (row !== null) {
-            this.rows[row].classList.add('active-row');
-        }
-        this.activeRowIndex = row;
-    }
-}
-
-const formatNote = (note) => {
-    return note === 0 ? '---' : NOTES_BY_NUM[note].name;
-}
-const formatInstrument = (val) => {
-    return val.toString(16).toUpperCase();
-}
-
-export class PatternGrid extends Component {
-    constructor(audio) {
-        super();
-
-        this.audio = audio;
-        this.editorState = null;
-        this.cells = [];
-
-        this.channelChangeHandlers = [];
-        for (let i = 0; i < 4; i++) {
-            this.channelChangeHandlers[i] = (row, field, value) => {
-                this.changeRowHandler(i, row, field, value);
-            }
-        };
-
-        this.noteKeyDownHandlers = {};
-        '-zsxdcvgbhnjmq2w3er5t6y7ui'.split('').forEach((key, i) => {
-            this.noteKeyDownHandlers[key] = (channelIndex, row) => {
-                const noteVal = i + (this.editorState.octave - 1) * 12;
-                if (noteVal > MAX_NOTE_NUM) return;
-                this.model.channels[channelIndex].setRow(row, 'note', noteVal);
-                if (!this.audio.isPlaying) this.playRow(row);
-            }
-        });
-        this.noteKeyDownHandlers['0'] = (channelIndex, row) => {
-            this.model.channels[channelIndex].setRow(row, 'note', 0);
-        };
-        this.instrumentKeyDownHandlers = {};
-        '0123456789abcdef'.split('').forEach((key, i) => {
-            this.instrumentKeyDownHandlers[key] = (channelIndex, row) => {
-                this.model.channels[channelIndex].setRow(row, 'instrument', i);
-                if (!this.audio.isPlaying) this.playRow(row);
-            }
-        });
-        this.isPlayingRow = false;
-    }
-
-    trackEditorState(editorState) {
-        this.editorState = editorState;
-    }
-
-    playRow(rowNumber) {
-        this.isPlayingRow = true;
-        this.audio.playRow(this.model, rowNumber);
-    }
-    releaseRow() {
-        if (this.isPlayingRow) {
-            this.audio.stop();
-            this.isPlayingRow = false;
-        }
-    }
-
-    createNode() {
-        this.grid = new Grid(8, 64);
-        const tableHeader = this.grid.node.createTHead();
-        const headerRow = tableHeader.insertRow();
-        this.grid.node.insertBefore(<colgroup><col></col></colgroup>, tableHeader);
-        headerRow.insertCell();
-        for (let i = 0; i < 4; i++) {
-            this.grid.node.insertBefore(<colgroup className="channel"><col></col><col></col></colgroup>, tableHeader);
-            const headerCell = headerRow.insertCell();
-            headerCell.colSpan = 2;
-            headerCell.innerText = `${i + 1}`;
-        }
-
-
-        this.grid.keyDown = (row, col, e) => {
-            const channelIndex = Math.floor(col / 2);
-            const channelColumn = col % 2;
-            if (channelColumn === 0 && e.key in this.noteKeyDownHandlers && !e.repeat) {
-                this.noteKeyDownHandlers[e.key](channelIndex, row);
-            } else if (channelColumn === 1 && e.key in this.instrumentKeyDownHandlers && !e.repeat) {
-                this.instrumentKeyDownHandlers[e.key](channelIndex, row);
-            }
-        };
-        this.grid.keyUp = () => {
-            /* TODO: only call releaseRow if the key is actually one that triggered a note */
-            this.releaseRow();
-        }
-
-        this.audio.on('row', (rowNumber, pattern) => {
-            if (this.model === pattern) {
-                this.grid.setActiveRow(rowNumber);
-            } else {
-                this.grid.setActiveRow(null);
-            }
-        });
-        this.audio.on('stop', () => {
-            this.grid.setActiveRow(null);
-        });
-
-        return this.grid.node;
-    }
-
-    changeRowHandler = (channel, row, field, value) => {
-        if (field == 'note') {
-            this.grid.setCell(row, channel * 2, formatNote(value));
-        } else {
-            this.grid.setCell(row, channel * 2 + 1, formatInstrument(value));
-        }
-    }
-    trackModel(model) {
-        if (this.model) {
-            for (let i = 0; i < 4; i++) {
-                this.model.channels[i].removeListener('changeRow', this.channelChangeHandlers[i]);
-            }
-        }
-        super.trackModel(model);
-        this.cells = [];
-        for (let i = 0; i < 4; i++) {
-            const channel = this.model.channels[i];
-            for (let j = 0; j < 64; j++) {
-                const row = channel.rows[j];
-                this.grid.setCell(j, i * 2, formatNote(row.note));
-                this.grid.setCell(j, i * 2 + 1, formatInstrument(row.instrument));
-            }
-            channel.on('changeRow', this.channelChangeHandlers[i]);
-        }
-    }
-}
+    return (
+        <table className="pattern-grid">
+            <colgroup>
+                <col />
+            </colgroup>
+            <thead>
+                <tr>
+                    <th></th>
+                    {[0, 1, 2, 3].map((i) => (
+                        <th key={i} colSpan={2}>{i + 1}</th>
+                    ))}
+                </tr>
+            </thead>
+            <tbody>
+                {pattern.channels[0].rows.map((_, rowIndex) => (
+                    <tr key={rowIndex} className={activeRow === rowIndex ? "active-row" : ""}>
+                        <td className="row-number">{rowIndex}</td>
+                        {pattern.channels.map((channel, channelIndex) => {
+                            const row = channel.rows[rowIndex];
+                            const noteText = formatNote(row.note);
+                            const instText = formatInstrument(row.instrument);
+                            const noteCol = channelIndex * 2;
+                            const instCol = channelIndex * 2 + 1;
+                            return (
+                                <React.Fragment key={channelIndex}>
+                                    <td
+                                        tabIndex={0}
+                                        ref={(el) => (cellRefs[rowIndex][noteCol] = el)}
+                                        onKeyDown={(e) => onCellKeyDown(rowIndex, noteCol, e)}
+                                        onKeyUp={onCellKeyUp}
+                                    >
+                                        {noteText}
+                                    </td>
+                                    <td
+                                        tabIndex={0}
+                                        ref={(el) => (cellRefs[rowIndex][instCol] = el)}
+                                        onKeyDown={(e) => onCellKeyDown(rowIndex, instCol, e)}
+                                        onKeyUp={onCellKeyUp}
+                                    >
+                                        {instText}
+                                    </td>
+                                </React.Fragment>
+                            );
+                        })}
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+};

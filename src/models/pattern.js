@@ -1,63 +1,26 @@
-import { Model, fields } from 'catwalk';
 import { NOTE_NUMS_BY_NAME, NOTES_BY_NUM } from '../defs';
 
-class NoteField extends fields.IntegerField {
-    serialize(val) {
-        if (val === 0) {
-            return "---";
-        } else {
-            return NOTES_BY_NUM[val].name;
-        }
+const EMPTY_ROW = () => ({ note: 0, instrument: 0 });
+
+export class Channel {
+    constructor(rows) {
+        this.rows = rows || Array.from({ length: 64 }, () => EMPTY_ROW());
     }
 
-    deserialize(val) {
-        if (val == "---") {
-            return 0;
-        } else {
-            return NOTE_NUMS_BY_NAME[val];
-        }
-    }
-}
-
-class RowField extends fields.StructField {
-    constructor(name, options) {
-        const childFields = [
-            new NoteField('note', {default: 0}),
-            new fields.IntegerField('instrument', {default: 0}),
-        ];
-        super(name, childFields, options);
+    setRow(index, field, value) {
+        if (index < 0 || index >= this.rows.length) return;
+        const row = { ...this.rows[index], [field]: value };
+        this.rows[index] = row;
     }
 
-    serialize(obj) {
-        const noteName = this.fieldLookup.note.serialize(obj.note);
-        const instrument = obj.instrument.toString(16).toUpperCase();
-        return `${noteName} ${instrument}`;
-    }
-
-    deserialize(rowString) {
-        const noteName = rowString.substring(0,3);
-        return {
-            'note': this.fieldLookup.note.deserialize(noteName),
-            'instrument': parseInt(rowString.substring(4,5), 16)
-        };
-    }
-}
-
-export class Channel extends Model([
-    new fields.ListField(
-        'rows',
-        new RowField('row'),
-        {length: 64},
-    ),
-]) {
     getLuaData(instrumentsMap) {
         const rowData = this.rows.map((row) => {
-            return `{${row.note},${row.instrument == 0 ? 0 : instrumentsMap[row.instrument]}}`;
+            return `{${row.note},${row.instrument === 0 ? 0 : instrumentsMap[row.instrument]}}`;
         }).join(",");
         return `  {${rowData}}`;
     }
+
     usedInstruments() {
-        /* Return a Set of instrument numbers used in this channel */
         const instruments = new Set();
         for (const row of this.rows) {
             if (row.instrument !== 0) {
@@ -66,71 +29,75 @@ export class Channel extends Model([
         }
         return instruments;
     }
+
     isEmpty() {
-        for (const row of this.rows) {
-            if (row.note !== 0 || row.instrument !== 0) {
-                return false;
-            }
-        }
-        return true;
+        return this.rows.every((row) => row.note === 0 && row.instrument === 0);
     }
+
     toData() {
-        if (this.isEmpty()) {
-            return null;
-        }
-        return super.toData();
+        if (this.isEmpty()) return null;
+        return this.rows.map((row) => ({ ...row }));
     }
+
     static fromData(data) {
-        if (data === null) {
-            return new this();
-        }
-        return super.fromData(data);
+        if (!data) return new Channel();
+        const rows = Array.from({ length: 64 }, (_, i) => {
+            const rowData = data[i];
+            if (!rowData) return EMPTY_ROW();
+            if (typeof rowData === 'string') {
+                const noteName = rowData.substring(0, 3);
+                const instrumentHex = rowData.substring(4, 5);
+                return {
+                    note: NOTE_NUMS_BY_NAME[noteName] || 0,
+                    instrument: parseInt(instrumentHex, 16) || 0,
+                };
+            }
+            return { note: rowData.note || 0, instrument: rowData.instrument || 0 };
+        });
+        return new Channel(rows);
+    }
+
+    clone() {
+        return Channel.fromData(this.rows.map((r) => ({ ...r }))); // reuse fromData for consistency
     }
 }
 
-export class Pattern extends Model([
-    new fields.ListField(
-        'channels',
-        new fields.ModelField('channel', Channel),
-        {length: 4},
-    ),
-]) {
+export class Pattern {
+    constructor(channels) {
+        this.channels = channels || Array.from({ length: 4 }, () => new Channel());
+    }
+
     getLuaData(instrumentsMap) {
-        const channelsData = this.channels.map((channel) => {
-            return channel.getLuaData(instrumentsMap);
-        }).join(",\n");
+        const channelsData = this.channels.map((channel) => channel.getLuaData(instrumentsMap)).join(",\n");
         return ` {
 ${channelsData}
  }`;
     }
+
     usedInstruments() {
-        /* Return a Set of instrument numbers used in this pattern */
         const instruments = new Set();
         for (const channel of this.channels) {
-            for (const inst of channel.usedInstruments()) {
-                instruments.add(inst);
-            }
+            for (const inst of channel.usedInstruments()) instruments.add(inst);
         }
         return instruments;
     }
+
     isEmpty() {
-        for (const channel of this.channels) {
-            if (!channel.isEmpty()) {
-                return false;
-            }
-        }
-        return true;
+        return this.channels.every((channel) => channel.isEmpty());
     }
+
     toData() {
-        if (this.isEmpty()) {
-            return null;
-        }
-        return super.toData();
+        if (this.isEmpty()) return null;
+        return this.channels.map((channel) => channel.toData());
     }
+
     static fromData(data) {
-        if (data === null) {
-            return new this();
-        }
-        return super.fromData(data);
+        if (!data) return new Pattern();
+        const channels = Array.from({ length: 4 }, (_, i) => Channel.fromData(data[i]));
+        return new Pattern(channels);
+    }
+
+    clone() {
+        return Pattern.fromData(this.channels.map((channel) => channel.rows.map((r) => ({ ...r }))));
     }
 }

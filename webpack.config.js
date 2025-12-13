@@ -30,14 +30,11 @@ module.exports = {
         use: {
           loader: 'babel-loader',
           options: {
-            presets: ["@babel/preset-env"],
-            plugins: [
+            presets: [
+              "@babel/preset-env",
               [
-                "@babel/plugin-transform-react-jsx",
-                {
-                  "importSource": "catwalk-ui",
-                  "runtime": "automatic",
-                }
+                "@babel/preset-react",
+                { runtime: "automatic" }
               ]
             ],
           },

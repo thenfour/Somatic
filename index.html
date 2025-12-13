@@ -1,23 +1,14 @@
 <!doctype html>
 <html>
-    <head>
-        <title><%= htmlWebpackPlugin.options.title %></title>
-    </head>
-    <body>
-        <div class="menu">
-            <button id="open">Open</button>
-            <button id="save">Save</button>
-            <button id="export">Export</button>
-            <button id="open-instrument-panel">Instruments</button>
-            <button id="stop">Stop</button>
-            <button id="play-pattern">Play Pattern</button>
-            <button id="play-all">Play All</button>
-            <button id="play-from-position">Play From Position</button>
-            <div id="master-volume-container">
-                <label for="master-volume">master volume</label> <input type="range" min="0" max="500" value="250" id="master-volume">
-            </div>
-        </div>
-        <div class="instrument-panel-positioner">
-        </div>
-    </body>
+
+<head>
+    <title>
+        <%= htmlWebpackPlugin.options.title %>
+    </title>
+</head>
+
+<body>
+    <div id="root"></div>
+</body>
+
 </html>

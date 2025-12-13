@@ -15,6 +15,7 @@
     "@babel/core": "^7.23.5",
     "@babel/plugin-transform-react-jsx-development": "^7.22.5",
     "@babel/preset-env": "^7.23.5",
+    "@babel/preset-react": "^7.23.3",
     "babel-loader": "^10.0.0",
     "css-loader": "^7.1.2",
     "html-webpack-plugin": "^5.5.0",
@@ -25,8 +26,9 @@
     "webpack-dev-server": "^5.2.2"
   },
   "dependencies": {
-    "catwalk": "^0.1.1",
-    "catwalk-ui": "^0.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "events": "^3.3.0",
     "file-dialog": "^0.0.8",
     "save-file": "^2.3.1"
   }

@@ -1,5 +1,3 @@
-import { Model, fields } from 'catwalk';
-
 import { Wave } from "./instruments";
 import { Pattern } from "./pattern";
 import { PATTERN_COUNT, INSTRUMENT_COUNT } from '../defs';
@@ -68,47 +66,67 @@ function TIC()
 end
 `;
 
-export class Song extends Model([
-    new fields.ListField(
-        'instruments',
-        new fields.ModelField('instrument', Wave),
-        {startIndex: 1, length: INSTRUMENT_COUNT},
-    ),
-    new fields.ListField(
-        'patterns',
-        new fields.ModelField('pattern', Pattern),
-        {startIndex: 0, length: PATTERN_COUNT},
-    ),
-    new fields.ListField(
-        'positions',
-        new fields.IntegerField('position', {default: 0, min: 0, max: PATTERN_COUNT - 1}),
-        {length: 256},
-    ),
-    new fields.IntegerField('speed', {default: 6, min: 1, max: 31}),
-    new fields.IntegerField('length', {default: 1, min: 1, max: 256}),
-]) {
+const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+
+const makeInstrumentList = (data) => {
+    const length = INSTRUMENT_COUNT + 1; // index 0 unused, indexes 1..INSTRUMENT_COUNT
+    const list = Array.from({ length }, (_, i) => {
+        const instData = data && data[i];
+        return new Wave(instData || {});
+    });
+    if (!list[1].name) list[1].name = "Square";
+    return list;
+};
+
+const makePatternList = (data) => {
+    const list = Array.from({ length: PATTERN_COUNT }, (_, i) => Pattern.fromData(data ? data[i] : undefined));
+    return list;
+};
+
+export class Song {
+    constructor(data = {}) {
+        this.instruments = makeInstrumentList(data.instruments);
+        this.patterns = makePatternList(data.patterns);
+        this.positions = Array.from({ length: 256 }, (_, i) => clamp(data.positions?.[i] ?? 0, 0, PATTERN_COUNT - 1));
+        this.speed = clamp(data.speed ?? 6, 1, 31);
+        this.length = clamp(data.length ?? 1, 1, 256);
+    }
+
     usedPatterns() {
-        /* Return a Set of pattern numbers used in this song */
         const patterns = new Set();
         for (let i = 0; i < this.length; i++) {
             patterns.add(this.positions[i]);
         }
         return patterns;
     }
+
     usedInstruments() {
-        /* Return a Set of instrument numbers used in this song */
         const instruments = new Set();
         for (const patternNumber of this.usedPatterns()) {
             const pattern = this.patterns[patternNumber];
             for (const inst of pattern.usedInstruments()) {
                 instruments.add(inst);
-            };
+            }
         }
         return instruments;
     }
+
+    setPosition(index, value) {
+        if (index < 0 || index >= this.positions.length) return;
+        this.positions[index] = clamp(value, 0, PATTERN_COUNT - 1);
+    }
+
+    setLength(value) {
+        this.length = clamp(value, 1, 256);
+    }
+
+    setSpeed(value) {
+        this.speed = clamp(value, 1, 31);
+    }
+
     getLuaCode() {
         const exportedPatterns = [];
-        const patternMap = {};  // mapping of original pattern number to 1-indexed position in exportedPatterns
+        const patternMap = {};
         for (const patternNumber of this.usedPatterns()) {
             exportedPatterns.push(this.patterns[patternNumber]);
             patternMap[patternNumber] = exportedPatterns.length;
@@ -120,21 +138,15 @@ export class Song extends Model([
         }
 
         const exportedInstruments = [];
-        const instrumentsMap = {};  // mapping of original instrument number to 1-indexed position in exportedInstruments
+        const instrumentsMap = {};
         for (const instrumentNumber of this.usedInstruments()) {
             exportedInstruments.push(this.instruments[instrumentNumber]);
             instrumentsMap[instrumentNumber] = exportedInstruments.length;
         }
 
-        const patternsData = exportedPatterns.map((pattern) => {
-            return pattern.getLuaData(instrumentsMap);
-        }).join(",\n");
+        const patternsData = exportedPatterns.map((pattern) => pattern.getLuaData(instrumentsMap)).join(",\n");
 
-        const instrumentsCode = (
-            exportedInstruments.map((instrument) => {
-                return instrument.getLuaCode();
-            }).join(",\n")
-        );
+        const instrumentsCode = exportedInstruments.map((instrument) => instrument.getLuaCode()).join(",\n");
         return `
 instruments={
 ${instrumentsCode}
@@ -146,6 +158,38 @@ positions={${positions.join(',')}}
 song_speed=${this.speed}
 
 ${PLAYER_CODE}
-`
+`;
     }
-};
+
+    toData() {
+        return {
+            instruments: this.instruments.map((inst) => inst.toData()),
+            patterns: this.patterns.map((pattern) => pattern.toData()),
+            positions: [...this.positions],
+            speed: this.speed,
+            length: this.length,
+        };
+    }
+
+    toJSON() {
+        return JSON.stringify(this.toData());
+    }
+
+    static fromData(data) {
+        return new Song(data || {});
+    }
+
+    static fromJSON(json) {
+        try {
+            const data = JSON.parse(json);
+            return Song.fromData(data);
+        } catch (err) {
+            console.error("Failed to parse song JSON", err);
+            return new Song();
+        }
+    }
+
+    clone() {
+        return Song.fromData(this.toData());
+    }
+}

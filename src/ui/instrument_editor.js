@@ -1,235 +1,305 @@
-import { Component, Container, Fieldset, InputList, NumberInput, RangeInput, SelectInput, TextInput } from 'catwalk-ui';
-
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Wave, waveType } from "../models/instruments";
 import { Scope } from "./scope";
 import { NOTE_NAMES, NOTES_BY_NUM, OCTAVE_COUNT } from "../defs";
 
 const KEY_POSITIONS = [0, 0.5, 1, 1.5, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6];
 
-class PhaseFieldset extends Fieldset.withOptions({legend: "Phase"}) {
-    static components = {
-        phaseMinInput: NumberInput.forField(Wave.fields.phaseMin, {label: "Min"}),
-        phaseMaxInput: NumberInput.forField(Wave.fields.phaseMax, {label: "Max"}),
-        phasePeriodInput: NumberInput.forField(Wave.fields.phasePeriod, {label: "Period"}),
-    }
-}
+const Keyboard = ({ instrument, audio }) => {
+    const [activeNote, setActiveNote] = useState(null);
 
-class EnvelopeFieldset extends Fieldset.withOptions({legend: "Envelope"}) {
-    static components = {
-        decaySpeedInput: NumberInput.forField(Wave.fields.decaySpeed),
-        decayToInput: NumberInput.forField(Wave.fields.decayTo),
-    }
-}
+    const onMouseUp = () => {
+        setActiveNote(null);
+        audio.stop();
+    };
 
-class VibratoFieldset extends Fieldset.withOptions({legend: "Vibrato"}) {
-    static components = {
-        vibratoDepthInput: NumberInput.forField(Wave.fields.vibratoDepth, {label: "Depth"}),
-        vibratoPeriodInput: NumberInput.forField(Wave.fields.vibratoPeriod, {label: "Period"}),
-    }
-}
+    useEffect(() => {
+        window.addEventListener("mouseup", onMouseUp);
+        return () => window.removeEventListener("mouseup", onMouseUp);
+    });
 
-class HarmonicsPanel extends InputList.forField(Wave.fields.harmonics, {
-    elementInputClass: NumberInput.forField(Wave.fields.harmonics.subfield, {attributes: {step: 0.1}}),
-}) {
-    createNode() {
-        const ul = super.createNode();
-        ul.id = "harmonics";
-        return (
-            <fieldset>
-                <legend>Harmonics</legend>
-                {ul}
-            </fieldset>
-        );
-    }
-}
+    const playNote = (frequency, noteLabel) => {
+        audio.playInstrument(instrument, frequency);
+        setActiveNote(noteLabel);
+    };
 
-let currentKey = null;
-
-class Key {
-    constructor(container, oct, n, editor){
-        this.editor = editor;
-        const noteVal = (oct*12 + n) - 11;
-        const noteName = NOTE_NAMES[n] + oct;
-        this.frequency = NOTES_BY_NUM[noteVal].frequency;
-        this.button = document.createElement('button');
-        this.button.className = 'key';
-        if ([1, 3, 6, 8, 10].includes(n)) {
-            this.button.classList.add('black');
-        } else {
-            this.button.classList.add('white');
-        }
-        this.button.style.left = (((oct-1) * 7 + KEY_POSITIONS[n]) * 32) + 'px';
-        this.button.innerText = noteName;
-        container.appendChild(this.button);
-        this.button.addEventListener("mousedown", () => {
-            this.play();
-        });
-    }
-    play() {
-        currentKey = this;
-        this.button.classList.add('active');
-        this.editor.audio.playInstrument(this.editor.model, this.frequency);
-    }
-    release() {
-        this.button.classList.remove('active');
-        this.editor.audio.stop();
-        currentKey = null;
-    }
-}
-
-class InstrumentEditor extends Container {
-    static components = {
-        waveTypeInput: SelectInput.forField(Wave.fields.waveType, {label: "Wave type"}),
-        nameInput: TextInput.forField(Wave.fields.name, {label: "Instrument name"}),
-        transposeInput: NumberInput.forField(Wave.fields.transpose),
-        slideStepInput: NumberInput.forField(Wave.fields.slideStep),
-        phaseFieldset: PhaseFieldset,
-        envelopeFieldset: EnvelopeFieldset,
-        vibratoFieldset: VibratoFieldset,
-        harmonicsPanel: HarmonicsPanel,
-        scope: Scope,
-        scrubControl: RangeInput.withOptions({id: "scrub", label: "Time", min: 0, max: 60, value: 0}),
-    }
-
-    constructor(audio) {
-        super();
-        this.audio = audio;
-        this.scope.scrubControlNode = this.scrubControl.node;
-    
-        this.trackField(Wave.fields.waveType, (wt) => {
-            if (wt == waveType.NOISE || wt == waveType.SINE || wt == waveType.SAMPLE) {
-                this.phaseFieldset.node.setAttribute('disabled', 'true');
-            } else {
-                this.phaseFieldset.node.removeAttribute('disabled');
-            }
-
-            if (wt == waveType.NOISE || wt == waveType.SAMPLE) {
-                this.harmonicsPanel.node.setAttribute('disabled', 'true');
-            } else {
-                this.harmonicsPanel.node.removeAttribute('disabled');
-            }
-
-            if (wt == waveType.SAMPLE) {
-                this.envelopeFieldset.node.setAttribute('disabled', 'true');
-                this.vibratoFieldset.node.setAttribute('disabled', 'true');
-                this.slideStepInput.node.setAttribute('disabled', 'true');
-                this.transposeInput.node.setAttribute('disabled', 'true');
-            } else {
-                this.envelopeFieldset.node.removeAttribute('disabled');
-                this.vibratoFieldset.node.removeAttribute('disabled');
-                this.slideStepInput.node.removeAttribute('disabled');
-                this.transposeInput.node.removeAttribute('disabled');
-            }
-        });
-
-        this.audio.on('frame', (frameData) => {
-            if (frameData[0]) this.scope.drawFrame(frameData[0]);
-        });
-        this.audio.on('stop', () => {
-            this.scope.drawAtScrubPosition();
-        });
-    }
-
-    createNode() {
-        const node = (
-            <div>
-                <div class="section">
-                    <div class="left-col">
-                        {this.nameInput.labelNode}
-                        {this.nameInput}
-                        {this.scope}
-                    </div>
-                    <div id="parameters">
-                        <div>
-                            {this.waveTypeInput.labelNode}
-                            {this.waveTypeInput}
-                        </div>
-                        <div>
-                            {this.transposeInput.labelNode}
-                            {this.transposeInput}
-                        </div>
-                        <div>
-                            {this.slideStepInput.labelNode}
-                            {this.slideStepInput}
-                        </div>
-                        {this.phaseFieldset}
-                        {this.envelopeFieldset}
-                        {this.vibratoFieldset}
-                        <div class="section">
-                            {this.harmonicsPanel}
-                        </div>
-                    </div>
-                </div>
-                <div class="section">
-                    {this.scrubControl.labelNode}
-                    {this.scrubControl}
-                    <span id="scrub-value"></span>
-                </div>
-                <ul id="keyboard"></ul>
-            </div>
-        );
-        const keyboard = node.querySelector("#keyboard");
-
-        for (let oct=1; oct<=OCTAVE_COUNT; oct++) {
-            for (let n=0; n<12; n++) {
-                new Key(keyboard, oct, n, this);
-            }
-        }
-        window.addEventListener('mouseup', () => {
-            if (currentKey) currentKey.release();
-        });
-
-        const scrubControl = this.scrubControl.node;
-        const scrubValue = node.querySelector("#scrub-value");
-        scrubControl.addEventListener('input', () => {
-            this.scope.drawAtScrubPosition();
-            scrubValue.innerText = scrubControl.value;
-        });
-
-        return node;
-    }
-}
-
-export class InstrumentPanel extends Component {
-    constructor(audio) {
-        super();
-        this.instrumentEditor = new InstrumentEditor(audio);
-    }
-
-    createNode() {
-        const node = (
-            <div class="instrument-panel">
-                <div class="toolbar">
-                    <label for="instrument">Instruments</label> <select id="instrument"></select>
-                    <button id="close-instrument-panel">Close</button>
-                </div>
-                {this.instrumentEditor}
-            </div>
-        );
-        this.instrumentSelector = node.querySelector("#instrument");
-        this.instrumentSelector.addEventListener('change', () => {
-            const instrumentIndex = parseInt(this.instrumentSelector.value);
-            const instrument = this.model.instruments[instrumentIndex];
-            this.instrumentEditor.trackModel(instrument);
-        });
-    
-        return node;
-    }
-
-    trackModel(song) {
-        super.trackModel(song);
-        this.instrumentEditor.trackModel(song.instruments[1]);
-
-        this.instrumentSelector.replaceChildren();
-        for (let i = 1; i < song.instruments.length; i++) {
-            const instrument = song.instruments[i];
-            const option = document.createElement('option');
-            option.value = i;
-            option.innerText = `${i} - ${instrument.name}`;
-            instrument.on("changeName", (name) => {
-                option.innerText = `${i} - ${name}`;
+    const keys = [];
+    for (let oct = 1; oct <= OCTAVE_COUNT; oct++) {
+        for (let n = 0; n < 12; n++) {
+            const noteVal = oct * 12 + n - 11;
+            const noteName = NOTE_NAMES[n] + oct;
+            const frequency = NOTES_BY_NUM[noteVal]?.frequency;
+            if (!frequency) continue;
+            const isBlack = [1, 3, 6, 8, 10].includes(n);
+            keys.push({
+                id: `${oct}-${n}`,
+                noteName,
+                frequency,
+                className: `key ${isBlack ? "black" : "white"} ${activeNote === noteName ? "active" : ""}`,
+                left: (((oct - 1) * 7 + KEY_POSITIONS[n]) * 32),
             });
-            this.instrumentSelector.appendChild(option);
         }
     }
-}
+
+    return (
+        <ul id="keyboard">
+            {keys.map((key) => (
+                <button
+                    key={key.id}
+                    className={key.className}
+                    style={{ left: `${key.left}px` }}
+                    onMouseDown={() => playNote(key.frequency, key.noteName)}
+                >
+                    {key.noteName}
+                </button>
+            ))}
+        </ul>
+    );
+};
+
+const HarmonixInputs = ({ instrument, onChange }) => (
+    <fieldset>
+        <legend>Harmonics</legend>
+        <div id="harmonics">
+            {instrument.harmonics.map((value, idx) => (
+                <input
+                    key={idx}
+                    type="number"
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    value={value}
+                    onChange={(e) => {
+                        const next = [...instrument.harmonics];
+                        next[idx] = parseFloat(e.target.value);
+                        onChange(next);
+                    }}
+                />
+            ))}
+        </div>
+    </fieldset>
+);
+
+const PhaseFields = ({ instrument, onChange }) => (
+    <fieldset>
+        <legend>Phase</legend>
+        <label>
+            Min
+            <input
+                type="number"
+                min={0}
+                max={32}
+                value={instrument.phaseMin}
+                onChange={(e) => onChange({ phaseMin: parseInt(e.target.value, 10) })}
+            />
+        </label>
+        <label>
+            Max
+            <input
+                type="number"
+                min={0}
+                max={32}
+                value={instrument.phaseMax}
+                onChange={(e) => onChange({ phaseMax: parseInt(e.target.value, 10) })}
+            />
+        </label>
+        <label>
+            Period
+            <input
+                type="number"
+                min={0}
+                max={256}
+                value={instrument.phasePeriod}
+                onChange={(e) => onChange({ phasePeriod: parseInt(e.target.value, 10) })}
+            />
+        </label>
+    </fieldset>
+);
+
+const EnvelopeFields = ({ instrument, onChange }) => (
+    <fieldset>
+        <legend>Envelope</legend>
+        <label>
+            Decay speed
+            <input
+                type="number"
+                min={0}
+                max={256}
+                value={instrument.decaySpeed}
+                onChange={(e) => onChange({ decaySpeed: parseInt(e.target.value, 10) })}
+            />
+        </label>
+        <label>
+            Decay to volume
+            <input
+                type="number"
+                min={0}
+                max={15}
+                value={instrument.decayTo}
+                onChange={(e) => onChange({ decayTo: parseInt(e.target.value, 10) })}
+            />
+        </label>
+    </fieldset>
+);
+
+const VibratoFields = ({ instrument, onChange }) => (
+    <fieldset>
+        <legend>Vibrato</legend>
+        <label>
+            Depth
+            <input
+                type="number"
+                min={0}
+                max={256}
+                value={instrument.vibratoDepth}
+                onChange={(e) => onChange({ vibratoDepth: parseInt(e.target.value, 10) })}
+            />
+        </label>
+        <label>
+            Period
+            <input
+                type="number"
+                min={0}
+                max={256}
+                value={instrument.vibratoPeriod}
+                onChange={(e) => onChange({ vibratoPeriod: parseInt(e.target.value, 10) })}
+            />
+        </label>
+    </fieldset>
+);
+
+const InstrumentEditor = ({ instrument, onInstrumentChange, audio }) => {
+    const [scrub, setScrub] = useState(0);
+
+    const updateInstrument = (changes) => {
+        onInstrumentChange((inst) => Object.assign(inst, changes));
+    };
+
+    const disablePhase = instrument.waveType === waveType.NOISE || instrument.waveType === waveType.SINE || instrument.waveType === waveType.SAMPLE;
+    const disableHarmonics = instrument.waveType === waveType.NOISE || instrument.waveType === waveType.SAMPLE;
+    const disableEnvelope = instrument.waveType === waveType.SAMPLE;
+
+    return (
+        <div>
+            <div className="section">
+                <div className="left-col">
+                    <label>
+                        Instrument name
+                        <input
+                            type="text"
+                            value={instrument.name}
+                            onChange={(e) => updateInstrument({ name: e.target.value })}
+                        />
+                    </label>
+                    <Scope instrument={instrument} scrub={scrub} audio={audio} />
+                </div>
+                <div id="parameters">
+                    <div>
+                        <label>
+                            Wave type
+                            <select
+                                value={instrument.waveType}
+                                onChange={(e) => updateInstrument({ waveType: parseInt(e.target.value, 10) })}
+                            >
+                                <option value={waveType.SQUARE}>Square</option>
+                                <option value={waveType.TRIANGLE}>Triangle</option>
+                                <option value={waveType.SINE}>Sine</option>
+                                <option value={waveType.NOISE}>Noise</option>
+                                <option value={waveType.SAMPLE}>Sample</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div>
+                        <label>
+                            Transpose
+                            <input
+                                type="number"
+                                min={-24}
+                                max={24}
+                                value={instrument.transpose}
+                                onChange={(e) => updateInstrument({ transpose: parseInt(e.target.value, 10) })}
+                            />
+                        </label>
+                    </div>
+                    <div>
+                        <label>
+                            Pitch slide step
+                            <input
+                                type="number"
+                                min={-256}
+                                max={256}
+                                value={instrument.slideStep}
+                                onChange={(e) => updateInstrument({ slideStep: parseInt(e.target.value, 10) })}
+                            />
+                        </label>
+                    </div>
+                    {!disablePhase && (
+                        <PhaseFields instrument={instrument} onChange={updateInstrument} />
+                    )}
+                    {!disableEnvelope && <EnvelopeFields instrument={instrument} onChange={updateInstrument} />}
+                    {!disableEnvelope && <VibratoFields instrument={instrument} onChange={updateInstrument} />}
+                    {!disableHarmonics && (
+                        <div className="section">
+                            <HarmonixInputs instrument={instrument} onChange={(harmonics) => updateInstrument({ harmonics })} />
+                        </div>
+                    )}
+                </div>
+            </div>
+            <div className="section">
+                <label htmlFor="scrub">Time</label>
+                <input
+                    id="scrub"
+                    type="range"
+                    min={0}
+                    max={60}
+                    value={scrub}
+                    onChange={(e) => setScrub(parseInt(e.target.value, 10))}
+                />
+                <span id="scrub-value">{scrub}</span>
+            </div>
+            <Keyboard instrument={instrument} audio={audio} />
+        </div>
+    );
+};
+
+export const InstrumentPanel = ({ song, audio, onSongChange, onClose }) => {
+    const [selectedInstrument, setSelectedInstrument] = useState(1);
+
+    const instrumentOptions = useMemo(() => song.instruments.map((inst, idx) => ({ idx, name: inst.name || `Instrument ${idx}` })), [song]);
+
+    useEffect(() => {
+        if (selectedInstrument >= song.instruments.length) {
+            setSelectedInstrument(1);
+        }
+    }, [selectedInstrument, song.instruments.length]);
+
+    const onInstrumentChange = (updater) => {
+        onSongChange((s) => {
+            const inst = s.instruments[selectedInstrument];
+            updater(inst);
+        });
+    };
+
+    const instrument = song.instruments[selectedInstrument] || new Wave();
+
+    return (
+        <div className="instrument-panel">
+            <div className="toolbar">
+                <label htmlFor="instrument">Instruments</label>
+                <select
+                    id="instrument"
+                    value={selectedInstrument}
+                    onChange={(e) => setSelectedInstrument(parseInt(e.target.value, 10))}
+                >
+                    {instrumentOptions.map((opt) => (
+                        <option key={opt.idx} value={opt.idx} disabled={opt.idx === 0}>
+                            {opt.idx} - {opt.name}
+                        </option>
+                    ))}
+                </select>
+                <button onClick={onClose}>Close</button>
+            </div>
+            <InstrumentEditor instrument={instrument} onInstrumentChange={onInstrumentChange} audio={audio} />
+        </div>
+    );
+};

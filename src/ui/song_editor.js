@@ -1,41 +1,53 @@
-import { Container, NumberInput } from 'catwalk-ui';
-import { Song } from "../models/song";
-import { EditorState } from "../models/editor_state";
-import { PositionList } from './position_list';
+import React from "react";
+import { PositionList } from "./position_list";
+import { OCTAVE_COUNT, PATTERN_COUNT } from "../defs";
 
-export class SongEditor extends Container {
-    static components = {
-        speedInput: NumberInput.forField(Song.fields.speed),
-        lengthInput: NumberInput.forField(Song.fields.length),
-        positionList: PositionList,
+export const SongEditor = ({ song, editorState, onSongChange, onEditorStateChange, audio }) => {
+    const onSpeedChange = (e) => {
+        const val = parseInt(e.target.value, 10);
+        onSongChange((s) => s.setSpeed(val));
     };
-    constructor(props) {
-        super(props);
-        const OctaveInput = NumberInput.forField(EditorState.fields.octave);
-        const PatternInput = NumberInput.forField(EditorState.fields.pattern);
-        this.octaveInput = new OctaveInput();
-        this.patternInput = new PatternInput();
-        this.editorState = null;
-        console.log(this.options);
-    }
-    trackEditorState(editorState) {
-        this.editorState = editorState;
-        this.octaveInput.trackModel(editorState);
-        this.patternInput.trackModel(editorState);
-        this.positionList.trackEditorState(editorState);
-    }
-    trackAudio(audio) {
-        this.positionList.trackAudio(audio);
-    }
-    createNode() {
-        return (
-            <div class="section">
-                {this.positionList}
-                {this.speedInput.labelNode} {this.speedInput}
-                {this.lengthInput.labelNode} {this.lengthInput}
-                {this.octaveInput.labelNode} {this.octaveInput}
-                {this.patternInput.labelNode} {this.patternInput}
-            </div>
-        );
-    }
-}
+
+    const onLengthChange = (e) => {
+        const val = parseInt(e.target.value, 10);
+        onSongChange((s) => s.setLength(val));
+    };
+
+    const onOctaveChange = (e) => {
+        const val = parseInt(e.target.value, 10);
+        onEditorStateChange((state) => state.setOctave(val));
+    };
+
+    const onPatternChange = (e) => {
+        const val = parseInt(e.target.value, 10);
+        onEditorStateChange((state) => state.setPattern(val));
+    };
+
+    return (
+        <div className="section">
+            <PositionList
+                song={song}
+                editorState={editorState}
+                onSongChange={onSongChange}
+                onEditorStateChange={onEditorStateChange}
+                audio={audio}
+            />
+            <label>
+                Speed
+                <input type="number" min={1} max={31} value={song.speed} onChange={onSpeedChange} />
+            </label>
+            <label>
+                Length
+                <input type="number" min={1} max={256} value={song.length} onChange={onLengthChange} />
+            </label>
+            <label>
+                Octave
+                <input type="number" min={1} max={OCTAVE_COUNT} value={editorState.octave} onChange={onOctaveChange} />
+            </label>
+            <label>
+                Pattern
+                <input type="number" min={0} max={PATTERN_COUNT - 1} value={editorState.pattern} onChange={onPatternChange} />
+            </label>
+        </div>
+    );
+};
