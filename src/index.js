@@ -109,6 +109,7 @@ const App = () => {
 
     return (
         <div className="app">
+            <div className="stickyHeader">
             <div className="menu">
                 <button onClick={openSongFile}>Open</button>
                 <button onClick={saveSongFile}>Save</button>
@@ -152,7 +153,7 @@ const App = () => {
                 onSongChange={updateSong}
                 onEditorStateChange={updateEditorState}
             />
-
+            </div>
             <PatternGrid
                 song={song}
                 audio={audio}

@@ -1,7 +1,15 @@
+html,
+body {
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+}
+
 .instrument-panel-positioner {
     position: absolute;
     left: 50%;
 }
+
 .instrument-panel {
     width: 800px;
     position: absolute;
@@ -35,6 +43,7 @@
 .left-col {
     float: left;
 }
+
 .scope {
     display: block;
     border: 1px solid black;
@@ -53,13 +62,16 @@
 #parameters fieldset[disabled] {
     opacity: 0.5;
 }
+
 #harmonics {
     margin: 0;
     padding: 0;
 }
+
 #harmonics li {
     display: inline;
 }
+
 #harmonics input {
     width: 3em;
 }
@@ -73,10 +85,12 @@
     height: 100px;
     overflow-x: scroll;
 }
+
 .key {
     position: absolute;
     font-size: 8pt;
 }
+
 .key.white {
     height: 100px;
     width: 32px;
@@ -84,6 +98,7 @@
     background-color: white;
     color: black;
 }
+
 .key.black {
     height: 50px;
     width: 28px;
@@ -91,6 +106,7 @@
     background-color: black;
     color: white;
 }
+
 .key.active {
     background-color: gray;
 }
@@ -99,45 +115,63 @@
     float: left;
     width: 400px;
 }
+
 .output button {
     display: block;
     margin: 10px 0;
 }
+
 .output textarea {
     width: 100%;
     height: 400px;
+}
+
+.stickyHeader {
+    position: sticky;
+    top: 0;
+    background-color: #ddd;
+    z-index: 10;
+    padding-bottom: 4px;
+    border-bottom: 2px solid black;
 }
 
 .pattern-grid {
     display: block;
     font-family: monospace;
     position: relative;
-    height: 500px;
-    overflow-y: auto;
     border-collapse: collapse;
+    padding: 15px;
 }
+
 .pattern-grid .channel {
     border-left: 1px double black;
 }
+
 .pattern-grid tr.active-row {
     background-color: #88dd88;
 }
+
 .pattern-grid td {
     cursor: default;
+    padding: 1px 6px;
 }
+
 .pattern-grid td:focus {
     outline: 1px solid black;
     background-color: #ffff88;
 }
+
 .pattern-grid .row-number {
     color: #444;
 }
+
 .position-list {
     padding: 0;
     width: 100%;
     white-space: nowrap;
     overflow-x: scroll;
 }
+
 .position-list button {
     background-color: transparent;
     border: 1px solid #ccc;
@@ -146,15 +180,20 @@
     padding: 4px 4px;
     width: 3em;
 }
+
 .position-list button.selected-position {
     background-color: #dddd88;
 }
+
 .position-list button.selected-position:focus {
     background-color: #ffff88;
 }
+
 .position-list button.playing-position {
-    background-color: #88dd88 !important;  /* takes precedence over selected-position */
+    background-color: #88dd88 !important;
+    /* takes precedence over selected-position */
 }
+
 .position-list button.disabled {
     color: #aaa;
 }
