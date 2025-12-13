@@ -113,52 +113,54 @@ export const PatternGrid: React.FC<PatternGridProps> = ({ song, audio, editorSta
     };
 
     return (
-        <table className="pattern-grid">
-            <colgroup>
-                <col />
-            </colgroup>
-            <thead>
-                <tr>
-                    <th></th>
-                    {[0, 1, 2, 3].map((i) => (
-                        <th key={i} colSpan={2}>{i + 1}</th>
-                    ))}
-                </tr>
-            </thead>
-            <tbody>
-                {pattern.channels[0].rows.map((_, rowIndex) => (
-                    <tr key={rowIndex} className={activeRow === rowIndex ? 'active-row' : ''}>
-                        <td className="row-number">{rowIndex}</td>
-                        {pattern.channels.map((channel, channelIndex) => {
-                            const row = channel.rows[rowIndex];
-                            const noteText = formatNote(row.note);
-                            const instText = formatInstrument(row.instrument);
-                            const noteCol = channelIndex * 2;
-                            const instCol = channelIndex * 2 + 1;
-                            return (
-                                <React.Fragment key={channelIndex}>
-                                    <td
-                                        tabIndex={0}
-                                        ref={(el) => (cellRefs[rowIndex][noteCol] = el)}
-                                        onKeyDown={(e) => onCellKeyDown(rowIndex, noteCol, e)}
-                                        onKeyUp={onCellKeyUp}
-                                    >
-                                        {noteText}
-                                    </td>
-                                    <td
-                                        tabIndex={0}
-                                        ref={(el) => (cellRefs[rowIndex][instCol] = el)}
-                                        onKeyDown={(e) => onCellKeyDown(rowIndex, instCol, e)}
-                                        onKeyUp={onCellKeyUp}
-                                    >
-                                        {instText}
-                                    </td>
-                                </React.Fragment>
-                            );
-                        })}
+        <div className="pattern-grid-container">
+            <table className="pattern-grid">
+                <colgroup>
+                    <col />
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th></th>
+                        {[0, 1, 2, 3].map((i) => (
+                            <th key={i} colSpan={2}>{i + 1}</th>
+                        ))}
                     </tr>
-                ))}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {pattern.channels[0].rows.map((_, rowIndex) => (
+                        <tr key={rowIndex} className={activeRow === rowIndex ? 'active-row' : ''}>
+                            <td className="row-number">{rowIndex}</td>
+                            {pattern.channels.map((channel, channelIndex) => {
+                                const row = channel.rows[rowIndex];
+                                const noteText = formatNote(row.note);
+                                const instText = formatInstrument(row.instrument);
+                                const noteCol = channelIndex * 2;
+                                const instCol = channelIndex * 2 + 1;
+                                return (
+                                    <React.Fragment key={channelIndex}>
+                                        <td
+                                            tabIndex={0}
+                                            ref={(el) => (cellRefs[rowIndex][noteCol] = el)}
+                                            onKeyDown={(e) => onCellKeyDown(rowIndex, noteCol, e)}
+                                            onKeyUp={onCellKeyUp}
+                                        >
+                                            {noteText}
+                                        </td>
+                                        <td
+                                            tabIndex={0}
+                                            ref={(el) => (cellRefs[rowIndex][instCol] = el)}
+                                            onKeyDown={(e) => onCellKeyDown(rowIndex, instCol, e)}
+                                            onKeyUp={onCellKeyUp}
+                                        >
+                                            {instText}
+                                        </td>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
     );
 };

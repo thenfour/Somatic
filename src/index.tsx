@@ -129,7 +129,7 @@ const App: React.FC = () => {
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
-                        <button onClick={() => setInstrumentPanelOpen(true)}><span className="icon" aria-hidden="true">🎛️</span>Instruments</button>
+                        <button onClick={() => setInstrumentPanelOpen(!instrumentPanelOpen)}><span className="icon" aria-hidden="true">🎛️</span>Instruments</button>
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
@@ -152,14 +152,6 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="instrument-panel-positioner">
-                    {instrumentPanelOpen && (
-                        <InstrumentPanel
-                            song={song}
-                            audio={audio}
-                            onSongChange={updateSong}
-                            onClose={() => setInstrumentPanelOpen(false)}
-                        />
-                    )}
                 </div>
 
                 <SongEditor
@@ -170,7 +162,17 @@ const App: React.FC = () => {
                     onEditorStateChange={updateEditorState}
                 />
             </div>
-            <PatternGrid song={song} audio={audio} editorState={editorState} onSongChange={updateSong} />
+            <div className="main-editor-area">
+                <PatternGrid song={song} audio={audio} editorState={editorState} onSongChange={updateSong} />
+                {instrumentPanelOpen && (
+                    <InstrumentPanel
+                        song={song}
+                        audio={audio}
+                        onSongChange={updateSong}
+                        onClose={() => setInstrumentPanelOpen(false)}
+                    />
+                )}
+            </div>
         </div>
     );
 };

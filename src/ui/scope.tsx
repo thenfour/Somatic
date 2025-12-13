@@ -26,7 +26,7 @@ export const Scope: React.FC<ScopeProps> = ({ instrument, scrub, audio }) => {
         const ctx = ctxRef.current;
         if (!ctx || !frameData) return;
         clear();
-        ctx.fillStyle = 'green';
+        ctx.fillStyle = '#0ff';
 
         let waveformIsNoise = true;
         for (let i = 0; i < 32; i++) {

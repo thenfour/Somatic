@@ -52,9 +52,6 @@ body {
 
 .instrument-panel {
     width: 800px;
-    position: absolute;
-    left: -400px;
-    z-index: 100;
     background-color: #ddd;
     padding: 8px;
 }
@@ -179,11 +176,9 @@ body {
 }
 
 .pattern-grid {
-    display: block;
     font-family: monospace;
-    position: relative;
     border-collapse: collapse;
-    padding: 15px;
+    margin: 15px;
 }
 
 .pattern-grid .channel {
@@ -240,4 +235,14 @@ body {
 
 .position-list button.disabled {
     color: #aaa;
+}
+
+.main-editor-area {
+    display: flex;
+    width: 100%;
+    gap: 20px;
+}
+
+.pattern-grid-container {
+    flex-grow: 1;
 }
