@@ -9,6 +9,7 @@ import { AudioController } from './audio/controller';
 import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
 import { InstrumentPanel } from './ui/instrument_editor';
+import { HelpPanel } from './ui/help_panel';
 import { PatternGrid } from './ui/pattern_grid';
 import { SongEditor } from './ui/song_editor';
 
@@ -22,6 +23,7 @@ const App: React.FC = () => {
     const [song, setSong] = useState(() => new Song());
     const [editorState, setEditorState] = useState(() => new EditorState());
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);
+    const [helpPanelOpen, setHelpPanelOpen] = useState(false);
 
     useEffect(() => {
         audio.song = song;
@@ -130,6 +132,7 @@ const App: React.FC = () => {
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
                         <button onClick={() => setInstrumentPanelOpen(!instrumentPanelOpen)}><span className="icon" aria-hidden="true">🎛️</span>Instruments</button>
+                        <button onClick={() => setHelpPanelOpen(!helpPanelOpen)}><span className="icon" aria-hidden="true">❔</span>Help</button>
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
@@ -171,6 +174,9 @@ const App: React.FC = () => {
                         onSongChange={updateSong}
                         onClose={() => setInstrumentPanelOpen(false)}
                     />
+                )}
+                {helpPanelOpen && (
+                    <HelpPanel onClose={() => setHelpPanelOpen(false)} />
                 )}
             </div>
         </div>
