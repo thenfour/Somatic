@@ -1,23 +1,27 @@
-import { OCTAVE_COUNT, PATTERN_COUNT } from '../defs';
+import { OCTAVE_COUNT, PATTERN_COUNT } from "../defs";
 
-const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
 
 export class EditorState {
-    constructor({ octave = Math.floor(OCTAVE_COUNT / 2), pattern = 0, selectedPosition = 0 } = {}) {
+    octave: number;
+    pattern: number;
+    selectedPosition: number;
+
+    constructor({ octave = Math.floor(OCTAVE_COUNT / 2), pattern = 0, selectedPosition = 0 }: Partial<EditorState> = {}) {
         this.octave = clamp(octave, 1, OCTAVE_COUNT);
         this.pattern = clamp(pattern, 0, PATTERN_COUNT - 1);
         this.selectedPosition = clamp(selectedPosition, 0, 255);
     }
 
-    setOctave(nextOctave) {
+    setOctave(nextOctave: number) {
         this.octave = clamp(nextOctave, 1, OCTAVE_COUNT);
     }
 
-    setPattern(nextPattern) {
+    setPattern(nextPattern: number) {
         this.pattern = clamp(nextPattern, 0, PATTERN_COUNT - 1);
     }
 
-    setSelectedPosition(nextPosition) {
+    setSelectedPosition(nextPosition: number) {
         this.selectedPosition = clamp(nextPosition, 0, 255);
     }
 
@@ -29,7 +33,7 @@ export class EditorState {
         };
     }
 
-    static fromData(data) {
+    static fromData(data?: Partial<EditorState>) {
         return new EditorState(data || {});
     }
 

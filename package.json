@@ -18,6 +18,8 @@
     "@babel/preset-env": "^7.23.5",
     "@babel/preset-react": "^7.23.3",
     "@babel/preset-typescript": "^7.23.3",
+    "@types/events": "^3.0.3",
+    "@types/node": "^20.11.24",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.18",
     "babel-loader": "^10.0.0",
@@ -31,10 +33,10 @@
     "webpack-dev-server": "^5.2.2"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
     "events": "^3.3.0",
     "file-dialog": "^0.0.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "save-file": "^2.3.1"
   }
 }

@@ -1,5 +1,28 @@
+import type { FrameData } from '../models/instruments';
+
+type FrameChannelData = FrameData | null;
+
+type ChannelState = {
+    volume: number;
+    waveform: number[];
+    waveformIsNoise: boolean;
+    samplesToNextWaveformElement: number;
+    samplesPerWaveformElement: number;
+    waveformPtr: number;
+    level: number;
+};
+
 export class TICSynth {
-    constructor(sampleRate) {
+    sampleRate: number;
+    frameCallback: ((frameNumber: number) => FrameChannelData[]) | null;
+    onFrame: ((frameData: FrameChannelData[]) => void) | null;
+    frameNumber: number;
+
+    samplesPerFrame: number;
+    samplesToNextFrame: number;
+    channels: ChannelState[];
+
+    constructor(sampleRate: number) {
         this.sampleRate = sampleRate;
 
         this.frameCallback = null;
@@ -25,12 +48,13 @@ export class TICSynth {
             };
         }
     }
-    generate(audioData) {
+
+    generate(audioData: Float32Array) {
         let samplePtr = 0;
         while (samplePtr < audioData.length) {
             if (this.samplesToNextFrame <= 0) {
                 if (this.frameCallback) {
-                    let frameData = this.frameCallback(this.frameNumber);
+                    const frameData = this.frameCallback(this.frameNumber);
                     if (this.onFrame) this.onFrame(frameData);
                     this.frameNumber++;
                     for (let chan = 0; chan < 4; chan++) {
@@ -40,7 +64,7 @@ export class TICSynth {
                             channel.waveform = chanFrameData.waveform;
                             let waveformIsNoise = true;
                             for (let i = 0; i < 32; i++) {
-                                if (channel.waveform[i] != 0) {
+                                if (channel.waveform[i] !== 0) {
                                     waveformIsNoise = false;
                                     break;
                                 }
@@ -50,8 +74,7 @@ export class TICSynth {
                             const frequency = Math.floor(chanFrameData.frequency);
                             channel.samplesPerWaveformElement = this.sampleRate / frequency / 32;
                             if (channel.waveformIsNoise) {
-                                // fudge factor to match observed behaviour of TIC-80 -
-                                // apparently noise values are only picked half as often
+                                // fudge factor to match observed TIC-80 behaviour: noise values picked half as often
                                 channel.samplesPerWaveformElement *= 2;
                             }
                         } else {
@@ -81,7 +104,7 @@ export class TICSynth {
                     channel.samplesToNextWaveformElement += channel.samplesPerWaveformElement;
                 }
                 channel.samplesToNextWaveformElement--;
-                combinedLevel += (channel.level - 7.5) / 7.5 * channel.volume / 15;
+                combinedLevel += ((channel.level - 7.5) / 7.5) * (channel.volume / 15);
             }
             audioData[samplePtr++] = combinedLevel;
             this.samplesToNextFrame--;

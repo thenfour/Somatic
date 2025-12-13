@@ -1,5 +1,5 @@
-import { Wave } from "./instruments";
-import { Pattern } from "./pattern";
+import { Wave } from './instruments';
+import { Pattern } from './pattern';
 import { PATTERN_COUNT, INSTRUMENT_COUNT } from '../defs';
 
 const PLAYER_CODE = `
@@ -66,25 +66,40 @@ function TIC()
 end
 `;
 
-const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+const clamp = (val: number, min: number, max: number): number => Math.min(Math.max(val, min), max);
 
-const makeInstrumentList = (data) => {
+export type InstrumentData = ReturnType<Wave['toData']>;
+export type PatternData = ReturnType<Pattern['toData']> | null;
+export type SongData = {
+    instruments?: (InstrumentData | Partial<InstrumentData> | undefined)[];
+    patterns?: (PatternData | undefined)[];
+    positions?: number[];
+    speed?: number;
+    length?: number;
+};
+
+const makeInstrumentList = (data?: SongData['instruments']): Wave[] => {
     const length = INSTRUMENT_COUNT + 1; // index 0 unused, indexes 1..INSTRUMENT_COUNT
     const list = Array.from({ length }, (_, i) => {
         const instData = data && data[i];
         return new Wave(instData || {});
     });
-    if (!list[1].name) list[1].name = "Square";
+    if (!list[1].name) list[1].name = 'Square';
     return list;
 };
 
-const makePatternList = (data) => {
-    const list = Array.from({ length: PATTERN_COUNT }, (_, i) => Pattern.fromData(data ? data[i] : undefined));
-    return list;
+const makePatternList = (data?: SongData['patterns']): Pattern[] => {
+    return Array.from({ length: PATTERN_COUNT }, (_, i) => Pattern.fromData(data ? data[i] : undefined));
 };
 
 export class Song {
-    constructor(data = {}) {
+    instruments: Wave[];
+    patterns: Pattern[];
+    positions: number[];
+    speed: number;
+    length: number;
+
+    constructor(data: SongData = {}) {
         this.instruments = makeInstrumentList(data.instruments);
         this.patterns = makePatternList(data.patterns);
         this.positions = Array.from({ length: 256 }, (_, i) => clamp(data.positions?.[i] ?? 0, 0, PATTERN_COUNT - 1));
@@ -92,61 +107,55 @@ export class Song {
         this.length = clamp(data.length ?? 1, 1, 256);
     }
 
-    usedPatterns() {
-        const patterns = new Set();
-        for (let i = 0; i < this.length; i++) {
-            patterns.add(this.positions[i]);
-        }
+    usedPatterns(): Set<number> {
+        const patterns = new Set<number>();
+        for (let i = 0; i < this.length; i++) patterns.add(this.positions[i]);
         return patterns;
     }
 
-    usedInstruments() {
-        const instruments = new Set();
+    usedInstruments(): Set<number> {
+        const instruments = new Set<number>();
         for (const patternNumber of this.usedPatterns()) {
             const pattern = this.patterns[patternNumber];
-            for (const inst of pattern.usedInstruments()) {
-                instruments.add(inst);
-            }
+            for (const inst of pattern.usedInstruments()) instruments.add(inst);
         }
         return instruments;
     }
 
-    setPosition(index, value) {
+    setPosition(index: number, value: number) {
         if (index < 0 || index >= this.positions.length) return;
         this.positions[index] = clamp(value, 0, PATTERN_COUNT - 1);
     }
 
-    setLength(value) {
+    setLength(value: number) {
         this.length = clamp(value, 1, 256);
     }
 
-    setSpeed(value) {
+    setSpeed(value: number) {
         this.speed = clamp(value, 1, 31);
     }
 
-    getLuaCode() {
-        const exportedPatterns = [];
-        const patternMap = {};
+    getLuaCode(): string {
+        const exportedPatterns: Pattern[] = [];
+        const patternMap: Record<number, number> = {};
         for (const patternNumber of this.usedPatterns()) {
             exportedPatterns.push(this.patterns[patternNumber]);
             patternMap[patternNumber] = exportedPatterns.length;
         }
 
         const positions = this.positions.slice(0, this.length);
-        for (let i = 0; i < positions.length; i++) {
-            positions[i] = patternMap[positions[i]];
-        }
+        for (let i = 0; i < positions.length; i++) positions[i] = patternMap[positions[i]];
 
-        const exportedInstruments = [];
-        const instrumentsMap = {};
+        const exportedInstruments: Wave[] = [];
+        const instrumentsMap: Record<number, number> = {};
         for (const instrumentNumber of this.usedInstruments()) {
             exportedInstruments.push(this.instruments[instrumentNumber]);
             instrumentsMap[instrumentNumber] = exportedInstruments.length;
         }
 
-        const patternsData = exportedPatterns.map((pattern) => pattern.getLuaData(instrumentsMap)).join(",\n");
+        const patternsData = exportedPatterns.map((pattern) => pattern.getLuaData(instrumentsMap)).join(',\n');
+        const instrumentsCode = exportedInstruments.map((instrument) => instrument.getLuaCode()).join(',\n');
 
-        const instrumentsCode = exportedInstruments.map((instrument) => instrument.getLuaCode()).join(",\n");
         return `
 instruments={
 ${instrumentsCode}
@@ -161,7 +170,7 @@ ${PLAYER_CODE}
 `;
     }
 
-    toData() {
+    toData(): Required<SongData> {
         return {
             instruments: this.instruments.map((inst) => inst.toData()),
             patterns: this.patterns.map((pattern) => pattern.toData()),
@@ -171,25 +180,25 @@ ${PLAYER_CODE}
         };
     }
 
-    toJSON() {
+    toJSON(): string {
         return JSON.stringify(this.toData());
     }
 
-    static fromData(data) {
+    static fromData(data?: SongData | null): Song {
         return new Song(data || {});
     }
 
-    static fromJSON(json) {
+    static fromJSON(json: string): Song {
         try {
-            const data = JSON.parse(json);
+            const data: SongData = JSON.parse(json);
             return Song.fromData(data);
         } catch (err) {
-            console.error("Failed to parse song JSON", err);
+            console.error('Failed to parse song JSON', err);
             return new Song();
         }
     }
 
-    clone() {
+    clone(): Song {
         return Song.fromData(this.toData());
     }
 }

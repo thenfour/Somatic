@@ -1,29 +1,42 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Wave, waveType } from "../models/instruments";
-import { Scope } from "./scope";
-import { NOTE_NAMES, NOTES_BY_NUM, OCTAVE_COUNT } from "../defs";
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { AudioController } from '../audio/controller';
+import { NOTE_NAMES, NOTES_BY_NUM, OCTAVE_COUNT } from '../defs';
+import { Wave, waveType } from '../models/instruments';
+import { Song } from '../models/song';
+import { Scope } from './scope';
 
 const KEY_POSITIONS = [0, 0.5, 1, 1.5, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6];
 
-const Keyboard = ({ instrument, audio }) => {
-    const [activeNote, setActiveNote] = useState(null);
+type KeyboardProps = {
+    instrument: Wave;
+    audio: AudioController;
+};
 
-    const onMouseUp = () => {
+const Keyboard: React.FC<KeyboardProps> = ({ instrument, audio }) => {
+    const [activeNote, setActiveNote] = useState<string | null>(null);
+
+    const onMouseUp = useCallback(() => {
         setActiveNote(null);
         audio.stop();
-    };
+    }, [audio]);
 
     useEffect(() => {
-        window.addEventListener("mouseup", onMouseUp);
-        return () => window.removeEventListener("mouseup", onMouseUp);
-    });
+        window.addEventListener('mouseup', onMouseUp);
+        return () => window.removeEventListener('mouseup', onMouseUp);
+    }, [onMouseUp]);
 
-    const playNote = (frequency, noteLabel) => {
+    const playNote = (frequency: number, noteLabel: string) => {
         audio.playInstrument(instrument, frequency);
         setActiveNote(noteLabel);
     };
 
-    const keys = [];
+    const keys = [] as Array<{
+        id: string;
+        noteName: string;
+        frequency: number;
+        className: string;
+        left: number;
+    }>;
     for (let oct = 1; oct <= OCTAVE_COUNT; oct++) {
         for (let n = 0; n < 12; n++) {
             const noteVal = oct * 12 + n - 11;
@@ -35,8 +48,8 @@ const Keyboard = ({ instrument, audio }) => {
                 id: `${oct}-${n}`,
                 noteName,
                 frequency,
-                className: `key ${isBlack ? "black" : "white"} ${activeNote === noteName ? "active" : ""}`,
-                left: (((oct - 1) * 7 + KEY_POSITIONS[n]) * 32),
+                className: `key ${isBlack ? 'black' : 'white'} ${activeNote === noteName ? 'active' : ''}`,
+                left: ((oct - 1) * 7 + KEY_POSITIONS[n]) * 32,
             });
         }
     }
@@ -57,7 +70,12 @@ const Keyboard = ({ instrument, audio }) => {
     );
 };
 
-const HarmonixInputs = ({ instrument, onChange }) => (
+type HarmonicsInputsProps = {
+    instrument: Wave;
+    onChange: (harmonics: number[]) => void;
+};
+
+const HarmonixInputs: React.FC<HarmonicsInputsProps> = ({ instrument, onChange }) => (
     <fieldset>
         <legend>Harmonics</legend>
         <div id="harmonics">
@@ -80,7 +98,12 @@ const HarmonixInputs = ({ instrument, onChange }) => (
     </fieldset>
 );
 
-const PhaseFields = ({ instrument, onChange }) => (
+type PhaseFieldsProps = {
+    instrument: Wave;
+    onChange: (changes: Partial<Wave>) => void;
+};
+
+const PhaseFields: React.FC<PhaseFieldsProps> = ({ instrument, onChange }) => (
     <fieldset>
         <legend>Phase</legend>
         <label>
@@ -116,7 +139,12 @@ const PhaseFields = ({ instrument, onChange }) => (
     </fieldset>
 );
 
-const EnvelopeFields = ({ instrument, onChange }) => (
+type EnvelopeFieldsProps = {
+    instrument: Wave;
+    onChange: (changes: Partial<Wave>) => void;
+};
+
+const EnvelopeFields: React.FC<EnvelopeFieldsProps> = ({ instrument, onChange }) => (
     <fieldset>
         <legend>Envelope</legend>
         <label>
@@ -142,7 +170,12 @@ const EnvelopeFields = ({ instrument, onChange }) => (
     </fieldset>
 );
 
-const VibratoFields = ({ instrument, onChange }) => (
+type VibratoFieldsProps = {
+    instrument: Wave;
+    onChange: (changes: Partial<Wave>) => void;
+};
+
+const VibratoFields: React.FC<VibratoFieldsProps> = ({ instrument, onChange }) => (
     <fieldset>
         <legend>Vibrato</legend>
         <label>
@@ -168,10 +201,16 @@ const VibratoFields = ({ instrument, onChange }) => (
     </fieldset>
 );
 
-const InstrumentEditor = ({ instrument, onInstrumentChange, audio }) => {
+type InstrumentEditorProps = {
+    instrument: Wave;
+    onInstrumentChange: (updater: (inst: Wave) => void) => void;
+    audio: AudioController;
+};
+
+const InstrumentEditor: React.FC<InstrumentEditorProps> = ({ instrument, onInstrumentChange, audio }) => {
     const [scrub, setScrub] = useState(0);
 
-    const updateInstrument = (changes) => {
+    const updateInstrument = (changes: Partial<Wave>) => {
         onInstrumentChange((inst) => Object.assign(inst, changes));
     };
 
@@ -199,7 +238,7 @@ const InstrumentEditor = ({ instrument, onInstrumentChange, audio }) => {
                             Wave type
                             <select
                                 value={instrument.waveType}
-                                onChange={(e) => updateInstrument({ waveType: parseInt(e.target.value, 10) })}
+                                onChange={(e) => updateInstrument({ waveType: parseInt(e.target.value, 10) as Wave['waveType'] })}
                             >
                                 <option value={waveType.SQUARE}>Square</option>
                                 <option value={waveType.TRIANGLE}>Triangle</option>
@@ -233,9 +272,7 @@ const InstrumentEditor = ({ instrument, onInstrumentChange, audio }) => {
                             />
                         </label>
                     </div>
-                    {!disablePhase && (
-                        <PhaseFields instrument={instrument} onChange={updateInstrument} />
-                    )}
+                    {!disablePhase && <PhaseFields instrument={instrument} onChange={updateInstrument} />}
                     {!disableEnvelope && <EnvelopeFields instrument={instrument} onChange={updateInstrument} />}
                     {!disableEnvelope && <VibratoFields instrument={instrument} onChange={updateInstrument} />}
                     {!disableHarmonics && (
@@ -262,10 +299,20 @@ const InstrumentEditor = ({ instrument, onInstrumentChange, audio }) => {
     );
 };
 
-export const InstrumentPanel = ({ song, audio, onSongChange, onClose }) => {
+type InstrumentPanelProps = {
+    song: Song;
+    audio: AudioController;
+    onSongChange: (mutator: (song: Song) => void) => void;
+    onClose: () => void;
+};
+
+export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, audio, onSongChange, onClose }) => {
     const [selectedInstrument, setSelectedInstrument] = useState(1);
 
-    const instrumentOptions = useMemo(() => song.instruments.map((inst, idx) => ({ idx, name: inst.name || `Instrument ${idx}` })), [song]);
+    const instrumentOptions = useMemo(
+        () => song.instruments.map((inst, idx) => ({ idx, name: inst.name || `Instrument ${idx}` })),
+        [song],
+    );
 
     useEffect(() => {
         if (selectedInstrument >= song.instruments.length) {
@@ -273,7 +320,7 @@ export const InstrumentPanel = ({ song, audio, onSongChange, onClose }) => {
         }
     }, [selectedInstrument, song.instruments.length]);
 
-    const onInstrumentChange = (updater) => {
+    const onInstrumentChange = (updater: (inst: Wave) => void) => {
         onSongChange((s) => {
             const inst = s.instruments[selectedInstrument];
             updater(inst);

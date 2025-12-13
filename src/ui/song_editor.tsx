@@ -1,24 +1,35 @@
-import React from "react";
-import { PositionList } from "./position_list";
-import { OCTAVE_COUNT, PATTERN_COUNT } from "../defs";
+import React from 'react';
+import { AudioController } from '../audio/controller';
+import { OCTAVE_COUNT, PATTERN_COUNT } from '../defs';
+import { EditorState } from '../models/editor_state';
+import { Song } from '../models/song';
+import { PositionList } from './position_list';
 
-export const SongEditor = ({ song, editorState, onSongChange, onEditorStateChange, audio }) => {
-    const onSpeedChange = (e) => {
+type SongEditorProps = {
+    song: Song;
+    editorState: EditorState;
+    onSongChange: (mutator: (song: Song) => void) => void;
+    onEditorStateChange: (mutator: (state: EditorState) => void) => void;
+    audio: AudioController;
+};
+
+export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSongChange, onEditorStateChange, audio }) => {
+    const onSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseInt(e.target.value, 10);
         onSongChange((s) => s.setSpeed(val));
     };
 
-    const onLengthChange = (e) => {
+    const onLengthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseInt(e.target.value, 10);
         onSongChange((s) => s.setLength(val));
     };
 
-    const onOctaveChange = (e) => {
+    const onOctaveChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseInt(e.target.value, 10);
         onEditorStateChange((state) => state.setOctave(val));
     };
 
-    const onPatternChange = (e) => {
+    const onPatternChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseInt(e.target.value, 10);
         onEditorStateChange((state) => state.setPattern(val));
     };

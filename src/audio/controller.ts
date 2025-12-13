@@ -1,8 +1,28 @@
 import { EventEmitter } from 'events';
 import { TICSynth } from './ticsynth';
 import { NOTES_BY_NUM } from '../defs';
+import { FrameData, Wave } from '../models/instruments';
+import { Pattern } from '../models/pattern';
+import { Song } from '../models/song';
+
+type InstrumentFrameCallback = (frameNumber: number) => FrameData;
+
+type ChannelPlaybackState = {
+    instrumentNumber: number;
+    instrumentCallback: InstrumentFrameCallback | null;
+    instrumentFrame: number;
+};
 
 export class AudioController extends EventEmitter {
+    audioStarted: boolean;
+    ticSynth: TICSynth | null;
+    gainNode: GainNode | null;
+    volume: number;
+    song: Song | null;
+    channelStates: ChannelPlaybackState[];
+
+    isPlaying: boolean;
+
     constructor() {
         super();
         this.audioStarted = false;
@@ -12,8 +32,6 @@ export class AudioController extends EventEmitter {
         this.song = null;
         this.channelStates = [];
 
-        // true if we are currently playing a pattern or whole song
-        // (not just a single row or instrument)
         this.isPlaying = false;
 
         for (let i = 0; i < 4; i++) {
@@ -28,12 +46,14 @@ export class AudioController extends EventEmitter {
     ensureAudio() {
         if (this.audioStarted && this.ticSynth && this.gainNode) return;
 
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const audioContext = new AudioContext({latencyHint: 'interactive'});
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContextClass) throw new Error('Web Audio API not supported');
+        const audioContext = new AudioContextClass({ latencyHint: 'interactive' });
 
         this.ticSynth = new TICSynth(audioContext.sampleRate);
         const scriptNode = audioContext.createScriptProcessor(0, 0, 1);
-        scriptNode.onaudioprocess = (audioProcessingEvent) => {
+        scriptNode.onaudioprocess = (audioProcessingEvent: AudioProcessingEvent) => {
+            if (!this.ticSynth) return;
             const outputBuffer = audioProcessingEvent.outputBuffer;
             const audioData = outputBuffer.getChannelData(0);
             this.ticSynth.generate(audioData);
@@ -47,7 +67,7 @@ export class AudioController extends EventEmitter {
         this.audioStarted = true;
     }
 
-    play(frameCallback) {
+    play(frameCallback: (frameNumber: number) => Array<FrameData | null>) {
         /* Start playback of TIC audio. The frameCallback function will
          * be called for each frame with the frame number as its argument,
          * and should return an array of 4 channel data objects. Each channel
@@ -56,16 +76,17 @@ export class AudioController extends EventEmitter {
          * data object is null, that channel will be silent.
          */
         this.ensureAudio();
+        if (!this.ticSynth) return;
 
         this.ticSynth.frameNumber = 0;
         this.ticSynth.frameCallback = frameCallback;
         this.ticSynth.onFrame = (frameData) => {
             this.emit('frame', frameData);
-        }
+        };
     }
+
     stop() {
         if (!this.ticSynth) {
-            // stop may be called before audio ever started; just emit stop.
             this.isPlaying = false;
             this.emit('stop');
             return;
@@ -74,26 +95,28 @@ export class AudioController extends EventEmitter {
         this.isPlaying = false;
         this.emit('stop');
     }
-    playInstrument(instrument, frequency) {
+
+    playInstrument(instrument: Wave, frequency: number) {
         const instrumentFrameCallback = instrument.getFrameCallback(frequency);
-        const frameCallback = (frameNumber) => {
-            return [instrumentFrameCallback(frameNumber)];
-        }
+        const frameCallback = (frameNumber: number) => [instrumentFrameCallback(frameNumber)];
         this.play(frameCallback);
     }
+
     clearChannelStates() {
         for (let i = 0; i < 4; i++) {
             this.channelStates[i].instrumentCallback = null;
             this.channelStates[i].instrumentFrame = 0;
         }
     }
-    readRow(pattern, rowNumber) {
+
+    readRow(pattern: Pattern, rowNumber: number) {
         if (!this.song) return;
         for (let chan = 0; chan < 4; chan++) {
             const row = pattern.channels[chan].rows[rowNumber];
             const note = row.note;
             if (note !== 0) {
-                const frequency = NOTES_BY_NUM[note].frequency;
+                const frequency = NOTES_BY_NUM[note]?.frequency;
+                if (!frequency) continue;
                 if (row.instrument) {
                     this.channelStates[chan].instrumentNumber = row.instrument;
                 }
@@ -103,18 +126,18 @@ export class AudioController extends EventEmitter {
             }
         }
     }
-    playRow(pattern, rowNumber) {
+
+    playRow(pattern: Pattern, rowNumber: number) {
         this.clearChannelStates();
         this.readRow(pattern, rowNumber);
-        const frameCallback = () => {
-            return this.channelStates.map((state) => (
-                state.instrumentCallback ?
-                state.instrumentCallback(state.instrumentFrame++) : null
-            ));
-        };
+        const frameCallback = () => this.channelStates.map((state) => (
+            state.instrumentCallback ? state.instrumentCallback(state.instrumentFrame++) : null
+        ));
         this.play(frameCallback);
     }
-    playPattern(pattern) {
+
+    playPattern(pattern: Pattern) {
+        if (!this.song) return;
         let rowNumber = 0;
         let rowFrameNumber = 0;
         this.clearChannelStates();
@@ -124,7 +147,7 @@ export class AudioController extends EventEmitter {
                 this.emit('row', rowNumber, pattern);
             }
             rowFrameNumber++;
-            if (rowFrameNumber >= this.song.speed) {
+            if (rowFrameNumber >= this.song!.speed) {
                 rowFrameNumber = 0;
                 rowNumber++;
                 if (rowNumber >= 64) {
@@ -132,14 +155,14 @@ export class AudioController extends EventEmitter {
                 }
             }
             return this.channelStates.map((state) => (
-                state.instrumentCallback ?
-                state.instrumentCallback(state.instrumentFrame++) : null
+                state.instrumentCallback ? state.instrumentCallback(state.instrumentFrame++) : null
             ));
         };
         this.isPlaying = true;
         this.play(frameCallback);
     }
-    playSong(startPosition) {
+
+    playSong(startPosition: number) {
         if (!this.song) return;
         let positionNumber = startPosition;
         let rowNumber = 0;
@@ -148,30 +171,30 @@ export class AudioController extends EventEmitter {
         this.emit('position', positionNumber);
         const frameCallback = () => {
             if (rowFrameNumber === 0) {
-                const patternNumber = this.song.positions[positionNumber];
-                const pattern = this.song.patterns[patternNumber];
+                const patternNumber = this.song!.positions[positionNumber];
+                const pattern = this.song!.patterns[patternNumber];
                 this.readRow(pattern, rowNumber);
                 this.emit('row', rowNumber, pattern);
             }
             rowFrameNumber++;
-            if (rowFrameNumber >= this.song.speed) {
+            if (rowFrameNumber >= this.song!.speed) {
                 rowFrameNumber = 0;
                 rowNumber++;
                 if (rowNumber >= 64) {
                     rowNumber = 0;
-                    positionNumber = (positionNumber + 1) % this.song.length;
+                    positionNumber = (positionNumber + 1) % this.song!.length;
                     this.emit('position', positionNumber);
                 }
             }
             return this.channelStates.map((state) => (
-                state.instrumentCallback ?
-                state.instrumentCallback(state.instrumentFrame++) : null
+                state.instrumentCallback ? state.instrumentCallback(state.instrumentFrame++) : null
             ));
         };
         this.isPlaying = true;
         this.play(frameCallback);
     }
-    setVolume(vol) {
+
+    setVolume(vol: number) {
         this.volume = vol;
         if (this.gainNode) this.gainNode.gain.value = vol;
     }

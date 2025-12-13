@@ -1,20 +1,34 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { NOTES_BY_NUM, MAX_NOTE_NUM } from "../defs";
+import React, { useEffect, useMemo, useState } from 'react';
+import { AudioController } from '../audio/controller';
+import { MAX_NOTE_NUM, NOTES_BY_NUM } from '../defs';
+import { EditorState } from '../models/editor_state';
+import { Pattern } from '../models/pattern';
+import { Song } from '../models/song';
 
-const formatNote = (note) => (note === 0 ? "---" : NOTES_BY_NUM[note].name);
-const formatInstrument = (val) => val.toString(16).toUpperCase();
+const formatNote = (note: number) => (note === 0 ? '---' : NOTES_BY_NUM[note].name);
+const formatInstrument = (val: number) => val.toString(16).toUpperCase();
 
-const noteKeyMap = "-zsxdcvgbhnjmq2w3er5t6y7ui".split("");
-const instrumentKeyMap = "0123456789abcdef".split("");
+const noteKeyMap = '-zsxdcvgbhnjmq2w3er5t6y7ui'.split('');
+const instrumentKeyMap = '0123456789abcdef'.split('');
 
-export const PatternGrid = ({ song, audio, editorState, onSongChange }) => {
-    const pattern = song.patterns[editorState.pattern];
-    const [activeRow, setActiveRow] = useState(null);
-    const cellRefs = useMemo(() => Array.from({ length: 64 }, () => Array(8).fill(null)), []);
+type PatternGridProps = {
+    song: Song;
+    audio: AudioController;
+    editorState: EditorState;
+    onSongChange: (mutator: (song: Song) => void) => void;
+};
+
+export const PatternGrid: React.FC<PatternGridProps> = ({ song, audio, editorState, onSongChange }) => {
+    const pattern: Pattern = song.patterns[editorState.pattern];
+    const [activeRow, setActiveRow] = useState<number | null>(null);
+    const cellRefs = useMemo(
+        () => Array.from({ length: 64 }, () => Array(8).fill(null) as (HTMLTableCellElement | null)[]),
+        [],
+    );
 
     useEffect(() => {
         if (!audio) return undefined;
-        const onRow = (rowNumber, patternPlaying) => {
+        const onRow = (rowNumber: number, patternPlaying: Pattern) => {
             if (patternPlaying === pattern) {
                 setActiveRow(rowNumber);
             } else {
@@ -22,60 +36,60 @@ export const PatternGrid = ({ song, audio, editorState, onSongChange }) => {
             }
         };
         const onStop = () => setActiveRow(null);
-        audio.on("row", onRow);
-        audio.on("stop", onStop);
+        audio.on('row', onRow);
+        audio.on('stop', onStop);
         return () => {
-            audio.removeListener("row", onRow);
-            audio.removeListener("stop", onStop);
+            audio.removeListener('row', onRow);
+            audio.removeListener('stop', onStop);
         };
     }, [audio, pattern]);
 
-    const setRowValue = (channelIndex, rowIndex, field, value) => {
+    const setRowValue = (channelIndex: number, rowIndex: number, field: 'note' | 'instrument', value: number) => {
         onSongChange((s) => {
             s.patterns[editorState.pattern].channels[channelIndex].setRow(rowIndex, field, value);
         });
     };
 
-    const playRow = (rowIndex) => {
+    const playRow = (rowIndex: number) => {
         audio.playRow(pattern, rowIndex);
     };
 
     const stopRow = () => audio.stop();
 
-    const handleNoteKey = (channelIndex, rowIndex, key) => {
+    const handleNoteKey = (channelIndex: number, rowIndex: number, key: string) => {
         const idx = noteKeyMap.indexOf(key);
         if (idx === -1) return;
         const noteVal = idx + (editorState.octave - 1) * 12;
         if (noteVal > MAX_NOTE_NUM) return;
-        setRowValue(channelIndex, rowIndex, "note", noteVal);
+        setRowValue(channelIndex, rowIndex, 'note', noteVal);
         if (!audio.isPlaying) playRow(rowIndex);
     };
 
-    const handleInstrumentKey = (channelIndex, rowIndex, key) => {
+    const handleInstrumentKey = (channelIndex: number, rowIndex: number, key: string) => {
         const idx = instrumentKeyMap.indexOf(key);
         if (idx === -1) return;
-        setRowValue(channelIndex, rowIndex, "instrument", idx);
+        setRowValue(channelIndex, rowIndex, 'instrument', idx);
         if (!audio.isPlaying) playRow(rowIndex);
     };
 
-    const focusCell = (row, col) => {
+    const focusCell = (row: number, col: number) => {
         const target = cellRefs[row]?.[col];
         if (target) target.focus();
     };
 
-    const handleArrowNav = (row, col, key) => {
+    const handleArrowNav = (row: number, col: number, key: string) => {
         const rowCount = 64;
         const colCount = 8;
-        if (key === "ArrowUp") return [((row + rowCount - 1) % rowCount), col];
-        if (key === "ArrowDown") return [((row + 1) % rowCount), col];
-        if (key === "ArrowLeft") return [row, ((col + colCount - 1) % colCount)];
-        if (key === "ArrowRight") return [row, ((col + 1) % colCount)];
-        if (key === "PageUp") return [0, col];
-        if (key === "PageDown") return [rowCount - 1, col];
+        if (key === 'ArrowUp') return [(row + rowCount - 1) % rowCount, col] as const;
+        if (key === 'ArrowDown') return [(row + 1) % rowCount, col] as const;
+        if (key === 'ArrowLeft') return [row, (col + colCount - 1) % colCount] as const;
+        if (key === 'ArrowRight') return [row, (col + 1) % colCount] as const;
+        if (key === 'PageUp') return [0, col] as const;
+        if (key === 'PageDown') return [rowCount - 1, col] as const;
         return null;
     };
 
-    const onCellKeyDown = (row, col, e) => {
+    const onCellKeyDown = (row: number, col: number, e: React.KeyboardEvent<HTMLTableCellElement>) => {
         const navTarget = handleArrowNav(row, col, e.key);
         if (navTarget) {
             focusCell(navTarget[0], navTarget[1]);
@@ -89,8 +103,8 @@ export const PatternGrid = ({ song, audio, editorState, onSongChange }) => {
             handleNoteKey(channelIndex, row, e.key);
         } else if (channelColumn === 1 && instrumentKeyMap.includes(e.key) && !e.repeat) {
             handleInstrumentKey(channelIndex, row, e.key);
-        } else if (e.key === "0" && channelColumn === 0 && !e.repeat) {
-            setRowValue(channelIndex, row, "note", 0);
+        } else if (e.key === '0' && channelColumn === 0 && !e.repeat) {
+            setRowValue(channelIndex, row, 'note', 0);
         }
     };
 
@@ -113,7 +127,7 @@ export const PatternGrid = ({ song, audio, editorState, onSongChange }) => {
             </thead>
             <tbody>
                 {pattern.channels[0].rows.map((_, rowIndex) => (
-                    <tr key={rowIndex} className={activeRow === rowIndex ? "active-row" : ""}>
+                    <tr key={rowIndex} className={activeRow === rowIndex ? 'active-row' : ''}>
                         <td className="row-number">{rowIndex}</td>
                         {pattern.channels.map((channel, channelIndex) => {
                             const row = channel.rows[rowIndex];
