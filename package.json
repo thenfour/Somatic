@@ -2,7 +2,7 @@
   "name": "chromatic",
   "version": "1.0.0",
   "description": "a playground for creating samples for TIC-80 music",
-  "main": "index.js",
+  "main": "src/index.tsx",
   "scripts": {
     "build": "webpack",
     "watch": "webpack --watch",

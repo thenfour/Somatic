@@ -8,7 +8,7 @@ const MiniCssExtractPlugin = require("mini-css-extract-plugin")
 module.exports = {
 
   // Path to your entry point. From this file Webpack will begin its work
-  entry: './src/index.js',
+  entry: './src/index.tsx',
 
   // Path and filename of your result bundle.
   // Webpack will bundle all JavaScript into this file
