@@ -34,39 +34,36 @@
 
     /* Theme tokens (light default) */
     --bg: var(--tic-7);
-    --panel: #f7efe4;
-    --panel-strong: #ece1d6;
+    --panel: var(--tic-12);
+    --panel-strong: var(--tic-13);
     --text: var(--tic-1);
-    --muted: var(--tic-5);
-    --border: #d2c6b8;
-    --border-strong: #b7a897;
-    --accent: var(--tic-12);
-    --accent-strong: var(--tic-8);
-    --row-a: rgba(255, 204, 170, 0.35);
-    /* tic-15 */
-    --row-b: rgba(41, 173, 255, 0.18);
-    /* tic-12 */
-    --row-active: rgba(0, 228, 54, 0.35);
-    /* tic-11 */
-    --tooltip-bg: #1d2b53ee;
-    --tooltip-text: var(--tic-7);
+    --muted: var(--tic-14);
+    --border: var(--tic-14);
+    --border-strong: var(--tic-15);
+    --accent: var(--tic-10);
+    --accent-strong: var(--tic-11);
+    --row-a: color-mix(in srgb, var(--tic-3) 35%, transparent);
+    --row-b: color-mix(in srgb, var(--tic-10) 18%, transparent);
+    --row-active: color-mix(in srgb, var(--tic-6) 35%, transparent);
+    --tooltip-bg: color-mix(in srgb, var(--tic-8) 90%, transparent);
+    --tooltip-text: var(--tic-12);
 }
 
 .theme-dark {
     --bg: var(--tic-1);
-    --panel: #1b1c2a;
-    --panel-strong: #23243a;
-    --text: var(--tic-7);
-    --muted: #9aa1b5;
-    --border: #2f3250;
-    --border-strong: #3f4568;
-    --accent: var(--tic-12);
-    --accent-strong: var(--tic-8);
-    --row-a: rgba(255, 204, 170, 0.2);
-    --row-b: rgba(41, 173, 255, 0.12);
-    --row-active: rgba(0, 228, 54, 0.28);
-    --tooltip-bg: #0f1020ee;
-    --tooltip-text: var(--tic-7);
+    --panel: var(--tic-8);
+    --panel-strong: var(--tic-7);
+    --text: var(--tic-12);
+    --muted: var(--tic-13);
+    --border: var(--tic-15);
+    --border-strong: var(--tic-14);
+    --accent: var(--tic-10);
+    --accent-strong: var(--tic-11);
+    --row-a: color-mix(in srgb, var(--tic-3) 20%, transparent);
+    --row-b: color-mix(in srgb, var(--tic-10) 12%, transparent);
+    --row-active: color-mix(in srgb, var(--tic-6) 28%, transparent);
+    --tooltip-bg: color-mix(in srgb, var(--tic-0) 90%, transparent);
+    --tooltip-text: var(--tic-12);
 }
 
 html,
@@ -270,20 +267,20 @@ input {
     height: 100px;
     width: 32px;
     z-index: 0;
-    background-color: white;
-    color: black;
+    background-color: var(--panel);
+    color: var(--text);
 }
 
 .key.black {
     height: 50px;
     width: 28px;
     z-index: 1;
-    background-color: black;
-    color: white;
+    background-color: var(--border-strong);
+    color: var(--accent);
 }
 
 .key.active {
-    background-color: gray;
+    background-color: var(--accent);
 }
 
 .output {
@@ -291,6 +288,7 @@ input {
     width: 400px;
 }
 
+/* output buttons inherit theme colors */
 .output button {
     display: block;
     margin: 10px 0;
@@ -348,7 +346,7 @@ input {
 
 .pattern-grid td:focus {
     outline: 1px solid var(--border-strong);
-    background-color: rgba(255, 236, 39, 0.55);
+    background-color: color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .pattern-grid .row-number {
@@ -364,8 +362,8 @@ input {
 }
 
 .position-list button {
-    background-color: white;
-    border: 1px solid #ccc;
+    background-color: var(--panel);
+    border: 1px solid var(--border);
     display: inline-block;
     font-family: var(--ff-mono);
     padding: 4px 4px;
@@ -373,21 +371,21 @@ input {
 }
 
 .position-list button.selected-position {
-    background-color: #dddd88;
+    background-color: var(--accent);
 }
 
 .position-list button.selected-position:focus {
-    background-color: #ffff88;
+    background-color: var(--accent-strong);
 }
 
 .position-list button.playing-position {
-    background-color: #88dd88 !important;
+    background-color: var(--row-active) !important;
     /* takes precedence over selected-position */
 }
 
 .position-list button.disabled {
-    color: #ccc;
-    background-color: #ddd;
+    color: var(--muted);
+    background-color: var(--panel-strong);
 }
 
 .main-editor-area {
