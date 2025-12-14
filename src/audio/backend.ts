@@ -11,7 +11,8 @@ export type BackendEmitters = {
 export interface AudioBackend {
     setSong(song: Song | null): void | Promise<void>;
     setVolume(vol: number): void | Promise<void>;
-    playInstrument(instrument: Tic80Instrument, note: number): void | Promise<void>;
+    sfxNoteOn(instrument: Tic80Instrument, note: number, channel: number): void | Promise<void>;
+    sfxNoteOff(channel: number): void | Promise<void>;
     playRow(pattern: Pattern, rowNumber: number): void | Promise<void>;
     playPattern(pattern: Pattern): void | Promise<void>;
     playSong(startPosition: number): void | Promise<void>;

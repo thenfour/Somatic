@@ -56,7 +56,8 @@ const TIC = {
     CMD_PING: 3,
     CMD_BEGIN_UPLOAD: 4,
     CMD_END_UPLOAD: 5,
-    CMD_PLAY_SFX: 6,
+    CMD_PLAY_SFX_ON: 6,
+    CMD_PLAY_SFX_OFF: 7,
 } as const;
 
 export type Tic80BridgeHandle = {
@@ -101,7 +102,8 @@ export type Tic80BridgeHandle = {
 
 export type Tic80BridgeTransaction = {
     uploadSongData: (data: Uint8Array) => Promise<void>;
-    playSfx: (opts: { sfxId: number; note: number }) => Promise<void>;
+    playSfx: (opts: { sfxId: number; note: number; channel: number; }) => Promise<void>;
+    stopSfx: (opts: { channel: number; }) => Promise<void>;
     play: (opts?: {
         track?: number;
         frame?: number;
@@ -442,10 +444,20 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             await sendMailboxCommandRaw([TIC.CMD_END_UPLOAD], "End song Upload");
         }
 
-        async function playSfxRaw(opts: { sfxId: number; note: number }) {
+        async function playSfxRaw(opts: { sfxId: number; note: number; channel: number; }) {
+            const channel = opts.channel ?? 0;
             const sfxId = opts.sfxId & 0xff;
             const note = opts.note & 0xff;
-            await sendMailboxCommandRaw([TIC.CMD_PLAY_SFX, sfxId, note], "Play SFX");
+            const cmd = TIC.CMD_PLAY_SFX_ON;
+            await sendMailboxCommandRaw([cmd, sfxId, note, channel & 0xff], "Play SFX");
+        }
+
+        async function stopSfxRaw(opts: { channel: number; }) {
+            const channel = opts.channel ?? 0;
+            const sfxId = 0;
+            const note = 0;
+            const cmd = TIC.CMD_PLAY_SFX_OFF;
+            await sendMailboxCommandRaw([cmd, sfxId, note, channel & 0xff], "Stop SFX");
         }
 
         function writeMailboxBytes(bytes: number[], token?: number) {
@@ -559,6 +571,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         const transactionApi: Tic80BridgeTransaction = {
             uploadSongData: uploadSongDataRaw,
             playSfx: playSfxRaw,
+            stopSfx: stopSfxRaw,
             play: playRaw,
             stop: stopRaw,
             ping: pingRaw,

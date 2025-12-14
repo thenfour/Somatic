@@ -201,7 +201,8 @@ local CMD_STOP = 2
 local CMD_PING = 3
 local CMD_BEGIN_UPLOAD = 4
 local CMD_END_UPLOAD = 5
-local CMD_PLAY_SFX = 6
+local CMD_PLAY_SFX_ON = 6
+local CMD_PLAY_SFX_OFF = 7
 
 local function set_playing(track, playing)
 	isPlaying = playing
@@ -282,25 +283,31 @@ local function handle_ping_fx()
 	log("PING/FX")
 end
 
-local function handle_play_sfx()
+local function handle_play_sfx_on()
 	local sfx_id = peek(INBOX.TRACK)
 	local note = peek(INBOX.FRAME)
+	local channel = peek(INBOX.ROW) & 0x03
 	-- Clamp to valid ranges for TIC sfx API
-	if sfx_id > 63 then
-		sfx_id = 63
-	end
 	if note > 95 then
 		note = 95
 	end
-	-- id (-1 = stop playing channel)
-	-- note
-	-- duration 30 frames (-1 = continuous until stop)
-	-- channel 0
-	-- volume 15
-	-- speed 0
-	sfx(sfx_id, note, 30, 0, 15, 0)
-	publish_cmd(CMD_PLAY_SFX, 0)
-	log(string.format("PLAY_SFX id=%d note=%d", sfx_id, note))
+
+	if sfx_id > 63 then
+		sfx_id = 63
+	end
+
+	-- id, note, duration (-1 = sustained), channel 0..3, volume 15, speed 0
+	sfx(sfx_id, note, -1, channel, 15, 0)
+	publish_cmd(CMD_PLAY_SFX_ON, 0)
+	log(string.format("PLAY_SFX_ON id=%d note=%d ch=%d", sfx_id, note, channel))
+end
+
+local function handle_play_sfx_off()
+	local channel = peek(INBOX.ROW) & 0x03
+	-- id, note, duration (-1 = sustained), channel 0..3, volume 15, speed 0
+	sfx(-1, 0, 0, channel, 0, 0)
+	publish_cmd(CMD_PLAY_SFX_OFF, 0)
+	log(string.format("PLAY_SFX_OFF ch=%d", channel))
 end
 
 local function handle_begin_upload()
@@ -344,8 +351,10 @@ local function poll_inbox()
 		handle_begin_upload()
 	elseif cmd == CMD_END_UPLOAD then
 		handle_end_upload()
-	elseif cmd == CMD_PLAY_SFX then
-		handle_play_sfx()
+	elseif cmd == CMD_PLAY_SFX_ON then
+		handle_play_sfx_on()
+	elseif cmd == CMD_PLAY_SFX_OFF then
+		handle_play_sfx_off()
 	else
 		publish_cmd(cmd, 1)
 		log("UNKNOWN CMD " .. tostring(cmd))

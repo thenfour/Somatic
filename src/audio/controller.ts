@@ -43,8 +43,12 @@ export class AudioController {
         this.isPlaying = false;
     }
 
-    playInstrument(instrument: Tic80Instrument, note: number) {
-        this.backend.playInstrument(instrument, note);
+    sfxNoteOn(instrument: Tic80Instrument, note: number, channel: number) {
+        this.backend.sfxNoteOn(instrument, note, channel);
+    }
+
+    sfxNoteOff(channel: number) {
+        this.backend.sfxNoteOff(channel);
     }
 
     readRow(pattern: Pattern, rowNumber: number) {

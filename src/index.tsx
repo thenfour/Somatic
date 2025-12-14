@@ -131,6 +131,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 
         let offDevices: (() => void) | null = null;
         let offNoteOn: (() => void) | null = null;
+        let offNoteOff: (() => void) | null = null;
 
         midi.init().then(() => {
             setMidiStatus(midi.getStatus());
@@ -154,8 +155,9 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 const s = noteRef.song;
                 const instIdx = Math.max(1, Math.min(s.instruments.length - 1, noteRef.inst || 1));
                 const instrument = s.instruments[instIdx];
+                const channel = Math.max(0, Math.min(3, noteRef.editChannel || 0));
                 if (instrument) {
-                    audio.playInstrument(instrument, evt.note);
+                    audio.sfxNoteOn(instrument, evt.note, channel);
                 }
 
                 if (noteRef.editingEnabled) {
@@ -172,11 +174,17 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     });
                 }
             });
+
+            offNoteOff = midi.onNoteOff((evt) => {
+                const channel = Math.max(0, Math.min(3, noteRef.editChannel || 0));
+                audio.sfxNoteOff(channel);
+            });
         });
 
         return () => {
             offDevices?.();
             offNoteOn?.();
+            offNoteOff?.();
         };
     }, [audio, editorState.currentInstrument, song]);
 
@@ -185,13 +193,15 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         const s = song;
         const instIdx = Math.max(1, Math.min(s.instruments.length - 1, editorState.currentInstrument || 1));
         const instrument = s.instruments[instIdx];
+        const channel = Math.max(0, Math.min(3, editorState.patternEditChannel || 0));
         if (instrument) {
-            audio.playInstrument(instrument, midiNote);
+            audio.sfxNoteOn(instrument, midiNote, channel);
         }
     };
 
-    const handleNoteOff = (midiNote: number) => {
-        // currently no note off handling
+    const handleNoteOff = (_midiNote: number) => {
+        const channel = Math.max(0, Math.min(3, editorState.patternEditChannel || 0));
+        audio.sfxNoteOff(channel);
     };
 
     const updateSong = (mutator: SongMutator) => {

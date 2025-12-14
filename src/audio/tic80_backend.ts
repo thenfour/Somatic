@@ -35,7 +35,7 @@ export class Tic80Backend implements AudioBackend {
         // TODO: route to cart when mixer control exists
     }
 
-    async playInstrument(instrument: Tic80Instrument, note: number) {
+    async sfxNoteOn(instrument: Tic80Instrument, note: number, channel: number) {
         const b = this.bridge();
         if (!b || !b.isReady()) return;
 
@@ -44,9 +44,22 @@ export class Tic80Backend implements AudioBackend {
 
             const sfxId = this.findInstrumentIndex(instrument);
             const clampedNote = Math.max(0, Math.min(95, Math.round(note)));
+            const ch = Math.max(0, Math.min(3, Math.round(channel)));
 
-            await tx.playSfx({ sfxId, note: clampedNote }).catch((err) => {
-                console.warn('[Tic80Backend] playInstrument failed', err);
+            await tx.playSfx({ sfxId, note: clampedNote, channel: ch }).catch((err) => {
+                console.warn('[Tic80Backend] sfxNoteOn failed', err);
+            });
+        });
+    }
+
+    async sfxNoteOff(channel: number) {
+        const b = this.bridge();
+        if (!b || !b.isReady()) return;
+
+        await b.invokeExclusive(async (tx) => {
+            const ch = Math.max(0, Math.min(3, Math.round(channel)));
+            await tx.stopSfx({ channel: ch }).catch((err) => {
+                console.warn('[Tic80Backend] sfxNoteOff failed', err);
             });
         });
     }

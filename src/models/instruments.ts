@@ -18,7 +18,7 @@ import { clamp } from "../utils/utils";
 // u8 temp:2;
 
 
-const SFX_FRAME_COUNT = 30;
+export const SFX_FRAME_COUNT = 30;
 
 export interface Tic80InstrumentFields {
     name: string;
@@ -39,6 +39,7 @@ export interface Tic80InstrumentFields {
     arpeggioLoopStart: number; // 0-29
     arpeggioLoopLength: number; // 0-29
     arpeggioDown: boolean;
+    arpeggioReverse: boolean;
 
     // waveform id frames
     waveFrames: Uint8Array;
@@ -73,6 +74,7 @@ export class Tic80Instrument implements Tic80InstrumentFields
     arpeggioLoopStart: number; // 0-29
     arpeggioLoopLength: number; // 0-29
     arpeggioDown: boolean;
+    arpeggioReverse: boolean;
 
     // waveform id frames
     waveFrames: Uint8Array;
@@ -103,6 +105,7 @@ export class Tic80Instrument implements Tic80InstrumentFields
         this.arpeggioLoopStart = clamp(data.arpeggioLoopStart ?? 0, 0, SFX_FRAME_COUNT - 1);
         this.arpeggioLoopLength = clamp(data.arpeggioLoopLength ?? 0, 0, SFX_FRAME_COUNT - 1);
         this.arpeggioDown = Boolean(data.arpeggioDown);
+        this.arpeggioReverse = Boolean((data as any).arpeggioReverse);
 
         this.waveFrames = data.waveFrames ? new Uint8Array(data.waveFrames) : new Uint8Array(SFX_FRAME_COUNT);
         this.waveLoopStart = clamp(data.waveLoopStart ?? 0, 0, SFX_FRAME_COUNT - 1);
@@ -114,7 +117,7 @@ export class Tic80Instrument implements Tic80InstrumentFields
         this.pitch16x = Boolean(data.pitch16x);
     }
 
-    static fromData(data?: Partial<Tic80InstrumentFields>): Tic80InstrumentFields {
+    static fromData(data?: Partial<Tic80InstrumentFields>): Tic80Instrument {
         return new Tic80Instrument(data || {});
     }
 
@@ -134,6 +137,7 @@ export class Tic80Instrument implements Tic80InstrumentFields
             arpeggioLoopStart: this.arpeggioLoopStart,
             arpeggioLoopLength: this.arpeggioLoopLength,
             arpeggioDown: this.arpeggioDown,
+            arpeggioReverse: this.arpeggioReverse,
             waveFrames: new Uint8Array(this.waveFrames),
             waveLoopStart: this.waveLoopStart,
             waveLoopLength: this.waveLoopLength,
