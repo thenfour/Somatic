@@ -15,16 +15,18 @@ type PatternGridProps = {
     song: Song;
     audio: AudioController;
     editorState: EditorState;
+    onEditorStateChange: (mutator: (state: EditorState) => void) => void;
     onSongChange: (mutator: (song: Song) => void) => void;
 };
 
-export const PatternGrid: React.FC<PatternGridProps> = ({ song, audio, editorState, onSongChange }) => {
+export const PatternGrid: React.FC<PatternGridProps> = ({ song, audio, editorState, onEditorStateChange, onSongChange }) => {
     const pattern: Pattern = song.patterns[editorState.pattern];
     const [activeRow, setActiveRow] = useState<number | null>(null);
     const cellRefs = useMemo(
         () => Array.from({ length: 64 }, () => Array(8).fill(null) as (HTMLTableCellElement | null)[]),
         [],
     );
+    const editingEnabled = editorState.editingEnabled !== false;
 
     useEffect(() => {
         if (!audio) return undefined;
@@ -78,6 +80,11 @@ export const PatternGrid: React.FC<PatternGridProps> = ({ song, audio, editorSta
         if (target) target.focus();
     };
 
+    const updateEditTarget = (row: number, col: number) => {
+        const channelIndex = Math.floor(col / 2);
+        onEditorStateChange((s) => s.setPatternEditTarget(row, channelIndex));
+    };
+
     const handleArrowNav = (row: number, col: number, key: string) => {
         const rowCount = 64;
         const colCount = 8;
@@ -98,6 +105,10 @@ export const PatternGrid: React.FC<PatternGridProps> = ({ song, audio, editorSta
             return;
         }
 
+        updateEditTarget(row, col);
+
+        if (!editingEnabled) return;
+
         const channelIndex = Math.floor(col / 2);
         const channelColumn = col % 2;
         if (channelColumn === 0 && noteKeyMap.includes(e.key) && !e.repeat) {
@@ -114,7 +125,13 @@ export const PatternGrid: React.FC<PatternGridProps> = ({ song, audio, editorSta
     };
 
     return (
-        <div className="pattern-grid-container">
+        <div className={`pattern-grid-container${editingEnabled ? '' : ' pattern-grid-container--locked'}`}>
+            {!editingEnabled && (
+                <div className="edit-locked-banner" role="status" aria-label="Editing disabled">
+                    <span className="edit-locked-banner__dot" aria-hidden="true" />
+                    <span className="edit-locked-banner__text">Edit mode is off</span>
+                </div>
+            )}
             <table className="pattern-grid">
                 <colgroup>
                     <col />
@@ -152,6 +169,7 @@ export const PatternGrid: React.FC<PatternGridProps> = ({ song, audio, editorSta
                                                 className={noteClass}
                                                 onKeyDown={(e) => onCellKeyDown(rowIndex, noteCol, e)}
                                                 onKeyUp={onCellKeyUp}
+                                                onFocus={() => updateEditTarget(rowIndex, noteCol)}
                                             >
                                                 {noteText}
                                             </td>
@@ -161,6 +179,7 @@ export const PatternGrid: React.FC<PatternGridProps> = ({ song, audio, editorSta
                                                 className={instClass}
                                                 onKeyDown={(e) => onCellKeyDown(rowIndex, instCol, e)}
                                                 onKeyUp={onCellKeyUp}
+                                                onFocus={() => updateEditTarget(rowIndex, instCol)}
                                             >
                                                 {instText}
                                             </td>

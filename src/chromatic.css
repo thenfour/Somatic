@@ -168,6 +168,42 @@ option {
     gap: 8px;
 }
 
+.edit-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--panel-strong);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.edit-toggle__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--muted);
+    box-shadow: 0 0 0 1px var(--border);
+}
+
+.edit-toggle--on .edit-toggle__dot {
+    background: var(--tic-6);
+}
+
+.edit-toggle--off .edit-toggle__dot {
+    background: var(--tic-3);
+}
+
+.edit-toggle--on {
+    background: color-mix(in srgb, var(--tic-6) 25%, var(--panel-strong));
+}
+
+.edit-toggle--off {
+    background: color-mix(in srgb, var(--tic-3) 15%, var(--panel-strong));
+}
+
 .midi-indicator {
     display: inline-flex;
     align-items: center;
@@ -451,6 +487,35 @@ option {
     flex-grow: 1;
     /* for comfort */
     padding-bottom: 50vh;
+    position: relative;
+}
+
+.pattern-grid-container--locked {
+    filter: grayscale(0.25);
+}
+
+.edit-locked-banner {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--tic-3) 35%, var(--panel));
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.edit-locked-banner__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--tic-3);
+    box-shadow: 0 0 0 1px var(--border-strong);
 }
 
 .tic80-frame {

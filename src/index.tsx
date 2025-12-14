@@ -52,6 +52,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         ? `${midiIndicatorLabel}: ${connectedMidiInputs} input${connectedMidiInputs === 1 ? '' : 's'} connected`
         : midiIndicatorLabel;
 
+    const toggleEditingEnabled = () => updateEditorState((s) => s.setEditingEnabled(!s.editingEnabled));
+
     useEffect(() => {
         audio.setSong(song);
     }, [audio, song]);
@@ -83,6 +85,10 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             const noteRef = {
                 get song() { return song; },
                 get inst() { return editorState.currentInstrument; },
+                get patternIndex() { return editorState.pattern; },
+                get editRow() { return editorState.patternEditRow; },
+                get editChannel() { return editorState.patternEditChannel; },
+                get editingEnabled() { return editorState.editingEnabled !== false; },
             };
 
             offNoteOn = midi.onNoteOn((evt) => {
@@ -91,6 +97,20 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 const instrument = s.instruments[instIdx];
                 if (instrument) {
                     audio.playInstrument(instrument, evt.note);
+                }
+
+                if (noteRef.editingEnabled) {
+                    setSong((prev) => {
+                        const next = prev.clone();
+                        const pat = next.patterns[noteRef.patternIndex];
+                        const channel = pat?.channels[noteRef.editChannel];
+                        if (pat && channel) {
+                            const row = Math.max(0, Math.min(channel.rows.length - 1, noteRef.editRow));
+                            channel.setRow(row, 'note', evt.note);
+                            channel.setRow(row, 'instrument', instIdx);
+                        }
+                        return next;
+                    });
                 }
             });
         });
@@ -226,6 +246,15 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                         <button className={transportState === 'play-all' ? 'active' : undefined} onClick={onPlayAll}><span className="icon" aria-hidden="true">🎵</span>Play All</button>
                     </div>
                     <div className="right-controls">
+                        <button
+                            className={`edit-toggle ${editorState.editingEnabled ? 'edit-toggle--on' : 'edit-toggle--off'}`}
+                            onClick={toggleEditingEnabled}
+                            aria-pressed={editorState.editingEnabled}
+                            aria-label={editorState.editingEnabled ? 'Disable editing in pattern editor' : 'Enable editing in pattern editor'}
+                        >
+                            <span className="edit-toggle__dot" aria-hidden="true" />
+                            <span className="edit-toggle__label">{editorState.editingEnabled ? 'Edit mode: On' : 'Edit mode: Off'}</span>
+                        </button>
                         <div
                             className={`midi-indicator midi-indicator--${midiIndicatorState}`}
                             title={midiIndicatorTitle}
@@ -261,7 +290,13 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 />
             </div>
             <div className="main-editor-area">
-                <PatternGrid song={song} audio={audio} editorState={editorState} onSongChange={updateSong} />
+                <PatternGrid
+                    song={song}
+                    audio={audio}
+                    editorState={editorState}
+                    onEditorStateChange={updateEditorState}
+                    onSongChange={updateSong}
+                />
                 {instrumentPanelOpen && (
                     <InstrumentPanel
                         song={song}
