@@ -28,11 +28,15 @@ export const Keyboard: React.FC<KeyboardProps> = ({ onNoteOn, onNoteOff }) => {
     });
 
     const handleNoteOn = (midi: number) => {
+        // avoid retriggering if already active
+        if (activeNotes.has(midi)) return;
         setActiveNotes((prev) => new Set(prev).add(midi));
         onNoteOn(midi);
     };
 
     const handleNoteOff = (midi: number) => {
+        // avoid triggering if not active
+        if (!activeNotes.has(midi)) return;
         setActiveNotes((prev) => {
             const next = new Set(prev);
             next.delete(midi);
