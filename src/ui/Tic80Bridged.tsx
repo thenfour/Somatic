@@ -543,14 +543,13 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         );
 
         return (<>
-            <button onClick={() => pollingCancelledRef.current = true}>cancel</button>
-            <button onClick={() => {
-                ping();
-            }}>ping</button>
             <Tic80Iframe
                 ref={iframeRef}
                 args={["/bridge.tic"]}
             />
+            <button onClick={() => {
+                ping();
+            }}>ping</button>
         </>
         );
     }
