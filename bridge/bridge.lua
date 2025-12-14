@@ -13,10 +13,12 @@ local OUTBOX_ADDR = 0x14E80
 -- The cart only reads when BUSY=0 and SEQ has changed.
 local INBOX_MUTEX_ADDR = INBOX_ADDR + 12 -- non-zero while host is writing
 local INBOX_SEQ_ADDR = INBOX_ADDR + 13 -- increments per host write
+local INBOX_TOKEN_ADDR = INBOX_ADDR + 14 -- host increments per command; echoed back on completion
 
 -- Cart->host synchronization registers (mirrors the above for OUTBOX)
 local OUTBOX_MUTEX_ADDR = OUTBOX_ADDR + 12 -- non-zero while cart is writing a log
 local OUTBOX_SEQ_ADDR = OUTBOX_ADDR + 13 -- increments per log write
+local OUTBOX_TOKEN_ADDR = OUTBOX_ADDR + 14 -- cart echoes host token when finishing a cmd
 
 local MARKER = "CHROMATIC_TIC80_V1" -- 17 bytes; host scans for this at MARKER_ADDR
 
@@ -96,6 +98,7 @@ local function out_init()
 	out_set(OUTBOX_ADDR + 8, 0) -- logDroppedCount
 	out_set(OUTBOX_MUTEX_ADDR, 0)
 	out_set(OUTBOX_SEQ_ADDR, 0)
+	out_set(OUTBOX_TOKEN_ADDR, 0)
 end
 
 local function log_drop()
@@ -188,6 +191,7 @@ local function publish_cmd(cmd, result)
 	lastCmdResult = result or 0
 	out_set(OUTBOX_ADDR + 5, lastCmd & 0xFF)
 	out_set(OUTBOX_ADDR + 6, lastCmdResult & 0xFF)
+	out_set(OUTBOX_TOKEN_ADDR, peek(INBOX_TOKEN_ADDR))
 end
 
 -- =========================

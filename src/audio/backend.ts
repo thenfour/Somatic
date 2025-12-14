@@ -10,13 +10,13 @@ export type BackendEmitters = {
 };
 
 export interface AudioBackend {
-    setSong(song: Song | null): void;
-    setVolume(vol: number): void;
-    playInstrument(instrument: Wave, frequency: number): void;
-    playRow(pattern: Pattern, rowNumber: number): void;
-    playPattern(pattern: Pattern): void;
-    playSong(startPosition: number): void;
-    stop(): void;
+    setSong(song: Song | null): void | Promise<void>;
+    setVolume(vol: number): void | Promise<void>;
+    playInstrument(instrument: Wave, frequency: number): void | Promise<void>;
+    playRow(pattern: Pattern, rowNumber: number): void | Promise<void>;
+    playPattern(pattern: Pattern): void | Promise<void>;
+    playSong(startPosition: number): void | Promise<void>;
+    stop(): void | Promise<void>;
 }
 
 export interface BackendContext {

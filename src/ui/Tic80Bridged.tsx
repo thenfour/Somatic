@@ -22,8 +22,10 @@ const TIC = {
     OUTBOX_ADDR: 0x14e80,
     MAILBOX_MUTEX_ADDR: 0x14e40 + 12,
     MAILBOX_SEQ_ADDR: 0x14e40 + 13,
+    MAILBOX_TOKEN_ADDR: 0x14e40 + 14,
     OUTBOX_MUTEX_ADDR: 0x14e80 + 12,
     OUTBOX_SEQ_ADDR: 0x14e80 + 13,
+    OUTBOX_TOKEN_ADDR: 0x14e80 + 14,
     LOG_WRITE_PTR_ADDR: 0x14e80 + 7,
     LOG_BASE: 0x14e80 + 16,
     LOG_SIZE: 240,
@@ -62,10 +64,10 @@ export type Tic80BridgeHandle = {
         sustain?: boolean;
         tempo?: number; // 0 = default
         speed?: number; // 0 = default
-    }) => void;
+    }) => Promise<void>;
 
-    stop: () => void;
-    ping: () => void;
+    stop: () => Promise<void>;
+    ping: () => Promise<void>;
 };
 
 export type Tic80BridgeProps = {
@@ -112,6 +114,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         const mailboxSeqRef = useRef<number>(0);
         const outboxSeqRef = useRef<number>(0);
         const hostLogReadPtrRef = useRef<number>(0);
+        const cmdTokenRef = useRef<number>(0);
 
         const [ready, setReady] = useState(false);
 
@@ -227,7 +230,8 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             // send ACK command to let the cart know we're ready
 
             // send acknowledgement command to confirm.
-            poke8(TIC.MAILBOX_ADDR + 0, TIC.CMD_PING);
+            // fire-and-forget ACK; ignore promise
+            sendMailboxCommand([TIC.CMD_PING]).catch((e) => log("ack failed", e));
 
             // Initialize OUTBOX read pointer/seq to current cart state so we only read new logs.
             try {
@@ -334,11 +338,12 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             return heapRef.current!.slice(start, start + length);
         }
 
-        function writeMailboxBytes(bytes: number[]) {
+        function writeMailboxBytes(bytes: number[], token?: number) {
             assertReady();
             const mb = TIC.MAILBOX_ADDR;
             const mutex = TIC.MAILBOX_MUTEX_ADDR;
             const seqAddr = TIC.MAILBOX_SEQ_ADDR;
+            const tokenAddr = TIC.MAILBOX_TOKEN_ADDR;
 
             // Signal busy to cart while we write the payload.
             poke8(mutex, 1);
@@ -349,6 +354,10 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                 poke8(mb + i, bytes[i] ?? 0);
             }
 
+            if (typeof token === "number") {
+                poke8(tokenAddr, token & 0xff);
+            }
+
             // Bump sequence after payload so cart can detect a complete write.
             mailboxSeqRef.current = (mailboxSeqRef.current + 1) & 0xff;
             poke8(seqAddr, mailboxSeqRef.current);
@@ -357,7 +366,40 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             poke8(mutex, 0);
         }
 
-        function play(opts?: {
+        async function sendMailboxCommand(bytes: number[]): Promise<void> {
+            assertReady();
+            const token = (cmdTokenRef.current = (cmdTokenRef.current + 1) & 0xff);
+            writeMailboxBytes(bytes, token);
+
+            const start = performance.now();
+            const timeoutMs = 2000;
+
+            return new Promise<void>((resolve, reject) => {
+                const poll = () => {
+                    try {
+                        if (peek8(TIC.OUTBOX_MUTEX_ADDR) !== 0) {
+                            requestAnimationFrame(poll);
+                            return;
+                        }
+                        const seenToken = peek8(TIC.OUTBOX_TOKEN_ADDR);
+                        if (seenToken === token) {
+                            resolve();
+                            return;
+                        }
+                        if (performance.now() - start > timeoutMs) {
+                            reject(new Error("TIC-80 command timed out"));
+                            return;
+                        }
+                        requestAnimationFrame(poll);
+                    } catch (err) {
+                        reject(err as Error);
+                    }
+                };
+                poll();
+            });
+        }
+
+        async function play(opts?: {
             track?: number;
             frame?: number;
             row?: number;
@@ -378,7 +420,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
 
             // Mailbox layout from the Lua:
             // 0 cmd, 1 track, 2 frame, 3 row, 4 loop, 5 sustain, 6 tempo, 7 speed
-            writeMailboxBytes([
+            await sendMailboxCommand([
                 TIC.CMD_PLAY,
                 track & 0xff,
                 frame & 0xff,
@@ -390,14 +432,14 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             ]);
         }
 
-        function stop() {
+        async function stop() {
             log("stop() request");
-            writeMailboxBytes([TIC.CMD_STOP]);
+            await sendMailboxCommand([TIC.CMD_STOP]);
         }
 
-        function ping() {
+        async function ping() {
             log("ping()");
-            writeMailboxBytes([TIC.CMD_PING]);
+            await sendMailboxCommand([TIC.CMD_PING]);
         }
 
         useImperativeHandle(

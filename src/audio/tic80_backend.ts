@@ -36,24 +36,24 @@ export class Tic80Backend implements AudioBackend {
         console.warn('[Tic80Backend] playRow not yet implemented');
     }
 
-    playPattern(_pattern: Pattern) {
+    async playPattern(_pattern: Pattern) {
         const b = this.bridge();
         if (!b || !b.isReady()) return;
-        b.play({ track: 0, frame: 0, row: 0, loop: true });
+        await b.play({ track: 0, frame: 0, row: 0, loop: true });
         this.emit.row(0, _pattern);
     }
 
-    playSong(startPosition: number) {
+    async playSong(startPosition: number) {
         const b = this.bridge();
         if (!b || !b.isReady()) return;
         // Currently just triggers play track 0; proper song sequencing will come after uploads
-        b.play({ track: startPosition, frame: 0, row: 0, loop: true });
+        await b.play({ track: startPosition, frame: 0, row: 0, loop: true });
         this.emit.position(startPosition);
     }
 
-    stop() {
+    async stop() {
         const b = this.bridge();
-        if (b && b.isReady()) b.stop();
+        if (b && b.isReady()) await b.stop();
         this.emit.stop();
     }
 }
