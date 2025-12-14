@@ -35,6 +35,23 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
 
+    const connectedMidiInputs = useMemo(() => midiDevices.filter((d) => d.state === 'connected').length, [midiDevices]);
+    const midiIndicatorState = midiStatus === 'ready'
+        ? (connectedMidiInputs > 0 ? 'ok' : 'warn')
+        : 'off';
+    const midiIndicatorLabel = midiStatus === 'ready'
+        ? (connectedMidiInputs > 0 ? `MIDI listening (${connectedMidiInputs})` : 'MIDI ready (no devices)')
+        : midiStatus === 'pending'
+            ? 'MIDI initializing'
+            : midiStatus === 'unsupported'
+                ? 'MIDI unsupported'
+                : midiStatus === 'denied'
+                    ? 'MIDI access denied'
+                    : 'MIDI error';
+    const midiIndicatorTitle = connectedMidiInputs > 0
+        ? `${midiIndicatorLabel}: ${connectedMidiInputs} input${connectedMidiInputs === 1 ? '' : 's'} connected`
+        : midiIndicatorLabel;
+
     useEffect(() => {
         audio.setSong(song);
     }, [audio, song]);
@@ -208,16 +225,27 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                         <button className={transportState === 'play-from-position' ? 'active' : undefined} onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">⏩</span>Play From Position</button>
                         <button className={transportState === 'play-all' ? 'active' : undefined} onClick={onPlayAll}><span className="icon" aria-hidden="true">🎵</span>Play All</button>
                     </div>
-                    <div id="master-volume-container">
-                        <label htmlFor="master-volume">master volume</label>
-                        <input
-                            type="range"
-                            min="0"
-                            max="500"
-                            defaultValue={250}
-                            id="master-volume"
-                            onChange={(e) => audio.setVolume(e.target.valueAsNumber / 1000)}
-                        />
+                    <div className="right-controls">
+                        <div
+                            className={`midi-indicator midi-indicator--${midiIndicatorState}`}
+                            title={midiIndicatorTitle}
+                            aria-label={midiIndicatorTitle}
+                            role="status"
+                        >
+                            <span className="midi-indicator__dot" aria-hidden="true" />
+                            <span className="midi-indicator__label">{midiIndicatorLabel}</span>
+                        </div>
+                        <div id="master-volume-container">
+                            <label htmlFor="master-volume">master volume</label>
+                            <input
+                                type="range"
+                                min="0"
+                                max="500"
+                                defaultValue={250}
+                                id="master-volume"
+                                onChange={(e) => audio.setVolume(e.target.valueAsNumber / 1000)}
+                            />
+                        </div>
                     </div>
                 </div>
 

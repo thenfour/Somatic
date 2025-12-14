@@ -1,8 +1,4 @@
--- TIC-80 orchestration bridge (extended)
--- - Writes a RAM marker for host base discovery
--- - Polls an INBOX (host->cart) for commands
--- - Publishes an OUTBOX (cart->host) with heartbeat/state/log ring buffer
--- - Shows activity on screen + idle animation
+-- TIC-80 orchestration bridge
 
 local MARKER_ADDR = 0x14E24
 local INBOX_ADDR = 0x14E40

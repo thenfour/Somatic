@@ -161,6 +161,48 @@ option {
     display: inline-block;
 }
 
+.right-controls {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.midi-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--panel-strong);
+    color: var(--text);
+}
+
+.midi-indicator__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--muted);
+    box-shadow: 0 0 0 1px var(--border);
+}
+
+.midi-indicator--ok .midi-indicator__dot {
+    background: var(--tic-6);
+}
+
+.midi-indicator--warn .midi-indicator__dot {
+    background: var(--tic-3);
+}
+
+.midi-indicator--off .midi-indicator__dot {
+    background: var(--muted);
+}
+
+.midi-indicator__label {
+    line-height: 1;
+}
+
 .instrument-panel {
     /* width: 800px; */
     background-color: var(--panel);
@@ -218,7 +260,6 @@ option {
 }
 
 #master-volume-container {
-    margin-left: auto;
     display: inline-flex;
     align-items: center;
     gap: 6px;
