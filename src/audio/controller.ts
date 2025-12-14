@@ -1,11 +1,10 @@
-import type { Wave, FrameData } from '../models/instruments';
+import type { Tic80Instrument } from '../models/instruments';
 import type { Pattern } from '../models/pattern';
 import type { Song } from '../models/song';
 import { Tic80BridgeHandle } from '../ui/Tic80Bridged';
 import type { AudioBackend } from './backend';
 import { Tic80Backend } from './tic80_backend';
 
-type FrameListener = (frame: Array<FrameData | null>) => void;
 type RowListener = (rowNumber: number, pattern: Pattern) => void;
 type PositionListener = (positionNumber: number) => void;
 type StopListener = () => void;
@@ -16,7 +15,6 @@ export class AudioController {
     volume: number;
     isPlaying: boolean;
 
-    private frameListeners = new Set<FrameListener>();
     private rowListeners = new Set<RowListener>();
     private positionListeners = new Set<PositionListener>();
     private stopListeners = new Set<StopListener>();
@@ -27,7 +25,6 @@ export class AudioController {
         this.isPlaying = false;
         const ctx = {
             emit: {
-                frame: (data: Array<FrameData | null>) => this.emitFrame(data),
                 row: (rowNumber: number, pattern: Pattern) => this.emitRow(rowNumber, pattern),
                 position: (positionNumber: number) => this.emitPosition(positionNumber),
                 stop: () => this.emitStop(),
@@ -46,7 +43,7 @@ export class AudioController {
         this.isPlaying = false;
     }
 
-    playInstrument(instrument: Wave, note: number) {
+    playInstrument(instrument: Tic80Instrument, note: number) {
         this.backend.playInstrument(instrument, note);
     }
 
@@ -74,8 +71,6 @@ export class AudioController {
         this.backend.setVolume(vol);
     }
 
-    onFrame(cb: FrameListener) { this.frameListeners.add(cb); return () => this.frameListeners.delete(cb); }
-    offFrame(cb: FrameListener) { this.frameListeners.delete(cb); }
     onRow(cb: RowListener) { this.rowListeners.add(cb); return () => this.rowListeners.delete(cb); }
     offRow(cb: RowListener) { this.rowListeners.delete(cb); }
     onPosition(cb: PositionListener) { this.positionListeners.add(cb); return () => this.positionListeners.delete(cb); }
@@ -83,7 +78,6 @@ export class AudioController {
     onStop(cb: StopListener) { this.stopListeners.add(cb); return () => this.stopListeners.delete(cb); }
     offStop(cb: StopListener) { this.stopListeners.delete(cb); }
 
-    private emitFrame(data: Array<FrameData | null>) { this.frameListeners.forEach((cb) => cb(data)); }
     private emitRow(row: number, pattern: Pattern) { this.rowListeners.forEach((cb) => cb(row, pattern)); }
     private emitPosition(pos: number) { this.positionListeners.forEach((cb) => cb(pos)); }
     private emitStop() { this.isPlaying = false; this.stopListeners.forEach((cb) => cb()); }

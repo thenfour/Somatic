@@ -1,5 +1,5 @@
 import { AudioBackend, BackendContext } from './backend';
-import type { Wave } from '../models/instruments';
+import type { Tic80Instrument } from '../models/instruments';
 import type { Pattern } from '../models/pattern';
 import type { Song } from '../models/song';
 import type { Tic80BridgeHandle, Tic80BridgeTransaction } from '../ui/Tic80Bridged';
@@ -35,7 +35,7 @@ export class Tic80Backend implements AudioBackend {
         // TODO: route to cart when mixer control exists
     }
 
-    async playInstrument(instrument: Wave, note: number) {
+    async playInstrument(instrument: Tic80Instrument, note: number) {
         const b = this.bridge();
         if (!b || !b.isReady()) return;
 
@@ -98,7 +98,7 @@ export class Tic80Backend implements AudioBackend {
         await tx.uploadSongData(this.serializedSong);
     }
 
-    private findInstrumentIndex(instrument: Wave): number {
+    private findInstrumentIndex(instrument: Tic80Instrument): number {
         if (!this.song) return 1;
         const idx = this.song.instruments.findIndex((inst) => inst === instrument);
         if (idx >= 0) return idx;

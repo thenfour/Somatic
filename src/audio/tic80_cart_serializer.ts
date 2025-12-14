@@ -1,8 +1,11 @@
 import { INSTRUMENT_COUNT, PATTERN_COUNT, midiToTicPitch } from "../defs";
 import type { Song } from "../models/song";
-import type { Pattern, Channel } from "../models/pattern";
+import type { Pattern } from "../models/pattern";
+import type { Tic80Instrument } from "../models/instruments";
+import { clamp } from "../utils/utils";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
+// see also: tic.h / sound.c (TIC80_SOURCE)
 const CHUNK = {
     SFX: 9,
     WAVEFORMS: 10,
@@ -13,6 +16,8 @@ const CHUNK = {
 const SONG_TRACK_STEPS = 16; // TIC-80 stores 16 pattern slots per track
 const PATTERN_ROWS = 16; // patterns chunk stores 16 rows per channel (192 bytes)
 const CHANNEL_COUNT = 4;
+const SFX_TICKS = 30;
+const SFX_BYTES_PER_SAMPLE = 66;
 
 /** Trim trailing zero bytes (spec allows chunk truncation). */
 function trimTrailingZeros(data: Uint8Array): Uint8Array {
@@ -125,26 +130,52 @@ function encodeWaveforms(): Uint8Array {
 }
 
 function encodeSfx(song: Song): Uint8Array {
+    const packLoop = (start: number | undefined, length: number | undefined): number => {
+        const loopStart = clamp(start ?? 0, 0, 15);
+        const loopSize = clamp(length ?? 0, 0, 15);
+        return (loopSize << 4) | loopStart;
+    };
+
+    const encodeInstrument = (inst?: Tic80Instrument): Uint8Array => {
+        const out = new Uint8Array(SFX_BYTES_PER_SAMPLE);
+        if (!inst) return out;
+
+        for (let tick = 0; tick < SFX_TICKS; tick++) {
+            const vol = clamp(inst.volumeFrames?.[tick] ?? 0, 0, 15);
+            const wave = clamp(inst.waveFrames?.[tick] ?? 0, 0, 15);
+            const chord = clamp(inst.arpeggioFrames?.[tick] ?? 0, 0, 15);
+            const pitch = clamp(inst.pitchFrames?.[tick] ?? 0, -8, 7);
+
+            out[tick * 2 + 0] = ((wave & 0x0f) << 4) | (vol & 0x0f);
+            out[tick * 2 + 1] = ((pitch & 0x0f) << 4) | (chord & 0x0f);
+        }
+
+        const reverse = inst.arpeggioDown ? 1 : 0;
+        const speedBits = inst.speed & 0x07; // stored as signed 3 bits in TIC-80
+        const octave = clamp(inst.octave ?? 0, 0, 7);
+        const pitch16x = inst.pitch16x ? 1 : 0;
+        out[60] = (octave & 0x07) | (pitch16x << 3) | (speedBits << 4) | (reverse ? 0x80 : 0);
+
+        const baseNote = clamp(inst.baseNote ?? 0, 0, 15);
+        const stereoLeft = inst.stereoLeft ? 1 : 0;
+        const stereoRight = inst.stereoRight ? 1 : 0;
+        out[61] = (baseNote & 0x0f) | (stereoLeft << 4) | (stereoRight << 5);
+
+        out[62] = packLoop(inst.waveLoopStart, inst.waveLoopLength);
+        out[63] = packLoop(inst.volumeLoopStart, inst.volumeLoopLength);
+        out[64] = packLoop(inst.arpeggioLoopStart, inst.arpeggioLoopLength);
+        out[65] = packLoop(inst.pitchLoopStart, inst.pitchLoopLength);
+
+        return out;
+    };
+
     // 66 bytes per SFX (up to 64 entries in RAM). We only fill instruments (1..INSTRUMENT_COUNT).
     const sfxCount = INSTRUMENT_COUNT + 1; // reserve index 0
-    const bytesPer = 66;
-    const buf = new Uint8Array(sfxCount * bytesPer);
+    const buf = new Uint8Array(sfxCount * SFX_BYTES_PER_SAMPLE);
 
     for (let i = 1; i < sfxCount; i++) {
-        const base = i * bytesPer;
-        // Simple constant tone: volumes full, wave index 0. 30 frames -> 60 bytes V/W pairs.
-        for (let j = 0; j < 60; j += 2) {
-            buf[base + j + 0] = 0; // volume byte (inverted by spec; 0 = max)
-            buf[base + j + 1] = 0; // wave byte (waveform 0)
-        }
-        // DXSSSOOO
-        buf[base + 60] = 0; // down/up, pitch mul, sample speed, octave -> default 0
-        // ---NNNN
-        buf[base + 61] = 0; // base note nibble (0 = C)
-        // LLLLFFFF (loop length / start)
-        buf[base + 62] = 0;
-        buf[base + 63] = 0;
-        buf[base + 64] = 0;
+        const encoded = encodeInstrument(song.instruments?.[i]);
+        buf.set(encoded, i * SFX_BYTES_PER_SAMPLE);
     }
 
     return writeChunk(CHUNK.SFX, buf);

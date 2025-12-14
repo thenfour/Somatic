@@ -1,76 +1,10 @@
-import { Wave } from './instruments';
+import { Tic80Instrument } from './instruments';
 import { Pattern } from './pattern';
 import { PATTERN_COUNT, INSTRUMENT_COUNT } from '../defs';
 
-const PLAYER_CODE = `
-note_freqs={}
-for n=1,107 do
- note_freqs[n]=440*2^((n-58)/12)
-end
-
-chan_states={}
-for i=0,3 do
- chan_states[i]={inst=1,iframe=0,nfreq=440}
-end
-
-row_tick=0
-row_num=0
-position_num=0
-pattern_num=0
-
-function fetch_position()
- pattern_num=positions[position_num+1]
- row_num=0
-end
-
-fetch_position()
-
-function read_row()
- for c=0,3 do
-  note=patterns[pattern_num][c+1][row_num+1]
-  note_num=note[1]
-  if note_num~=0 then
-   chan=chan_states[c]
-   inst=note[2]
-   if inst~=0 then
-    chan.inst=inst
-   end
-   chan.iframe=0
-   chan.nfreq=note_freqs[note_num]
-  end
- end
- row_num=row_num+1
- if row_num==64 then
-  position_num=(position_num+1)%(#positions)
-  fetch_position()
- end
-end
-
-function music_frame()
- local next_row = math.floor(row_tick*song_tempo*6/(song_speed*900))
- if next_row~=row_num then
-  row_num=next_row%64
-  read_row()
- end
- row_tick=row_tick+1
- for c=0,3 do
-  chan=chan_states[c]
-  if chan.inst~=0 then
-   instruments[chan.inst](c,15,chan.nfreq,chan.iframe)
-   chan.iframe=chan.iframe+1
-  end
- end
-end
-
-function TIC()
- cls()
- music_frame()
-end
-`;
-
 const clamp = (val: number, min: number, max: number): number => Math.min(Math.max(val, min), max);
 
-export type InstrumentData = ReturnType<Wave['toData']>;
+export type InstrumentData = ReturnType<Tic80Instrument['toData']>;
 export type PatternData = ReturnType<Pattern['toData']> | null;
 export type SongData = {
     instruments?: (InstrumentData | Partial<InstrumentData> | undefined)[];
@@ -82,13 +16,13 @@ export type SongData = {
     highlightRowCount?: number;
 };
 
-const makeInstrumentList = (data?: SongData['instruments']): Wave[] => {
+const makeInstrumentList = (data?: SongData['instruments']): Tic80Instrument[] => {
     const length = INSTRUMENT_COUNT + 1; // index 0 unused, indexes 1..INSTRUMENT_COUNT
     const list = Array.from({ length }, (_, i) => {
         const instData = data && data[i];
-        return new Wave(instData || {});
+        return new Tic80Instrument(instData || {});
     });
-    if (!list[1].name) list[1].name = 'Square';
+    if (!list[1].name) list[1].name = 'SFX 1';
     return list;
 };
 
@@ -97,7 +31,7 @@ const makePatternList = (data?: SongData['patterns']): Pattern[] => {
 };
 
 export class Song {
-    instruments: Wave[];
+    instruments: Tic80Instrument[];
     patterns: Pattern[];
     positions: number[];
     tempo: number;
@@ -152,39 +86,10 @@ export class Song {
     }
 
     getLuaCode(): string {
-        const exportedPatterns: Pattern[] = [];
-        const patternMap: Record<number, number> = {};
-        for (const patternNumber of this.usedPatterns()) {
-            exportedPatterns.push(this.patterns[patternNumber]);
-            patternMap[patternNumber] = exportedPatterns.length;
-        }
-
-        const positions = this.positions.slice(0, this.length);
-        for (let i = 0; i < positions.length; i++) positions[i] = patternMap[positions[i]];
-
-        const exportedInstruments: Wave[] = [];
-        const instrumentsMap: Record<number, number> = {};
-        for (const instrumentNumber of this.usedInstruments()) {
-            exportedInstruments.push(this.instruments[instrumentNumber]);
-            instrumentsMap[instrumentNumber] = exportedInstruments.length;
-        }
-
-        const patternsData = exportedPatterns.map((pattern) => pattern.getLuaData(instrumentsMap)).join(',\n');
-        const instrumentsCode = exportedInstruments.map((instrument) => instrument.getLuaCode()).join(',\n');
-
-        return `
-instruments={
-${instrumentsCode}
-}
-patterns={
-${patternsData}
-}
-positions={${positions.join(',')}}
-    song_tempo=${this.tempo}
-song_speed=${this.speed}
-
-${PLAYER_CODE}
-`;
+        // Simplified export: return a Lua script that contains serialized TIC-80 style instrument and pattern data.
+        const data = this.toData();
+        const json = JSON.stringify(data, null, 2);
+        return `-- TIC-80 song data (JSON blob for tooling; not a runnable player)\nreturn [[${json}]]`;
     }
 
     toData(): Required<SongData> {
