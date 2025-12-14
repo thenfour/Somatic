@@ -207,8 +207,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 )}
 
                 <div className="tic80-frame">
-                    <Tic80Iframe />
-                    {/* <Tic80Bridge ref={bridgeRef} /> */}
+                    {/* <Tic80Iframe /> */}
+                    <Tic80Bridge ref={bridgeRef} />
                 </div>
             </div>
         </div>

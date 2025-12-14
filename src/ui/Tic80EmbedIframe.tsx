@@ -24,12 +24,10 @@ export type Tic80IframeHandle = {
 
 export type Tic80IframeProps = {
     args?: string[];    // e.g. ["/bridge.tic"]
-    className?: string;
-    style?: React.CSSProperties;
 };
 
 export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
-    function Tic80Iframe({ args = [], className, style }, ref) {
+    function Tic80Iframe({ args = [] }, ref) {
         const iframeRef = useRef<HTMLIFrameElement | null>(null);
         const canvasRef = useRef<HTMLCanvasElement | null>(null);
         const injectedRef = useRef(false);
@@ -37,7 +35,7 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
         const [frameDoc, setFrameDoc] = useState<Document | null>(null);
         const [frameWin, setFrameWin] = useState<Window | null>(null);
 
-        const mountId = useMemo(() => "tic80-iframe-root", []);
+        const mountId = "tic80-iframe-root" as const;
 
         useImperativeHandle(
             ref,
@@ -56,6 +54,8 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
                 const doc = iframe.contentDocument;
                 const win = iframe.contentWindow;
                 if (!doc || !win) return;
+
+                console.log("[tic80 iframe] loaded iframe", doc, win);
 
                 doc.open();
                 doc.write("<!doctype html><html><head></head><body></body></html>");
@@ -92,11 +92,11 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
             if (!canvasRef.current) return;
             if (injectedRef.current) return;
 
+            console.log("[tic80 iframe] injecting Module", (frameWin as any).Module, canvasRef.current, args);
             (frameWin as any).Module = {
                 canvas: canvasRef.current,
                 arguments: args,
             };
-
             const script = frameDoc.createElement("script");
             script.type = "text/javascript";
             script.src = "/tic80.js";
@@ -105,20 +105,24 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
             injectedRef.current = true;
         }, [frameDoc, frameWin]);
 
+        useEffect(() => {
+            console.log(`canvas ref changed...`);
+        }, [canvasRef.current]);
+
         const portalTarget = frameDoc?.getElementById(mountId) ?? null;
 
         return (
             <>
                 <iframe
                     ref={iframeRef}
-                    className={className}
-                    style={{ width: "100%", height: "100%", border: 0, display: "block", ...style }}
+                    style={{ width: "100%", height: "100%", border: 0, display: "block" }}
                     sandbox="allow-scripts allow-same-origin"
                 />
                 {portalTarget &&
                     createPortal(
                         <canvas
                             ref={canvasRef}
+                            id="canvas"
                             style={{ width: "100%", height: "100%", display: "block", imageRendering: "pixelated" }}
                             onContextMenu={(e) => e.preventDefault()}
                             onMouseDown={() => frameWin?.focus()}

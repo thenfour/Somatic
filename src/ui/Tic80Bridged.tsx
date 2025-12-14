@@ -1,21 +1,3 @@
-// // wraps <Tic80Iframe /> to provide TIC-80 in an iframe
-// // loads the bridge.tic cart
-// // for reference the source for the cart is in /bridge/bridge.lua
-
-// export const TIC_RAM = {
-//     // Pick addresses inside “reserved” for our marker + mailbox
-//     MARKER_ADDR: 0x14E24,
-//     MAILBOX_ADDR: 0x14E40,
-
-//     // Audio data areas you’ll likely write later
-//     WAVEFORMS: 0x0FFE4,
-//     SFX: 0x100E4,
-//     PATTERNS: 0x11164,
-//     TRACKS: 0x13E64,
-// } as const;
-
-// export const TIC_BRIDGE_CART = "/bridge.tic";
-
 "use client";
 
 import React, {
@@ -43,7 +25,7 @@ const TIC = {
     CMD_NOP: 0,
     CMD_PLAY: 1,
     CMD_STOP: 2,
-    CMD_ACK: 3,
+    CMD_PING: 3,
 } as const;
 
 export type Tic80BridgeHandle = {
@@ -74,6 +56,7 @@ export type Tic80BridgeHandle = {
     }) => void;
 
     stop: () => void;
+    ping: () => void;
 };
 
 export type Tic80BridgeProps = {
@@ -96,7 +79,7 @@ function findSubarray(haystack: Uint8Array, needle: Uint8Array): number {
 
 function getHeapU8(Module: any): Uint8Array {
     const heap = Module?.HEAPU8;
-    console.log(`heap : `, heap);
+    //console.log(`heap : `, heap);
 
     if (!heap) {
         throw new Error("Module.HEAPU8 not available yet (or not exposed by this build).");
@@ -107,8 +90,6 @@ function getHeapU8(Module: any): Uint8Array {
 export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
     function Tic80Bridge(
         {
-            className,
-            style,
         },
         ref
     ) {
@@ -152,7 +133,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
 
                     if (stageRef.current !== "module-ready") {
                         stageRef.current = "module-ready";
-                        log("Module detected in iframe; probing HEAPU8...");
+                        //log("Module detected in iframe; probing HEAPU8...");
                     }
 
                     // Emscripten runtime is alive; HEAPU8 may still not be ready for a moment
@@ -199,7 +180,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                 } catch (err) {
                     if (stageRef.current !== "error") {
                         stageRef.current = "error";
-                        log("poll error; will retry", err);
+                        //log("poll error; will retry", err);
                     }
                     // Keep polling; most errors here are "not ready yet"
                     raf = requestAnimationFrame(tick);
@@ -222,7 +203,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             // send ACK command to let the cart know we're ready
 
             // send acknowledgement command to confirm.
-            poke8(TIC.MAILBOX_ADDR + 0, TIC.CMD_ACK);
+            poke8(TIC.MAILBOX_ADDR + 0, TIC.CMD_PING);
         }, [ready]);
 
         function assertReady() {
@@ -298,6 +279,11 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             writeMailboxBytes([TIC.CMD_STOP]);
         }
 
+        function ping() {
+            log("ping()");
+            writeMailboxBytes([TIC.CMD_PING]);
+        }
+
         useImperativeHandle(
             ref,
             (): Tic80BridgeHandle => ({
@@ -312,21 +298,19 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
 
                 play,
                 stop,
+                ping,
             }),
             [ready]
         );
 
-        // Important: to run the cart, pass it as first argument (CLI-style), like the HTML export pattern.
-        //const args = [cartUrl, ...extraArgs];
-
         return (<>
             <button onClick={() => pollingCancelledRef.current = true}>cancel</button>
+            <button onClick={() => {
+                ping();
+            }}>ping</button>
             <Tic80Iframe
                 ref={iframeRef}
-                //scriptSrc={scriptSrc}
-                //args={args}
-                className={className}
-                style={style}
+                args={["/bridge.tic"]}
             />
         </>
         );
