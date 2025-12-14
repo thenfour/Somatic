@@ -7,14 +7,15 @@ import './chromatic.css';
 
 import { AudioController } from './audio/controller';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
 import { HelpPanel } from './ui/help_panel';
 import { InstrumentPanel } from './ui/instrument_editor';
 import { PatternGrid } from './ui/pattern_grid';
+import { PreferencesPanel } from './ui/preferences_panel';
 import { SongEditor } from './ui/song_editor';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
-import { Tic80Iframe } from './ui/Tic80EmbedIframe';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -23,12 +24,16 @@ type Theme = 'light' | 'dark';
 
 const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
     const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
+    const midiRef = React.useRef<MidiManager | null>(new MidiManager());
     const audio = useMemo(() => new AudioController({ useTic80: true, bridgeGetter: () => bridgeRef.current }), []);
     const [song, setSong] = useState(() => new Song());
     const [editorState, setEditorState] = useState(() => new EditorState());
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);
     const [helpPanelOpen, setHelpPanelOpen] = useState(false);
+    const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [transportState, setTransportState] = useState<TransportState>('stop');
+    const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
+    const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
 
     useEffect(() => {
         audio.setSong(song);
@@ -42,6 +47,15 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         };
     }, [audio]);
 
+    useEffect(() => {
+        const midi = midiRef.current;
+        if (!midi) return;
+        midi.init().then(() => {
+            setMidiStatus(midi.getStatus());
+            setMidiDevices(midi.getDevices());
+        });
+    }, []);
+
     const updateSong = (mutator: SongMutator) => {
         setSong((prev) => {
             const next = prev.clone();
@@ -49,7 +63,6 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             return next;
         });
     };
-
     const updateEditorState = (mutator: EditorStateMutator) => {
         setEditorState((prev) => {
             const next = prev.clone();
@@ -153,6 +166,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
                         <button onClick={() => setInstrumentPanelOpen(!instrumentPanelOpen)}><span className="icon" aria-hidden="true">🎛️</span>Instruments</button>
+                        <button onClick={() => setPreferencesPanelOpen(!preferencesPanelOpen)}><span className="icon" aria-hidden="true">⚙️</span>Preferences</button>
                         <button onClick={() => setHelpPanelOpen(!helpPanelOpen)}><span className="icon" aria-hidden="true">❔</span>Help</button>
                         <button onClick={onToggleTheme}><span className="icon" aria-hidden="true">🌗</span>{theme === 'dark' ? 'Light' : 'Dark'} Mode</button>
                     </div>
@@ -200,6 +214,13 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                         onCurrentInstrumentChange={(inst) => updateEditorState((s) => s.setCurrentInstrument(inst))}
                         onSongChange={updateSong}
                         onClose={() => setInstrumentPanelOpen(false)}
+                    />
+                )}
+                {preferencesPanelOpen && (
+                    <PreferencesPanel
+                        midiStatus={midiStatus}
+                        midiDevices={midiDevices}
+                        onClose={() => setPreferencesPanelOpen(false)}
                     />
                 )}
                 {helpPanelOpen && (

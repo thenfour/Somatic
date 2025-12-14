@@ -183,7 +183,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
 
                     if (stageRef.current !== "heap-ready") {
                         stageRef.current = "heap-ready";
-                        log("HEAPU8 ready (bytes)", heap.byteLength);
+                        //log("HEAPU8 ready (bytes)", heap.byteLength);
                     }
 
                     // Find the marker in heap (written by the bridge cart on first TIC())
@@ -208,7 +208,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                     if (ramBase == null) {
                         if (stageRef.current !== "waiting-outbox") {
                             stageRef.current = "waiting-outbox";
-                            log("marker found but outbox not initialized yet; waiting for cart boot...");
+                            //log("marker found but outbox not initialized yet; waiting for cart boot...");
                         }
                         raf = requestAnimationFrame(tick);
                         return;
