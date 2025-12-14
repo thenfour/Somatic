@@ -1,4 +1,4 @@
-import { INSTRUMENT_COUNT, PATTERN_COUNT } from "../defs";
+import { INSTRUMENT_COUNT, PATTERN_COUNT, midiToTicPitch } from "../defs";
 import type { Song } from "../models/song";
 import type { Pattern, Channel } from "../models/pattern";
 
@@ -34,20 +34,16 @@ function writeChunk(type: number, payload: Uint8Array, bank = 0): Uint8Array {
 
 function encodeNoteTriplet(midiNoteValue: number, instrument: number): [number, number, number] {
     // Rest/no-note
-    if (!midiNoteValue || midiNoteValue <= 0) return [0, 0, 0];
-
-    // TIC note nibble is 4..15 for C..B within an octave; octave 0..7 stored separately.
-    const octave = Math.max(0, Math.min(7, Math.floor((midiNoteValue + 11) / 12)));
-    const semitone = (midiNoteValue + 11) % 12; // 0..11
-    const noteNibble = semitone + 4; // 4..15
+    const ticPitch = midiToTicPitch(midiNoteValue);
+    if (!ticPitch) return [0, 0, 0];
 
     const sfx = Math.max(0, Math.min(255, instrument | 0));
     const command = 0; // no effect command for now
     const arg = 0;
 
-    const byte0 = noteNibble & 0x0f;
+    const byte0 = ticPitch.noteNibble & 0x0f;
     const byte1 = ((sfx >> 5) & 0x01) << 7 | ((command & 0x07) << 4) | (arg & 0x0f);
-    const byte2 = ((octave & 0x07) << 5) | (sfx & 0x1f);
+    const byte2 = ((ticPitch.octave & 0x07) << 5) | (sfx & 0x1f);
     return [byte0, byte1, byte2];
 }
 

@@ -101,6 +101,7 @@ local function log_drop()
 end
 
 local function log_write_ascii(s)
+	trace("cart log: " .. s)
 	out_set(OUTBOX_MUTEX_ADDR, 1)
 
 	-- Clamp payload so entries stay small and parsing is trivial

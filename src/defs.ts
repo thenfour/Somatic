@@ -1,21 +1,77 @@
 export const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
 export type NoteName = (typeof NOTE_NAMES)[number];
 
-export const NOTES_BY_NUM: Record<number, { name: string; frequency: number }> = {};
-export const NOTE_NUMS_BY_NAME: Record<string, number> = {};
 export const OCTAVE_COUNT = 8;
-for (let oct = 1; oct <= OCTAVE_COUNT; oct++) {
-    for (let n = 0; n < 12; n++) {
-        const midiNoteValue = oct * 12 + n - 11;
-        const noteName = (NOTE_NAMES[n] + "-").substring(0, 2) + oct;
-        NOTES_BY_NUM[midiNoteValue] = {
-            name: noteName,
-            frequency: 440 * 2 ** ((midiNoteValue - 58) / 12),
-        };
-        NOTE_NUMS_BY_NAME[noteName] = midiNoteValue;
-    }
+export const MIN_MIDI_NOTE = 0;
+export const MAX_MIDI_NOTE = 255; // full MIDI byte range for registry completeness
+
+// Tracker/UI range (kept to prior 8 octaves for UX/compat)
+export const MAX_PATTERN_NOTE = OCTAVE_COUNT * 12;
+export const MAX_NOTE_NUM = MAX_PATTERN_NOTE; // backwards compatibility alias
+
+export type NoteInfo = {
+    midi: number;
+    name: string;
+    frequency: number;
+    semitone: number; // 0..11 within octave
+    octave: number; // 1-based display octave
+    ticOctave: number; // 0..7 used by TIC-80 encoding
+    ticNoteNibble: number; // 4..15 used by TIC-80 encoding
+};
+
+const calcFrequency = (midi: number) => 440 * 2 ** ((midi - 58) / 12);
+
+const NOTE_REGISTRY: Record<number, NoteInfo> = {};
+const NOTE_NAME_MAP: Record<string, NoteInfo> = {};
+export const NOTE_INFOS: NoteInfo[] = [];
+
+for (let midi = MIN_MIDI_NOTE; midi <= MAX_MIDI_NOTE; midi++) {
+    const semitone = (midi + 11) % 12; // align with prior offset
+    const octave = Math.floor((midi + 11) / 12);
+    const noteName = `${NOTE_NAMES[semitone]}${octave}`;
+    const frequency = calcFrequency(midi);
+    const ticOctave = Math.max(0, Math.min(7, octave));
+    const ticNoteNibble = semitone + 4; // 4..15
+    const info: NoteInfo = {
+        midi,
+        name: noteName,
+        frequency,
+        semitone,
+        octave,
+        ticOctave,
+        ticNoteNibble,
+    };
+    NOTE_REGISTRY[midi] = info;
+    NOTE_NAME_MAP[noteName] = info;
+    NOTE_INFOS.push(info);
 }
-export const MAX_NOTE_NUM = OCTAVE_COUNT * 12;
+
+export const NOTES_BY_NUM: Record<number, NoteInfo> = NOTE_REGISTRY;
+export const NOTE_NUMS_BY_NAME: Record<string, number> = Object.fromEntries(
+    Object.entries(NOTE_NAME_MAP).map(([k, v]) => [k, v.midi]),
+);
+
+export function getNoteInfo(midi: number): NoteInfo | undefined {
+    return NOTE_REGISTRY[midi];
+}
+
+export function midiToFrequency(midi: number): number | undefined {
+    return NOTE_REGISTRY[midi]?.frequency;
+}
+
+export function midiToName(midi: number): string | undefined {
+    return NOTE_REGISTRY[midi]?.name;
+}
+
+export function nameToMidi(name: string): number | undefined {
+    return NOTE_NAME_MAP[name]?.midi;
+}
+
+export function midiToTicPitch(midi: number): { octave: number; noteNibble: number } | null {
+    const info = NOTE_REGISTRY[midi];
+    if (!info) return null;
+    return { octave: info.ticOctave, noteNibble: info.ticNoteNibble };
+}
 
 export const PATTERN_COUNT = 64;
 export const INSTRUMENT_COUNT = 15;

@@ -1,3 +1,4 @@
+
 export type MidiDevice = {
     id: string;
     name: string;
@@ -120,8 +121,4 @@ export class MidiManager {
         const listeners = on ? this.noteOnListeners : this.noteOffListeners;
         listeners.forEach((cb) => cb(payload));
     }
-}
-
-export function midiNoteToFrequency(note: number): number {
-    return 440 * 2 ** ((note - 69) / 12);
 }

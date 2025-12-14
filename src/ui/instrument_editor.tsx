@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AudioController } from '../audio/controller';
-import { NOTE_NAMES, NOTES_BY_NUM, OCTAVE_COUNT } from '../defs';
+import { NOTE_INFOS } from '../defs';
 import { Wave, waveType } from '../models/instruments';
 import { Song } from '../models/song';
 import { Scope } from './scope';
@@ -30,28 +30,16 @@ const Keyboard: React.FC<KeyboardProps> = ({ instrument, audio }) => {
         setActiveNote(noteLabel);
     };
 
-    const keys = [] as Array<{
-        id: string;
-        noteName: string;
-        midiNoteValue: number;
-        className: string;
-        left: number;
-    }>;
-    for (let oct = 1; oct <= OCTAVE_COUNT; oct++) {
-        for (let n = 0; n < 12; n++) {
-            const midiNoteValue = oct * 12 + n - 11;
-            const noteName = NOTE_NAMES[n] + oct;
-            if (!NOTES_BY_NUM[midiNoteValue]) continue;
-            const isBlack = [1, 3, 6, 8, 10].includes(n);
-            keys.push({
-                id: `${oct}-${n}`,
-                noteName,
-                midiNoteValue,
-                className: `key ${isBlack ? 'black' : 'white'} ${activeNote === noteName ? 'active' : ''}`,
-                left: ((oct - 1) * 7 + KEY_POSITIONS[n]) * 32,
-            });
-        }
-    }
+    const keys = NOTE_INFOS.map((info) => {
+        const isBlack = [1, 3, 6, 8, 10].includes(info.semitone);
+        return {
+            id: `${info.octave}-${info.semitone}`,
+            noteName: info.name,
+            midiNoteValue: info.midi,
+            className: `key ${isBlack ? 'black' : 'white'} ${activeNote === info.name ? 'active' : ''}`,
+            left: ((info.octave - 1) * 7 + KEY_POSITIONS[info.semitone]) * 32,
+        };
+    });
 
     return (
         <ul id="keyboard">

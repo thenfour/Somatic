@@ -1,6 +1,6 @@
 import { AudioBackend, BackendContext } from './backend';
 import { TICSynth } from './ticsynth';
-import { NOTES_BY_NUM } from '../defs';
+import { midiToFrequency } from '../defs';
 import type { Pattern } from '../models/pattern';
 import type { Song } from '../models/song';
 import type { Wave, FrameData } from '../models/instruments';
@@ -45,7 +45,7 @@ export class WebAudioBackend implements AudioBackend {
     }
 
     playInstrument(instrument: Wave, note: number) {
-        const frequency = NOTES_BY_NUM[note]?.frequency;
+        const frequency = midiToFrequency(note);
         if (!frequency) return;
         const instrumentFrameCallback = instrument.getFrameCallback(frequency);
         const frameCallback = (frameNumber: number) => [instrumentFrameCallback(frameNumber)];
@@ -183,7 +183,7 @@ export class WebAudioBackend implements AudioBackend {
             const row = pattern.channels[chan].rows[rowNumber];
             const note = row.note;
             if (note !== 0) {
-                const frequency = NOTES_BY_NUM[note]?.frequency;
+                const frequency = midiToFrequency(note);
                 if (!frequency) continue;
                 if (row.instrument) {
                     this.channelStates[chan].instrumentNumber = row.instrument;

@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AudioController } from '../audio/controller';
-import { MAX_NOTE_NUM, NOTES_BY_NUM } from '../defs';
+import { MAX_NOTE_NUM, midiToName } from '../defs';
 import { EditorState } from '../models/editor_state';
 import { Pattern } from '../models/pattern';
 import { Song } from '../models/song';
 
-const formatNote = (note: number) => (note === 0 ? '---' : NOTES_BY_NUM[note].name);
+const formatNote = (note: number) => (note === 0 ? '---' : midiToName(note) || '???');
 const formatInstrument = (val: number) => val.toString(16).toUpperCase();
 
 const noteKeyMap = '-zsxdcvgbhnjmq2w3er5t6y7ui'.split('');
