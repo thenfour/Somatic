@@ -70,19 +70,24 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                             Current ≈ {effectiveBpm} BPM.
                         </>
                     )}
-                />
+                >
+                    <span aria-hidden="true">?</span>
+                </Tooltip>
                 <input id="song-tempo" type="number" min={1} max={255} value={song.tempo} onChange={onTempoChange} />
             </div>
             <div className="field-row">
                 <label htmlFor="song-speed">Speed</label>
                 <Tooltip
+                    label="Speed help"
                     content={(
                         <>
                             TIC tick divisor; rows advance slower as speed increases. Effective BPM ≈ tempo*6/speed.<br />
                             Current ≈ {effectiveBpm} BPM.
                         </>
                     )}
-                />
+                >
+                    <span aria-hidden="true">?</span>
+                </Tooltip>
                 <input id="song-speed" type="number" min={1} max={31} value={song.speed} onChange={onSpeedChange} />
             </div>
             <label>

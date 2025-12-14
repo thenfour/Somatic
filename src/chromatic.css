@@ -662,9 +662,7 @@ button.key {
 
 .tooltip-content {
     position: absolute;
-    z-index: 20;
-    top: 125%;
-    left: 0;
+    z-index: 9999;
     min-width: 200px;
     max-width: 320px;
     background: var(--tooltip-bg);
@@ -672,14 +670,13 @@ button.key {
     padding: 8px;
     font-size: var(--ff-size-1x);
     line-height: 1.4;
-    opacity: 0;
-    pointer-events: none;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    border: 2px solid var(--border-strong);
 }
 
-.tooltip:hover .tooltip-content,
-.tooltip:focus-within .tooltip-content,
-.tooltip-trigger:focus+.tooltip-content {
-    opacity: 1;
+/* Portal-based tooltip is positioned relative to viewport */
+.tooltip-content--portal {
+    position: fixed;
     pointer-events: auto;
 }
 
