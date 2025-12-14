@@ -21,16 +21,14 @@ type EditorStateMutator = (state: EditorState) => void;
 type TransportState = 'stop' | 'play-pattern' | 'play-from-position' | 'play-all';
 type Theme = 'light' | 'dark';
 
-const useAudioController = (): AudioController => useMemo(() => new AudioController(), []);
-
 const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
-    const audio = useAudioController();
+    const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
+    const audio = useMemo(() => new AudioController({ useTic80: true, bridgeGetter: () => bridgeRef.current }), []);
     const [song, setSong] = useState(() => new Song());
     const [editorState, setEditorState] = useState(() => new EditorState());
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);
     const [helpPanelOpen, setHelpPanelOpen] = useState(false);
     const [transportState, setTransportState] = useState<TransportState>('stop');
-    const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
 
     useEffect(() => {
         audio.setSong(song);
@@ -219,6 +217,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 const SplashScreen: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
     <div className="splash-screen" onClick={onContinue} onKeyDown={onContinue}>
         <h1>Chromatic</h1>
+        <p>A tracker for TIC-80</p>
+        <button style={{ pointerEvents: 'none' }}>Click to Continue</button>
     </div>
 );
 

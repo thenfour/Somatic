@@ -55,6 +55,7 @@ const TIC = {
     CMD_PING: 3,
     CMD_BEGIN_UPLOAD: 4,
     CMD_END_UPLOAD: 5,
+    CMD_PLAY_SFX: 6,
 } as const;
 
 export type Tic80BridgeHandle = {
@@ -75,6 +76,9 @@ export type Tic80BridgeHandle = {
 
     /** Upload song chunk stream (.tic music-related chunks) directly into TIC RAM */
     uploadSongData: (data: Uint8Array) => Promise<void>;
+
+    /** Trigger a single SFX by ID/note (instrument audition) */
+    playSfx: (opts: { sfxId: number; note: number }) => Promise<void>;
 
     /** Mailbox commands */
     play: (opts?: {
@@ -418,6 +422,12 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             await sendMailboxCommand([TIC.CMD_END_UPLOAD]);
         }
 
+        async function playSfx(opts: { sfxId: number; note: number }) {
+            const sfxId = opts.sfxId & 0xff;
+            const note = opts.note & 0xff;
+            await sendMailboxCommand([TIC.CMD_PLAY_SFX, sfxId, note]);
+        }
+
         function writeMailboxBytes(bytes: number[], token?: number) {
             assertReady();
             const mb = TIC.MAILBOX_ADDR;
@@ -534,6 +544,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                 pokeBlock,
                 peekBlock,
                 uploadSongData,
+                playSfx,
 
                 play,
                 stop,

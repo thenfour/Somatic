@@ -19,34 +19,43 @@ export class Tic80Backend implements AudioBackend {
         this.bridge = bridgeGetter;
     }
 
-    setSong(song: Song | null) {
+    async setSong(song: Song | null) {
         this.song = song;
         if (song) {
             this.pendingSongData = serializeSongToCart(song);
-            this.tryUploadSong();
+            await this.tryUploadSong();
         } else {
             this.pendingSongData = null;
         }
     }
 
-    setVolume(vol: number) {
+    async setVolume(vol: number) {
         this.volume = vol;
         // TODO: route to cart when mixer control exists
     }
 
-    playInstrument(_instrument: Wave, _frequency: number) {
-        // TODO: support audition via cart; for now no-op
-        console.warn('[Tic80Backend] playInstrument not yet implemented');
+    async playInstrument(instrument: Wave, frequency: number) {
+        const b = this.bridge();
+        if (!b || !b.isReady()) return;
+
+        await this.tryUploadSong();
+
+        const sfxId = this.findInstrumentIndex(instrument);
+        const note = this.frequencyToNote(frequency);
+
+        b.playSfx({ sfxId, note }).catch((err) => {
+            console.warn('[Tic80Backend] playInstrument failed', err);
+        });
     }
 
-    playRow(_pattern: Pattern, _rowNumber: number) {
+    async playRow(_pattern: Pattern, _rowNumber: number) {
         console.warn('[Tic80Backend] playRow not yet implemented');
     }
 
     async playPattern(_pattern: Pattern) {
         const b = this.bridge();
         if (!b || !b.isReady()) return;
-        this.tryUploadSong();
+        await this.tryUploadSong();
         await b.play({ track: 0, frame: 0, row: 0, loop: true });
         this.emit.row(0, _pattern);
     }
@@ -54,7 +63,7 @@ export class Tic80Backend implements AudioBackend {
     async playSong(startPosition: number) {
         const b = this.bridge();
         if (!b || !b.isReady()) return;
-        this.tryUploadSong();
+        await this.tryUploadSong();
         // Currently just triggers play track 0; proper song sequencing will come after uploads
         await b.play({ track: startPosition, frame: 0, row: 0, loop: true });
         this.emit.position(startPosition);
@@ -66,13 +75,26 @@ export class Tic80Backend implements AudioBackend {
         this.emit.stop();
     }
 
-    private tryUploadSong() {
+    private async tryUploadSong() {
         if (!this.pendingSongData) return;
         const b = this.bridge();
         if (!b || !b.isReady()) return;
 
-        b.uploadSongData(this.pendingSongData).catch((err) => {
-            console.warn('[Tic80Backend] uploadSongData failed', err);
-        });
+        await b.uploadSongData(this.pendingSongData);
+    }
+
+    private findInstrumentIndex(instrument: Wave): number {
+        if (!this.song) return 1;
+        const idx = this.song.instruments.findIndex((inst) => inst === instrument);
+        if (idx >= 0) return idx;
+        // Fallback to first instrument if not found
+        return 1;
+    }
+
+    private frequencyToNote(freq: number): number {
+        if (!isFinite(freq) || freq <= 0) return 0;
+        const note = Math.round(58 + 12 * Math.log2(freq / 440));
+        // TIC sfx note accepts 0..95
+        return Math.max(0, Math.min(95, note));
     }
 }

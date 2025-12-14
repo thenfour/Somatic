@@ -176,6 +176,7 @@ local CMD_STOP = 2
 local CMD_PING = 3
 local CMD_BEGIN_UPLOAD = 4
 local CMD_END_UPLOAD = 5
+local CMD_PLAY_SFX = 6
 
 local function set_playing(track, playing)
 	isPlaying = playing
@@ -256,6 +257,22 @@ local function handle_ping_fx()
 	log("PING/FX")
 end
 
+local function handle_play_sfx()
+	local sfx_id = peek(INBOX_ADDR + 1)
+	local note = peek(INBOX_ADDR + 2)
+	-- Clamp to valid ranges for TIC sfx API
+	if sfx_id > 63 then
+		sfx_id = 63
+	end
+	if note > 95 then
+		note = 95
+	end
+	-- duration 30 frames, channel -1 (auto), volume 15, speed 0
+	sfx(sfx_id, note, -1, 30, -1, 15, 0)
+	publish_cmd(CMD_PLAY_SFX, 0)
+	log(string.format("PLAY_SFX id=%d note=%d", sfx_id, note))
+end
+
 local function handle_begin_upload()
 	-- Stop any playback before host overwrites music data
 	music()
@@ -297,6 +314,8 @@ local function poll_inbox()
 		handle_begin_upload()
 	elseif cmd == CMD_END_UPLOAD then
 		handle_end_upload()
+	elseif cmd == CMD_PLAY_SFX then
+		handle_play_sfx()
 	else
 		publish_cmd(cmd, 1)
 		log("UNKNOWN CMD " .. tostring(cmd))
