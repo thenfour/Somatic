@@ -59,9 +59,9 @@ export const PatternGrid: React.FC<PatternGridProps> = ({ song, audio, editorSta
     const handleNoteKey = (channelIndex: number, rowIndex: number, key: string) => {
         const idx = noteKeyMap.indexOf(key);
         if (idx === -1) return;
-        const noteVal = idx + (editorState.octave - 1) * 12;
-        if (noteVal > MAX_NOTE_NUM) return;
-        setRowValue(channelIndex, rowIndex, 'note', noteVal);
+        const midiNoteValue = idx + (editorState.octave - 1) * 12;
+        if (midiNoteValue > MAX_NOTE_NUM) return;
+        setRowValue(channelIndex, rowIndex, 'note', midiNoteValue);
         setRowValue(channelIndex, rowIndex, 'instrument', editorState.currentInstrument);
         if (!audio.isPlaying) playRow(rowIndex);
     };

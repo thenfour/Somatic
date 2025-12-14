@@ -32,13 +32,13 @@ function writeChunk(type: number, payload: Uint8Array, bank = 0): Uint8Array {
     return header;
 }
 
-function encodeNoteTriplet(noteVal: number, instrument: number): [number, number, number] {
+function encodeNoteTriplet(midiNoteValue: number, instrument: number): [number, number, number] {
     // Rest/no-note
-    if (!noteVal || noteVal <= 0) return [0, 0, 0];
+    if (!midiNoteValue || midiNoteValue <= 0) return [0, 0, 0];
 
     // TIC note nibble is 4..15 for C..B within an octave; octave 0..7 stored separately.
-    const octave = Math.max(0, Math.min(7, Math.floor((noteVal + 11) / 12)));
-    const semitone = (noteVal + 11) % 12; // 0..11
+    const octave = Math.max(0, Math.min(7, Math.floor((midiNoteValue + 11) / 12)));
+    const semitone = (midiNoteValue + 11) % 12; // 0..11
     const noteNibble = semitone + 4; // 4..15
 
     const sfx = Math.max(0, Math.min(255, instrument | 0));
@@ -57,9 +57,9 @@ function encodePattern(pattern: Pattern): Uint8Array {
     for (let row = 0; row < PATTERN_ROWS; row++) {
         for (let ch = 0; ch < CHANNEL_COUNT; ch++) {
             const rowData = pattern.channels[ch]?.rows[row];
-            const noteVal = rowData?.note ?? 0;
+            const midiNoteValue = rowData?.note ?? 0;
             const inst = rowData?.instrument ?? 0;
-            const [b0, b1, b2] = encodeNoteTriplet(noteVal, inst);
+            const [b0, b1, b2] = encodeNoteTriplet(midiNoteValue, inst);
             const idx = (row * CHANNEL_COUNT + ch) * 3;
             buf[idx + 0] = b0;
             buf[idx + 1] = b1;

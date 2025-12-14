@@ -6,13 +6,13 @@ export const NOTE_NUMS_BY_NAME: Record<string, number> = {};
 export const OCTAVE_COUNT = 8;
 for (let oct = 1; oct <= OCTAVE_COUNT; oct++) {
     for (let n = 0; n < 12; n++) {
-        const noteVal = oct * 12 + n - 11;
+        const midiNoteValue = oct * 12 + n - 11;
         const noteName = (NOTE_NAMES[n] + "-").substring(0, 2) + oct;
-        NOTES_BY_NUM[noteVal] = {
+        NOTES_BY_NUM[midiNoteValue] = {
             name: noteName,
-            frequency: 440 * 2 ** ((noteVal - 58) / 12),
+            frequency: 440 * 2 ** ((midiNoteValue - 58) / 12),
         };
-        NOTE_NUMS_BY_NAME[noteName] = noteVal;
+        NOTE_NUMS_BY_NAME[noteName] = midiNoteValue;
     }
 }
 export const MAX_NOTE_NUM = OCTAVE_COUNT * 12;
