@@ -49,8 +49,8 @@ export class AudioController {
         this.isPlaying = false;
     }
 
-    playInstrument(instrument: Wave, frequency: number) {
-        this.backend.playInstrument(instrument, frequency);
+    playInstrument(instrument: Wave, note: number) {
+        this.backend.playInstrument(instrument, note);
     }
 
     readRow(pattern: Pattern, rowNumber: number) {

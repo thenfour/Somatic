@@ -12,7 +12,7 @@ export type BackendEmitters = {
 export interface AudioBackend {
     setSong(song: Song | null): void | Promise<void>;
     setVolume(vol: number): void | Promise<void>;
-    playInstrument(instrument: Wave, frequency: number): void | Promise<void>;
+    playInstrument(instrument: Wave, note: number): void | Promise<void>;
     playRow(pattern: Pattern, rowNumber: number): void | Promise<void>;
     playPattern(pattern: Pattern): void | Promise<void>;
     playSong(startPosition: number): void | Promise<void>;

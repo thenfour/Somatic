@@ -50,11 +50,39 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     useEffect(() => {
         const midi = midiRef.current;
         if (!midi) return;
+
+        let offDevices: (() => void) | null = null;
+        let offNoteOn: (() => void) | null = null;
+
         midi.init().then(() => {
             setMidiStatus(midi.getStatus());
             setMidiDevices(midi.getDevices());
+
+            offDevices = midi.onDevicesChanged((list) => {
+                setMidiDevices(list);
+                setMidiStatus(midi.getStatus());
+            });
+
+            const noteRef = {
+                get song() { return song; },
+                get inst() { return editorState.currentInstrument; },
+            };
+
+            offNoteOn = midi.onNoteOn((evt) => {
+                const s = noteRef.song;
+                const instIdx = Math.max(1, Math.min(s.instruments.length - 1, noteRef.inst || 1));
+                const instrument = s.instruments[instIdx];
+                if (instrument) {
+                    audio.playInstrument(instrument, evt.note);
+                }
+            });
         });
-    }, []);
+
+        return () => {
+            offDevices?.();
+            offNoteOn?.();
+        };
+    }, [audio, editorState.currentInstrument, song]);
 
     const updateSong = (mutator: SongMutator) => {
         setSong((prev) => {

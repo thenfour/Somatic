@@ -25,15 +25,15 @@ const Keyboard: React.FC<KeyboardProps> = ({ instrument, audio }) => {
         return () => window.removeEventListener('mouseup', onMouseUp);
     }, [onMouseUp]);
 
-    const playNote = (frequency: number, noteLabel: string) => {
-        audio.playInstrument(instrument, frequency);
+    const playNote = (noteVal: number, noteLabel: string) => {
+        audio.playInstrument(instrument, noteVal);
         setActiveNote(noteLabel);
     };
 
     const keys = [] as Array<{
         id: string;
         noteName: string;
-        frequency: number;
+        noteVal: number;
         className: string;
         left: number;
     }>;
@@ -41,13 +41,12 @@ const Keyboard: React.FC<KeyboardProps> = ({ instrument, audio }) => {
         for (let n = 0; n < 12; n++) {
             const noteVal = oct * 12 + n - 11;
             const noteName = NOTE_NAMES[n] + oct;
-            const frequency = NOTES_BY_NUM[noteVal]?.frequency;
-            if (!frequency) continue;
+            if (!NOTES_BY_NUM[noteVal]) continue;
             const isBlack = [1, 3, 6, 8, 10].includes(n);
             keys.push({
                 id: `${oct}-${n}`,
                 noteName,
-                frequency,
+                noteVal,
                 className: `key ${isBlack ? 'black' : 'white'} ${activeNote === noteName ? 'active' : ''}`,
                 left: ((oct - 1) * 7 + KEY_POSITIONS[n]) * 32,
             });
@@ -61,7 +60,7 @@ const Keyboard: React.FC<KeyboardProps> = ({ instrument, audio }) => {
                     key={key.id}
                     className={key.className}
                     style={{ left: `${key.left}px` }}
-                    onMouseDown={() => playNote(key.frequency, key.noteName)}
+                    onMouseDown={() => playNote(key.noteVal, key.noteName)}
                 >
                     {key.noteName}
                 </button>

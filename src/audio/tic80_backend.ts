@@ -34,16 +34,16 @@ export class Tic80Backend implements AudioBackend {
         // TODO: route to cart when mixer control exists
     }
 
-    async playInstrument(instrument: Wave, frequency: number) {
+    async playInstrument(instrument: Wave, note: number) {
         const b = this.bridge();
         if (!b || !b.isReady()) return;
 
         await this.tryUploadSong();
 
         const sfxId = this.findInstrumentIndex(instrument);
-        const note = this.frequencyToNote(frequency);
+        const clampedNote = Math.max(0, Math.min(95, Math.round(note)));
 
-        b.playSfx({ sfxId, note }).catch((err) => {
+        b.playSfx({ sfxId, note: clampedNote }).catch((err) => {
             console.warn('[Tic80Backend] playInstrument failed', err);
         });
     }
@@ -91,10 +91,4 @@ export class Tic80Backend implements AudioBackend {
         return 1;
     }
 
-    private frequencyToNote(freq: number): number {
-        if (!isFinite(freq) || freq <= 0) return 0;
-        const note = Math.round(58 + 12 * Math.log2(freq / 440));
-        // TIC sfx note accepts 0..95
-        return Math.max(0, Math.min(95, note));
-    }
 }

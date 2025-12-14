@@ -44,7 +44,9 @@ export class WebAudioBackend implements AudioBackend {
         if (this.gainNode) this.gainNode.gain.value = vol;
     }
 
-    playInstrument(instrument: Wave, frequency: number) {
+    playInstrument(instrument: Wave, note: number) {
+        const frequency = NOTES_BY_NUM[note]?.frequency;
+        if (!frequency) return;
         const instrumentFrameCallback = instrument.getFrameCallback(frequency);
         const frameCallback = (frameNumber: number) => [instrumentFrameCallback(frameNumber)];
         this.play(frameCallback);
