@@ -20,6 +20,8 @@ const TIC = {
     MARKER_ADDR: 0x14e24,
     MAILBOX_ADDR: 0x14e40,
     OUTBOX_ADDR: 0x14e80,
+    MAILBOX_MUTEX_ADDR: 0x14e40 + 12,
+    MAILBOX_SEQ_ADDR: 0x14e40 + 13,
     MARKER_TEXT: "CHROMATIC_TIC80_V1",
 
     // Mailbox cmd IDs
@@ -101,6 +103,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         const ramBaseRef = useRef<number | null>(null);
         const stageRef = useRef<string>("init");
         const pollingCancelledRef = useRef<boolean>(false);
+        const mailboxSeqRef = useRef<number>(0);
 
         const [ready, setReady] = useState(false);
 
@@ -247,11 +250,26 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         }
 
         function writeMailboxBytes(bytes: number[]) {
+            assertReady();
             const mb = TIC.MAILBOX_ADDR;
-            log("write mailbox", { addr: mb, bytes });
-            for (let i = 0; i < bytes.length; i++) {
+            const mutex = TIC.MAILBOX_MUTEX_ADDR;
+            const seqAddr = TIC.MAILBOX_SEQ_ADDR;
+
+            // Signal busy to cart while we write the payload.
+            poke8(mutex, 1);
+
+            // Write payload bytes; zero the rest of the fixed mailbox window (first 8 bytes).
+            const windowSize = 8;
+            for (let i = 0; i < windowSize; i++) {
                 poke8(mb + i, bytes[i] ?? 0);
             }
+
+            // Bump sequence after payload so cart can detect a complete write.
+            mailboxSeqRef.current = (mailboxSeqRef.current + 1) & 0xff;
+            poke8(seqAddr, mailboxSeqRef.current);
+
+            // Release busy flag.
+            poke8(mutex, 0);
         }
 
         function play(opts?: {

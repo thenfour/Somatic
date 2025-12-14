@@ -8,6 +8,12 @@ local MARKER_ADDR = 0x14E24
 local INBOX_ADDR = 0x14E40
 local OUTBOX_ADDR = 0x14E80
 
+-- Host->cart synchronization registers (mutex-ish)
+-- The host sets BUSY=1 while writing a payload, then bumps SEQ and clears BUSY.
+-- The cart only reads when BUSY=0 and SEQ has changed.
+local INBOX_MUTEX_ADDR = INBOX_ADDR + 12 -- non-zero while host is writing
+local INBOX_SEQ_ADDR = INBOX_ADDR + 13 -- increments per host write
+
 local MARKER = "CHROMATIC_TIC80_V1" -- 17 bytes; host scans for this at MARKER_ADDR
 
 -- =========================
@@ -142,6 +148,7 @@ local isPlaying = false
 local playingTrack = 0
 local lastCmd = 0
 local lastCmdResult = 0
+local host_last_seq = 0
 
 local function set_playing(track, playing)
 	isPlaying = playing
@@ -222,6 +229,17 @@ local function handle_ping_fx()
 end
 
 local function poll_inbox()
+	-- If host is mid-write, ignore to avoid tearing
+	if peek(INBOX_MUTEX_ADDR) ~= 0 then
+		return false
+	end
+
+	local seq = peek(INBOX_SEQ_ADDR)
+	if seq == host_last_seq then
+		return false -- nothing new
+	end
+	host_last_seq = seq
+
 	local cmd = peek(INBOX_ADDR + 0)
 	if cmd == 0 then
 		return false
@@ -293,6 +311,7 @@ function TIC()
 		math.randomseed(12345) -- stable-ish; remove if you want varying visuals
 		write_marker()
 		out_init()
+		host_last_seq = peek(INBOX_SEQ_ADDR)
 		log("BOOT")
 		booted = true
 	end
