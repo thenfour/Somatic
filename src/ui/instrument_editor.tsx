@@ -1,61 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { AudioController } from '../audio/controller';
-import { NOTE_INFOS } from '../defs';
 import { Wave, waveType } from '../models/instruments';
 import { Song } from '../models/song';
-import { Scope } from './scope';
-
-const KEY_POSITIONS = [0, 0.5, 1, 1.5, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6];
-
-type KeyboardProps = {
-    instrument: Wave;
-    audio: AudioController;
-};
-
-const Keyboard: React.FC<KeyboardProps> = ({ instrument, audio }) => {
-    const [activeNote, setActiveNote] = useState<string | null>(null);
-
-    const onMouseUp = useCallback(() => {
-        setActiveNote(null);
-        audio.stop();
-    }, [audio]);
-
-    useEffect(() => {
-        window.addEventListener('mouseup', onMouseUp);
-        return () => window.removeEventListener('mouseup', onMouseUp);
-    }, [onMouseUp]);
-
-    const playNote = (midiNoteValue: number, noteLabel: string) => {
-        audio.playInstrument(instrument, midiNoteValue);
-        setActiveNote(noteLabel);
-    };
-
-    const keys = NOTE_INFOS.filter((info) => info.isAvailableInPattern).map((info) => {
-        const isBlack = [1, 3, 6, 8, 10].includes(info.semitone);
-        return {
-            id: `${info.octave}-${info.semitone}`,
-            noteName: info.name,
-            midiNoteValue: info.midi,
-            className: `key ${isBlack ? 'black' : 'white'} ${activeNote === info.name ? 'active' : ''}`,
-            left: ((info.octave - 1) * 7 + KEY_POSITIONS[info.semitone]) * 32,
-        };
-    });
-
-    return (
-        <ul id="keyboard">
-            {keys.map((key) => (
-                <button
-                    key={key.id}
-                    className={key.className}
-                    style={{ left: `${key.left}px` }}
-                    onMouseDown={() => playNote(key.midiNoteValue, key.noteName)}
-                >
-                    {key.noteName}
-                </button>
-            ))}
-        </ul>
-    );
-};
+//import { Scope } from './scope';
 
 type HarmonicsInputsProps = {
     instrument: Wave;
@@ -217,7 +164,7 @@ const InstrumentEditor: React.FC<InstrumentEditorProps> = ({ instrument, onInstr
                             onChange={(e) => updateInstrument({ name: e.target.value })}
                         />
                     </label>
-                    <Scope instrument={instrument} scrub={scrub} audio={audio} />
+                    {/* <Scope instrument={instrument} scrub={scrub} audio={audio} /> */}
                 </div>
                 <div id="parameters">
                     <div>
@@ -281,7 +228,7 @@ const InstrumentEditor: React.FC<InstrumentEditorProps> = ({ instrument, onInstr
                 />
                 <span id="scrub-value">{scrub}</span>
             </div>
-            <Keyboard instrument={instrument} audio={audio} />
+            {/* <Keyboard instrument={instrument} audio={audio} /> */}
         </div>
     );
 };
@@ -290,18 +237,18 @@ type InstrumentPanelProps = {
     song: Song;
     audio: AudioController;
     currentInstrument: number;
-    onCurrentInstrumentChange: (inst: number) => void;
+    //onCurrentInstrumentChange: (inst: number) => void;
     onSongChange: (mutator: (song: Song) => void) => void;
     onClose: () => void;
 };
 
-export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, audio, currentInstrument, onCurrentInstrumentChange, onSongChange, onClose }) => {
+export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, audio, currentInstrument, onSongChange, onClose }) => {
     const selectedInstrument = currentInstrument;
 
-    const instrumentOptions = useMemo(
-        () => song.instruments.map((inst, idx) => ({ idx, name: inst.name || `Instrument ${idx}` })),
-        [song],
-    );
+    // const instrumentOptions = useMemo(
+    //     () => song.instruments.map((inst, idx) => ({ idx, name: inst.name || `Instrument ${idx}` })),
+    //     [song],
+    // );
 
     const onInstrumentChange = (updater: (inst: Wave) => void) => {
         onSongChange((s) => {
@@ -316,17 +263,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, audio, c
         <div className="instrument-panel">
             <div className="toolbar">
                 <label htmlFor="instrument">Instruments</label>
-                <select
-                    id="instrument"
-                    value={selectedInstrument}
-                    onChange={(e) => onCurrentInstrumentChange(parseInt(e.target.value, 10))}
-                >
-                    {instrumentOptions.map((opt) => (
-                        <option key={opt.idx} value={opt.idx} disabled={opt.idx === 0}>
-                            {opt.idx} - {opt.name}
-                        </option>
-                    ))}
-                </select>
                 <button onClick={onClose}>Close</button>
             </div>
             <InstrumentEditor instrument={instrument} onInstrumentChange={onInstrumentChange} audio={audio} />

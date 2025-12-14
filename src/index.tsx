@@ -17,6 +17,7 @@ import { PreferencesPanel } from './ui/preferences_panel';
 import { SongEditor } from './ui/song_editor';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { ToastProvider, useToasts } from './ui/toast_provider';
+import { Keyboard } from './ui/keyboard';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -179,6 +180,20 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         };
     }, [audio, editorState.currentInstrument, song]);
 
+    // handlers for clicking the keyboard view note on / off
+    const handleNoteOn = (midiNote: number) => {
+        const s = song;
+        const instIdx = Math.max(1, Math.min(s.instruments.length - 1, editorState.currentInstrument || 1));
+        const instrument = s.instruments[instIdx];
+        if (instrument) {
+            audio.playInstrument(instrument, midiNote);
+        }
+    };
+
+    const handleNoteOff = (midiNote: number) => {
+        // currently no note off handling
+    };
+
     const updateSong = (mutator: SongMutator) => {
         setSong((prev) => {
             const next = prev.clone();
@@ -276,7 +291,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 
     return (
         <div className="app">
-            <div className="stickyHeader">
+            <div className="stickyHeader appRow">
                 <div className="menu">
                     <div className="menu-group">
                         <button onClick={openSongFile}><span className="icon" aria-hidden="true">📂</span>Open</button>
@@ -350,7 +365,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     onEditorStateChange={updateEditorState}
                 />
             </div>
-            <div className="main-editor-area">
+            <div className="main-editor-area  appRow">
                 <PatternGrid
                     ref={patternGridRef}
                     song={song}
@@ -364,7 +379,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                         song={song}
                         audio={audio}
                         currentInstrument={editorState.currentInstrument}
-                        onCurrentInstrumentChange={(inst) => updateEditorState((s) => s.setCurrentInstrument(inst))}
+                        //onCurrentInstrumentChange={(inst) => updateEditorState((s) => s.setCurrentInstrument(inst))}
                         onSongChange={updateSong}
                         onClose={() => setInstrumentPanelOpen(false)}
                     />
@@ -384,6 +399,12 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     {/* <Tic80Iframe /> */}
                     <Tic80Bridge ref={bridgeRef} />
                 </div>
+            </div>
+            <div className="footer appRow">
+                <Keyboard
+                    onNoteOn={handleNoteOn}
+                    onNoteOff={handleNoteOff}
+                />
             </div>
         </div>
     );
