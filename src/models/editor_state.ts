@@ -1,4 +1,4 @@
-import { OCTAVE_COUNT, PATTERN_COUNT } from "../defs";
+import { INSTRUMENT_COUNT, OCTAVE_COUNT, PATTERN_COUNT } from "../defs";
 
 const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
 
@@ -6,11 +6,13 @@ export class EditorState {
     octave: number;
     pattern: number;
     selectedPosition: number;
+    currentInstrument: number;
 
-    constructor({ octave = Math.floor(OCTAVE_COUNT / 2), pattern = 0, selectedPosition = 0 }: Partial<EditorState> = {}) {
+    constructor({ octave = Math.floor(OCTAVE_COUNT / 2), pattern = 0, selectedPosition = 0, currentInstrument = 1 }: Partial<EditorState> = {}) {
         this.octave = clamp(octave, 1, OCTAVE_COUNT);
         this.pattern = clamp(pattern, 0, PATTERN_COUNT - 1);
         this.selectedPosition = clamp(selectedPosition, 0, 255);
+        this.currentInstrument = clamp(currentInstrument, 1, INSTRUMENT_COUNT);
     }
 
     setOctave(nextOctave: number) {
@@ -25,11 +27,16 @@ export class EditorState {
         this.selectedPosition = clamp(nextPosition, 0, 255);
     }
 
+    setCurrentInstrument(nextInstrument: number) {
+        this.currentInstrument = clamp(nextInstrument, 1, INSTRUMENT_COUNT);
+    }
+
     toData() {
         return {
             octave: this.octave,
             pattern: this.pattern,
             selectedPosition: this.selectedPosition,
+            currentInstrument: this.currentInstrument,
         };
     }
 

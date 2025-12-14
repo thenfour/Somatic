@@ -302,23 +302,19 @@ const InstrumentEditor: React.FC<InstrumentEditorProps> = ({ instrument, onInstr
 type InstrumentPanelProps = {
     song: Song;
     audio: AudioController;
+    currentInstrument: number;
+    onCurrentInstrumentChange: (inst: number) => void;
     onSongChange: (mutator: (song: Song) => void) => void;
     onClose: () => void;
 };
 
-export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, audio, onSongChange, onClose }) => {
-    const [selectedInstrument, setSelectedInstrument] = useState(1);
+export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, audio, currentInstrument, onCurrentInstrumentChange, onSongChange, onClose }) => {
+    const selectedInstrument = currentInstrument;
 
     const instrumentOptions = useMemo(
         () => song.instruments.map((inst, idx) => ({ idx, name: inst.name || `Instrument ${idx}` })),
         [song],
     );
-
-    useEffect(() => {
-        if (selectedInstrument >= song.instruments.length) {
-            setSelectedInstrument(1);
-        }
-    }, [selectedInstrument, song.instruments.length]);
 
     const onInstrumentChange = (updater: (inst: Wave) => void) => {
         onSongChange((s) => {
@@ -336,7 +332,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, audio, o
                 <select
                     id="instrument"
                     value={selectedInstrument}
-                    onChange={(e) => setSelectedInstrument(parseInt(e.target.value, 10))}
+                    onChange={(e) => onCurrentInstrumentChange(parseInt(e.target.value, 10))}
                 >
                     {instrumentOptions.map((opt) => (
                         <option key={opt.idx} value={opt.idx} disabled={opt.idx === 0}>

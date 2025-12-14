@@ -1,6 +1,6 @@
 import React from 'react';
 import { AudioController } from '../audio/controller';
-import { OCTAVE_COUNT, PATTERN_COUNT } from '../defs';
+import { INSTRUMENT_COUNT, OCTAVE_COUNT, PATTERN_COUNT } from '../defs';
 import { EditorState } from '../models/editor_state';
 import { Song } from '../models/song';
 import { PositionList } from './position_list';
@@ -35,6 +35,11 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
     const onOctaveChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseInt(e.target.value, 10);
         onEditorStateChange((state) => state.setOctave(val));
+    };
+
+    const onCurrentInstrumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseInt(e.target.value, 10);
+        onEditorStateChange((state) => state.setCurrentInstrument(val));
     };
 
     const onHighlightRowCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,6 +102,16 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
             <label>
                 Octave
                 <input type="number" min={1} max={OCTAVE_COUNT} value={editorState.octave} onChange={onOctaveChange} />
+            </label>
+            <label>
+                Instrument
+                <input
+                    type="number"
+                    min={1}
+                    max={INSTRUMENT_COUNT}
+                    value={editorState.currentInstrument}
+                    onChange={onCurrentInstrumentChange}
+                />
             </label>
             <label>
                 Pattern

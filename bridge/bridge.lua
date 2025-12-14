@@ -337,7 +337,7 @@ local function draw_idle_anim()
 
 	circ(cx, cy, r, 1) -- ring
 	for i = 0, 7 do
-		local a = i * (math.pi * 2 / 8) + t
+		local a = i * (math.pi * 2 / 8) + t * 0.2
 		local px = cx + math.cos(a) * r
 		local py = cy + math.sin(a) * r
 		local col = (i == phase) and 12 or 5

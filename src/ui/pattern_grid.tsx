@@ -62,6 +62,7 @@ export const PatternGrid: React.FC<PatternGridProps> = ({ song, audio, editorSta
         const noteVal = idx + (editorState.octave - 1) * 12;
         if (noteVal > MAX_NOTE_NUM) return;
         setRowValue(channelIndex, rowIndex, 'note', noteVal);
+        setRowValue(channelIndex, rowIndex, 'instrument', editorState.currentInstrument);
         if (!audio.isPlaying) playRow(rowIndex);
     };
 

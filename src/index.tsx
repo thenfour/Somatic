@@ -196,6 +196,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     <InstrumentPanel
                         song={song}
                         audio={audio}
+                        currentInstrument={editorState.currentInstrument}
+                        onCurrentInstrumentChange={(inst) => updateEditorState((s) => s.setCurrentInstrument(inst))}
                         onSongChange={updateSong}
                         onClose={() => setInstrumentPanelOpen(false)}
                     />
