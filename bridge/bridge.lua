@@ -54,7 +54,6 @@ local LOG_CMD_LOG = 1 -- log message to host
 -- len is 0..31 (we clamp). Host can decode by walking from its own readPtr to current writePtr.
 
 -- =========================
--- INBOX layout (host -> cart)
 -- =========================
 -- INBOX_ADDR + 0: cmd  (0=NOP, 1=PLAY, 2=STOP, 3=PING/FX)
 -- INBOX_ADDR + 1: track (0..7)
@@ -172,6 +171,11 @@ local playingTrack = 0
 local lastCmd = 0
 local lastCmdResult = 0
 local host_last_seq = 0
+local CMD_PLAY = 1
+local CMD_STOP = 2
+local CMD_PING = 3
+local CMD_BEGIN_UPLOAD = 4
+local CMD_END_UPLOAD = 5
 
 local function set_playing(track, playing)
 	isPlaying = playing
@@ -242,14 +246,28 @@ end
 local function handle_stop()
 	music()
 	set_playing(playingTrack, false)
-	publish_cmd(2, 0)
+	publish_cmd(CMD_STOP, 0)
 	log("STOP")
 end
 
 local function handle_ping_fx()
 	-- Simple visible acknowledgement + log
-	publish_cmd(3, 0)
+	publish_cmd(CMD_PING, 0)
 	log("PING/FX")
+end
+
+local function handle_begin_upload()
+	-- Stop any playback before host overwrites music data
+	music()
+	set_playing(playingTrack, false)
+	publish_cmd(CMD_BEGIN_UPLOAD, 0)
+	log("BEGIN_UPLOAD")
+end
+
+local function handle_end_upload()
+	-- No-op placeholder; host signals completion
+	publish_cmd(CMD_END_UPLOAD, 0)
+	log("END_UPLOAD")
 end
 
 local function poll_inbox()
@@ -269,12 +287,16 @@ local function poll_inbox()
 		return false
 	end
 
-	if cmd == 1 then
+	if cmd == CMD_PLAY then
 		handle_play()
-	elseif cmd == 2 then
+	elseif cmd == CMD_STOP then
 		handle_stop()
-	elseif cmd == 3 then
+	elseif cmd == CMD_PING then
 		handle_ping_fx()
+	elseif cmd == CMD_BEGIN_UPLOAD then
+		handle_begin_upload()
+	elseif cmd == CMD_END_UPLOAD then
+		handle_end_upload()
 	else
 		publish_cmd(cmd, 1)
 		log("UNKNOWN CMD " .. tostring(cmd))

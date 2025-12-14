@@ -53,6 +53,8 @@ const TIC = {
     CMD_PLAY: 1,
     CMD_STOP: 2,
     CMD_PING: 3,
+    CMD_BEGIN_UPLOAD: 4,
+    CMD_END_UPLOAD: 5,
 } as const;
 
 export type Tic80BridgeHandle = {
@@ -395,6 +397,8 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
 
         async function uploadSongData(data: Uint8Array) {
             assertReady();
+            // Gracefully stop cart playback before overwriting RAM
+            await sendMailboxCommand([TIC.CMD_BEGIN_UPLOAD]);
             let offset = 0;
             while (offset + 4 <= data.length) {
                 const header = data[offset];
@@ -410,6 +414,8 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
 
                 offset = payloadEnd;
             }
+
+            await sendMailboxCommand([TIC.CMD_END_UPLOAD]);
         }
 
         function writeMailboxBytes(bytes: number[], token?: number) {
