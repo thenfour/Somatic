@@ -32,6 +32,22 @@ const TIC = {
     MARKER_TEXT: "CHROMATIC_TIC80_V1",
     OUT_CMD_LOG: 1,
 
+    // TIC cartridge chunk IDs (subset)
+    CHUNK_WAVEFORMS: 10,
+    CHUNK_SFX: 9,
+    CHUNK_MUSIC_TRACKS: 14,
+    CHUNK_MUSIC_PATTERNS: 15,
+
+    // RAM destinations for the chunk payloads (bank 0)
+    WAVEFORMS_ADDR: 0x0ffe4,
+    WAVEFORMS_SIZE: 0x100, // 256 bytes
+    SFX_ADDR: 0x100e4,
+    SFX_SIZE: 66 * 64, // 64 sfx slots * 66 bytes
+    PATTERNS_ADDR: 0x11164,
+    PATTERNS_SIZE: 0x2d00, // 11520 bytes
+    TRACKS_ADDR: 0x13e64,
+    TRACKS_SIZE: 51 * 8, // 8 tracks * 51 bytes
+
     // Mailbox cmd IDs
     CMD_NOP: 0,
     CMD_PLAY: 1,
@@ -54,6 +70,9 @@ export type Tic80BridgeHandle = {
     poke8: (addr: number, value: number) => void;
     pokeBlock: (addr: number, data: Uint8Array) => void;
     peekBlock: (addr: number, length: number) => Uint8Array;
+
+    /** Upload song chunk stream (.tic music-related chunks) directly into TIC RAM */
+    uploadSongData: (data: Uint8Array) => Promise<void>;
 
     /** Mailbox commands */
     play: (opts?: {
@@ -338,6 +357,61 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             return heapRef.current!.slice(start, start + length);
         }
 
+        function zeroRange(addr: number, len: number) {
+            assertReady();
+            heapRef.current!.fill(0, ramBaseRef.current! + addr, ramBaseRef.current! + addr + len);
+        }
+
+        function applySongChunk(type: number, payload: Uint8Array, bank: number) {
+            // Only bank 0 is supported for now.
+            if (bank !== 0) return;
+
+            switch (type) {
+                case TIC.CHUNK_WAVEFORMS: {
+                    zeroRange(TIC.WAVEFORMS_ADDR, TIC.WAVEFORMS_SIZE);
+                    pokeBlock(TIC.WAVEFORMS_ADDR, payload.slice(0, TIC.WAVEFORMS_SIZE));
+                    break;
+                }
+                case TIC.CHUNK_SFX: {
+                    zeroRange(TIC.SFX_ADDR, TIC.SFX_SIZE);
+                    pokeBlock(TIC.SFX_ADDR, payload.slice(0, TIC.SFX_SIZE));
+                    break;
+                }
+                case TIC.CHUNK_MUSIC_PATTERNS: {
+                    zeroRange(TIC.PATTERNS_ADDR, TIC.PATTERNS_SIZE);
+                    pokeBlock(TIC.PATTERNS_ADDR, payload.slice(0, TIC.PATTERNS_SIZE));
+                    break;
+                }
+                case TIC.CHUNK_MUSIC_TRACKS: {
+                    zeroRange(TIC.TRACKS_ADDR, TIC.TRACKS_SIZE);
+                    pokeBlock(TIC.TRACKS_ADDR, payload.slice(0, TIC.TRACKS_SIZE));
+                    break;
+                }
+                default:
+                    // ignore other chunk types for now
+                    break;
+            }
+        }
+
+        async function uploadSongData(data: Uint8Array) {
+            assertReady();
+            let offset = 0;
+            while (offset + 4 <= data.length) {
+                const header = data[offset];
+                const bank = (header >> 5) & 0x07;
+                const type = header & 0x1f;
+                const size = data[offset + 1] | (data[offset + 2] << 8);
+                const payloadStart = offset + 4;
+                const payloadEnd = payloadStart + size;
+                if (payloadEnd > data.length) break; // malformed; stop early
+
+                const payload = data.slice(payloadStart, payloadEnd);
+                applySongChunk(type, payload, bank);
+
+                offset = payloadEnd;
+            }
+        }
+
         function writeMailboxBytes(bytes: number[], token?: number) {
             assertReady();
             const mb = TIC.MAILBOX_ADDR;
@@ -453,6 +527,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                 poke8,
                 pokeBlock,
                 peekBlock,
+                uploadSongData,
 
                 play,
                 stop,
