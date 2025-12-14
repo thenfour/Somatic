@@ -15,22 +15,22 @@
     --ff-size-4x: 40px;
 
     /* TIC-80 palette */
-    --tic-0: #000000;
-    --tic-1: #1a1c2c;
-    --tic-2: #5d275d;
-    --tic-3: #008751;
-    --tic-4: #ab5236;
-    --tic-5: #5f574f;
-    --tic-6: #c2c3c7;
-    --tic-7: #fff1e8;
-    --tic-8: #b13e53;
-    --tic-9: #ffa300;
-    --tic-10: #ffec27;
-    --tic-11: #00e436;
-    --tic-12: #29adff;
-    --tic-13: #83769c;
-    --tic-14: #ff77a8;
-    --tic-15: #ffccaa;
+    --tic-0: #1a1c2c;
+    --tic-1: #5d275d;
+    --tic-2: #b13e53;
+    --tic-3: #ef7d57;
+    --tic-4: #ffcd75;
+    --tic-5: #a7f070;
+    --tic-6: #38b764;
+    --tic-7: #257179;
+    --tic-8: #29366f;
+    --tic-9: #3b5dc9;
+    --tic-10: #41a6f6;
+    --tic-11: #73eff7;
+    --tic-12: #f4f4f4;
+    --tic-13: #94b0c2;
+    --tic-14: #566c86;
+    --tic-15: #333c57;
 
     /* Theme tokens (light default) */
     --bg: var(--tic-7);
@@ -358,7 +358,7 @@ input {
 .position-list {
     padding: 0;
     width: 100%;
-    height: 40px;
+    height: 45px;
     white-space: nowrap;
     overflow-x: scroll;
 }
