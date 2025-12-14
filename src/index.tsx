@@ -16,6 +16,7 @@ import { PatternGrid, PatternGridHandle } from './ui/pattern_grid';
 import { PreferencesPanel } from './ui/preferences_panel';
 import { SongEditor } from './ui/song_editor';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
+import { ToastProvider, useToasts } from './ui/toast_provider';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -27,6 +28,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const midiRef = React.useRef<MidiManager | null>(new MidiManager());
     const patternGridRef = React.useRef<PatternGridHandle | null>(null);
     const audio = useMemo(() => new AudioController({ bridgeGetter: () => bridgeRef.current }), []);
+    const { pushToast } = useToasts();
     const [song, setSong] = useState(() => new Song());
     const [editorState, setEditorState] = useState(() => new EditorState());
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);
@@ -218,9 +220,10 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         const text = song.toJSON();
         try {
             await navigator.clipboard.writeText(text);
+            pushToast({ message: 'Song copied to clipboard.', variant: 'success' });
         } catch (err) {
             console.error('Copy failed', err);
-            alert('Failed to copy song to clipboard.');
+            pushToast({ message: 'Failed to copy song to clipboard.', variant: 'error' });
         }
     };
 
@@ -228,9 +231,10 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         const text = song.getLuaCode();
         try {
             await navigator.clipboard.writeText(text);
+            pushToast({ message: 'TIC-80 export copied to clipboard.', variant: 'success' });
         } catch (err) {
             console.error('Copy failed', err);
-            alert('Failed to copy TIC-80 export to clipboard.');
+            pushToast({ message: 'Failed to copy TIC-80 export to clipboard.', variant: 'error' });
         }
     };
 
@@ -243,9 +247,10 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 s.setPattern(0);
                 s.setSelectedPosition(0);
             });
+            pushToast({ message: 'Song pasted from clipboard.', variant: 'success' });
         } catch (err) {
             console.error('Paste failed', err);
-            alert('Failed to paste song from clipboard. Ensure it is a valid song JSON.');
+            pushToast({ message: 'Failed to paste song from clipboard. Ensure it is valid song JSON.', variant: 'error' });
         }
     };
 
@@ -410,7 +415,13 @@ const AppWrapper: React.FC = () => {
 
     const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 
-    return hasContinued ? <App theme={theme} onToggleTheme={toggleTheme} /> : <SplashScreen onContinue={() => setHasContinued(true)} />;
+    return (
+        <ToastProvider>
+            {hasContinued
+                ? <App theme={theme} onToggleTheme={toggleTheme} />
+                : <SplashScreen onContinue={() => setHasContinued(true)} />}
+        </ToastProvider>
+    );
 }
 
 const rootEl = document.getElementById('root');

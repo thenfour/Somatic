@@ -42,11 +42,13 @@
     --border-strong: var(--tic-15);
     --accent: var(--tic-10);
     --accent-strong: var(--tic-11);
-    --row-a: color-mix(in srgb, var(--tic-3) 35%, transparent);
-    --row-b: color-mix(in srgb, var(--tic-10) 18%, transparent);
-    --row-active: color-mix(in srgb, var(--tic-6) 35%, transparent);
-    --tooltip-bg: color-mix(in srgb, var(--tic-8) 90%, transparent);
+    --row-a: var(--tic-3);
+    --row-b: var(--tic-10);
+    --row-active: var(--tic-6);
+    --tooltip-bg: var(--tic-8);
     --tooltip-text: var(--tic-12);
+    --success-accent: var(--tic-6);
+    --error-accent: var(--tic-2);
 }
 
 .theme-dark {
@@ -59,11 +61,13 @@
     --border-strong: var(--tic-14);
     --accent: var(--tic-10);
     --accent-strong: var(--tic-11);
-    --row-a: color-mix(in srgb, var(--tic-3) 20%, transparent);
-    --row-b: color-mix(in srgb, var(--tic-10) 12%, transparent);
-    --row-active: color-mix(in srgb, var(--tic-6) 28%, transparent);
-    --tooltip-bg: color-mix(in srgb, var(--tic-0) 90%, transparent);
+    --row-a: var(--tic-3);
+    --row-b: var(--tic-10);
+    --row-active: var(--tic-6);
+    --tooltip-bg: var(--tic-0);
     --tooltip-text: var(--tic-12);
+    --success-accent: var(--tic-6);
+    --error-accent: var(--tic-2);
 }
 
 html,
@@ -440,7 +444,7 @@ button.key {
 
 .pattern-grid td:focus {
     outline: 1px solid var(--border-strong);
-    background-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    background-color: var(--accent);
 }
 
 .pattern-grid .row-number {
@@ -509,7 +513,7 @@ button.key {
     gap: 6px;
     padding: 4px 10px;
     border-radius: 8px;
-    background: color-mix(in srgb, var(--tic-3) 35%, var(--panel));
+    background: var(--tic-3);
     color: var(--text);
     border: 1px solid var(--border-strong);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
@@ -529,6 +533,77 @@ button.key {
     background: var(--panel-strong);
     border: 1px solid var(--border);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* Toasts */
+.toast-viewport {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 1200;
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    min-width: 280px;
+    max-width: 360px;
+    border: 1px solid var(--border-strong);
+    background: var(--panel-strong);
+    color: var(--text);
+    box-shadow: 0 14px 38px rgba(0, 0, 0);
+    overflow: hidden;
+    display: flex;
+    transform: translateZ(0);
+}
+
+.toast__stripe {
+    width: 6px;
+    background: var(--accent);
+}
+
+.toast--success .toast__stripe {
+    background: var(--success-accent);
+}
+
+.toast--error .toast__stripe {
+    background: var(--error-accent);
+}
+
+.toast--info .toast__stripe {
+    background: var(--accent-strong);
+}
+
+.toast__body {
+    padding: 12px 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+}
+
+.toast__message {
+    flex: 1 1 auto;
+    line-height: 1.4;
+}
+
+.toast__close {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 6px;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.toast__close:hover {
+    color: var(--text);
+    background: var(--panel-strong);
 }
 
 .field-row {

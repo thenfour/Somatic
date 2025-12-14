@@ -169,6 +169,7 @@ end
 -- Also show some recent logs on-screen for sanity
 local LOG_LINES = 6
 local log_lines = {}
+local log_serial = 0
 local function log_screen(s)
 	-- ring of strings for display
 	table.insert(log_lines, 1, s)
@@ -178,8 +179,10 @@ local function log_screen(s)
 end
 
 local function log(s)
-	log_write_ascii(s)
-	log_screen(s)
+	log_serial = log_serial + 1
+	local prefix = string.format("[%03d] ", log_serial)
+	log_write_ascii(prefix .. s)
+	log_screen(prefix .. s)
 end
 
 -- =========================
