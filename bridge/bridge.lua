@@ -351,10 +351,5 @@ function TIC()
 		rect(0, 0, 240, 6, 12)
 	end
 
-	-- Small random visible effect for PING/FX
-	if lastCmd == 3 and (t % 10 == 0) then
-		circ(math.random(240), math.random(136), 6, math.random(16))
-	end
-
 	draw_status()
 end
