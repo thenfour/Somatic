@@ -5,8 +5,9 @@ export const OCTAVE_COUNT = 8;
 export const MIN_MIDI_NOTE = 0;
 export const MAX_MIDI_NOTE = 255; // full MIDI byte range for registry completeness
 
-// Tracker/UI range (kept to prior 8 octaves for UX/compat)
-export const MAX_PATTERN_NOTE = OCTAVE_COUNT * 12;
+// Tracker/UI range (aligned to TIC-80 0..95)
+export const MIN_PATTERN_NOTE = 0;
+export const MAX_PATTERN_NOTE = 95;
 export const MAX_NOTE_NUM = MAX_PATTERN_NOTE; // backwards compatibility alias
 
 export type NoteInfo = {
@@ -14,24 +15,26 @@ export type NoteInfo = {
     name: string;
     frequency: number;
     semitone: number; // 0..11 within octave
-    octave: number; // 1-based display octave
+    octave: number; // MIDI-standard display octave (C4 = 60)
     ticOctave: number; // 0..7 used by TIC-80 encoding
     ticNoteNibble: number; // 4..15 used by TIC-80 encoding
+    isAvailableInPattern: boolean;
 };
 
-const calcFrequency = (midi: number) => 440 * 2 ** ((midi - 58) / 12);
+const calcFrequency = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
 
 const NOTE_REGISTRY: Record<number, NoteInfo> = {};
 const NOTE_NAME_MAP: Record<string, NoteInfo> = {};
 export const NOTE_INFOS: NoteInfo[] = [];
 
 for (let midi = MIN_MIDI_NOTE; midi <= MAX_MIDI_NOTE; midi++) {
-    const semitone = (midi + 11) % 12; // align with prior offset
-    const octave = Math.floor((midi + 11) / 12);
+    const semitone = ((midi % 12) + 12) % 12; // 0..11
+    const octave = Math.floor(midi / 12) - 1; // MIDI standard: 60 -> C4
     const noteName = `${NOTE_NAMES[semitone]}${octave}`;
     const frequency = calcFrequency(midi);
     const ticOctave = Math.max(0, Math.min(7, octave));
     const ticNoteNibble = semitone + 4; // 4..15
+    const isAvailableInPattern = midi >= MIN_PATTERN_NOTE && midi <= MAX_PATTERN_NOTE;
     const info: NoteInfo = {
         midi,
         name: noteName,
@@ -40,6 +43,7 @@ for (let midi = MIN_MIDI_NOTE; midi <= MAX_MIDI_NOTE; midi++) {
         octave,
         ticOctave,
         ticNoteNibble,
+        isAvailableInPattern,
     };
     NOTE_REGISTRY[midi] = info;
     NOTE_NAME_MAP[noteName] = info;

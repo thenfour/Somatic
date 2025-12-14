@@ -30,7 +30,7 @@ const Keyboard: React.FC<KeyboardProps> = ({ instrument, audio }) => {
         setActiveNote(noteLabel);
     };
 
-    const keys = NOTE_INFOS.map((info) => {
+    const keys = NOTE_INFOS.filter((info) => info.isAvailableInPattern).map((info) => {
         const isBlack = [1, 3, 6, 8, 10].includes(info.semitone);
         return {
             id: `${info.octave}-${info.semitone}`,
