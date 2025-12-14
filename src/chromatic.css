@@ -1,19 +1,99 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap');
 
+@font-face {
+    font-family: "04b03Regular";
+    src: url("./fonts/434.ttf") format("truetype");
+}
+
 :root {
-    --ff-mono: 'Roboto Mono', Consolas, 'Courier New', monospace;
+    /* --ff-mono: 'Roboto Mono', Consolas, 'Courier New', monospace; */
+    --ff-mono: '04b03Regular', monospace;
+    --ff-size-1x: 16px;
+    --ff-size-1-5x: 20px;
+    --ff-size-2x: 24px;
+    --ff-size-3x: 32px;
+    --ff-size-4x: 40px;
+
+    /* TIC-80 palette */
+    --tic-0: #000000;
+    --tic-1: #1a1c2c;
+    --tic-2: #5d275d;
+    --tic-3: #008751;
+    --tic-4: #ab5236;
+    --tic-5: #5f574f;
+    --tic-6: #c2c3c7;
+    --tic-7: #fff1e8;
+    --tic-8: #b13e53;
+    --tic-9: #ffa300;
+    --tic-10: #ffec27;
+    --tic-11: #00e436;
+    --tic-12: #29adff;
+    --tic-13: #83769c;
+    --tic-14: #ff77a8;
+    --tic-15: #ffccaa;
+
+    /* Theme tokens (light default) */
+    --bg: var(--tic-7);
+    --panel: #f7efe4;
+    --panel-strong: #ece1d6;
+    --text: var(--tic-1);
+    --muted: var(--tic-5);
+    --border: #d2c6b8;
+    --border-strong: #b7a897;
+    --accent: var(--tic-12);
+    --accent-strong: var(--tic-8);
+    --row-a: rgba(255, 204, 170, 0.35);
+    /* tic-15 */
+    --row-b: rgba(41, 173, 255, 0.18);
+    /* tic-12 */
+    --row-active: rgba(0, 228, 54, 0.35);
+    /* tic-11 */
+    --tooltip-bg: #1d2b53ee;
+    --tooltip-text: var(--tic-7);
+}
+
+.theme-dark {
+    --bg: var(--tic-1);
+    --panel: #1b1c2a;
+    --panel-strong: #23243a;
+    --text: var(--tic-7);
+    --muted: #9aa1b5;
+    --border: #2f3250;
+    --border-strong: #3f4568;
+    --accent: var(--tic-12);
+    --accent-strong: var(--tic-8);
+    --row-a: rgba(255, 204, 170, 0.2);
+    --row-b: rgba(41, 173, 255, 0.12);
+    --row-active: rgba(0, 228, 54, 0.28);
+    --tooltip-bg: #0f1020ee;
+    --tooltip-text: var(--tic-7);
 }
 
 html,
 body {
     margin: 0;
     padding: 0;
-    font-family: 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-family: var(--ff-mono);
+    font-size: var(--ff-size-1x);
     user-select: none;
+    background: var(--bg);
+    color: var(--text);
 }
 
 button {
     font-family: var(--ff-mono);
+    font-size: var(--ff-size-1x);
+    display: flex;
+    align-items: center;
+}
+
+input {
+    font-family: var(--ff-mono);
+    font-size: var(--ff-size-1x);
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 12px 16px;
 }
 
 .instrument-panel-positioner {
@@ -27,7 +107,8 @@ button {
     flex-wrap: wrap;
     gap: 8px;
     padding: 6px 8px;
-    border-bottom: 1px solid #ccc;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
 }
 
 .menu-group {
@@ -37,33 +118,34 @@ button {
 }
 
 .menu-separator {
-    color: #888;
+    color: var(--muted);
     padding: 0 4px;
 }
 
 .menu button {
     display: inline-flex;
-    align-items: center;
+    align-items: baseline;
     padding: 3px 6px;
     border: 1px solid transparent;
     background: transparent;
-    border-radius: 4px;
     cursor: pointer;
+    color: var(--text);
+    font-size: var(--ff-size-1x);
 }
 
 .menu button:hover {
-    background: #fff;
+    background: var(--panel-strong);
 }
 
 .menu button.active {
-    background: #222;
-    color: #fff;
-    border: 1px solid #888;
-    box-shadow: 0 1px 0 #000 inset;
+    background: var(--accent);
+    color: var(--tic-0);
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35) inset;
 }
 
 .menu button.active:hover {
-    background: #1a1a1a;
+    background: var(--accent-strong);
 }
 
 .menu .icon {
@@ -72,7 +154,7 @@ button {
 
 .instrument-panel {
     /* width: 800px; */
-    background-color: #ddd;
+    background-color: var(--panel);
     padding: 8px;
 }
 
@@ -80,27 +162,25 @@ button {
     position: relative;
     margin: 8px;
     padding: 12px 14px;
-    background: rgba(20, 20, 20, 0.92);
-    border: 1px solid #333;
-    border-radius: 8px;
-    color: #f5f5f5;
+    background: var(--panel-strong);
+    border: 1px solid var(--border);
+    color: var(--text);
     max-width: 480px;
-    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.2);
 }
 
 .help-panel h2 {
     margin: 0 0 10px;
-    font-size: 16px;
+    font-size: var(--ff-size-1-5x);
     letter-spacing: 0.2px;
 }
 
 .help-panel .shortcut-key {
     font-family: var(--ff-mono);
-    font-size: 12px;
-    background: rgba(255, 255, 255, 0.08);
+    font-size: var(--ff-size-1x);
+    background: rgba(0, 0, 0, 0.05);
     padding: 2px 6px;
-    border-radius: 4px;
-    color: #f5f5f5;
+    color: var(--text);
     white-space: nowrap;
 }
 
@@ -119,8 +199,9 @@ button {
 }
 
 .toolbar {
-    background-color: #eee;
+    background-color: var(--panel-strong);
     padding: 4px;
+    font-size: var(--ff-size-1x);
 }
 
 #instrument {
@@ -182,7 +263,7 @@ button {
 
 .key {
     position: absolute;
-    font-size: 8pt;
+    font-size: var(--ff-size-1x);
 }
 
 .key.white {
@@ -223,10 +304,10 @@ button {
 .stickyHeader {
     position: sticky;
     top: 0;
-    background-color: #eee;
+    background-color: var(--panel);
     z-index: 10;
     padding-bottom: 4px;
-    border-bottom: 2px solid black;
+    border-bottom: 2px solid var(--border-strong);
 }
 
 .pattern-grid {
@@ -236,19 +317,19 @@ button {
 }
 
 .pattern-grid .channel {
-    border-left: 1px double black;
+    border-left: 1px double var(--border-strong);
 }
 
 .pattern-grid tr.active-row {
-    background-color: #88dd88;
+    background-color: var(--row-active);
 }
 
 .pattern-grid tr.row-section-a:not(.active-row) {
-    background-color: #eff;
+    background-color: var(--row-a);
 }
 
 .pattern-grid tr.row-section-b:not(.active-row) {
-    background-color: #ffe;
+    background-color: var(--row-b);
 }
 
 .pattern-grid td {
@@ -262,16 +343,16 @@ button {
 }
 
 .pattern-grid td.empty-cell {
-    color: #ccc;
+    color: var(--muted);
 }
 
 .pattern-grid td:focus {
-    outline: 1px solid black;
-    background-color: #ffff88;
+    outline: 1px solid var(--border-strong);
+    background-color: rgba(255, 236, 39, 0.55);
 }
 
 .pattern-grid .row-number {
-    color: #444;
+    color: var(--muted);
 }
 
 .position-list {
@@ -341,9 +422,9 @@ button {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #eee;
-    border: 1px solid #bbb;
-    font-size: 12px;
+    background: var(--panel-strong);
+    border: 1px solid var(--border);
+    font-size: var(--ff-size-1x);
     cursor: help;
     outline: none;
 }
@@ -355,12 +436,10 @@ button {
     left: 0;
     min-width: 200px;
     max-width: 320px;
-    background: #222;
-    color: #fff;
+    background: var(--tooltip-bg);
+    color: var(--tooltip-text);
     padding: 8px;
-    border-radius: 4px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-    font-size: 12px;
+    font-size: var(--ff-size-1x);
     line-height: 1.4;
     opacity: 0;
     pointer-events: none;

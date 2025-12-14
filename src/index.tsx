@@ -13,14 +13,16 @@ import { HelpPanel } from './ui/help_panel';
 import { PatternGrid } from './ui/pattern_grid';
 import { SongEditor } from './ui/song_editor';
 import { Tic80Embed } from './ui/Tic80Embed';
+import { useLocalStorage } from './hooks/useLocalStorage';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
 type TransportState = 'stop' | 'play-pattern' | 'play-from-position' | 'play-all';
+type Theme = 'light' | 'dark';
 
 const useAudioController = (): AudioController => useMemo(() => new AudioController(), []);
 
-const App: React.FC = () => {
+const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
     const audio = useAudioController();
     const [song, setSong] = useState(() => new Song());
     const [editorState, setEditorState] = useState(() => new EditorState());
@@ -153,10 +155,14 @@ const App: React.FC = () => {
                     <div className="menu-group">
                         <button onClick={() => setInstrumentPanelOpen(!instrumentPanelOpen)}><span className="icon" aria-hidden="true">🎛️</span>Instruments</button>
                         <button onClick={() => setHelpPanelOpen(!helpPanelOpen)}><span className="icon" aria-hidden="true">❔</span>Help</button>
+                        <button onClick={onToggleTheme}><span className="icon" aria-hidden="true">🌗</span>{theme === 'dark' ? 'Light' : 'Dark'} Mode</button>
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
-                        <button className={transportState === 'stop' ? 'active' : undefined} onClick={onStop}><span className="icon" aria-hidden="true">⏹</span>Stop</button>
+                        <button className={transportState === 'stop' ? 'active' : undefined} onClick={onStop}>
+                            <span className="icon">⏹</span>
+                            <span className="caption">Stop</span>
+                        </button>
                         <button className={transportState === 'play-pattern' ? 'active' : undefined} onClick={onPlayPattern}><span className="icon" aria-hidden="true">▶</span>Play Pattern</button>
                         <button className={transportState === 'play-from-position' ? 'active' : undefined} onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">⏩</span>Play From Position</button>
                         <button className={transportState === 'play-all' ? 'active' : undefined} onClick={onPlayAll}><span className="icon" aria-hidden="true">🎵</span>Play All</button>
@@ -204,9 +210,6 @@ const App: React.FC = () => {
                         {/* <button onClick={onUserPlayClick}>Play</button> */}
                         <Tic80Embed
                             args={[]}
-                            autoStart={true}
-                            showOverlay={false}
-
                         />
                     </div>
                 </div>
@@ -224,37 +227,22 @@ const SplashScreen: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
 
 // just wrapps <App /> to gate on user gesture via splash screen
 const AppWrapper: React.FC = () => {
-
     const [hasContinued, setHasContinued] = useState(false);
+    const [theme, setTheme] = useLocalStorage<Theme>('chromatic-theme', 'light');
 
-    // WASM errors from TIC-80 are annoying; suppress them here
-    window.addEventListener(
-        "error",
-        (e) => {
-            const msg = String((e as any).message ?? "");
-            if (msg === "unwind" || msg.includes("unwind")) {
-                e.preventDefault();        // stops webpack-dev-server overlay
-                e.stopImmediatePropagation();
-                console.log("Suppressed TIC-80 unwind error");
-            }
-        },
-        true
-    );
+    useEffect(() => {
+        const el = document.documentElement;
+        if (!el) return;
+        if (theme === 'dark') {
+            el.classList.add('theme-dark');
+        } else {
+            el.classList.remove('theme-dark');
+        }
+    }, [theme]);
 
-    window.addEventListener(
-        "unhandledrejection",
-        (e) => {
-            const msg = String((e as any).reason ?? "");
-            if (msg === "unwind" || msg.includes("unwind")) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                console.log("Suppressed TIC-80 unwind rejection");
-            }
-        },
-        true
-    );
+    const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 
-    return hasContinued ? <App /> : <SplashScreen onContinue={() => setHasContinued(true)} />;
+    return hasContinued ? <App theme={theme} onToggleTheme={toggleTheme} /> : <SplashScreen onContinue={() => setHasContinued(true)} />;
 }
 
 const rootEl = document.getElementById('root');
