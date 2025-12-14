@@ -1,8 +1,8 @@
 import type { Wave, FrameData } from '../models/instruments';
 import type { Pattern } from '../models/pattern';
 import type { Song } from '../models/song';
+import { Tic80BridgeHandle } from '../ui/Tic80Bridged';
 import type { AudioBackend } from './backend';
-import { WebAudioBackend } from './webaudio_backend';
 import { Tic80Backend } from './tic80_backend';
 
 type FrameListener = (frame: Array<FrameData | null>) => void;
@@ -21,11 +21,10 @@ export class AudioController {
     private positionListeners = new Set<PositionListener>();
     private stopListeners = new Set<StopListener>();
 
-    constructor(opts?: { useTic80?: boolean; bridgeGetter?: () => any | null }) {
+    constructor(opts: { bridgeGetter: () => Tic80BridgeHandle | null }) {
         this.volume = 0.3;
         this.song = null;
         this.isPlaying = false;
-        const useTic = opts?.useTic80 ?? false;
         const ctx = {
             emit: {
                 frame: (data: Array<FrameData | null>) => this.emitFrame(data),
@@ -34,9 +33,7 @@ export class AudioController {
                 stop: () => this.emitStop(),
             },
         } as const;
-        this.backend = useTic && opts?.bridgeGetter
-            ? new Tic80Backend(ctx, opts.bridgeGetter)
-            : new WebAudioBackend(ctx);
+        this.backend = new Tic80Backend(ctx, opts.bridgeGetter);
     }
 
     setSong(song: Song | null) {

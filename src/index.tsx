@@ -26,7 +26,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
     const midiRef = React.useRef<MidiManager | null>(new MidiManager());
     const patternGridRef = React.useRef<PatternGridHandle | null>(null);
-    const audio = useMemo(() => new AudioController({ useTic80: true, bridgeGetter: () => bridgeRef.current }), []);
+    const audio = useMemo(() => new AudioController({ bridgeGetter: () => bridgeRef.current }), []);
     const [song, setSong] = useState(() => new Song());
     const [editorState, setEditorState] = useState(() => new EditorState());
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);

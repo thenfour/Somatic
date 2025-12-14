@@ -352,6 +352,11 @@ option {
     font-size: var(--ff-size-1x);
 }
 
+button.key {
+    align-items: flex-end;
+    justify-content: center;
+}
+
 .key.white {
     height: 100px;
     width: 32px;
