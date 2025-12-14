@@ -8,6 +8,7 @@ import React, {
     useState,
 } from "react";
 import { Tic80Iframe, Tic80IframeHandle } from "./Tic80EmbedIframe";
+import { AsyncMutex } from "../utils/async_mutex";
 
 declare global {
     interface Window {
@@ -75,12 +76,32 @@ export type Tic80BridgeHandle = {
     peekBlock: (addr: number, length: number) => Uint8Array;
 
     /** Upload song chunk stream (.tic music-related chunks) directly into TIC RAM */
-    uploadSongData: (data: Uint8Array) => Promise<void>;
+    //uploadSongData: (data: Uint8Array) => Promise<void>;
+
+    /** Run a set of mailbox operations atomically to avoid interleaving */
+    invokeExclusive: <T>(fn: (tx: Tic80BridgeTransaction) => Promise<T>) => Promise<T>;
 
     /** Trigger a single SFX by ID/note (instrument audition) */
-    playSfx: (opts: { sfxId: number; note: number }) => Promise<void>;
+    //playSfx: (opts: { sfxId: number; note: number }) => Promise<void>;
 
-    /** Mailbox commands */
+    // /** Mailbox commands */
+    // play: (opts?: {
+    //     track?: number;
+    //     frame?: number;
+    //     row?: number;
+    //     loop?: boolean;
+    //     sustain?: boolean;
+    //     tempo?: number; // 0 = default
+    //     speed?: number; // 0 = default
+    // }) => Promise<void>;
+
+    // stop: () => Promise<void>;
+    ping: () => Promise<void>;
+};
+
+export type Tic80BridgeTransaction = {
+    uploadSongData: (data: Uint8Array) => Promise<void>;
+    playSfx: (opts: { sfxId: number; note: number }) => Promise<void>;
     play: (opts?: {
         track?: number;
         frame?: number;
@@ -90,7 +111,6 @@ export type Tic80BridgeHandle = {
         tempo?: number; // 0 = default
         speed?: number; // 0 = default
     }) => Promise<void>;
-
     stop: () => Promise<void>;
     ping: () => Promise<void>;
 };
@@ -140,6 +160,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         const outboxSeqRef = useRef<number>(0);
         const hostLogReadPtrRef = useRef<number>(0);
         const cmdTokenRef = useRef<number>(0);
+        const commandMutexRef = useRef(new AsyncMutex());
 
         const [ready, setReady] = useState(false);
 
@@ -251,12 +272,12 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         // upon ready, send ack
         useEffect(() => {
             if (!ready) return;
-            log("sending ACK to bridge cart");
+            //log("sending ACK to bridge cart");
             // send ACK command to let the cart know we're ready
 
             // send acknowledgement command to confirm.
             // fire-and-forget ACK; ignore promise
-            sendMailboxCommand([TIC.CMD_PING]).catch((e) => log("ack failed", e));
+            sendMailboxCommandRaw([TIC.CMD_PING], "Ping");
 
             // Initialize OUTBOX read pointer/seq to current cart state so we only read new logs.
             try {
@@ -399,10 +420,9 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             }
         }
 
-        async function uploadSongData(data: Uint8Array) {
+        async function uploadSongDataRaw(data: Uint8Array) {
             assertReady();
-            // Gracefully stop cart playback before overwriting RAM
-            await sendMailboxCommand([TIC.CMD_BEGIN_UPLOAD]);
+            await sendMailboxCommandRaw([TIC.CMD_BEGIN_UPLOAD], "Begin song Upload");
             let offset = 0;
             while (offset + 4 <= data.length) {
                 const header = data[offset];
@@ -419,13 +439,13 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                 offset = payloadEnd;
             }
 
-            await sendMailboxCommand([TIC.CMD_END_UPLOAD]);
+            await sendMailboxCommandRaw([TIC.CMD_END_UPLOAD], "End song Upload");
         }
 
-        async function playSfx(opts: { sfxId: number; note: number }) {
+        async function playSfxRaw(opts: { sfxId: number; note: number }) {
             const sfxId = opts.sfxId & 0xff;
             const note = opts.note & 0xff;
-            await sendMailboxCommand([TIC.CMD_PLAY_SFX, sfxId, note]);
+            await sendMailboxCommandRaw([TIC.CMD_PLAY_SFX, sfxId, note], "Play SFX");
         }
 
         function writeMailboxBytes(bytes: number[], token?: number) {
@@ -456,9 +476,10 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             poke8(mutex, 0);
         }
 
-        async function sendMailboxCommand(bytes: number[]): Promise<void> {
+        async function sendMailboxCommandRaw(bytes: number[], description: string): Promise<void> {
             assertReady();
             const token = (cmdTokenRef.current = (cmdTokenRef.current + 1) & 0xff);
+            console.log(`---------------- sendMailboxCommand: ${description} (token=${token})`, bytes);
             writeMailboxBytes(bytes, token);
 
             const start = performance.now();
@@ -473,15 +494,18 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                         }
                         const seenToken = peek8(TIC.OUTBOX_TOKEN_ADDR);
                         if (seenToken === token) {
+                            console.log(`---------------- sendMailboxCommand: ${description} DONE`);
                             resolve();
                             return;
                         }
                         if (performance.now() - start > timeoutMs) {
-                            reject(new Error("TIC-80 command timed out"));
+                            console.log(`---------------- sendMailboxCommand: ${description} TIMEOUT`);
+                            reject(new Error(`TIC-80 command timed out: ${description}`));
                             return;
                         }
                         requestAnimationFrame(poll);
                     } catch (err) {
+                        console.log(`---------------- sendMailboxCommand: ${description} ERROR`, err);
                         reject(err as Error);
                     }
                 };
@@ -489,7 +513,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             });
         }
 
-        async function play(opts?: {
+        async function playRaw(opts?: {
             track?: number;
             frame?: number;
             row?: number;
@@ -510,7 +534,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
 
             // Mailbox layout from the Lua:
             // 0 cmd, 1 track, 2 frame, 3 row, 4 loop, 5 sustain, 6 tempo, 7 speed
-            await sendMailboxCommand([
+            await sendMailboxCommandRaw([
                 TIC.CMD_PLAY,
                 track & 0xff,
                 frame & 0xff,
@@ -519,17 +543,62 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                 sustain ? 1 : 0,
                 tempo & 0xff,
                 speed & 0xff,
-            ]);
+            ], "Play");
         }
 
-        async function stop() {
+        async function stopRaw() {
             log("stop() request");
-            await sendMailboxCommand([TIC.CMD_STOP]);
+            await sendMailboxCommandRaw([TIC.CMD_STOP], "Stop");
         }
+
+        async function pingRaw() {
+            log("ping()");
+            await sendMailboxCommandRaw([TIC.CMD_PING], "Ping");
+        }
+
+        const transactionApi: Tic80BridgeTransaction = {
+            uploadSongData: uploadSongDataRaw,
+            playSfx: playSfxRaw,
+            play: playRaw,
+            stop: stopRaw,
+            ping: pingRaw,
+        };
+
+        async function invokeExclusive<T>(fn: (tx: Tic80BridgeTransaction) => Promise<T>): Promise<T> {
+            const release = await commandMutexRef.current.acquire();
+            try {
+                return await fn(transactionApi);
+            } finally {
+                release();
+            }
+        }
+
+        // async function uploadSongData(data: Uint8Array) {
+        //     return invokeExclusive((tx) => tx.uploadSongData(data));
+        // }
+
+        // async function playSfx(opts: { sfxId: number; note: number }) {
+        //     return invokeExclusive((tx) => tx.playSfx(opts));
+        // }
+
+        // async function play(opts?: {
+        //     track?: number;
+        //     frame?: number;
+        //     row?: number;
+        //     loop?: boolean;
+        //     sustain?: boolean;
+        //     tempo?: number;
+        //     speed?: number;
+        // }) {
+        //     return invokeExclusive((tx) => tx.play(opts));
+        // }
+
+        // async function stop() {
+        //     return invokeExclusive((tx) => tx.stop());
+        // }
 
         async function ping() {
-            log("ping()");
-            await sendMailboxCommand([TIC.CMD_PING]);
+            return invokeExclusive((tx) => tx.ping());
         }
 
         useImperativeHandle(
@@ -543,11 +612,12 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                 poke8,
                 pokeBlock,
                 peekBlock,
-                uploadSongData,
-                playSfx,
+                //uploadSongData,
+                invokeExclusive,
+                //playSfx,
 
-                play,
-                stop,
+                //play,
+                //stop,
                 ping,
             }),
             [ready]

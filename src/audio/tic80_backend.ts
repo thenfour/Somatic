@@ -2,7 +2,7 @@ import { AudioBackend, BackendContext } from './backend';
 import type { Wave } from '../models/instruments';
 import type { Pattern } from '../models/pattern';
 import type { Song } from '../models/song';
-import type { Tic80BridgeHandle } from '../ui/Tic80Bridged';
+import type { Tic80BridgeHandle, Tic80BridgeTransaction } from '../ui/Tic80Bridged';
 import { serializeSongToCart } from './tic80_cart_serializer';
 
 // Minimal TIC-80 backend: delegates transport commands to the bridge.
@@ -11,7 +11,7 @@ export class Tic80Backend implements AudioBackend {
     private readonly emit: BackendContext['emit'];
     private readonly bridge: () => Tic80BridgeHandle | null;
     private song: Song | null = null;
-    private pendingSongData: Uint8Array | null = null;
+    private serializedSong: Uint8Array | null = null;
     private volume = 0.3;
 
     constructor(ctx: BackendContext, bridgeGetter: () => Tic80BridgeHandle | null) {
@@ -22,10 +22,11 @@ export class Tic80Backend implements AudioBackend {
     async setSong(song: Song | null) {
         this.song = song;
         if (song) {
-            this.pendingSongData = serializeSongToCart(song);
-            await this.tryUploadSong();
+            this.serializedSong = serializeSongToCart(song);
+            //await this.tryUploadSong();
         } else {
-            this.pendingSongData = null;
+            // todo: an actual empty song.
+            this.serializedSong = null;
         }
     }
 
@@ -38,13 +39,15 @@ export class Tic80Backend implements AudioBackend {
         const b = this.bridge();
         if (!b || !b.isReady()) return;
 
-        await this.tryUploadSong();
+        await b.invokeExclusive(async (tx) => {
+            await this.tryUploadSong(tx);
 
-        const sfxId = this.findInstrumentIndex(instrument);
-        const clampedNote = Math.max(0, Math.min(95, Math.round(note)));
+            const sfxId = this.findInstrumentIndex(instrument);
+            const clampedNote = Math.max(0, Math.min(95, Math.round(note)));
 
-        b.playSfx({ sfxId, note: clampedNote }).catch((err) => {
-            console.warn('[Tic80Backend] playInstrument failed', err);
+            await tx.playSfx({ sfxId, note: clampedNote }).catch((err) => {
+                console.warn('[Tic80Backend] playInstrument failed', err);
+            });
         });
     }
 
@@ -55,32 +58,44 @@ export class Tic80Backend implements AudioBackend {
     async playPattern(_pattern: Pattern) {
         const b = this.bridge();
         if (!b || !b.isReady()) return;
-        await this.tryUploadSong();
-        await b.play({ track: 0, frame: 0, row: 0, loop: true });
+        b.invokeExclusive(async (tx) => {
+            await this.tryUploadSong(tx);
+            // todo: proper pattern playback support
+            await tx.play({ track: 0, frame: 0, row: 0, loop: true });
+        });
+        // todo: emit correct position
         this.emit.row(0, _pattern);
     }
 
     async playSong(startPosition: number) {
         const b = this.bridge();
         if (!b || !b.isReady()) return;
-        await this.tryUploadSong();
         // Currently just triggers play track 0; proper song sequencing will come after uploads
-        await b.play({ track: startPosition, frame: 0, row: 0, loop: true });
+        // todo: implement
+        await b.invokeExclusive(async (tx) => {
+            await this.tryUploadSong(tx);
+            await tx.play({ track: startPosition, frame: 0, row: 0, loop: true });
+        });
         this.emit.position(startPosition);
+        //await this.tryUploadSong();
+        //await b.play({ track: startPosition, frame: 0, row: 0, loop: true });
+        //this.emit.position(startPosition);
     }
 
     async stop() {
         const b = this.bridge();
-        if (b && b.isReady()) await b.stop();
+        if (b && b.isReady()) await b.invokeExclusive(async (tx) => {
+            await tx.stop();
+        });
         this.emit.stop();
     }
 
-    private async tryUploadSong() {
-        if (!this.pendingSongData) return;
+    private async tryUploadSong(tx: Tic80BridgeTransaction) {
+        if (!this.serializedSong) return; // todo: empty song should be a real empty song.
         const b = this.bridge();
         if (!b || !b.isReady()) return;
 
-        await b.uploadSongData(this.pendingSongData);
+        await tx.uploadSongData(this.serializedSong);
     }
 
     private findInstrumentIndex(instrument: Wave): number {
