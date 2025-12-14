@@ -12,7 +12,7 @@ import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
 import { HelpPanel } from './ui/help_panel';
 import { InstrumentPanel } from './ui/instrument_editor';
-import { PatternGrid } from './ui/pattern_grid';
+import { PatternGrid, PatternGridHandle } from './ui/pattern_grid';
 import { PreferencesPanel } from './ui/preferences_panel';
 import { SongEditor } from './ui/song_editor';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
@@ -25,6 +25,7 @@ type Theme = 'light' | 'dark';
 const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
     const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
     const midiRef = React.useRef<MidiManager | null>(new MidiManager());
+    const patternGridRef = React.useRef<PatternGridHandle | null>(null);
     const audio = useMemo(() => new AudioController({ useTic80: true, bridgeGetter: () => bridgeRef.current }), []);
     const [song, setSong] = useState(() => new Song());
     const [editorState, setEditorState] = useState(() => new EditorState());
@@ -53,6 +54,61 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         : midiIndicatorLabel;
 
     const toggleEditingEnabled = () => updateEditorState((s) => s.setEditingEnabled(!s.editingEnabled));
+
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase();
+            const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'button';
+
+            const isBracketLeft = e.code === 'BracketLeft';
+            const isBracketRight = e.code === 'BracketRight';
+            const isDigit1 = e.code === 'Digit1';
+            const hasMeta = e.metaKey || e.ctrlKey;
+
+            // pretty-print key combo.
+            const parts = [];
+            if (e.ctrlKey) parts.push('Ctrl');
+            if (e.altKey) parts.push('Alt');
+            if (e.shiftKey) parts.push('Shift');
+            if (e.metaKey) parts.push('Meta');
+            parts.push(e.code);
+            const combo = parts.join('+');
+            console.log(`Key combo pressed: ${combo}`);
+
+            if (e.altKey && !hasMeta && isDigit1) {
+                e.preventDefault();
+                patternGridRef.current?.focusPattern();
+                return;
+            }
+            if (isEditable) return;
+            if (e.repeat) return;
+            if (hasMeta || e.altKey) return;
+
+            if (!e.shiftKey && isBracketLeft) {
+                e.preventDefault();
+                updateEditorState((s) => s.setOctave(s.octave - 1));
+                return;
+            }
+            if (!e.shiftKey && isBracketRight) {
+                e.preventDefault();
+                updateEditorState((s) => s.setOctave(s.octave + 1));
+                return;
+            }
+            if (e.shiftKey && isBracketLeft) {
+                e.preventDefault();
+                updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument - 1));
+                return;
+            }
+            if (e.shiftKey && isBracketRight) {
+                e.preventDefault();
+                updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument + 1));
+                return;
+            }
+        };
+
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, []);
 
     useEffect(() => {
         audio.setSong(song);
@@ -291,6 +347,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             </div>
             <div className="main-editor-area">
                 <PatternGrid
+                    ref={patternGridRef}
                     song={song}
                     audio={audio}
                     editorState={editorState}

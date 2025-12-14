@@ -10,12 +10,24 @@ const shortcuts: Array<{ key: string; action: string }> = [
         action: 'Jump to the first or last row of the pattern.',
     },
     {
+        key: 'Alt+1',
+        action: 'Focus the pattern grid.',
+    },
+    {
         key: '0-9 A-G',
         action: 'Pattern notes (piano layout)',
     },
     {
         key: '0-F',
         action: 'Instrument column',
+    },
+    {
+        key: '[ / ]',
+        action: 'Octave down / up.',
+    },
+    {
+        key: 'Shift+[ / Shift+]',
+        action: 'Instrument down / up.',
     },
     {
         key: '0 (on note cell)',
