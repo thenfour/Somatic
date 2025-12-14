@@ -93,6 +93,18 @@ input {
     padding: 12px 16px;
 }
 
+select {
+    font-family: var(--ff-mono);
+    font-size: var(--ff-size-1x);
+    color: var(--text);
+    background: var(--panel);
+}
+
+option {
+    font-family: var(--ff-mono);
+    font-size: var(--ff-size-1x);
+}
+
 .instrument-panel-positioner {
     position: absolute;
     left: 50%;
