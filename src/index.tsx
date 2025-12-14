@@ -125,6 +125,12 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         };
     }, [audio]);
 
+    const songRef = React.useRef(song);
+    const editorRef = React.useRef(editorState);
+
+    useEffect(() => { songRef.current = song; }, [song]);
+    useEffect(() => { editorRef.current = editorState; }, [editorState]);
+
     useEffect(() => {
         const midi = midiRef.current;
         if (!midi) return;
@@ -142,41 +148,34 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 setMidiStatus(midi.getStatus());
             });
 
-            const noteRef = {
-                get song() { return song; },
-                get inst() { return editorState.currentInstrument; },
-                get patternIndex() { return editorState.pattern; },
-                get editRow() { return editorState.patternEditRow; },
-                get editChannel() { return editorState.patternEditChannel; },
-                get editingEnabled() { return editorState.editingEnabled !== false; },
-            };
-
             offNoteOn = midi.onNoteOn((evt) => {
-                const s = noteRef.song;
-                const instIdx = Math.max(1, Math.min(s.instruments.length - 1, noteRef.inst || 1));
+                const s = songRef.current;
+                const ed = editorRef.current;
+                const instIdx = Math.max(1, Math.min(s.instruments.length - 1, ed.currentInstrument || 1));
                 const instrument = s.instruments[instIdx];
-                const channel = Math.max(0, Math.min(3, noteRef.editChannel || 0));
+                const channel = Math.max(0, Math.min(3, ed.patternEditChannel || 0));
                 if (instrument) {
                     audio.sfxNoteOn(instrument, evt.note, channel);
                 }
 
-                if (noteRef.editingEnabled) {
+                if (ed.editingEnabled !== false) {
                     setSong((prev) => {
                         const next = prev.clone();
-                        const pat = next.patterns[noteRef.patternIndex];
-                        const channel = pat?.channels[noteRef.editChannel];
-                        if (pat && channel) {
-                            const row = Math.max(0, Math.min(channel.rows.length - 1, noteRef.editRow));
-                            channel.setRow(row, 'note', evt.note);
-                            channel.setRow(row, 'instrument', instIdx);
+                        const pat = next.patterns[ed.pattern];
+                        const ch = pat?.channels[ed.patternEditChannel];
+                        if (pat && ch) {
+                            const row = Math.max(0, Math.min(ch.rows.length - 1, ed.patternEditRow));
+                            ch.setRow(row, 'note', evt.note);
+                            ch.setRow(row, 'instrument', instIdx);
                         }
                         return next;
                     });
                 }
             });
 
-            offNoteOff = midi.onNoteOff((evt) => {
-                const channel = Math.max(0, Math.min(3, noteRef.editChannel || 0));
+            offNoteOff = midi.onNoteOff(() => {
+                const ed = editorRef.current;
+                const channel = Math.max(0, Math.min(3, ed.patternEditChannel || 0));
                 audio.sfxNoteOff(channel);
             });
         });
@@ -186,7 +185,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             offNoteOn?.();
             offNoteOff?.();
         };
-    }, [audio, editorState.currentInstrument, song]);
+    }, [audio]);
 
     // handlers for clicking the keyboard view note on / off
     const handleNoteOn = (midiNote: number) => {
