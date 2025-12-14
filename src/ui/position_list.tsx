@@ -20,11 +20,11 @@ export const PositionList: React.FC<PositionListProps> = ({ song, editorState, o
         if (!audio) return undefined;
         const handlePosition = (pos: number) => setPlayingPosition(pos);
         const handleStop = () => setPlayingPosition(null);
-        audio.on('position', handlePosition);
-        audio.on('stop', handleStop);
+        const offPos = audio.onPosition(handlePosition);
+        const offStop = audio.onStop(handleStop);
         return () => {
-            audio.removeListener('position', handlePosition);
-            audio.removeListener('stop', handleStop);
+            offPos();
+            offStop();
         };
     }, [audio]);
 

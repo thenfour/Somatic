@@ -33,14 +33,14 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
 
     useEffect(() => {
-        audio.song = song;
+        audio.setSong(song);
     }, [audio, song]);
 
     useEffect(() => {
         const handleStop = () => setTransportState('stop');
-        audio.on('stop', handleStop);
+        const off = audio.onStop(handleStop);
         return () => {
-            audio.off('stop', handleStop);
+            off();
         };
     }, [audio]);
 

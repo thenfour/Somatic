@@ -1,204 +1,93 @@
-import { EventEmitter } from 'events';
-import { TICSynth } from './ticsynth';
-import { NOTES_BY_NUM } from '../defs';
-import { FrameData, Wave } from '../models/instruments';
-import { Pattern } from '../models/pattern';
-import { Song } from '../models/song';
+import type { Wave, FrameData } from '../models/instruments';
+import type { Pattern } from '../models/pattern';
+import type { Song } from '../models/song';
+import type { AudioBackend } from './backend';
+import { WebAudioBackend } from './webaudio_backend';
+import { Tic80Backend } from './tic80_backend';
 
-type InstrumentFrameCallback = (frameNumber: number) => FrameData;
+type FrameListener = (frame: Array<FrameData | null>) => void;
+type RowListener = (rowNumber: number, pattern: Pattern) => void;
+type PositionListener = (positionNumber: number) => void;
+type StopListener = () => void;
 
-type ChannelPlaybackState = {
-    instrumentNumber: number;
-    instrumentCallback: InstrumentFrameCallback | null;
-    instrumentFrame: number;
-};
-
-export class AudioController extends EventEmitter {
-    audioStarted: boolean;
-    ticSynth: TICSynth | null;
-    gainNode: GainNode | null;
-    volume: number;
+export class AudioController {
+    backend: AudioBackend;
     song: Song | null;
-    channelStates: ChannelPlaybackState[];
-
+    volume: number;
     isPlaying: boolean;
 
-    constructor() {
-        super();
-        this.audioStarted = false;
-        this.ticSynth = null;
-        this.gainNode = null;
+    private frameListeners = new Set<FrameListener>();
+    private rowListeners = new Set<RowListener>();
+    private positionListeners = new Set<PositionListener>();
+    private stopListeners = new Set<StopListener>();
+
+    constructor(opts?: { useTic80?: boolean; bridgeGetter?: () => any | null }) {
         this.volume = 0.3;
         this.song = null;
-        this.channelStates = [];
-
         this.isPlaying = false;
-
-        for (let i = 0; i < 4; i++) {
-            this.channelStates[i] = {
-                instrumentNumber: 1,
-                instrumentCallback: null,
-                instrumentFrame: 0,
-            };
-        }
+        const useTic = opts?.useTic80 ?? false;
+        const ctx = {
+            emit: {
+                frame: (data: Array<FrameData | null>) => this.emitFrame(data),
+                row: (rowNumber: number, pattern: Pattern) => this.emitRow(rowNumber, pattern),
+                position: (positionNumber: number) => this.emitPosition(positionNumber),
+                stop: () => this.emitStop(),
+            },
+        } as const;
+        this.backend = useTic && opts?.bridgeGetter
+            ? new Tic80Backend(ctx, opts.bridgeGetter)
+            : new WebAudioBackend(ctx);
     }
 
-    ensureAudio() {
-        if (this.audioStarted && this.ticSynth && this.gainNode) return;
-
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (!AudioContextClass) throw new Error('Web Audio API not supported');
-        const audioContext = new AudioContextClass({ latencyHint: 'interactive' });
-
-        this.ticSynth = new TICSynth(audioContext.sampleRate);
-        const scriptNode = audioContext.createScriptProcessor(0, 0, 1);
-        scriptNode.onaudioprocess = (audioProcessingEvent: AudioProcessingEvent) => {
-            if (!this.ticSynth) return;
-            const outputBuffer = audioProcessingEvent.outputBuffer;
-            const audioData = outputBuffer.getChannelData(0);
-            this.ticSynth.generate(audioData);
-        };
-        this.gainNode = audioContext.createGain();
-        this.gainNode.gain.value = this.volume;
-
-        scriptNode.connect(this.gainNode);
-        this.gainNode.connect(audioContext.destination);
-
-        this.audioStarted = true;
-    }
-
-    play(frameCallback: (frameNumber: number) => Array<FrameData | null>) {
-        /* Start playback of TIC audio. The frameCallback function will
-         * be called for each frame with the frame number as its argument,
-         * and should return an array of 4 channel data objects. Each channel
-         * data object should have 'waveform' (array of 32 volume values),
-         * 'volume' (0-15), and 'frequency' (in Hz) properties. If a channel
-         * data object is null, that channel will be silent.
-         */
-        this.ensureAudio();
-        if (!this.ticSynth) return;
-
-        this.ticSynth.frameNumber = 0;
-        this.ticSynth.frameCallback = frameCallback;
-        this.ticSynth.onFrame = (frameData) => {
-            this.emit('frame', frameData);
-        };
+    setSong(song: Song | null) {
+        this.song = song;
+        this.backend.setSong(song);
     }
 
     stop() {
-        if (!this.ticSynth) {
-            this.isPlaying = false;
-            this.emit('stop');
-            return;
-        }
-        this.ticSynth.frameCallback = null;
+        this.backend.stop();
         this.isPlaying = false;
-        this.emit('stop');
     }
 
     playInstrument(instrument: Wave, frequency: number) {
-        const instrumentFrameCallback = instrument.getFrameCallback(frequency);
-        const frameCallback = (frameNumber: number) => [instrumentFrameCallback(frameNumber)];
-        this.play(frameCallback);
-    }
-
-    clearChannelStates() {
-        for (let i = 0; i < 4; i++) {
-            this.channelStates[i].instrumentCallback = null;
-            this.channelStates[i].instrumentFrame = 0;
-        }
+        this.backend.playInstrument(instrument, frequency);
     }
 
     readRow(pattern: Pattern, rowNumber: number) {
-        if (!this.song) return;
-        for (let chan = 0; chan < 4; chan++) {
-            const row = pattern.channels[chan].rows[rowNumber];
-            const note = row.note;
-            if (note !== 0) {
-                const frequency = NOTES_BY_NUM[note]?.frequency;
-                if (!frequency) continue;
-                if (row.instrument) {
-                    this.channelStates[chan].instrumentNumber = row.instrument;
-                }
-                const instrument = this.song.instruments[this.channelStates[chan].instrumentNumber];
-                this.channelStates[chan].instrumentCallback = instrument.getFrameCallback(frequency);
-                this.channelStates[chan].instrumentFrame = 0;
-            }
-        }
+        // Deprecated in favor of backend-driven playback; preserved for UI callers.
+        this.backend.playRow(pattern, rowNumber);
     }
 
     playRow(pattern: Pattern, rowNumber: number) {
-        this.clearChannelStates();
-        this.readRow(pattern, rowNumber);
-        const frameCallback = () => this.channelStates.map((state) => (
-            state.instrumentCallback ? state.instrumentCallback(state.instrumentFrame++) : null
-        ));
-        this.play(frameCallback);
+        this.backend.playRow(pattern, rowNumber);
     }
 
     playPattern(pattern: Pattern) {
-        if (!this.song) return;
-        const tempo = this.song.tempo;
-        const speed = this.song.speed;
-        const DEFAULT_SPEED = 6;
-        const NOTES_PER_MINUTE = 900; // 60 fps * 60 sec / 4 rows-per-beat
-
-        let tick = 0;
-        let rowNumber = 0;
-        this.clearChannelStates();
-        const frameCallback = () => {
-            const nextRow = Math.floor((tick * tempo * DEFAULT_SPEED) / (speed * NOTES_PER_MINUTE));
-            if (nextRow !== rowNumber) {
-                rowNumber = nextRow % 64;
-                this.readRow(pattern, rowNumber);
-                this.emit('row', rowNumber, pattern);
-            }
-            tick++;
-            return this.channelStates.map((state) => (
-                state.instrumentCallback ? state.instrumentCallback(state.instrumentFrame++) : null
-            ));
-        };
+        this.backend.playPattern(pattern);
         this.isPlaying = true;
-        this.play(frameCallback);
     }
 
     playSong(startPosition: number) {
-        if (!this.song) return;
-        const tempo = this.song.tempo;
-        const speed = this.song.speed;
-        const DEFAULT_SPEED = 6;
-        const NOTES_PER_MINUTE = 900;
-
-        let positionNumber = startPosition;
-        let rowNumber = 0;
-        let tick = 0;
-        this.clearChannelStates();
-        this.emit('position', positionNumber);
-        const frameCallback = () => {
-            const nextRow = Math.floor((tick * tempo * DEFAULT_SPEED) / (speed * NOTES_PER_MINUTE));
-            if (nextRow !== rowNumber) {
-                rowNumber = nextRow;
-                if (rowNumber >= 64) {
-                    rowNumber = 0;
-                    positionNumber = (positionNumber + 1) % this.song!.length;
-                    this.emit('position', positionNumber);
-                }
-                const patternNumber = this.song!.positions[positionNumber];
-                const pattern = this.song!.patterns[patternNumber];
-                this.readRow(pattern, rowNumber);
-                this.emit('row', rowNumber, pattern);
-            }
-            tick++;
-            return this.channelStates.map((state) => (
-                state.instrumentCallback ? state.instrumentCallback(state.instrumentFrame++) : null
-            ));
-        };
+        this.backend.playSong(startPosition);
         this.isPlaying = true;
-        this.play(frameCallback);
     }
 
     setVolume(vol: number) {
         this.volume = vol;
-        if (this.gainNode) this.gainNode.gain.value = vol;
+        this.backend.setVolume(vol);
     }
+
+    onFrame(cb: FrameListener) { this.frameListeners.add(cb); return () => this.frameListeners.delete(cb); }
+    offFrame(cb: FrameListener) { this.frameListeners.delete(cb); }
+    onRow(cb: RowListener) { this.rowListeners.add(cb); return () => this.rowListeners.delete(cb); }
+    offRow(cb: RowListener) { this.rowListeners.delete(cb); }
+    onPosition(cb: PositionListener) { this.positionListeners.add(cb); return () => this.positionListeners.delete(cb); }
+    offPosition(cb: PositionListener) { this.positionListeners.delete(cb); }
+    onStop(cb: StopListener) { this.stopListeners.add(cb); return () => this.stopListeners.delete(cb); }
+    offStop(cb: StopListener) { this.stopListeners.delete(cb); }
+
+    private emitFrame(data: Array<FrameData | null>) { this.frameListeners.forEach((cb) => cb(data)); }
+    private emitRow(row: number, pattern: Pattern) { this.rowListeners.forEach((cb) => cb(row, pattern)); }
+    private emitPosition(pos: number) { this.positionListeners.forEach((cb) => cb(pos)); }
+    private emitStop() { this.isPlaying = false; this.stopListeners.forEach((cb) => cb()); }
 }

@@ -65,9 +65,9 @@ export const Scope: React.FC<ScopeProps> = ({ instrument, scrub, audio }) => {
         const onFrame = (frameData: Array<FrameData | null>) => {
             if (frameData[0]) drawFrame(frameData[0]);
         };
-        audio.on('frame', onFrame);
+        const off = audio.onFrame(onFrame);
         return () => {
-            audio.removeListener('frame', onFrame);
+            off();
         };
     }, [audio]);
 

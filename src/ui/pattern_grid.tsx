@@ -36,11 +36,11 @@ export const PatternGrid: React.FC<PatternGridProps> = ({ song, audio, editorSta
             }
         };
         const onStop = () => setActiveRow(null);
-        audio.on('row', onRow);
-        audio.on('stop', onStop);
+        const offRow = audio.onRow(onRow);
+        const offStop = audio.onStop(onStop);
         return () => {
-            audio.removeListener('row', onRow);
-            audio.removeListener('stop', onStop);
+            offRow();
+            offStop();
         };
     }, [audio, pattern]);
 
