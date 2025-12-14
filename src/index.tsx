@@ -12,6 +12,7 @@ import { InstrumentPanel } from './ui/instrument_editor';
 import { HelpPanel } from './ui/help_panel';
 import { PatternGrid } from './ui/pattern_grid';
 import { SongEditor } from './ui/song_editor';
+import { Tic80Embed } from './ui/Tic80Embed';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -26,6 +27,7 @@ const App: React.FC = () => {
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);
     const [helpPanelOpen, setHelpPanelOpen] = useState(false);
     const [transportState, setTransportState] = useState<TransportState>('stop');
+    //const engineRef = React.useRef<Tic80EngineHandle>(null);
 
     useEffect(() => {
         audio.song = song;
@@ -196,11 +198,65 @@ const App: React.FC = () => {
                 {helpPanelOpen && (
                     <HelpPanel onClose={() => setHelpPanelOpen(false)} />
                 )}
+
+                <div>
+                    <div style={{ width: 500, height: 400 }}>
+                        {/* <button onClick={onUserPlayClick}>Play</button> */}
+                        <Tic80Embed
+                            args={[]}
+                            autoStart={true}
+                            showOverlay={false}
+
+                        />
+                    </div>
+                </div>
             </div>
         </div>
     );
 };
 
+// just a splash which requires user gesture to continue (so the audio context etc are allowed to start)
+const SplashScreen: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
+    <div className="splash-screen" onClick={onContinue} onKeyDown={onContinue}>
+        <h1>Chromatic</h1>
+    </div>
+);
+
+// just wrapps <App /> to gate on user gesture via splash screen
+const AppWrapper: React.FC = () => {
+
+    const [hasContinued, setHasContinued] = useState(false);
+
+    // WASM errors from TIC-80 are annoying; suppress them here
+    window.addEventListener(
+        "error",
+        (e) => {
+            const msg = String((e as any).message ?? "");
+            if (msg === "unwind" || msg.includes("unwind")) {
+                e.preventDefault();        // stops webpack-dev-server overlay
+                e.stopImmediatePropagation();
+                console.log("Suppressed TIC-80 unwind error");
+            }
+        },
+        true
+    );
+
+    window.addEventListener(
+        "unhandledrejection",
+        (e) => {
+            const msg = String((e as any).reason ?? "");
+            if (msg === "unwind" || msg.includes("unwind")) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                console.log("Suppressed TIC-80 unwind rejection");
+            }
+        },
+        true
+    );
+
+    return hasContinued ? <App /> : <SplashScreen onContinue={() => setHasContinued(true)} />;
+}
+
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('Root element not found');
-createRoot(rootEl).render(<App />);
+createRoot(rootEl).render(<AppWrapper />);
