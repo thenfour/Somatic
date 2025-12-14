@@ -1,19 +1,20 @@
+import fileDialog from 'file-dialog';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { saveSync } from 'save-file';
-import fileDialog from 'file-dialog';
 
 import './chromatic.css';
 
 import { AudioController } from './audio/controller';
+import { useLocalStorage } from './hooks/useLocalStorage';
 import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
-import { InstrumentPanel } from './ui/instrument_editor';
 import { HelpPanel } from './ui/help_panel';
+import { InstrumentPanel } from './ui/instrument_editor';
 import { PatternGrid } from './ui/pattern_grid';
 import { SongEditor } from './ui/song_editor';
-import { Tic80Embed } from './ui/Tic80Embed';
-import { useLocalStorage } from './hooks/useLocalStorage';
+import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
+import { Tic80Iframe } from './ui/Tic80EmbedIframe';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -29,7 +30,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);
     const [helpPanelOpen, setHelpPanelOpen] = useState(false);
     const [transportState, setTransportState] = useState<TransportState>('stop');
-    //const engineRef = React.useRef<Tic80EngineHandle>(null);
+    const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
 
     useEffect(() => {
         audio.song = song;
@@ -206,7 +207,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 )}
 
                 <div className="tic80-frame">
-                    <Tic80Embed args={[]} />
+                    <Tic80Iframe />
+                    {/* <Tic80Bridge ref={bridgeRef} /> */}
                 </div>
             </div>
         </div>
