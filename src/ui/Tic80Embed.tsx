@@ -27,10 +27,15 @@ function injectTic80ScriptOnce(src: string) {
 export type Tic80EmbedProps = {
     /* Arguments passed to TIC-80 (CLI-style). */
     args?: string[];
+    /* CSS size for the canvas; defaults to 512x512 (2x TIC-80 256) for visibility */
+    width?: number | string;
+    height?: number | string;
 };
 
 export function Tic80Embed({
     args = [],
+    width = 512,
+    height = 512,
 }: Tic80EmbedProps) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const scriptInjectedRef = useRef(false);
@@ -50,10 +55,10 @@ export function Tic80Embed({
             margin: 0,
             position: "relative",
             background: "#1a1c2c",
-            width: "100%",
-            height: "100%",
+            width,
+            height,
         };
-    }, []);
+    }, [width, height]);
 
     const injectScript = useCallback(() => {
         if (scriptInjectedRef.current) return;
@@ -95,12 +100,14 @@ export function Tic80Embed({
             <canvas
                 ref={canvasRef}
                 id="canvas"
+                width={typeof width === 'number' ? width : undefined}
+                height={typeof height === 'number' ? height : undefined}
                 style={{
-                    width: "100%",
-                    height: "100%",
-                    margin: "0 auto",
-                    display: "block",
-                    imageRendering: "pixelated",
+                    width: '100%',
+                    height: '100%',
+                    margin: '0 auto',
+                    display: 'block',
+                    imageRendering: 'pixelated',
                 }}
                 onContextMenu={(e) => e.preventDefault()}
                 onMouseDown={() => window.focus()}

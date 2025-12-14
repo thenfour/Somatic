@@ -205,13 +205,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     <HelpPanel onClose={() => setHelpPanelOpen(false)} />
                 )}
 
-                <div>
-                    <div style={{ width: 500, height: 400 }}>
-                        {/* <button onClick={onUserPlayClick}>Play</button> */}
-                        <Tic80Embed
-                            args={[]}
-                        />
-                    </div>
+                <div className="tic80-frame">
+                    <Tic80Embed args={[]} />
                 </div>
             </div>
         </div>

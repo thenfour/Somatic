@@ -402,6 +402,14 @@ input {
     padding-bottom: 50vh;
 }
 
+.tic80-frame {
+    width: 512px;
+    height: 512px;
+    background: var(--panel-strong);
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
 .field-row {
     display: inline-flex;
     align-items: center;
