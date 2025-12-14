@@ -14,6 +14,10 @@ local OUTBOX_ADDR = 0x14E80
 local INBOX_MUTEX_ADDR = INBOX_ADDR + 12 -- non-zero while host is writing
 local INBOX_SEQ_ADDR = INBOX_ADDR + 13 -- increments per host write
 
+-- Cart->host synchronization registers (mirrors the above for OUTBOX)
+local OUTBOX_MUTEX_ADDR = OUTBOX_ADDR + 12 -- non-zero while cart is writing a log
+local OUTBOX_SEQ_ADDR = OUTBOX_ADDR + 13 -- increments per log write
+
 local MARKER = "CHROMATIC_TIC80_V1" -- 17 bytes; host scans for this at MARKER_ADDR
 
 -- =========================
@@ -31,12 +35,17 @@ local MARKER = "CHROMATIC_TIC80_V1" -- 17 bytes; host scans for this at MARKER_A
 -- OUTBOX_ADDR + 9  : reserved
 -- OUTBOX_ADDR + 10 : reserved
 -- OUTBOX_ADDR + 11 : reserved
--- OUTBOX_ADDR + 12..15 reserved (padding)
+-- OUTBOX_ADDR + 12 : OUTBOX_MUTEX (cart sets non-zero while writing an entry)
+-- OUTBOX_ADDR + 13 : OUTBOX_SEQ   (increments on each entry written)
+-- OUTBOX_ADDR + 14 : reserved
+-- OUTBOX_ADDR + 15 : reserved
 --
--- OUTBOX_ADDR + 16 .. +16+LOG_SIZE-1 : log ring bytes
+-- OUTBOX_ADDR + 16 .. +16+LOG_SIZE-1 : outbox command ring buffer
+-- Entry format: [cmd][len][payload...]; wrap marker is cmd=0,len=0.
 
 local LOG_BASE = OUTBOX_ADDR + 16
 local LOG_SIZE = 240 -- keep small & simple (fits in reserved region)
+local LOG_CMD_LOG = 1 -- log message to host
 
 -- Log stream format (ring buffer):
 -- Each entry: [len][ascii bytes...]
@@ -85,6 +94,8 @@ local function out_init()
 	out_set(OUTBOX_ADDR + 6, 0) -- lastCmdResult
 	out_set(OUTBOX_ADDR + 7, 0) -- logWritePtr
 	out_set(OUTBOX_ADDR + 8, 0) -- logDroppedCount
+	out_set(OUTBOX_MUTEX_ADDR, 0)
+	out_set(OUTBOX_SEQ_ADDR, 0)
 end
 
 local function log_drop()
@@ -92,7 +103,9 @@ local function log_drop()
 end
 
 local function log_write_ascii(s)
-	-- Clamp length so entries are small and parsing is trivial
+	out_set(OUTBOX_MUTEX_ADDR, 1)
+
+	-- Clamp payload so entries stay small and parsing is trivial
 	local n = #s
 	if n > 31 then
 		n = 31
@@ -100,26 +113,33 @@ local function log_write_ascii(s)
 
 	local wp = out_get(OUTBOX_ADDR + 7)
 
-	-- Need space for [len] + bytes
-	-- Easiest: if we would wrap across end, put a 0-length marker and wrap.
-	if wp + 1 + n >= LOG_SIZE then
-		poke(LOG_BASE + wp, 0) -- wrap marker
+	local needed = 2 + n -- cmd + len + payload
+
+	-- If we would wrap across end, write wrap marker and reset
+	if wp + needed >= LOG_SIZE then
+		poke(LOG_BASE + wp + 0, 0) -- cmd=0 wrap marker
+		poke(LOG_BASE + wp + 1, 0)
 		wp = 0
 	end
 
 	-- If still no room (LOG_SIZE too small), drop
-	if 1 + n >= LOG_SIZE then
+	if needed >= LOG_SIZE then
+		out_set(OUTBOX_MUTEX_ADDR, 0)
 		log_drop()
 		return
 	end
 
-	poke(LOG_BASE + wp, n) -- len
+	-- write entry
+	poke(LOG_BASE + wp + 0, LOG_CMD_LOG)
+	poke(LOG_BASE + wp + 1, n)
 	for i = 1, n do
-		poke(LOG_BASE + wp + i, string.byte(s, i))
+		poke(LOG_BASE + wp + 1 + i, string.byte(s, i))
 	end
 
-	wp = wp + 1 + n
+	wp = wp + needed
 	out_set(OUTBOX_ADDR + 7, wp & 0xFF)
+	out_set(OUTBOX_SEQ_ADDR, (out_get(OUTBOX_SEQ_ADDR) + 1) & 0xFF)
+	out_set(OUTBOX_MUTEX_ADDR, 0)
 end
 
 -- Also show some recent logs on-screen for sanity
@@ -272,7 +292,7 @@ local function draw_idle_anim()
 
 	circ(cx, cy, r, 1) -- ring
 	for i = 0, 7 do
-		local a = i * (math.pi * 2 / 8)
+		local a = i * (math.pi * 2 / 8) + t
 		local px = cx + math.cos(a) * r
 		local py = cy + math.sin(a) * r
 		local col = (i == phase) and 12 or 5

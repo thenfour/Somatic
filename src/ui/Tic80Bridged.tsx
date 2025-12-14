@@ -22,7 +22,13 @@ const TIC = {
     OUTBOX_ADDR: 0x14e80,
     MAILBOX_MUTEX_ADDR: 0x14e40 + 12,
     MAILBOX_SEQ_ADDR: 0x14e40 + 13,
+    OUTBOX_MUTEX_ADDR: 0x14e80 + 12,
+    OUTBOX_SEQ_ADDR: 0x14e80 + 13,
+    LOG_WRITE_PTR_ADDR: 0x14e80 + 7,
+    LOG_BASE: 0x14e80 + 16,
+    LOG_SIZE: 240,
     MARKER_TEXT: "CHROMATIC_TIC80_V1",
+    OUT_CMD_LOG: 1,
 
     // Mailbox cmd IDs
     CMD_NOP: 0,
@@ -104,6 +110,8 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         const stageRef = useRef<string>("init");
         const pollingCancelledRef = useRef<boolean>(false);
         const mailboxSeqRef = useRef<number>(0);
+        const outboxSeqRef = useRef<number>(0);
+        const hostLogReadPtrRef = useRef<number>(0);
 
         const [ready, setReady] = useState(false);
 
@@ -220,6 +228,83 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
 
             // send acknowledgement command to confirm.
             poke8(TIC.MAILBOX_ADDR + 0, TIC.CMD_PING);
+
+            // Initialize OUTBOX read pointer/seq to current cart state so we only read new logs.
+            try {
+                hostLogReadPtrRef.current = peek8(TIC.LOG_WRITE_PTR_ADDR);
+                outboxSeqRef.current = peek8(TIC.OUTBOX_SEQ_ADDR);
+            } catch (e) {
+                log("init outbox read ptr failed", e);
+            }
+        }, [ready]);
+
+        function readOutboxCommands() {
+            if (!ready) return;
+            assertReady();
+
+            // If cart is mid-write, skip this poll to avoid tearing.
+            if (peek8(TIC.OUTBOX_MUTEX_ADDR) !== 0) return;
+
+            const seq = peek8(TIC.OUTBOX_SEQ_ADDR);
+            const writePtr = peek8(TIC.LOG_WRITE_PTR_ADDR);
+            let readPtr = hostLogReadPtrRef.current ?? 0;
+
+            if (seq === outboxSeqRef.current && writePtr === readPtr) return;
+
+            outboxSeqRef.current = seq;
+            const logs: string[] = [];
+
+            while (readPtr !== writePtr) {
+                const cmd = peek8(TIC.LOG_BASE + readPtr + 0);
+                const len = peek8(TIC.LOG_BASE + readPtr + 1);
+
+                // Wrap marker: reset to start.
+                if (cmd === 0 && len === 0) {
+                    readPtr = 0;
+                    continue;
+                }
+
+                const entrySize = 2 + len;
+
+                // Defensive bounds check; skip malformed entries.
+                if (len > 31 || entrySize > TIC.LOG_SIZE || readPtr + entrySize > TIC.LOG_SIZE) {
+                    readPtr = 0;
+                    continue;
+                }
+
+                // Extract payload once for switch handling.
+                const payload = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    payload[i] = peek8(TIC.LOG_BASE + readPtr + 2 + i);
+                }
+
+                switch (cmd) {
+                    case TIC.OUT_CMD_LOG: {
+                        const msg = String.fromCharCode(...payload);
+                        logs.push(msg);
+                        break;
+                    }
+                    default: {
+                        log(`unknown outbox cmd ${cmd} len=${len}`);
+                        break;
+                    }
+                }
+
+                readPtr += entrySize;
+                if (readPtr >= TIC.LOG_SIZE) readPtr = 0;
+            }
+
+            hostLogReadPtrRef.current = readPtr;
+
+            if (logs.length) {
+                logs.forEach((msg) => log(`[cart] ${msg}`));
+            }
+        }
+
+        useEffect(() => {
+            if (!ready) return;
+            const id = window.setInterval(readOutboxCommands, 100);
+            return () => window.clearInterval(id);
         }, [ready]);
 
         function assertReady() {
