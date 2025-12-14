@@ -19,6 +19,7 @@ const TIC = {
     // Bridge protocol locations (from our earlier Lua)
     MARKER_ADDR: 0x14e24,
     MAILBOX_ADDR: 0x14e40,
+    OUTBOX_ADDR: 0x14e80,
     MARKER_TEXT: "CHROMATIC_TIC80_V1",
 
     // Mailbox cmd IDs
@@ -64,17 +65,17 @@ export type Tic80BridgeProps = {
     style?: React.CSSProperties;
 };
 
-/** Find a byte pattern in a Uint8Array. */
-function findSubarray(haystack: Uint8Array, needle: Uint8Array): number {
-    if (needle.length === 0) return -1;
+function findAllSubarrayIndices(haystack: Uint8Array, needle: Uint8Array): number[] {
+    if (needle.length === 0) return [];
+    const out: number[] = [];
     const last = haystack.length - needle.length;
     outer: for (let i = 0; i <= last; i++) {
         for (let j = 0; j < needle.length; j++) {
             if (haystack[i + j] !== needle[j]) continue outer;
         }
-        return i;
+        out.push(i);
     }
-    return -1;
+    return out;
 }
 
 function getHeapU8(Module: any): Uint8Array {
@@ -147,8 +148,12 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                     }
 
                     // Find the marker in heap (written by the bridge cart on first TIC())
-                    const pos = findSubarray(heap, markerBytes);
-                    if (pos < 0) {
+                    const positions = findAllSubarrayIndices(heap, markerBytes);
+                    const candidates = positions
+                        .map((pos) => pos - TIC.MARKER_ADDR)
+                        .filter((base) => base >= 0 && base + TIC.OUTBOX_ADDR < heap.length);
+
+                    if (candidates.length === 0) {
                         if (stageRef.current !== "waiting-marker") {
                             stageRef.current = "waiting-marker";
                             log("waiting for marker bytes from bridge cart...");
@@ -157,10 +162,18 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                         return;
                     }
 
-                    log("marker located at", pos, "computing ramBase...");
+                    // Prefer the candidate whose OUTBOX magic is initialized to 0x42;
+                    // this avoids latching onto the Lua constant before the cart boots.
+                    const ramBase = candidates.find((base) => heap[base + TIC.OUTBOX_ADDR] === 0x42);
 
-                    const ramBase = pos - TIC.MARKER_ADDR;
-                    if (ramBase < 0) throw new Error(`Computed negative ramBase: ${ramBase}`);
+                    if (ramBase == null) {
+                        if (stageRef.current !== "waiting-outbox") {
+                            stageRef.current = "waiting-outbox";
+                            log("marker found but outbox not initialized yet; waiting for cart boot...");
+                        }
+                        raf = requestAnimationFrame(tick);
+                        return;
+                    }
 
                     moduleRef.current = Module;
                     heapRef.current = heap;
@@ -172,7 +185,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                         // stop polling.
                         pollingCancelledRef.current = true;
 
-                        log("bridge ready", { ramBase, markerPos: pos });
+                        log("bridge ready");
                         setReady(true);
                     }
 

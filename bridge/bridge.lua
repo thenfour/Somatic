@@ -70,7 +70,7 @@ local function out_get(addr)
 end
 
 local function out_init()
-	out_set(OUTBOX_ADDR + 0, 0x42) -- 'B'
+	out_set(OUTBOX_ADDR + 0, 0x42) -- 'B' -- important for host to detect presence of memory.
 	out_set(OUTBOX_ADDR + 1, 1) -- version
 	out_set(OUTBOX_ADDR + 2, 0) -- heartbeat
 	out_set(OUTBOX_ADDR + 3, 0) -- stateFlags
