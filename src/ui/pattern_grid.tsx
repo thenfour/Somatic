@@ -4,9 +4,16 @@ import { MAX_NOTE_NUM, midiToName } from '../defs';
 import { EditorState } from '../models/editor_state';
 import { Pattern } from '../models/pattern';
 import { Song } from '../models/song';
-import { Tic80ChannelIndex } from '../models/tic80Capabilities';
+import { Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
+
+
+const noteKeyMap = '-zsxdcvgbhnjmq2w3er5t6y7ui'.split('');
+const instrumentKeyMap = '0123456789abcdef'.split('');
+const commandKeyMap = 'mcjspvd'.split('');
+const paramKeyMap = instrumentKeyMap;
+
 
 const formatMidiNote = (midiNote: number | undefined | null) => {
     return !midiNote ? '---' : midiToName(midiNote);
@@ -19,18 +26,14 @@ const formatInstrument = (val: number | undefined | null) => {
 
 const formatCommand = (val: number | undefined | null) => {
     if (val === null || val === undefined) return '-';
-    return val.toString(16).toUpperCase();
+    //return val.toString(16).toUpperCase();
+    return commandKeyMap[val].toUpperCase() || '?';
 };
 
 const formatParam = (val: number | undefined | null) => {
     if (val === null || val === undefined) return '--';
     return val.toString(16).toUpperCase().padStart(2, '0');
 };
-
-const noteKeyMap = '-zsxdcvgbhnjmq2w3er5t6y7ui'.split('');
-const instrumentKeyMap = '0123456789abcdef'.split('');
-const commandKeyMap = instrumentKeyMap;
-const paramKeyMap = instrumentKeyMap;
 
 type PatternGridProps = {
     song: Song;
@@ -48,6 +51,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
     ({ song, audio, editorState, onEditorStateChange, onSongChange }, ref) => {
         const pattern: Pattern = song.patterns[editorState.patternIndex];
         const [activeRow, setActiveRow] = useState<number | null>(null);
+        //const [focusedCell, setFocusedCell] = useState<{ row: number; channel: number } | null>(null);
         const cellRefs = useMemo(
             () => Array.from({ length: 64 }, () => Array(16).fill(null) as (HTMLTableCellElement | null)[]),
             [],
@@ -144,11 +148,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             onSongChange((s) => {
                 const pat = s.patterns[editorState.patternIndex];
                 const oldCell = pat.getCell(channelIndex, rowIndex);
-                const currentParam = oldCell.effectX ?? 0;
+                //console.log(`oldxy=[${oldCell.effectX},${oldCell.effectY}]; idx=${idx}; typeof(oldCell.effectX)=${typeof (oldCell.effectX)}`);
+                const currentParam = oldCell.effectY ?? 0; // slide over Y to X
+                //console.log(`currentParam=${currentParam}`);
                 // Shift the current param left by 4 bits and add the new nibble
                 const newParam = ((currentParam << 4) | idx) & 0xFF;
                 const effectX = (newParam >> 4) & 0x0F;
                 const effectY = newParam & 0x0F;
+                //console.log(`newparam=${newParam}; XY=[${effectX}, ${effectY}]; currentParam=${currentParam}`);
                 pat.setCell(channelIndex, rowIndex, {
                     ...oldCell,
                     effectX,
@@ -170,19 +177,49 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             },
         }), [editorState.patternEditChannel, editorState.patternEditRow, focusCell]);
 
-        const updateEditTarget = (row: number, col: number) => {
-            const channelIndex = Math.floor(col / 4);
-            onEditorStateChange((s) => s.setPatternEditTarget(row, channelIndex));
+        const updateEditTarget = ({ rowIndex, channelIndex }: { rowIndex: number, channelIndex: Tic80ChannelIndex }) => {
+            //const channelIndex = Math.floor(col / 4);
+            onEditorStateChange((s) => s.setPatternEditTarget({ rowIndex, channelIndex }));
         };
 
-        const handleArrowNav = (row: number, col: number, key: string): readonly [number, number] | null => {
+        const handleArrowNav = (row: number, col: number, key: string, ctrlKey: boolean): readonly [number, number] | null => {
             const rowCount = 64;
             const colCount = 16;
             const jumpSize = Math.max(song.highlightRowCount || 1, 1);
-            if (key === 'ArrowUp') return [(row + rowCount - 1) % rowCount, col] as const;
-            if (key === 'ArrowDown') return [(row + 1) % rowCount, col] as const;
-            if (key === 'ArrowLeft') return [row, (col + colCount - 1) % colCount] as const;
-            if (key === 'ArrowRight') return [row, (col + 1) % colCount] as const;
+            if (key === 'ArrowUp') {
+                if (ctrlKey) {
+                    return [(row + rowCount - 4) % rowCount, col] as const;
+                }
+                return [(row + rowCount - 1) % rowCount, col] as const;
+            }
+            if (key === 'ArrowDown') {
+                if (ctrlKey) {
+                    return [(row + 4) % rowCount, col] as const;
+                }
+                return [(row + 1) % rowCount, col] as const;
+            }
+            if (key === 'ArrowLeft') {
+                if (ctrlKey) {
+                    // Move to previous channel (keep same cell type within channel)
+                    const currentChannel = Math.floor(col / 4);
+                    const cellTypeOffset = col % 4;
+                    const targetChannel = (currentChannel + 4 - 1) % 4;
+                    const targetCol = targetChannel * 4 + cellTypeOffset;
+                    return [row, targetCol] as const;
+                }
+                return [row, (col + colCount - 1) % colCount] as const;
+            }
+            if (key === 'ArrowRight') {
+                if (ctrlKey) {
+                    // Move to next channel (keep same cell type within channel)
+                    const currentChannel = Math.floor(col / 4);
+                    const cellTypeOffset = col % 4;
+                    const targetChannel = (currentChannel + 1) % 4;
+                    const targetCol = targetChannel * 4 + cellTypeOffset;
+                    return [row, targetCol] as const;
+                }
+                return [row, (col + 1) % colCount] as const;
+            }
             if (key === 'PageUp') {
                 const currentBlock = Math.floor(row / jumpSize);
                 const targetBlock = currentBlock - 1;
@@ -195,25 +232,34 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 const targetRow = (targetBlock * jumpSize) % rowCount;
                 return [targetRow, col] as const;
             }
+            if (key === 'Home') {
+                return [0, col] as const;
+            }
+            if (key === 'End') {
+                return [rowCount - 1, col] as const;
+            }
             return null;
         };
 
         const onCellKeyDown = (e: React.KeyboardEvent<HTMLTableCellElement>) => {
             const target = e.currentTarget;
-            const rowIndex = parseInt(target.dataset.rowIndex || '0', 10);
-            const channelIndex = parseInt(target.dataset.channelIndex || '0', 10) as Tic80ChannelIndex;
+            const rowIndex = parseInt(target.dataset.rowIndex!, 10);
+            const channelIndex = parseInt(target.dataset.channelIndex!, 10) as Tic80ChannelIndex;
             const cellType = target.dataset.cellType as CellType;
-            const colOffset = cellType === 'note' ? 0 : cellType === 'instrument' ? 1 : cellType === 'command' ? 2 : 3;
-            const col = channelIndex * 4 + colOffset;
+            //const colOffset = cellType === 'note' ? 0 : cellType === 'instrument' ? 1 : cellType === 'command' ? 2 : 3;
+            const columnIndex = parseInt(target.dataset.columnIndex!, 10);
+            //const col = channelIndex * 4 + colOffset;
 
-            const navTarget = handleArrowNav(rowIndex, col, e.key);
+            //setFocusedCell({ row: rowIndex, channel: channelIndex });
+
+            const navTarget = handleArrowNav(rowIndex, columnIndex, e.key, e.ctrlKey);
             if (navTarget) {
                 focusCell(navTarget[0], navTarget[1]);
                 e.preventDefault();
                 return;
             }
 
-            updateEditTarget(rowIndex, col);
+            updateEditTarget({ rowIndex, channelIndex });
 
             if (!editingEnabled) return;
 
@@ -236,6 +282,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const onCellKeyUp = () => {
             stopRow();
+        };
+
+        const onCellFocus = (rowIndex: number, channelIndex: Tic80ChannelIndex, col: number) => {
+            updateEditTarget({ rowIndex, channelIndex });
         };
 
         return (
@@ -266,7 +316,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                             return (
                                 <tr key={rowIndex} className={rowClass}>
                                     <td className="row-number">{rowIndex}</td>
-                                    {pattern.channels.map((channel, channelIndex) => {
+                                    {pattern.channels.map((channel, channelIndexRaw) => {
+                                        const channelIndex = ToTic80ChannelIndex(channelIndexRaw);
                                         const row = channel.rows[rowIndex];
                                         const noteText = formatMidiNote(row.midiNote);
                                         const instText = formatInstrument(row.instrumentIndex);
@@ -277,10 +328,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         const cmdCol = channelIndex * 4 + 2;
                                         const paramCol = channelIndex * 4 + 3;
                                         const isNoteEmpty = !row.midiNote;
-                                        const noteClass = `note-cell${isNoteEmpty ? ' empty-cell' : ''}`;
-                                        const instClass = `instrument-cell${isNoteEmpty ? ' empty-cell' : ''}`;
-                                        const cmdClass = `command-cell${isNoteEmpty ? ' empty-cell' : ''}`;
-                                        const paramClass = `param-cell${isNoteEmpty ? ' empty-cell' : ''}`;
+                                        const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
+                                        const noteClass = `note-cell${isNoteEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}`;
+                                        const instClass = `instrument-cell${isNoteEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}`;
+                                        const cmdClass = `command-cell${isNoteEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}`;
+                                        const paramClass = `param-cell${isNoteEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}`;
                                         return (
                                             <React.Fragment key={channelIndex}>
                                                 <td
@@ -289,10 +341,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     className={noteClass}
                                                     onKeyDown={onCellKeyDown}
                                                     onKeyUp={onCellKeyUp}
-                                                    onFocus={() => updateEditTarget(rowIndex, noteCol)}
+                                                    onFocus={() => onCellFocus(rowIndex, channelIndex, noteCol)}
+                                                    //onBlur={onCellBlur}
                                                     data-row-index={rowIndex}
                                                     data-channel-index={channelIndex}
                                                     data-cell-type="note"
+                                                    data-column-index={noteCol}
                                                 >
                                                     {noteText}
                                                 </td>
@@ -302,10 +356,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     className={instClass}
                                                     onKeyDown={onCellKeyDown}
                                                     onKeyUp={onCellKeyUp}
-                                                    onFocus={() => updateEditTarget(rowIndex, instCol)}
+                                                    onFocus={() => onCellFocus(rowIndex, channelIndex, instCol)}
+                                                    //onBlur={onCellBlur}
                                                     data-row-index={rowIndex}
                                                     data-channel-index={channelIndex}
                                                     data-cell-type="instrument"
+                                                    data-column-index={instCol}
                                                 >
                                                     {instText}
                                                 </td>
@@ -315,10 +371,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     className={cmdClass}
                                                     onKeyDown={onCellKeyDown}
                                                     onKeyUp={onCellKeyUp}
-                                                    onFocus={() => updateEditTarget(rowIndex, cmdCol)}
+                                                    onFocus={() => onCellFocus(rowIndex, channelIndex, cmdCol)}
+                                                    //onBlur={onCellBlur}
                                                     data-row-index={rowIndex}
                                                     data-channel-index={channelIndex}
                                                     data-cell-type="command"
+                                                    data-column-index={cmdCol}
                                                 >
                                                     {cmdText}
                                                 </td>
@@ -328,10 +386,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     className={paramClass}
                                                     onKeyDown={onCellKeyDown}
                                                     onKeyUp={onCellKeyUp}
-                                                    onFocus={() => updateEditTarget(rowIndex, paramCol)}
+                                                    onFocus={() => onCellFocus(rowIndex, channelIndex, paramCol)}
+                                                    //onBlur={onCellBlur}
                                                     data-row-index={rowIndex}
                                                     data-channel-index={channelIndex}
                                                     data-cell-type="param"
+                                                    data-column-index={paramCol}
                                                 >
                                                     {paramText}
                                                 </td>

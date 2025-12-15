@@ -6,8 +6,9 @@
 }
 
 :root {
-    /* --ff-mono: 'Roboto Mono', Consolas, 'Courier New', monospace; */
-    --ff-mono: '04b03Regular', monospace;
+    --ff-mono: 'Roboto Mono', Consolas, 'Courier New', monospace;
+    --ff-tic: '04b03Regular', monospace;
+
     --ff-size-1x: 16px;
     --ff-size-1-5x: 20px;
     --ff-size-2x: 24px;
@@ -542,6 +543,10 @@ button.key {
 
 .pattern-grid td.empty-cell {
     color: var(--muted);
+}
+
+.pattern-grid td.metaCellFocus {
+    outline: 1px solid var(--accent);
 }
 
 .pattern-grid td:focus {
