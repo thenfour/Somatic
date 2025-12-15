@@ -116,19 +116,21 @@ export const WaveformEditor: React.FC<{
     const maxAmp = amplitudeRange - 1;
 
     const [isDrawing, setIsDrawing] = useState(false);
+    const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+    const [hoverAmp, setHoverAmp] = useState<number | null>(null);
     const canvasRef = useRef<HTMLDivElement | null>(null);
     const lastIndexRef = useRef<number | null>(null);
     const lastAmpRef = useRef<number | null>(null);
 
     const waveform = song.waveforms[editingWaveformId];
 
-    const handleDrawAtPosition = (clientX: number, clientY: number) => {
-        if (!waveform) return;
+    const getPointFromClientPosition = (clientX: number, clientY: number) => {
+        if (!waveform) return null;
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas) return null;
 
         const rect = canvas.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) return;
+        if (rect.width <= 0 || rect.height <= 0) return null;
 
         let x = clientX - rect.left;
         let y = clientY - rect.top;
@@ -147,6 +149,18 @@ export const WaveformEditor: React.FC<{
         let amp = Math.round(yNorm * maxAmp);
         if (amp < 0) amp = 0;
         if (amp > maxAmp) amp = maxAmp;
+
+        return { index, amp };
+    };
+
+    const handleDrawAtPosition = (clientX: number, clientY: number) => {
+        const point = getPointFromClientPosition(clientX, clientY);
+        if (!point) return;
+
+        const { index, amp } = point;
+
+        setHoverIndex(index);
+        setHoverAmp(amp);
 
         const prevIndex = lastIndexRef.current;
         const prevAmp = lastAmpRef.current;
@@ -190,6 +204,15 @@ export const WaveformEditor: React.FC<{
     };
 
     const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+        const point = getPointFromClientPosition(event.clientX, event.clientY);
+        if (point) {
+            setHoverIndex(point.index);
+            setHoverAmp(point.amp);
+        } else {
+            setHoverIndex(null);
+            setHoverAmp(null);
+        }
+
         if (!isDrawing) return;
         handleDrawAtPosition(event.clientX, event.clientY);
     };
@@ -198,19 +221,31 @@ export const WaveformEditor: React.FC<{
         setIsDrawing(false);
         lastIndexRef.current = null;
         lastAmpRef.current = null;
+        setHoverIndex(null);
+        setHoverAmp(null);
     };
 
     useEffect(() => {
         if (!isDrawing) return;
 
         const handleWindowMouseMove = (event: MouseEvent) => {
-            handleDrawAtPosition(event.clientX, event.clientY);
+            const point = getPointFromClientPosition(event.clientX, event.clientY);
+            if (point) {
+                setHoverIndex(point.index);
+                setHoverAmp(point.amp);
+                handleDrawAtPosition(event.clientX, event.clientY);
+            } else {
+                setHoverIndex(null);
+                setHoverAmp(null);
+            }
         };
 
         const handleWindowMouseUp = () => {
             setIsDrawing(false);
             lastIndexRef.current = null;
             lastAmpRef.current = null;
+            setHoverIndex(null);
+            setHoverAmp(null);
         };
 
         window.addEventListener("mousemove", handleWindowMouseMove);
@@ -267,6 +302,7 @@ export const WaveformEditor: React.FC<{
         const amp = Math.max(0, Math.min(maxAmp, waveform.amplitudes[i] ?? 0));
         const x = (i + 0.5) * (width / pointCount);
         const y = height - ((amp + 0.5) * height) / amplitudeRange;
+        const isHovered = hoverIndex === i;
         points.push(
             <rect
                 key={i}
@@ -274,8 +310,23 @@ export const WaveformEditor: React.FC<{
                 y={y - scale * 0.4}
                 width={scale * 0.8}
                 height={scale * 0.8}
-                className="waveform-editor__point"
+                className={isHovered ? "waveform-editor__point waveform-editor__point--hovered" : "waveform-editor__point"}
             />,
+        );
+    }
+
+    let hoverPreview: JSX.Element | null = null;
+    if (hoverIndex != null && hoverAmp != null) {
+        const x = (hoverIndex + 0.5) * (width / pointCount);
+        const y = height - ((hoverAmp + 0.5) * height) / amplitudeRange;
+        hoverPreview = (
+            <rect
+                x={x - scale * 0.4}
+                y={y - scale * 0.4}
+                width={scale * 0.8}
+                height={scale * 0.8}
+                className="waveform-editor__point-preview"
+            />
         );
     }
 
@@ -288,6 +339,10 @@ export const WaveformEditor: React.FC<{
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
+                onMouseLeave={() => {
+                    setHoverIndex(null);
+                    setHoverAmp(null);
+                }}
             >
                 <svg
                     className="waveform-editor__svg"
@@ -305,6 +360,7 @@ export const WaveformEditor: React.FC<{
                     />
                     {gridLines}
                     {points}
+                    {hoverPreview}
                 </svg>
             </div>
         </div>
@@ -321,6 +377,110 @@ export const WaveformEditorPanel: React.FC<{
 }> = ({ song, editorState, onSongChange }) => {
 
     const [editingWaveformId, setEditingWaveformId] = useState<number>(0);
+    const [mixPercent, setMixPercent] = useState<number>(100);
+    const [harmonic, setHarmonic] = useState<number>(1);
+    const [clipboard, setClipboard] = useState<Uint8Array | null>(null);
+
+    const applyGeneratedWaveform = (generator: (index: number, pointCount: number, maxAmp: number) => number) => {
+        const waveform = song.waveforms[editingWaveformId];
+        if (!waveform) return;
+
+        const pointCount = Tic80Caps.waveform.pointCount;
+        const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
+        const maxAmp = amplitudeRange - 1;
+        const mix = Math.max(0, Math.min(100, mixPercent)) / 100;
+
+        onSongChange((s) => {
+            const wf = s.waveforms[editingWaveformId];
+            if (!wf) return;
+            const len = Math.min(wf.amplitudes.length, pointCount);
+            for (let i = 0; i < len; i += 1) {
+                const current = Math.max(0, Math.min(maxAmp, wf.amplitudes[i] ?? 0));
+                const generated = Math.max(0, Math.min(maxAmp, generator(i, pointCount, maxAmp)));
+                const blended = Math.round(current * (1 - mix) + generated * mix);
+                wf.amplitudes[i] = blended;
+            }
+        });
+    };
+
+    const makePhase = (index: number, pointCount: number) => {
+        return (harmonic * index) / pointCount;
+    };
+
+    const handlePulse = () => {
+        applyGeneratedWaveform((i, pointCount, maxAmp) => {
+            const phase = makePhase(i, pointCount);
+            // simple 50% duty pulse
+            const frac = phase - Math.floor(phase);
+            return frac < 0.5 ? maxAmp : 0;
+        });
+    };
+
+    const handleSaw = () => {
+        applyGeneratedWaveform((i, pointCount, maxAmp) => {
+            const phase = makePhase(i, pointCount);
+            const frac = phase - Math.floor(phase);
+            return Math.round(frac * maxAmp);
+        });
+    };
+
+    const handleTriangle = () => {
+        applyGeneratedWaveform((i, pointCount, maxAmp) => {
+            const phase = makePhase(i, pointCount);
+            const frac = phase - Math.floor(phase);
+            const tri = frac < 0.5 ? frac * 2 : (1 - frac) * 2;
+            return Math.round(tri * maxAmp);
+        });
+    };
+
+    const handleSine = () => {
+        applyGeneratedWaveform((i, pointCount, maxAmp) => {
+            const phase = makePhase(i, pointCount); // 0..harmonic
+            const angle = 2 * Math.PI * phase;
+            const s = (Math.sin(angle) + 1) / 2; // 0..1
+            return Math.round(s * maxAmp);
+        });
+    };
+
+    const handleNoise = () => {
+        applyGeneratedWaveform((_i, _pointCount, maxAmp) => {
+            return Math.floor(Math.random() * (maxAmp + 1));
+        });
+    };
+
+    const handleShift = (direction: 1 | -1) => {
+        const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
+        const maxAmp = amplitudeRange - 1;
+        onSongChange((s) => {
+            const wf = s.waveforms[editingWaveformId];
+            if (!wf) return;
+            for (let i = 0; i < wf.amplitudes.length; i += 1) {
+                const current = Math.max(0, Math.min(maxAmp, wf.amplitudes[i] ?? 0));
+                let next = current + direction;
+                if (next < 0) next = maxAmp;
+                if (next > maxAmp) next = 0;
+                wf.amplitudes[i] = next;
+            }
+        });
+    };
+
+    const handleCopy = () => {
+        const waveform = song.waveforms[editingWaveformId];
+        if (!waveform) return;
+        setClipboard(new Uint8Array(waveform.amplitudes));
+    };
+
+    const handlePaste = () => {
+        if (!clipboard) return;
+        onSongChange((s) => {
+            const wf = s.waveforms[editingWaveformId];
+            if (!wf) return;
+            const len = Math.min(wf.amplitudes.length, clipboard.length);
+            for (let i = 0; i < len; i += 1) {
+                wf.amplitudes[i] = clipboard[i];
+            }
+        });
+    };
 
     return (
         <div className="waveform-editor-panel">
@@ -337,6 +497,50 @@ export const WaveformEditorPanel: React.FC<{
                 onSongChange={onSongChange}
                 editingWaveformId={editingWaveformId}
             />
+            <div className="waveform-editor-controls">
+                <div className="waveform-editor-controls__row">
+                    <span className="waveform-editor-controls__label">Clipboard</span>
+                    <button type="button" onClick={handleCopy}>Copy</button>
+                    <button type="button" onClick={handlePaste} disabled={!clipboard}>Paste</button>
+                </div>
+                <div className="waveform-editor-controls__row">
+                    <span className="waveform-editor-controls__label">Mix</span>
+                    <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={mixPercent}
+                        onChange={(e) => setMixPercent(Number(e.target.value))}
+                    />
+                    <span className="waveform-editor-controls__value">{mixPercent}%</span>
+                </div>
+                <div className="waveform-editor-controls__row">
+                    <span className="waveform-editor-controls__label">Harmonic</span>
+                    {[1, 2, 3, 4, 5].map((h) => (
+                        <button
+                            key={h}
+                            type="button"
+                            className={h === harmonic ? "waveform-editor-controls__button waveform-editor-controls__button--active" : "waveform-editor-controls__button"}
+                            onClick={() => setHarmonic(h)}
+                        >
+                            {h}
+                        </button>
+                    ))}
+                </div>
+                <div className="waveform-editor-controls__row">
+                    <button type="button" onClick={handlePulse}>Pulse</button>
+                    <button type="button" onClick={handleSaw}>Saw</button>
+                    <button type="button" onClick={handleTriangle}>Tri</button>
+                    <button type="button" onClick={handleSine}>Sine</button>
+                    <button type="button" onClick={handleNoise}>Noise</button>
+                </div>
+                <div className="waveform-editor-controls__row">
+                    <span className="waveform-editor-controls__label">Shift</span>
+                    <button type="button" onClick={() => handleShift(1)}>Up</button>
+                    <button type="button" onClick={() => handleShift(-1)}>Down</button>
+                </div>
+            </div>
         </div>);
 
 };
