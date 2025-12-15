@@ -9,7 +9,7 @@ export const Tic80Caps = {
    // song general aka "track".
    song: {
       audioChannels: 4,
-      maxSongLength: 256,
+      maxSongLength: 16, // MUSIC_TRACKS
       songSpeedMax: 7,
    },
 

@@ -10,6 +10,7 @@ import React, {
 import { Tic80Iframe, Tic80IframeHandle } from "./Tic80EmbedIframe";
 import { AsyncMutex } from "../utils/async_mutex";
 import { Tic80ChannelIndex } from "../models/tic80Capabilities";
+import { Tic80SerializedSong } from "../audio/tic80_cart_serializer";
 
 declare global {
     interface Window {
@@ -35,20 +36,20 @@ const TIC = {
     OUT_CMD_LOG: 1,
 
     // TIC cartridge chunk IDs (subset)
-    CHUNK_WAVEFORMS: 10,
-    CHUNK_SFX: 9,
-    CHUNK_MUSIC_TRACKS: 14,
-    CHUNK_MUSIC_PATTERNS: 15,
+    // CHUNK_WAVEFORMS: 10,
+    // CHUNK_SFX: 9,
+    // CHUNK_MUSIC_TRACKS: 14,
+    // CHUNK_MUSIC_PATTERNS: 15,
 
     // RAM destinations for the chunk payloads (bank 0)
     WAVEFORMS_ADDR: 0x0ffe4,
-    WAVEFORMS_SIZE: 0x100, // 256 bytes
-    SFX_ADDR: 0x100e4,
-    SFX_SIZE: 66 * 64, // 64 sfx slots * 66 bytes
-    PATTERNS_ADDR: 0x11164,
-    PATTERNS_SIZE: 0x2d00, // 11520 bytes
-    TRACKS_ADDR: 0x13e64,
-    TRACKS_SIZE: 51 * 8, // 8 tracks * 51 bytes
+    // WAVEFORMS_SIZE: 0x100, // 256 bytes
+    // SFX_ADDR: 0x100e4,
+    // SFX_SIZE: 66 * 64, // 64 sfx slots * 66 bytes
+    // PATTERNS_ADDR: 0x11164,
+    // PATTERNS_SIZE: 0x2d00, // 11520 bytes
+    // TRACKS_ADDR: 0x13e64,
+    // TRACKS_SIZE: 51 * 8, // 8 tracks * 51 bytes
 
     // Mailbox cmd IDs
     CMD_NOP: 0,
@@ -102,7 +103,7 @@ export type Tic80BridgeHandle = {
 };
 
 export type Tic80BridgeTransaction = {
-    uploadSongData: (data: Uint8Array) => Promise<void>;
+    uploadSongData: (data: Tic80SerializedSong) => Promise<void>;
     playSfx: (opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; }) => Promise<void>;
     stopSfx: (opts: { channel: Tic80ChannelIndex; }) => Promise<void>;
     play: (opts?: {
@@ -387,60 +388,63 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             return heapRef.current!.slice(start, start + length);
         }
 
-        function zeroRange(addr: number, len: number) {
-            assertReady();
-            heapRef.current!.fill(0, ramBaseRef.current! + addr, ramBaseRef.current! + addr + len);
-        }
+        // function zeroRange(addr: number, len: number) {
+        //     assertReady();
+        //     heapRef.current!.fill(0, ramBaseRef.current! + addr, ramBaseRef.current! + addr + len);
+        // }
 
-        function applySongChunk(type: number, payload: Uint8Array, bank: number) {
-            // Only bank 0 is supported for now.
-            if (bank !== 0) return;
+        // function applySongChunk(type: number, payload: Uint8Array, bank: number) {
+        //     // Only bank 0 is supported for now.
+        //     if (bank !== 0) return;
 
-            switch (type) {
-                case TIC.CHUNK_WAVEFORMS: {
-                    zeroRange(TIC.WAVEFORMS_ADDR, TIC.WAVEFORMS_SIZE);
-                    pokeBlock(TIC.WAVEFORMS_ADDR, payload.slice(0, TIC.WAVEFORMS_SIZE));
-                    break;
-                }
-                case TIC.CHUNK_SFX: {
-                    zeroRange(TIC.SFX_ADDR, TIC.SFX_SIZE);
-                    pokeBlock(TIC.SFX_ADDR, payload.slice(0, TIC.SFX_SIZE));
-                    break;
-                }
-                case TIC.CHUNK_MUSIC_PATTERNS: {
-                    zeroRange(TIC.PATTERNS_ADDR, TIC.PATTERNS_SIZE);
-                    pokeBlock(TIC.PATTERNS_ADDR, payload.slice(0, TIC.PATTERNS_SIZE));
-                    break;
-                }
-                case TIC.CHUNK_MUSIC_TRACKS: {
-                    zeroRange(TIC.TRACKS_ADDR, TIC.TRACKS_SIZE);
-                    pokeBlock(TIC.TRACKS_ADDR, payload.slice(0, TIC.TRACKS_SIZE));
-                    break;
-                }
-                default:
-                    // ignore other chunk types for now
-                    break;
-            }
-        }
+        //     switch (type) {
+        //         case TIC.CHUNK_WAVEFORMS: {
+        //             zeroRange(TIC.WAVEFORMS_ADDR, TIC.WAVEFORMS_SIZE);
+        //             pokeBlock(TIC.WAVEFORMS_ADDR, payload.slice(0, TIC.WAVEFORMS_SIZE));
+        //             break;
+        //         }
+        //         case TIC.CHUNK_SFX: {
+        //             zeroRange(TIC.SFX_ADDR, TIC.SFX_SIZE);
+        //             pokeBlock(TIC.SFX_ADDR, payload.slice(0, TIC.SFX_SIZE));
+        //             break;
+        //         }
+        //         case TIC.CHUNK_MUSIC_PATTERNS: {
+        //             zeroRange(TIC.PATTERNS_ADDR, TIC.PATTERNS_SIZE);
+        //             pokeBlock(TIC.PATTERNS_ADDR, payload.slice(0, TIC.PATTERNS_SIZE));
+        //             break;
+        //         }
+        //         case TIC.CHUNK_MUSIC_TRACKS: {
+        //             zeroRange(TIC.TRACKS_ADDR, TIC.TRACKS_SIZE);
+        //             pokeBlock(TIC.TRACKS_ADDR, payload.slice(0, TIC.TRACKS_SIZE));
+        //             break;
+        //         }
+        //         default:
+        //             // ignore other chunk types for now
+        //             break;
+        //     }
+        // }
 
-        async function uploadSongDataRaw(data: Uint8Array) {
+        async function uploadSongDataRaw(data: Tic80SerializedSong) {
             assertReady();
             await sendMailboxCommandRaw([TIC.CMD_BEGIN_UPLOAD], "Begin song Upload");
-            let offset = 0;
-            while (offset + 4 <= data.length) {
-                const header = data[offset];
-                const bank = (header >> 5) & 0x07;
-                const type = header & 0x1f;
-                const size = data[offset + 1] | (data[offset + 2] << 8);
-                const payloadStart = offset + 4;
-                const payloadEnd = payloadStart + size;
-                if (payloadEnd > data.length) break; // malformed; stop early
 
-                const payload = data.slice(payloadStart, payloadEnd);
-                applySongChunk(type, payload, bank);
+            // memory patch
+            pokeBlock(TIC.WAVEFORMS_ADDR, data.memory_0FFE4);
+            // let offset = 0;
+            // while (offset + 4 <= data.length) {
+            //     const header = data[offset];
+            //     const bank = (header >> 5) & 0x07;
+            //     const type = header & 0x1f;
+            //     const size = data[offset + 1] | (data[offset + 2] << 8);
+            //     const payloadStart = offset + 4;
+            //     const payloadEnd = payloadStart + size;
+            //     if (payloadEnd > data.length) break; // malformed; stop early
 
-                offset = payloadEnd;
-            }
+            //     const payload = data.slice(payloadStart, payloadEnd);
+            //     applySongChunk(type, payload, bank);
+
+            //     offset = payloadEnd;
+            // }
 
             await sendMailboxCommandRaw([TIC.CMD_END_UPLOAD], "End song Upload");
         }

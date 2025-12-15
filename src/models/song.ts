@@ -60,6 +60,7 @@ export class Song {
    rowsPerPattern: number;
    // positions: number[];
 
+   // tic80 music editor shows a range of 40-250. theoretically it's 32-255 apparently https://github.com/nesbox/TIC-80/issues/2153
    tempo: number;
    speed: number;
    // length: number;

@@ -360,7 +360,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                             <span className="midi-indicator__dot" aria-hidden="true" />
                             <span className="midi-indicator__label">{midiIndicatorLabel}</span>
                         </div>
-                        <div id="master-volume-container">
+                        {/* <div id="master-volume-container">
                             <label htmlFor="master-volume">master volume</label>
                             <input
                                 type="range"
@@ -370,7 +370,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                                 id="master-volume"
                                 onChange={(e) => audio.setVolume(e.target.valueAsNumber / 1000)}
                             />
-                        </div>
+                        </div> */}
                     </div>
                 </div>
 

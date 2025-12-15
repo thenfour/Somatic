@@ -1,11 +1,10 @@
-import {AudioBackend, BackendContext} from "./backend";
-import type {Tic80Instrument} from "../models/instruments";
+import {getNoteInfo} from "../defs";
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
-import type {Tic80BridgeHandle, Tic80BridgeTransaction} from "../ui/Tic80Bridged";
-import {serializeSongToCart} from "./tic80_cart_serializer";
 import {Tic80ChannelIndex} from "../models/tic80Capabilities";
-import {getNoteInfo} from "../defs";
+import type {Tic80BridgeHandle, Tic80BridgeTransaction} from "../ui/Tic80Bridged";
+import {AudioBackend, BackendContext} from "./backend";
+import {serializeSongForTic80Bridge, Tic80SerializedSong} from "./tic80_cart_serializer";
 
 // Minimal TIC-80 backend: delegates transport commands to the bridge.
 // Song/instrument upload is not implemented yet; this is a transport stub.
@@ -13,8 +12,8 @@ export class Tic80Backend implements AudioBackend {
    private readonly emit: BackendContext["emit"];
    private readonly bridge: () => Tic80BridgeHandle | null;
    private song: Song|null = null;
-   private serializedSong: Uint8Array|null = null;
-   private volume = 0.3;
+   private serializedSong: Tic80SerializedSong|null = null;
+   //private volume = 0.3;
 
    constructor(ctx: BackendContext, bridgeGetter: () => Tic80BridgeHandle | null) {
       this.emit = ctx.emit;
@@ -24,7 +23,7 @@ export class Tic80Backend implements AudioBackend {
    async setSong(song: Song|null) {
       this.song = song;
       if (song) {
-         this.serializedSong = serializeSongToCart(song);
+         this.serializedSong = serializeSongForTic80Bridge(song);
          //await this.tryUploadSong();
       } else {
          // todo: an actual empty song.
@@ -32,10 +31,10 @@ export class Tic80Backend implements AudioBackend {
       }
    }
 
-   async setVolume(vol: number) {
-      this.volume = vol;
-      // TODO: route to cart when mixer control exists
-   }
+   //    async setVolume(vol: number) {
+   //       this.volume = vol;
+   //       // TODO: route to cart when mixer control exists
+   //    }
 
    async sfxNoteOn(instrumentIndex: number, midiNote: number, channel: Tic80ChannelIndex) {
       const b = this.bridge();
@@ -112,7 +111,7 @@ export class Tic80Backend implements AudioBackend {
 
    private async tryUploadSong(tx: Tic80BridgeTransaction) {
       if (!this.serializedSong)
-         return; // todo: empty song should be a real empty song.
+         return;
       const b = this.bridge();
       if (!b || !b.isReady())
          return;

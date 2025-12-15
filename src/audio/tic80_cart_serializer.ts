@@ -1,8 +1,8 @@
 import {midiToTicPitch} from "../defs";
 import type {Song} from "../models/song";
-import type {Pattern} from "../models/pattern";
+import {Pattern} from "../models/pattern";
 import type {Tic80Instrument} from "../models/instruments";
-import {clamp} from "../utils/utils";
+import {assert, clamp} from "../utils/utils";
 import {Tic80Caps} from "../models/tic80Capabilities";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
@@ -20,40 +20,41 @@ const CHUNK = {
 //const SFX_TICKS = 30;
 const SFX_BYTES_PER_SAMPLE = 66;
 
-/** Trim trailing zero bytes (spec allows chunk truncation). */
-function trimTrailingZeros(data: Uint8Array): Uint8Array {
-   let last = data.length - 1;
-   while (last >= 0 && data[last] === 0)
-      last--;
-   return data.slice(0, last + 1);
-}
+// /** Trim trailing zero bytes (spec allows chunk truncation). */
+// function trimTrailingZeros(data: Uint8Array): Uint8Array {
+//    let last = data.length - 1;
+//    while (last >= 0 && data[last] === 0)
+//       last--;
+//    return data.slice(0, last + 1);
+// }
 
-function writeChunk(type: number, payload: Uint8Array, bank = 0): Uint8Array {
-   const data = trimTrailingZeros(payload);
-   const header = new Uint8Array(4 + data.length);
-   header[0] = ((bank & 0x07) << 5) | (type & 0x1f);
-   header[1] = data.length & 0xff;
-   header[2] = (data.length >> 8) & 0xff;
-   header[3] = 0; // reserved
-   header.set(data, 4);
-   return header;
-}
+// function writeChunk(type: number, payload: Uint8Array, bank = 0): Uint8Array {
+//    //const data = trimTrailingZeros(payload);
+//    const data = payload;
+//    const header = new Uint8Array(4 + data.length);
+//    header[0] = ((bank & 0x07) << 5) | (type & 0x1f);
+//    header[1] = data.length & 0xff;
+//    header[2] = (data.length >> 8) & 0xff;
+//    header[3] = 0; // reserved
+//    header.set(data, 4);
+//    return header;
+// }
 
-function encodeNoteTriplet(midiNoteValue: number, instrument: number): [number, number, number] {
-   // Rest/no-note
-   const ticPitch = midiToTicPitch(midiNoteValue);
-   if (!ticPitch)
-      return [0, 0, 0];
+// function encodeNoteTriplet(midiNoteValue: number, instrument: number): [number, number, number] {
+//    // Rest/no-note
+//    const ticPitch = midiToTicPitch(midiNoteValue);
+//    if (!ticPitch)
+//       return [0, 0, 0];
 
-   const sfx = Math.max(0, Math.min(255, instrument | 0));
-   const command = 0; // no effect command for now
-   const arg = 0;
+//    const sfx = Math.max(0, Math.min(255, instrument | 0));
+//    const command = 0; // no effect command for now
+//    const arg = 0;
 
-   const byte0 = ticPitch.noteNibble & 0x0f;
-   const byte1 = ((sfx >> 5) & 0x01) << 7 | ((command & 0x07) << 4) | (arg & 0x0f);
-   const byte2 = ((ticPitch.octave & 0x07) << 5) | (sfx & 0x1f);
-   return [byte0, byte1, byte2];
-}
+//    const byte0 = ticPitch.noteNibble & 0x0f;
+//    const byte1 = ((sfx >> 5) & 0x01) << 7 | ((command & 0x07) << 4) | (arg & 0x0f);
+//    const byte2 = ((ticPitch.octave & 0x07) << 5) | (sfx & 0x1f);
+//    return [byte0, byte1, byte2];
+// }
 
 function encodePattern(pattern: Pattern): Uint8Array {
    // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#music-patterns
@@ -91,20 +92,105 @@ function encodePattern(pattern: Pattern): Uint8Array {
    return buf;
 }
 
-function encodePatterns(song: Song): Uint8Array {
+function encodeNullPatterns(song: Song): Uint8Array {
    const patterns = new Uint8Array(Tic80Caps.pattern.count * Tic80Caps.pattern.maxRows * 3);
    for (let p = 0; p < Tic80Caps.pattern.count; p++) {
-      const pattern = song.patterns[p];
-      if (!pattern)
-         continue;
+      const pattern = new Pattern();
       const encoded = encodePattern(pattern);
       patterns.set(encoded, p * encoded.length);
    }
-   return writeChunk(CHUNK.MUSIC_PATTERNS, patterns);
+   return patterns;
+   //return writeChunk(CHUNK.MUSIC_PATTERNS, patterns);
 }
 
+// each pattern is actually 4 patterns (channel A, B, C, D) in series.
+// so for double-buffering, the front buffer for the 4 channels is [0,1,2,3], and the back buffer is [4,5,6,7], etc.
+function encodeRealPatterns(song: Song): Uint8Array[] {
+   const ret: Uint8Array[] = [];
+   for (let p = 0; p < song.patterns.length; p++) {
+      const patternBuffer = new Uint8Array(Tic80Caps.pattern.maxRows * 3);
+      const pattern = song.patterns[p]!;
+      const encoded = encodePattern(pattern);
+      patternBuffer.set(encoded, 0);
+      ret.push(patternBuffer);
+   }
+   return ret;
+   //return writeChunk(CHUNK.MUSIC_PATTERNS, patterns);
+}
+
+// Decode raw byte S from the CHUNK_MUSIC track into "display speed" (1..31)
+export function decodeTrackSpeed(rawSpeedByte: number): number {
+   // rawSpeedByte: 0..255
+   const speed = (rawSpeedByte + 6) % 255;
+   // Spec says valid range is 1..31; clamp just in case
+   return clamp(speed, 1, 31);
+}
+
+// Encode desired display speed (1..31) into raw S byte for CHUNK_MUSIC
+export function encodeTrackSpeed(displaySpeed: number): number {
+   // ensure integer & clamp to legal range
+   let speed = clamp(displaySpeed, 1, 31);
+
+   // Use the canonical mapping consistent with (S + 6) % 255
+   if (speed === 6)
+      return 0; // default speed
+   if (speed >= 7)
+      return speed - 6; // 7..31 -> 1..25
+   // speed in 1..5
+   return speed + 249; // 1..5 -> 250..254
+}
+
+// Tempo: decode is T + 150; we do not track tempo, so default 150 -> store 0
+function encodeTempo(displayTempo: number): number {
+   const tSigned = displayTempo - 150; // -118 .. +105 for 32..255
+   return (tSigned + 256) & 0xFF;      // back to 0..255 byte
+}
+// for completeness
+export function decodeTempo(byte: number): number {
+   // byte is 0..255 from the cart
+   const tSigned = byte >= 128 ? byte - 256 : byte; // convert to -128..127
+   return tSigned + 150;                            // UI tempo
+}
+
+function packTrackFrame(channelPatterns: [number, number, number, number]): [number, number, number] {
+   const patF = channelPatterns[0] & 0x3f;
+   const patS = channelPatterns[1] & 0x3f;
+   const patT = channelPatterns[2] & 0x3f;
+   const patQ = channelPatterns[3] & 0x3f;
+   const packed = patF | (patS << 6) | (patT << 12) | (patQ << 18);
+   const byte0 = packed & 0xff;
+   const byte1 = (packed >> 8) & 0xff;
+   const byte2 = (packed >> 16) & 0xff;
+   return [byte0, byte1, byte2];
+};
+
 function encodeTrack(song: Song): Uint8Array {
-   const buf = new Uint8Array(51); // 48 bytes positions + speed/rows/tempo
+   const buf = new Uint8Array(3 * Tic80Caps.song.maxSongLength + 3); // 48 bytes positions + speed/rows/tempo
+
+   /*
+This represents the music track data. This is copied to RAM at 0x13E64...0x13FFB.
+
+This chunk contains the various music tracks, as composed of 51 bytes where trailing zeros are removed, the structure is as follows
+
+1-48 	FFFFFFSSSSSSTTTTTTQQQQQQ 	The bytes here are arranged in triplets where
+F is the number of the pattern on the first channel
+S is the number of the pattern on the second channel
+T is the number of the pattern on the third channel
+Q is the number of the pattern on the fourth channel
+49 	SSSSSSSS 	S is the speed of the track
+50 	RRRRRRRR 	R is the number of rows in each pattern
+51 	TTTTTTTT 	T is the tempo of the track
+
+Although the individual notes are stored as 6 bits in the editor the maximum number that can be used is 60 (may be possible to insert illegal pattern in music tracks?)
+To get the correct speed of the track do: (S + 6) % 255
+To get the correct number of rows of the track do: 64 - R
+To get the correct tempo of the track do: T + 150.
+
+- tempo is a signed byte. it's stored as the delta from the default tempo of 150 bpm.
+  so to get the actual tempo, you do: T + 150
+
+   */
+
    // const steps = Math.min(SONG_TRACK_STEPS, song.length);
    // for (let i = 0; i < steps; i++) {
    //     const patIndex = song.positions[i] ?? 0;
@@ -118,17 +204,31 @@ function encodeTrack(song: Song): Uint8Array {
    //     buf[base + 2] = (packed >> 16) & 0xff;
    // }
 
+   // fill tracks with our double-buffering strategy.
+   // we will fill all 16 steps, intended to alternate between front and back "buffer"s of pattern data.
+   // in order to keep swaps single-op, each pattern "buffer" is 4 patterns long (one per channel).
+
+   for (let i = 0; i < Tic80Caps.song.maxSongLength; i++) {
+      const isFrontBuffer = (i % 2) === 0; // 0 or 1
+      const channelPatterns: [number, number, number, number] = isFrontBuffer ? [0, 1, 2, 3] : [4, 5, 6, 7];
+      const [b0, b1, b2] = packTrackFrame(channelPatterns);
+      const base = i * 3;
+      buf[base + 0] = b0;
+      buf[base + 1] = b1;
+      buf[base + 2] = b2;
+   }
+
    // Speed: decode is (S + 6) % 255; clamp to 0..254
-   const speedByte = (song.speed - 6 + 255) % 255;
-   buf[48] = speedByte & 0xff;
+   //const speedByte = (song.speed - 6 + 255) % 255;
+   buf[48] = encodeTrackSpeed(song.speed); //speedByte & 0xff;
 
-   // Rows: decode is 64 - R
-   buf[49] = 64 - 64; // we always encode 64 rows -> 0
+   // Rows: decode is 64 - R (so encode is the same op)
+   buf[49] = 64 - song.rowsPerPattern;
 
-   // Tempo: decode is T + 150; we do not track tempo, so default 150 -> store 0
-   buf[50] = 0;
+   buf[50] = encodeTempo(song.tempo);
 
-   return writeChunk(CHUNK.MUSIC_TRACKS, buf);
+   //return writeChunk(CHUNK.MUSIC_TRACKS, buf);
+   return buf;
 }
 
 function encodeWaveforms(song: Song): Uint8Array {
@@ -150,21 +250,21 @@ function encodeWaveforms(song: Song): Uint8Array {
          buf[w * bytesPerWave + i] = (sampleA << 4) | sampleB;
       }
    }
-   return writeChunk(CHUNK.WAVEFORMS, buf);
+   return buf;
+   //return writeChunk(CHUNK.WAVEFORMS, buf);
 }
 
 function encodeSfx(song: Song): Uint8Array {
    const packLoop = (start: number, length: number): number => {
       const loopStart = clamp(start, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       const loopSize = clamp(
-         length, 0, Tic80Caps.sfx.envelopeFrameCount - 1); // don't care about correctness; just that we don't overflow
+         length, 0,
+         Tic80Caps.sfx.envelopeFrameCount - 1); // don't care about logical correctness; just that we don't overflow
       return (loopSize << 4) | loopStart;
    };
 
-   const encodeInstrument = (inst?: Tic80Instrument): Uint8Array => {
+   const encodeInstrument = (inst: Tic80Instrument): Uint8Array => {
       const out = new Uint8Array(SFX_BYTES_PER_SAMPLE);
-      if (!inst)
-         return out;
 
       for (let tick = 0; tick < Tic80Caps.sfx.envelopeFrameCount; tick++) {
          const vol = clamp(inst.volumeFrames[tick], 0, 15);
@@ -196,7 +296,7 @@ function encodeSfx(song: Song): Uint8Array {
    };
 
    // 66 bytes per SFX (up to 64 entries in RAM). We only fill instruments (1..INSTRUMENT_COUNT).
-   const sfxCount = Tic80Caps.maxSfx; // reserve index 0
+   const sfxCount = Tic80Caps.maxSfx; // 64
    const buf = new Uint8Array(sfxCount * SFX_BYTES_PER_SAMPLE);
 
    for (let i = 1; i < sfxCount; i++) {
@@ -204,15 +304,88 @@ function encodeSfx(song: Song): Uint8Array {
       buf.set(encoded, i * SFX_BYTES_PER_SAMPLE);
    }
 
-   return writeChunk(CHUNK.SFX, buf);
+   return buf;
 }
 
-export function serializeSongToCart(song: Song): Uint8Array {
+// export function serializeSongToCart(song: Song): Uint8Array {
+//    const parts: Uint8Array[] = [];
+
+//    // should follow this:
+//    // | 0FFE4 | WAVEFORMS            | 256   |
+//    // | 100E4 | SFX                  | 4224  |
+//    // | 11164 | MUSIC PATTERNS       | 11520 |
+//    // | 13E64 | MUSIC TRACKS         | 408   | <-- for the 8 tracks. but we only need 1, so size=51
+
+//    const waveformData = encodeWaveforms(song);
+//    const sfxData = encodeSfx(song);
+//    const patternData = encodePatterns(song);
+//    const trackData = encodeTrack(song);
+
+//    assert(waveformData.length == 256, `Unexpected waveform chunk size: ${waveformData.length}`);
+//    assert(sfxData.length == 4224, `Unexpected SFX chunk size: ${sfxData.length}`);
+//    assert(patternData.length == 11520, `Unexpected patterns chunk size: ${patternData.length}`);
+//    assert(trackData.length == 408, `Unexpected track chunk size: ${trackData.length}`);
+
+//    parts.push(waveformData);
+//    parts.push(sfxData);
+//    parts.push(patternData);
+//    parts.push(trackData);
+
+//    const total = parts.reduce((sum, p) => sum + p.length, 0);
+//    const out = new Uint8Array(total);
+//    let offset = 0;
+//    for (const p of parts) {
+//       out.set(p, offset);
+//       offset += p.length;
+//    }
+//    return out;
+// }
+
+// upon sending to the tic80, we send a payload which includes all the song data in a single chunk.
+// that chunk is meant to be copied to RAM at 0x0FFE4, and includes the following data:
+// | 0FFE4 | WAVEFORMS            | 256   |
+// | 100E4 | SFX                  | 4224  |
+// | 11164 | MUSIC PATTERNS       | 11520 |
+// | 13E64 | MUSIC TRACKS         | 408   | <-- for the 8 tracks. but we only need 1, so size=51
+//
+// but we also pass a separate pattern data chunk which is used for playback because we
+// copy pattern data ourselves to work around tic80 length limitations.
+export interface Tic80SerializedPattern {}
+export interface Tic80SerializedSong {
+   memory_0FFE4: Uint8Array;
+
+   // each pattern is actually 4 patterns (channel A, B, C, D) in series.
+   // so for double-buffering, the front buffer for the 4 channels is [0,1,2,3], and the back buffer is [4,5,6,7], etc.
+   patternData: Uint8Array[];
+}
+
+
+export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
    const parts: Uint8Array[] = [];
-   parts.push(encodeWaveforms(song));
-   parts.push(encodeSfx(song));
-   parts.push(encodePatterns(song));
-   parts.push(encodeTrack(song));
+
+   // should follow this:
+   // | 0FFE4 | WAVEFORMS            | 256   |
+   // | 100E4 | SFX                  | 4224  |
+   // | 11164 | MUSIC PATTERNS       | 11520 |
+   // | 13E64 | MUSIC TRACKS         | 408   | <-- for the 8 tracks. but we only need 1, so size=51
+   // total of 16408 bytes of music data.
+
+   const waveformData = encodeWaveforms(song);
+   const sfxData = encodeSfx(song);
+   const nullPatternData = encodeNullPatterns(song);
+   const realPatternData = encodeRealPatterns(song); // separate pattern data for playback use
+   const trackData = encodeTrack(song);
+
+   assert(waveformData.length == 256, `Unexpected waveform chunk size: ${waveformData.length}; expected 256`);
+   assert(sfxData.length == 4224, `Unexpected SFX chunk size: ${sfxData.length}; expected 4224`);
+   assert(nullPatternData.length == 11520, `Unexpected patterns chunk size: ${nullPatternData.length}; expected 11520`);
+   //assert(trackData.length == 408, `Unexpected track chunk size: ${trackData.length}; expected 408`);
+   assert(trackData.length == 51, `Unexpected track chunk size: ${trackData.length}; expected 51`);
+
+   parts.push(waveformData);
+   parts.push(sfxData);
+   parts.push(nullPatternData);
+   parts.push(trackData);
 
    const total = parts.reduce((sum, p) => sum + p.length, 0);
    const out = new Uint8Array(total);
@@ -221,5 +394,8 @@ export function serializeSongToCart(song: Song): Uint8Array {
       out.set(p, offset);
       offset += p.length;
    }
-   return out;
+   return {
+      memory_0FFE4: out,
+      patternData: realPatternData,
+   };
 }

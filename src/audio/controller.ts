@@ -71,10 +71,10 @@ export class AudioController {
       this.isPlaying = true;
    }
 
-   setVolume(vol: number) {
-      this.volume = vol;
-      this.backend.setVolume(vol);
-   }
+   //    setVolume(vol: number) {
+   //       this.volume = vol;
+   //       this.backend.setVolume(vol);
+   //    }
 
    onRow(cb: RowListener) {
       this.rowListeners.add(cb);
