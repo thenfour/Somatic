@@ -309,6 +309,33 @@ option {
     display: block;
 }
 
+.waveform-editor {
+    margin-top: 8px;
+}
+
+.waveform-editor__canvas {
+    border: 1px solid var(--border);
+    background: var(--panel-strong);
+    cursor: crosshair;
+}
+
+.waveform-editor__svg {
+    display: block;
+}
+
+.waveform-editor__background {
+    fill: rgba(0, 0, 0, 0.2);
+}
+
+.waveform-editor__grid-line {
+    stroke: rgba(255, 255, 255, 0.06);
+    stroke-width: 1;
+}
+
+.waveform-editor__point {
+    fill: var(--accent);
+}
+
 .theme-panel {
     position: relative;
     margin: 8px;
