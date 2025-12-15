@@ -1,5 +1,5 @@
 import {CoalesceBoolean} from "../utils/utils";
-import {Tic80Caps, Tic80ChannelIndex} from "./tic80Capabilities";
+import {Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex} from "./tic80Capabilities";
 
 const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
 
@@ -7,16 +7,16 @@ export class EditorState {
    octave: number;
    patternIndex: number;
    selectedPosition: number;
-   currentInstrument: number;
+   currentInstrument: number; // 0-based internal instrument index.
    editingEnabled: boolean;
    patternEditRow: number;
-   patternEditChannel: number;
+   patternEditChannel: Tic80ChannelIndex;
 
    constructor({
       octave = Math.floor(Tic80Caps.pattern.octaveCount / 2),
       patternIndex: pattern = 0,
       selectedPosition = 0,
-      currentInstrument = 1,
+      currentInstrument = 0,
       editingEnabled = true,
       patternEditRow = 0,
       patternEditChannel = 0
@@ -24,10 +24,10 @@ export class EditorState {
       this.octave = clamp(octave, 1, Tic80Caps.pattern.octaveCount);
       this.patternIndex = clamp(pattern, 0, Tic80Caps.pattern.count - 1);
       this.selectedPosition = clamp(selectedPosition, 0, 255);
-      this.currentInstrument = clamp(currentInstrument, 1, Tic80Caps.sfx.count);
+      this.currentInstrument = clamp(currentInstrument, 0, Tic80Caps.sfx.count - 1);
       this.editingEnabled = CoalesceBoolean(editingEnabled, true);
       this.patternEditRow = clamp(patternEditRow, 0, 63);
-      this.patternEditChannel = clamp(patternEditChannel, 0, 3);
+      this.patternEditChannel = ToTic80ChannelIndex(patternEditChannel);
    }
 
    setOctave(nextOctave: number) {
@@ -43,7 +43,7 @@ export class EditorState {
    }
 
    setCurrentInstrument(nextInstrument: number) {
-      this.currentInstrument = clamp(nextInstrument, 1, Tic80Caps.sfx.count);
+      this.currentInstrument = clamp(nextInstrument, 0, Tic80Caps.sfx.count - 1);
    }
 
    setEditingEnabled(enabled: boolean) {

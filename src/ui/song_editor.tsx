@@ -133,7 +133,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     onChange={(e) => onEditorStateChange((state) => state.setCurrentInstrument(parseInt(e.target.value, 10)))}
                 >
                     {Array.from({ length: Tic80Caps.sfx.count }, (_, i) => (
-                        <option key={i} value={i + 1}>
+                        <option key={i} value={i}>
                             {song.instruments[i].name || `SFX ${i + 1}`}
                         </option>
                     ))}

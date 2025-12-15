@@ -60,6 +60,19 @@ function encodePattern(pattern: Pattern): Uint8Array {
    // chunk type 15
    // RAM at 0x11164...0x13E63
    // 192 bytes per pattern (16 rows x 4 channels x 3 bytes)
+   // note: sfx number of 0 is valid in tic-80.
+
+   //    Each pattern is 192 bytes long (trailing zeros are removed). Each note in a patters is represented by a triplet of bytes, like this: ----NNNN SCCCAAAA OOOSSSSS
+
+   // Explanation :
+
+   //     N is the note number (4-15 for notes and <4 for stops)
+   //     S is the sfx number (the part in byte 2 is to be added to the one in byte 3 after shifting it to the left 2 times)
+   //     C is the command to be performed on the note (0-7 -> MCJSPVD)
+   //     A is the x and y arguments for each command
+   //     O is the octave of each note
+
+
    const buf = new Uint8Array(Tic80Caps.pattern.maxRows * 3);
 
    // for (let row = 0; row < PATTERN_ROWS; row++) {
@@ -141,9 +154,10 @@ function encodeWaveforms(song: Song): Uint8Array {
 }
 
 function encodeSfx(song: Song): Uint8Array {
-   const packLoop = (start: number|undefined, length: number|undefined): number => {
-      const loopStart = clamp(start ?? 0, 0, 15);
-      const loopSize = clamp(length ?? 0, 0, 15);
+   const packLoop = (start: number, length: number): number => {
+      const loopStart = clamp(start, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
+      const loopSize = clamp(
+         length, 0, Tic80Caps.sfx.envelopeFrameCount - 1); // don't care about correctness; just that we don't overflow
       return (loopSize << 4) | loopStart;
    };
 
@@ -153,10 +167,10 @@ function encodeSfx(song: Song): Uint8Array {
          return out;
 
       for (let tick = 0; tick < Tic80Caps.sfx.envelopeFrameCount; tick++) {
-         const vol = clamp(inst.volumeFrames?.[tick] ?? 0, 0, 15);
-         const wave = clamp(inst.waveFrames?.[tick] ?? 0, 0, 15);
-         const chord = clamp(inst.arpeggioFrames?.[tick] ?? 0, 0, 15);
-         const pitch = clamp(inst.pitchFrames?.[tick] ?? 0, -8, 7);
+         const vol = clamp(inst.volumeFrames[tick], 0, 15);
+         const wave = clamp(inst.waveFrames[tick], 0, 15);
+         const chord = clamp(inst.arpeggioFrames[tick], 0, 15);
+         const pitch = clamp(inst.pitchFrames[tick], -8, 7);
 
          out[tick * 2 + 0] = ((wave & 0x0f) << 4) | (vol & 0x0f);
          out[tick * 2 + 1] = ((pitch & 0x0f) << 4) | (chord & 0x0f);
@@ -168,7 +182,7 @@ function encodeSfx(song: Song): Uint8Array {
       const pitch16x = inst.pitch16x ? 1 : 0;
       out[60] = (octave & 0x07) | (pitch16x << 3) | (speedBits << 4) | (reverse ? 0x80 : 0);
 
-      const baseNote = clamp(inst.baseNote ?? 0, 0, 15);
+      const baseNote = clamp(inst.baseNote ?? 0, 0, 11);
       const stereoLeft = inst.stereoLeft ? 1 : 0;
       const stereoRight = inst.stereoRight ? 1 : 0;
       out[61] = (baseNote & 0x0f) | (stereoLeft << 4) | (stereoRight << 5);

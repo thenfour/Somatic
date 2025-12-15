@@ -106,6 +106,20 @@ export class Tic80Instrument implements Tic80InstrumentFields {
 
       this.volumeFrames =
          data.volumeFrames ? new Uint8Array(data.volumeFrames) : new Uint8Array(Tic80Caps.sfx.envelopeFrameCount);
+      // sanitize volume frames.
+      // ensure correct # of frames
+      if (this.volumeFrames.length < Tic80Caps.sfx.envelopeFrameCount) {
+         const newFrames = new Uint8Array(Tic80Caps.sfx.envelopeFrameCount);
+         newFrames.set(this.volumeFrames);
+         this.volumeFrames = newFrames;
+      }
+      // if data.volumeFrames is not specified, seed with defaults (all max volume sustaining pitch).
+      if (!data.volumeFrames) {
+         for (let i = 0; i < Tic80Caps.sfx.envelopeFrameCount; i++) {
+            this.volumeFrames[i] = 15;
+         }
+      }
+
       this.volumeLoopStart = clamp(data.volumeLoopStart ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       this.volumeLoopLength = clamp(data.volumeLoopLength ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
 

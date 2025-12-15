@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { Tic80Iframe, Tic80IframeHandle } from "./Tic80EmbedIframe";
 import { AsyncMutex } from "../utils/async_mutex";
+import { Tic80ChannelIndex } from "../models/tic80Capabilities";
 
 declare global {
     interface Window {
@@ -102,8 +103,8 @@ export type Tic80BridgeHandle = {
 
 export type Tic80BridgeTransaction = {
     uploadSongData: (data: Uint8Array) => Promise<void>;
-    playSfx: (opts: { sfxId: number; note: number; channel: number; }) => Promise<void>;
-    stopSfx: (opts: { channel: number; }) => Promise<void>;
+    playSfx: (opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; }) => Promise<void>;
+    stopSfx: (opts: { channel: Tic80ChannelIndex; }) => Promise<void>;
     play: (opts?: {
         track?: number;
         frame?: number;
@@ -444,15 +445,15 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             await sendMailboxCommandRaw([TIC.CMD_END_UPLOAD], "End song Upload");
         }
 
-        async function playSfxRaw(opts: { sfxId: number; note: number; channel: number; }) {
+        async function playSfxRaw(opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; }) {
             const channel = opts.channel ?? 0;
             const sfxId = opts.sfxId & 0xff;
-            const note = opts.note & 0xff;
+            const note = opts.tic80Note & 0xff;
             const cmd = TIC.CMD_PLAY_SFX_ON;
             await sendMailboxCommandRaw([cmd, sfxId, note, channel & 0xff], "Play SFX");
         }
 
-        async function stopSfxRaw(opts: { channel: number; }) {
+        async function stopSfxRaw(opts: { channel: Tic80ChannelIndex; }) {
             const channel = opts.channel ?? 0;
             const sfxId = 0;
             const note = 0;

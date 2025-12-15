@@ -21,10 +21,11 @@ export type NoteInfo = {
    midi: number; // 0..127 absolute MIDI note number
    name: string;
    frequency: number;
-   semitone: number;      // 0..11 within octave (C=0)
-   octave: number;        // MIDI-standard display octave (C4 = 60)
-   ticOctave: number;     // 0..7 used by TIC-80 pattern encoding (-1 if not representable)
-   ticNoteNibble: number; // 4..15 used by TIC-80 pattern encoding (0 if not representable)
+   semitone: number;             // 0..11 within octave (C=0)
+   octave: number;               // MIDI-standard display octave (C4 = 60)
+   ticAbsoluteNoteIndex: number; // 0..95 used by sfx()
+   ticOctave: number;            // 0..7 used by TIC-80 pattern encoding (-1 if not representable)
+   ticNoteNibble: number;        // 4..15 used by TIC-80 pattern encoding (0 if not representable)
    isAvailableInPattern: boolean;
 };
 
@@ -63,6 +64,7 @@ for (let midi = MIN_MIDI_NOTE; midi <= MAX_MIDI_NOTE; midi++) {
       ticOctave,
       ticNoteNibble,
       isAvailableInPattern,
+      ticAbsoluteNoteIndex: ticNoteIndex,
    };
 
    NOTE_REGISTRY[midi] = info;

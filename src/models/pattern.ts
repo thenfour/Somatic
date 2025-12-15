@@ -3,11 +3,12 @@ import {Tic80Caps, Tic80ChannelIndex} from "./tic80Capabilities";
 
 
 export type PatternCell = {
-   midiNote?: number;        // (when serializde to tic80, N is the note number (4-15 for notes and <4 for stops))
-   instrumentIndex?: number; //
-   effect?: number;          // 0-7
-   effectX?: number;         // 0-15
-   effectY?: number;         // 0-15
+   midiNote?: number; // (when serializde to tic80, N is the note number (4-15 for notes and <4 for stops))
+   instrumentIndex?:
+      number; // 0-based internal instrument index. When serialized to tic80, this is +1 (1-based; 0 means no instrument).
+   effect?: number;  // 0-7
+   effectX?: number; // 0-15
+   effectY?: number; // 0-15
 };
 
 export type PatternChannelDto = {
@@ -36,11 +37,17 @@ export class PatternChannel implements PatternChannelDto {
       }
    }
 
-   toData(): PatternChannelDto { return {rows: this.rows.map((row) => ({...row}))}; }
+   toData(): PatternChannelDto {
+      return {rows: this.rows.map((row) => ({...row}))};
+   }
 
-   static fromData(data: PatternChannelDto): PatternChannel { return new PatternChannel(data); }
+   static fromData(data: PatternChannelDto): PatternChannel {
+      return new PatternChannel(data);
+   }
 
-   clone(): PatternChannel { return PatternChannel.fromData(this.toData()); }
+   clone(): PatternChannel {
+      return PatternChannel.fromData(this.toData());
+   }
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -90,7 +97,11 @@ export class Pattern implements PatternDto {
       return this.channels[channelIndex].rows[rowIndex];
    }
 
-   static fromData(data: PatternDto): Pattern { return new Pattern(data); }
+   static fromData(data: PatternDto): Pattern {
+      return new Pattern(data);
+   }
 
-   clone(): Pattern { return Pattern.fromData(this.toData()); }
+   clone(): Pattern {
+      return Pattern.fromData(this.toData());
+   }
 }

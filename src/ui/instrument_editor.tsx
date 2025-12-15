@@ -12,9 +12,8 @@ type InstrumentPanelProps = {
     onClose: () => void;
 };
 
-export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, audio, currentInstrument, onSongChange, onClose }) => {
-    // EditorState.currentInstrument is 1-based; Song.instruments is 0-based.
-    const instrumentIndex = Math.max(0, Math.min(song.instruments.length - 1, currentInstrument - 1));
+export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentInstrument, onSongChange, onClose }) => {
+    const instrumentIndex = currentInstrument;
     const instrument = song.instruments[instrumentIndex];
 
     const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,7 +83,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, audio, c
         <div className="instrument-panel">
             <div className="toolbar">
                 <label htmlFor="instrument">Instrument Editor</label>
-                <span className="toolbar__title">SFX {currentInstrument}</span>
                 <button onClick={onClose}>Close</button>
             </div>
             <div className="">
