@@ -1,6 +1,6 @@
 import {clamp, IsNullOrWhitespace} from "../utils/utils";
 
-import {Tic80Instrument, Tic80InstrumentFields} from "./instruments";
+import {Tic80Instrument, Tic80InstrumentDto} from "./instruments";
 import {Pattern, PatternDto} from "./pattern";
 import {Tic80Caps} from "./tic80Capabilities";
 import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
@@ -10,7 +10,7 @@ import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
 // export type PatternData = ReturnType<Pattern['toData']>;
 
 export type SongDto = {
-   instruments: Tic80InstrumentFields[]; //
+   instruments: Tic80InstrumentDto[]; //
    waveforms: Tic80WaveformDto[];
    patterns: PatternDto[];
 
@@ -32,7 +32,7 @@ const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {
    });
 };
 
-const makeInstrumentList = (data: Tic80InstrumentFields[]): Tic80Instrument[] => {
+const makeInstrumentList = (data: Tic80InstrumentDto[]): Tic80Instrument[] => {
    //const length =  INSTRUMENT_COUNT + 1; // index 0 unused, indexes 1..INSTRUMENT_COUNT
    const list = Array.from({length: Tic80Caps.sfx.count}, (_, i) => {
       const instData = data[i]!;

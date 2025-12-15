@@ -266,28 +266,42 @@ function encodeSfx(song: Song): Uint8Array {
       return (loopSize << 4) | loopStart;
    };
 
+   const encodeInstrumentSpeed = (speed: number): number => {
+      // speed is an 3-bit value; in the editor it's 0..7
+      // but stored differently:
+      // "The sample speed bytes should added to 4 and then you should preform the modulus operation with 8 on it ((S + 4) % 8)"
+      // so effectively minus 4 with wrapping.
+      let val = speed - 4;
+      if (val < 0) {
+         val += 8;
+      }
+      return val & 0x07;
+   };
+
    const encodeInstrument = (inst: Tic80Instrument): Uint8Array => {
       const out = new Uint8Array(SFX_BYTES_PER_SAMPLE);
 
       for (let tick = 0; tick < Tic80Caps.sfx.envelopeFrameCount; tick++) {
-         const vol = clamp(inst.volumeFrames[tick], 0, 15);
+         const vol = Tic80Caps.sfx.volumeMax - clamp(inst.volumeFrames[tick], 0, Tic80Caps.sfx.volumeMax);
          const wave = clamp(inst.waveFrames[tick], 0, 15);
          const chord = clamp(inst.arpeggioFrames[tick], 0, 15);
-         const pitch = clamp(inst.pitchFrames[tick], -8, 7);
+         const pitch = clamp(
+            inst.pitchFrames[tick] + Tic80Caps.sfx.pitchMin, Tic80Caps.sfx.pitchMin,
+            Tic80Caps.sfx.pitchMax); // incoming is 0-15; map to -8..+7
 
          out[tick * 2 + 0] = ((wave & 0x0f) << 4) | (vol & 0x0f);
          out[tick * 2 + 1] = ((pitch & 0x0f) << 4) | (chord & 0x0f);
       }
 
       const reverse = inst.arpeggioDown ? 1 : 0;
-      const speedBits = inst.speed & 0x07; // stored as signed 3 bits in TIC-80
+      const speedBits = encodeInstrumentSpeed(inst.speed);
       const octave = clamp(inst.octave ?? 0, 0, 7);
       const pitch16x = inst.pitch16x ? 1 : 0;
       out[60] = (octave & 0x07) | (pitch16x << 3) | (speedBits << 4) | (reverse ? 0x80 : 0);
 
       const baseNote = clamp(inst.baseNote ?? 0, 0, 11);
-      const stereoLeft = inst.stereoLeft ? 1 : 0;
-      const stereoRight = inst.stereoRight ? 1 : 0;
+      const stereoLeft = inst.stereoLeft ? 0 : 1;
+      const stereoRight = inst.stereoRight ? 0 : 1;
       out[61] = (baseNote & 0x0f) | (stereoLeft << 4) | (stereoRight << 5);
 
       out[62] = packLoop(inst.waveLoopStart, inst.waveLoopLength);

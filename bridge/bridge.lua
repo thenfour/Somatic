@@ -404,7 +404,9 @@ local function draw_status()
 	print(isPlaying and ("PLAY tr:" .. playingTrack) or "IDLE", 40, y, isPlaying and 11 or 6)
 	y = y + 8
 	-- print("last:" .. tostring(lastCmd) .. " res:" .. tostring(lastCmdResult), 40, y, 6)
-	print("s:" .. peek(81556) .. "r:" .. peek(81557) .. "t" .. peek(81558), 40, y, 6)
+	print("env0:" .. peek(65764) .. " flg0:" .. peek(65824), 40, y, 6)
+	y = y + 8
+	print("env1:" .. peek(65764 + 66) .. " flg1:" .. peek(65824 + 66), 40, y, 6)
 
 	y = y + 10
 

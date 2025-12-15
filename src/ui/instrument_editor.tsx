@@ -221,6 +221,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
             inst.pitchFrames = new Int8Array(frames);
             inst.pitchLoopStart = loopStart;
             inst.pitchLoopLength = loopLength;
+            //console.log('pitch envelope changed', frames, loopStart, loopLength);
         });
     };
 
