@@ -1,6 +1,6 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { AudioController } from '../audio/controller';
-import { MAX_NOTE_NUM, midiToName } from '../defs';
+import { midiToName } from '../defs';
 import { EditorState } from '../models/editor_state';
 import { Pattern } from '../models/pattern';
 import { Song } from '../models/song';
@@ -93,7 +93,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const idx = noteKeyMap.indexOf(key);
             if (idx === -1) return;
             const midiNoteValue = idx + (editorState.octave - 1) * 12;
-            if (midiNoteValue > MAX_NOTE_NUM) return;
+            //if (midiNoteValue > MAX_NOTE_NUM) return;
 
             onSongChange((s) => {
                 const pat = s.patterns[editorState.patternIndex];

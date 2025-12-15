@@ -21,6 +21,7 @@ import { Keyboard } from './ui/keyboard';
 import { ThemeEditorPanel } from './ui/theme_editor_panel';
 import { clamp } from './utils/utils';
 import { ToTic80ChannelIndex } from './models/tic80Capabilities';
+import { WaveformEditor } from './ui/waveformEditor';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -36,6 +37,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const [song, setSong] = useState(() => new Song());
     const [editorState, setEditorState] = useState(() => new EditorState());
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);
+    const [waveformEditorPanelOpen, setWaveformEditorPanelOpen] = useState(false);
     const [helpPanelOpen, setHelpPanelOpen] = useState(false);
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
@@ -321,8 +323,9 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
-                        <button onClick={() => setInstrumentPanelOpen(!instrumentPanelOpen)}><span className="icon" aria-hidden="true">🎛️</span>Instruments</button>
-                        <button onClick={() => setPreferencesPanelOpen(!preferencesPanelOpen)}><span className="icon" aria-hidden="true">⚙️</span>Preferences</button>
+                        <button onClick={() => setWaveformEditorPanelOpen(!waveformEditorPanelOpen)}><span className="icon" aria-hidden="true">♒</span>Waves</button>
+                        <button onClick={() => setInstrumentPanelOpen(!instrumentPanelOpen)}><span className="icon" aria-hidden="true">🎛️</span>Inst</button>
+                        <button onClick={() => setPreferencesPanelOpen(!preferencesPanelOpen)}><span className="icon" aria-hidden="true">⚙️</span>Prefs</button>
                         <button onClick={() => setThemePanelOpen(!themePanelOpen)}><span className="icon" aria-hidden="true">🎨</span>Theme</button>
                         <button onClick={() => setHelpPanelOpen(!helpPanelOpen)}><span className="icon" aria-hidden="true">❔</span>Help</button>
                         <button onClick={onToggleTheme}><span className="icon" aria-hidden="true">🌗</span>{theme === 'dark' ? 'Light' : 'Dark'} Mode</button>
@@ -390,6 +393,14 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     onEditorStateChange={updateEditorState}
                     onSongChange={updateSong}
                 />
+                {waveformEditorPanelOpen && (
+                    <WaveformEditor
+                        song={song}
+                        editorState={editorState}
+                        onEditorStateChange={updateEditorState}
+                        onSongChange={updateSong}
+                    />
+                )}
                 {instrumentPanelOpen && (
                     <InstrumentPanel
                         song={song}

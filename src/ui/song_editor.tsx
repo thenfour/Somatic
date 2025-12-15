@@ -6,6 +6,7 @@ import { Song } from '../models/song';
 //import { PositionList } from './position_list';
 import { Tooltip } from './tooltip';
 import { Tic80Caps } from '../models/tic80Capabilities';
+import { TryParseInt } from '../utils/utils';
 
 type SongEditorProps = {
     song: Song;
@@ -19,42 +20,44 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
     const effectiveBpm = Math.round(((song.tempo * 6) / song.speed) * 10) / 10; // TIC BPM approximation
 
     const onSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value, 10);
+        const val = TryParseInt(e.target.value);
+        if (val === null) return;
         onSongChange((s) => s.setSpeed(val));
     };
 
     const onTempoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value, 10);
+        const val = TryParseInt(e.target.value);
+        if (val === null) return;
         onSongChange((s) => s.setTempo(val));
     };
 
     const onRowsPerPatternChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value, 10);
+        const val = TryParseInt(e.target.value);
+        if (val === null) return;
         onSongChange((s) => s.setRowsPerPattern(val));
     };
 
-    // const onLengthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    //     const val = parseInt(e.target.value, 10);
-    //     onSongChange((s) => s.setLength(val));
-    // };
-
     const onOctaveChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value, 10);
+        const val = TryParseInt(e.target.value);
+        if (val === null) return;
         onEditorStateChange((state) => state.setOctave(val));
     };
 
     const onCurrentInstrumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value, 10);
+        const val = TryParseInt(e.target.value);
+        if (val === null) return;
         onEditorStateChange((state) => state.setCurrentInstrument(val));
     };
 
     const onHighlightRowCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value, 10);
+        const val = TryParseInt(e.target.value);
+        if (val === null) return;
         onSongChange((s) => s.setHighlightRowCount(val));
     };
 
     const onPatternChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value, 10);
+        const val = TryParseInt(e.target.value);
+        if (val === null) return;
         onEditorStateChange((state) => state.setPattern(val));
     };
 
@@ -82,11 +85,11 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 <input id="song-tempo" type="number" min={1} max={255} value={song.tempo} onChange={onTempoChange} />
             </div>
             <div className="field-row">
-                <label htmlFor="song-rows-per-pattern">Rows per pattern</label>
+                <label htmlFor="song-rows-per-pattern">Pattern Len</label>
                 <Tooltip
                     content={(
                         <>
-                            Affects all patterns
+                            Rows per pattern. Affects all patterns in the song.
                         </>
                     )}
                 >
@@ -125,13 +128,23 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
             </label>
             <label>
                 Instrument
-                <input
+                <select
+                    value={editorState.currentInstrument}
+                    onChange={(e) => onEditorStateChange((state) => state.setCurrentInstrument(parseInt(e.target.value, 10)))}
+                >
+                    {Array.from({ length: Tic80Caps.sfx.count }, (_, i) => (
+                        <option key={i} value={i + 1}>
+                            {song.instruments[i].name || `SFX ${i + 1}`}
+                        </option>
+                    ))}
+                </select>
+                {/* <input
                     type="number"
                     min={1}
                     max={Tic80Caps.sfx.count}
                     value={editorState.currentInstrument}
                     onChange={onCurrentInstrumentChange}
-                />
+                /> */}
             </label>
             <label>
                 Pattern

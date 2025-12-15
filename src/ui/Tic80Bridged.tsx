@@ -578,9 +578,13 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         };
 
         async function invokeExclusive<T>(fn: (tx: Tic80BridgeTransaction) => Promise<T>): Promise<T> {
+            const startTime = performance.now();
             const release = await commandMutexRef.current.acquire();
             try {
-                return await fn(transactionApi);
+                const ret = await fn(transactionApi);
+                const endTime = performance.now();
+                console.log(`invokeExclusive took ${endTime - startTime} ms`);
+                return ret;
             } finally {
                 release();
             }

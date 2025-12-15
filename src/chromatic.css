@@ -150,11 +150,6 @@ option {
     width: 100vw;
 }
 
-.instrument-panel-positioner {
-    position: absolute;
-    left: 50%;
-}
-
 .menu {
     display: flex;
     align-items: center;
@@ -284,7 +279,8 @@ option {
     line-height: 1;
 }
 
-.instrument-panel {
+.instrument-panel,
+.waveform-editor-panel {
     /* width: 800px; */
     background-color: var(--panel);
     padding: 8px;
