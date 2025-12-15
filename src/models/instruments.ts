@@ -35,23 +35,23 @@ export interface Tic80InstrumentFields {
    stereoRight: boolean;
 
    // volume envelope
-   volumeFrames: Uint8Array; // volume frames (0-15)
+   volumeFrames: Int8Array;  // volume frames (0-15)
    volumeLoopStart: number;  // 0-29
    volumeLoopLength: number; // 0-29
 
    // arpeggio frames
-   arpeggioFrames: Uint8Array; // arpeggio frames (0-15)
+   arpeggioFrames: Int8Array;  // arpeggio frames (0-15)
    arpeggioLoopStart: number;  // 0-29
    arpeggioLoopLength: number; // 0-29
    arpeggioDown: boolean;      // aka "reverse"
 
    // waveform id frames
-   waveFrames: Uint8Array;
+   waveFrames: Int8Array;  // waveform id frames (0-15)
    waveLoopStart: number;  // 0-29
    waveLoopLength: number; // 0-29
 
    // pitch frames
-   pitchFrames: Int8Array;
+   pitchFrames: Int8Array;  // pitch frames (-8 to +7)
    pitchLoopStart: number;  // 0-29
    pitchLoopLength: number; // 0-29
    pitch16x: boolean;
@@ -69,18 +69,18 @@ export class Tic80Instrument implements Tic80InstrumentFields {
    stereoRight: boolean;
 
    // volume envelope
-   volumeFrames: Uint8Array; // volume frames (0-15)
+   volumeFrames: Int8Array;  // volume frames (0-15)
    volumeLoopStart: number;  // 0-29
    volumeLoopLength: number; // 0-29
 
    // arpeggio frames
-   arpeggioFrames: Uint8Array; // arpeggio frames (0-15)
+   arpeggioFrames: Int8Array;  // arpeggio frames (0-15)
    arpeggioLoopStart: number;  // 0-29
    arpeggioLoopLength: number; // 0-29
    arpeggioDown: boolean;
 
    // waveform id frames
-   waveFrames: Uint8Array;
+   waveFrames: Int8Array;
    waveLoopStart: number;  // 0-29
    waveLoopLength: number; // 0-29
 
@@ -105,11 +105,11 @@ export class Tic80Instrument implements Tic80InstrumentFields {
       this.stereoRight = CoalesceBoolean(data.stereoRight, true);
 
       this.volumeFrames =
-         data.volumeFrames ? new Uint8Array(data.volumeFrames) : new Uint8Array(Tic80Caps.sfx.envelopeFrameCount);
+         data.volumeFrames ? new Int8Array(data.volumeFrames) : new Int8Array(Tic80Caps.sfx.envelopeFrameCount);
       // sanitize volume frames.
       // ensure correct # of frames
       if (this.volumeFrames.length < Tic80Caps.sfx.envelopeFrameCount) {
-         const newFrames = new Uint8Array(Tic80Caps.sfx.envelopeFrameCount);
+         const newFrames = new Int8Array(Tic80Caps.sfx.envelopeFrameCount);
          newFrames.set(this.volumeFrames);
          this.volumeFrames = newFrames;
       }
@@ -124,13 +124,13 @@ export class Tic80Instrument implements Tic80InstrumentFields {
       this.volumeLoopLength = clamp(data.volumeLoopLength ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
 
       this.arpeggioFrames =
-         data.arpeggioFrames ? new Uint8Array(data.arpeggioFrames) : new Uint8Array(Tic80Caps.sfx.envelopeFrameCount);
+         data.arpeggioFrames ? new Int8Array(data.arpeggioFrames) : new Int8Array(Tic80Caps.sfx.envelopeFrameCount);
       this.arpeggioLoopStart = clamp(data.arpeggioLoopStart ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       this.arpeggioLoopLength = clamp(data.arpeggioLoopLength ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       this.arpeggioDown = CoalesceBoolean(data.arpeggioDown, false);
 
       this.waveFrames =
-         data.waveFrames ? new Uint8Array(data.waveFrames) : new Uint8Array(Tic80Caps.sfx.envelopeFrameCount);
+         data.waveFrames ? new Int8Array(data.waveFrames) : new Int8Array(Tic80Caps.sfx.envelopeFrameCount);
       this.waveLoopStart = clamp(data.waveLoopStart ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       this.waveLoopLength = clamp(data.waveLoopLength ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
 
@@ -154,14 +154,14 @@ export class Tic80Instrument implements Tic80InstrumentFields {
          octave: this.octave,
          stereoLeft: this.stereoLeft,
          stereoRight: this.stereoRight,
-         volumeFrames: new Uint8Array(this.volumeFrames),
+         volumeFrames: new Int8Array(this.volumeFrames),
          volumeLoopStart: this.volumeLoopStart,
          volumeLoopLength: this.volumeLoopLength,
-         arpeggioFrames: new Uint8Array(this.arpeggioFrames),
+         arpeggioFrames: new Int8Array(this.arpeggioFrames),
          arpeggioLoopStart: this.arpeggioLoopStart,
          arpeggioLoopLength: this.arpeggioLoopLength,
          arpeggioDown: this.arpeggioDown,
-         waveFrames: new Uint8Array(this.waveFrames),
+         waveFrames: new Int8Array(this.waveFrames),
          waveLoopStart: this.waveLoopStart,
          waveLoopLength: this.waveLoopLength,
          pitchFrames: new Int8Array(this.pitchFrames),

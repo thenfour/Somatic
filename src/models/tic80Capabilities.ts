@@ -32,6 +32,10 @@ export const Tic80Caps = {
       count: 64,
       envelopeFrameCount: 30,
       speedMax: 7,
+      volumeMax: 15,
+      pitchMin: -8,
+      pitchMax: 7,
+      arpeggioMax: 15,
    },
    maxSfx: 64, // todo: remove (use sfx.count)
 

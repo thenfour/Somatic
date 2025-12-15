@@ -4,6 +4,46 @@ import { Song } from '../models/song';
 import { Tic80Caps } from '../models/tic80Capabilities';
 import { clamp, TryParseInt } from '../utils/utils';
 
+/*
+
+ instrument (SFX) editor components. graphical editors for the instruments described in
+ models/instruments.ts
+
+ refer to the TIC-80 SFX editor for the existing native tic-80 editor; the idea is to mimic this
+ while sticking to web tech, ergonomics and react paradigms.
+ https://github.com/nesbox/TIC-80/wiki/SFX-Editor
+
+ for details about SFX params, ranges, behaviors for individual values,
+ https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#waveforms
+ also see tic.h / sound.c located at /TIC-80/...
+
+ refer also to Tic80Caps where we try to avoid hardcoding TIC-80 system limits/values.
+
+*/
+export const InstrumentEnvelopeEditor: React.FC<{
+    title: string;
+    className?: string;
+    frames: Int8Array;
+    loopStart: number;
+    loopLength: number;
+    minValue: number; // min value (inclusive) per frame
+    maxValue: number; // max value (inclusive) per frame
+    onChange: (frames: Int8Array, loopStart: number, loopLength: number) => void;
+}> = ({ title, className, frames, loopStart, loopLength, minValue, maxValue, onChange }) => {
+    // Implementation of the envelope editor goes here
+    return (
+        <div className={`instrument-envelope-editor ${className || ''}`}>
+            <h3>{title}</h3>
+            {/* 
+            
+            Envelope editor UI.
+            Similar to the graphical waveform editor; render an SVG that allows click & drag drawing
+
+            */}
+        </div>
+    );
+};
+
 type InstrumentPanelProps = {
     song: Song;
     audio: AudioController;
@@ -79,6 +119,42 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         );
     }
 
+    const handleVolumeEnvelopeChange = (frames: Int8Array, loopStart: number, loopLength: number) => {
+        onSongChange((s) => {
+            const inst = s.instruments[instrumentIndex];
+            inst.volumeFrames = new Int8Array(frames);
+            inst.volumeLoopStart = loopStart;
+            inst.volumeLoopLength = loopLength;
+        });
+    };
+
+    const handleWaveEnvelopeChange = (frames: Int8Array, loopStart: number, loopLength: number) => {
+        onSongChange((s) => {
+            const inst = s.instruments[instrumentIndex];
+            inst.waveFrames = new Int8Array(frames);
+            inst.waveLoopStart = loopStart;
+            inst.waveLoopLength = loopLength;
+        });
+    };
+
+    const handleArpeggioEnvelopeChange = (frames: Int8Array, loopStart: number, loopLength: number) => {
+        onSongChange((s) => {
+            const inst = s.instruments[instrumentIndex];
+            inst.arpeggioFrames = new Int8Array(frames);
+            inst.arpeggioLoopStart = loopStart;
+            inst.arpeggioLoopLength = loopLength;
+        });
+    };
+
+    const handlePitchEnvelopeChange = (frames: Int8Array, loopStart: number, loopLength: number) => {
+        onSongChange((s) => {
+            const inst = s.instruments[instrumentIndex];
+            inst.pitchFrames = new Int8Array(frames);
+            inst.pitchLoopStart = loopStart;
+            inst.pitchLoopLength = loopLength;
+        });
+    };
+
     return (
         <div className="instrument-panel">
             <div className="toolbar">
@@ -86,33 +162,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                 <button onClick={onClose}>Close</button>
             </div>
             <div className="">
-                {/*
-
-                instrument (SFX) editor. graphical editor for the instruments described in
-                models/instruments.ts
-
-                refer to the TIC-80 SFX editor for the existing native tic-80 editor; the idea is to mimic this
-                while sticking to web tech, ergonomics and react paradigms.
-                https://github.com/nesbox/TIC-80/wiki/SFX-Editor
-
-                for details about SFX params, ranges, behaviors for individual values,
-                https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#waveforms
-                also see tic.h / sound.c located at /TIC-80/...
-
-                refer also to Tic80Caps where we try to avoid hardcoding TIC-80 system limits/values.
-
-                In this react component, we will first allow editing of the sfx fields:
-                - instrument name
-                - speed
-                - stereo left/right enable/disable flags
-                - arpeggio reverse flag
-                - pitch 16x flag
-
-                NOT needed (they are always ignored):
-                - note (semitone-within-octave)
-                - octave
-
-                */}
                 <div className="field-row">
                     <label htmlFor="instrument-name">Name</label>
                     <input
@@ -172,6 +221,42 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                         Pitch 16x
                     </label>
                 </div>
+                <InstrumentEnvelopeEditor
+                    title="Volume Envelope"
+                    frames={instrument.volumeFrames}
+                    loopStart={instrument.volumeLoopStart}
+                    loopLength={instrument.volumeLoopLength}
+                    minValue={0}
+                    maxValue={Tic80Caps.sfx.volumeMax}
+                    onChange={handleVolumeEnvelopeChange}
+                />
+                <InstrumentEnvelopeEditor
+                    title="Waveform Envelope"
+                    frames={instrument.waveFrames}
+                    loopStart={instrument.waveLoopStart}
+                    loopLength={instrument.waveLoopLength}
+                    minValue={0}
+                    maxValue={Tic80Caps.waveform.count - 1}
+                    onChange={handleWaveEnvelopeChange}
+                />
+                <InstrumentEnvelopeEditor
+                    title="Arpeggio Envelope"
+                    frames={instrument.arpeggioFrames}
+                    loopStart={instrument.arpeggioLoopStart}
+                    loopLength={instrument.arpeggioLoopLength}
+                    minValue={0}
+                    maxValue={Tic80Caps.sfx.arpeggioMax}
+                    onChange={handleArpeggioEnvelopeChange}
+                />
+                <InstrumentEnvelopeEditor
+                    title="Pitch Envelope"
+                    frames={instrument.pitchFrames}
+                    loopStart={instrument.pitchLoopStart}
+                    loopLength={instrument.pitchLoopLength}
+                    minValue={Tic80Caps.sfx.pitchMin}
+                    maxValue={Tic80Caps.sfx.pitchMax}
+                    onChange={handlePitchEnvelopeChange}
+                />
             </div>
         </div>
     );
