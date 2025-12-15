@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { AudioController } from '../audio/controller';
 import { Song } from '../models/song';
 import { Tic80Caps } from '../models/tic80Capabilities';
-import { clamp, TryParseInt } from '../utils/utils';
+import { assert, clamp, TryParseInt } from '../utils/utils';
+import { WaveformCanvas } from './waveform_canvas';
 
 /*
 
@@ -30,16 +31,84 @@ export const InstrumentEnvelopeEditor: React.FC<{
     maxValue: number; // max value (inclusive) per frame
     onChange: (frames: Int8Array, loopStart: number, loopLength: number) => void;
 }> = ({ title, className, frames, loopStart, loopLength, minValue, maxValue, onChange }) => {
-    // Implementation of the envelope editor goes here
+    const frameCount = frames.length;
+    const valueRange = maxValue - minValue;
+    const canvasMaxValue = valueRange <= 0 ? 0 : valueRange;
+
+    // const mapFrameToCanvas = (v: number) => {
+    //     const clamped = clamp(v, minValue, maxValue);
+    //     return clamped - minValue;
+    // };
+
+    // const mapCanvasToFrame = (v: number) => {
+    //     const clampedCanvas = clamp(v, 0, canvasMaxValue);
+    //     return clamp(clampedCanvas + minValue, minValue, maxValue);
+    // };
+
+    //const canvasValues = Array.from(frames, (v) => mapFrameToCanvas(v));
+
+    const handleCanvasChange = (nextValues: number[]) => {
+        assert(nextValues.length === frameCount, 'Unexpected frame count in canvas change');
+        const nextFrames = new Int8Array(nextValues);
+        onChange(nextFrames, loopStart, loopLength);
+    };
+
+    const canvasValues = useMemo(() => {
+        return [...frames]; // canvas does its own internal clamping.
+    }, [frames]);
+
+    const handleLoopStartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = TryParseInt(e.target.value);
+        if (val === null) return;
+        const nextStart = clamp(val, 0, Math.max(0, frameCount - 1));
+        const nextLength = clamp(loopLength, 0, Math.max(0, frameCount - 1));
+        onChange(frames, nextStart, nextLength);
+    };
+
+    const handleLoopLengthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = TryParseInt(e.target.value);
+        if (val === null) return;
+        const maxLen = Math.max(0, frameCount - 1);
+        const nextLength = clamp(val, 0, maxLen);
+        const nextStart = clamp(loopStart, 0, maxLen);
+        onChange(frames, nextStart, nextLength);
+    };
+
     return (
         <div className={`instrument-envelope-editor ${className || ''}`}>
-            <h3>{title}</h3>
-            {/* 
-            
-            Envelope editor UI.
-            Similar to the graphical waveform editor; render an SVG that allows click & drag drawing
-
-            */}
+            <div className="instrument-envelope-editor__header">
+                <h4>{title}</h4>
+                <div className="instrument-envelope-editor__loop-controls">
+                    <label>
+                        Loop start
+                        <input
+                            type="number"
+                            min={0}
+                            max={Math.max(0, frameCount - 1)}
+                            value={loopStart}
+                            onChange={handleLoopStartChange}
+                        />
+                    </label>
+                    <label>
+                        Loop len
+                        <input
+                            type="number"
+                            min={0}
+                            max={Math.max(0, frameCount - 1)}
+                            value={loopLength}
+                            onChange={handleLoopLengthChange}
+                        />
+                    </label>
+                </div>
+            </div>
+            <WaveformCanvas
+                values={canvasValues}
+                maxValue={canvasMaxValue}
+                // Envelopes tend to be more compact than full waveforms.
+                scale={{ x: 16, y: 8 }}
+                classNamePrefix="instrument-envelope"
+                onChange={handleCanvasChange}
+            />
         </div>
     );
 };

@@ -115,6 +115,12 @@ body {
     color: var(--text);
 }
 
+h4 {
+    margin: 0;
+    margin-top: 12px;
+    letter-spacing: 0.2px;
+}
+
 button {
     font-family: var(--ff-mono);
     font-size: var(--ff-size-1x);
@@ -284,6 +290,9 @@ option {
     /* width: 800px; */
     background-color: var(--panel);
     padding: 8px;
+    overflow: auto;
+    /* for comfort */
+    padding-bottom: 25vh;
 }
 
 .waveform-select {
@@ -313,39 +322,48 @@ option {
     margin-top: 8px;
 }
 
-.waveform-editor__canvas {
+.waveform-editor__canvas,
+.instrument-envelope__canvas {
     border: 1px solid var(--border);
     background: var(--panel-strong);
     cursor: crosshair;
 }
 
-.waveform-editor__svg {
+.waveform-editor__svg,
+.instrument-envelope__svg {
     display: block;
 }
 
-.waveform-editor__background {
-    fill: rgba(0, 0, 0, 0.2);
+.waveform-editor__background,
+.instrument-envelope__background {
+    fill: var(--panel-strong);
 }
 
-.waveform-editor__grid-line {
-    stroke: rgba(255, 255, 255, 0.06);
+.waveform-editor__grid-line,
+.instrument-envelope__grid-line {
+    stroke: var(--border);
     stroke-width: 1;
 }
 
-.waveform-editor__point {
+.waveform-editor__point,
+.instrument-envelope__point {
     fill: var(--accent);
 }
 
-.waveform-editor__point--hovered {
+.waveform-editor__point--hovered,
+.instrument-envelope__point--hovered {
     fill: var(--accent-strong);
 }
 
-.waveform-editor__point-preview {
+.waveform-editor__point-preview,
+.instrument-envelope__point-preview {
     fill: none;
     stroke: var(--accent-strong);
     stroke-width: 2px;
     pointer-events: none;
 }
+
+.instrument-envelope-editor {}
 
 .waveform-editor-controls {
     display: flex;
