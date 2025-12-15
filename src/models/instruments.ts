@@ -1,5 +1,5 @@
 // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
-import {clamp} from "../utils/utils";
+import {clamp, CoalesceBoolean} from "../utils/utils";
 import {Tic80Caps} from "./tic80Capabilities";
 
 // per frame
@@ -101,8 +101,8 @@ export class Tic80Instrument implements Tic80InstrumentFields {
       this.baseNote = clamp(data.baseNote ?? 0, 0, 11);
       this.octave = clamp(data.octave ?? 4, 0, 7);
 
-      this.stereoLeft = Boolean(data.stereoLeft);
-      this.stereoRight = Boolean(data.stereoRight);
+      this.stereoLeft = CoalesceBoolean(data.stereoLeft, true);
+      this.stereoRight = CoalesceBoolean(data.stereoRight, true);
 
       this.volumeFrames =
          data.volumeFrames ? new Uint8Array(data.volumeFrames) : new Uint8Array(Tic80Caps.sfx.envelopeFrameCount);
@@ -113,7 +113,7 @@ export class Tic80Instrument implements Tic80InstrumentFields {
          data.arpeggioFrames ? new Uint8Array(data.arpeggioFrames) : new Uint8Array(Tic80Caps.sfx.envelopeFrameCount);
       this.arpeggioLoopStart = clamp(data.arpeggioLoopStart ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       this.arpeggioLoopLength = clamp(data.arpeggioLoopLength ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
-      this.arpeggioDown = Boolean(data.arpeggioDown);
+      this.arpeggioDown = CoalesceBoolean(data.arpeggioDown, false);
 
       this.waveFrames =
          data.waveFrames ? new Uint8Array(data.waveFrames) : new Uint8Array(Tic80Caps.sfx.envelopeFrameCount);
@@ -124,7 +124,7 @@ export class Tic80Instrument implements Tic80InstrumentFields {
          data.pitchFrames ? new Int8Array(data.pitchFrames) : new Int8Array(Tic80Caps.sfx.envelopeFrameCount);
       this.pitchLoopStart = clamp(data.pitchLoopStart ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       this.pitchLoopLength = clamp(data.pitchLoopLength ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
-      this.pitch16x = Boolean(data.pitch16x);
+      this.pitch16x = CoalesceBoolean(data.pitch16x, false);
    }
 
    static fromData(data?: Partial<Tic80InstrumentFields>): Tic80Instrument {

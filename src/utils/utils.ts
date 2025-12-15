@@ -24,3 +24,11 @@ export function TryParseInt(value: any): number|null {
    }
    return null;
 };
+
+// you can't just do "value ?? defaultValue" because that treats false as nullish.
+export function CoalesceBoolean(value: boolean|null|undefined, defaultValue: boolean): boolean {
+   if (value === null || value === undefined) {
+      return defaultValue;
+   }
+   return value;
+}

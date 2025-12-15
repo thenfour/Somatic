@@ -1,3 +1,4 @@
+import {CoalesceBoolean} from "../utils/utils";
 import {Tic80Caps, Tic80ChannelIndex} from "./tic80Capabilities";
 
 const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
@@ -24,22 +25,30 @@ export class EditorState {
       this.patternIndex = clamp(pattern, 0, Tic80Caps.pattern.count - 1);
       this.selectedPosition = clamp(selectedPosition, 0, 255);
       this.currentInstrument = clamp(currentInstrument, 1, Tic80Caps.sfx.count);
-      this.editingEnabled = Boolean(editingEnabled);
+      this.editingEnabled = CoalesceBoolean(editingEnabled, true);
       this.patternEditRow = clamp(patternEditRow, 0, 63);
       this.patternEditChannel = clamp(patternEditChannel, 0, 3);
    }
 
-   setOctave(nextOctave: number) { this.octave = clamp(nextOctave, 1, Tic80Caps.pattern.octaveCount); }
+   setOctave(nextOctave: number) {
+      this.octave = clamp(nextOctave, 1, Tic80Caps.pattern.octaveCount);
+   }
 
-   setPattern(nextPattern: number) { this.patternIndex = clamp(nextPattern, 0, Tic80Caps.pattern.count - 1); }
+   setPattern(nextPattern: number) {
+      this.patternIndex = clamp(nextPattern, 0, Tic80Caps.pattern.count - 1);
+   }
 
-   setSelectedPosition(nextPosition: number) { this.selectedPosition = clamp(nextPosition, 0, 255); }
+   setSelectedPosition(nextPosition: number) {
+      this.selectedPosition = clamp(nextPosition, 0, 255);
+   }
 
    setCurrentInstrument(nextInstrument: number) {
       this.currentInstrument = clamp(nextInstrument, 1, Tic80Caps.sfx.count);
    }
 
-   setEditingEnabled(enabled: boolean) { this.editingEnabled = Boolean(enabled); }
+   setEditingEnabled(enabled: boolean) {
+      this.editingEnabled = Boolean(enabled);
+   }
 
    setPatternEditTarget({rowIndex, channelIndex}: {rowIndex: number, channelIndex: Tic80ChannelIndex}) {
       this.patternEditRow = clamp(rowIndex, 0, Tic80Caps.pattern.maxRows - 1);
@@ -58,7 +67,11 @@ export class EditorState {
       };
    }
 
-   static fromData(data?: Partial<EditorState>) { return new EditorState(data || {}); }
+   static fromData(data?: Partial<EditorState>) {
+      return new EditorState(data || {});
+   }
 
-   clone() { return EditorState.fromData(this.toData()); }
+   clone() {
+      return EditorState.fromData(this.toData());
+   }
 }

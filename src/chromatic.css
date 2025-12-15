@@ -755,6 +755,13 @@ button.key {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
 }
 
+.tic80-frame.hidden {
+    /* don't change visibility or size; things get weird. make it position=absolute and force it off screen. */
+    position: absolute;
+    left: -200vw;
+    z-index: -1;
+}
+
 /* Toasts */
 .toast-viewport {
     position: fixed;

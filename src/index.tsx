@@ -40,6 +40,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const [waveformEditorPanelOpen, setWaveformEditorPanelOpen] = useState(false);
     const [helpPanelOpen, setHelpPanelOpen] = useState(false);
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
+    const [tic80PanelOpen, setTic80PanelOpen] = useState(true);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
     const [transportState, setTransportState] = useState<TransportState>('stop');
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
@@ -323,12 +324,13 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
-                        <button onClick={() => setWaveformEditorPanelOpen(!waveformEditorPanelOpen)}><span className="icon" aria-hidden="true">♒</span>Waves</button>
-                        <button onClick={() => setInstrumentPanelOpen(!instrumentPanelOpen)}><span className="icon" aria-hidden="true">🎛️</span>Inst</button>
-                        <button onClick={() => setPreferencesPanelOpen(!preferencesPanelOpen)}><span className="icon" aria-hidden="true">⚙️</span>Prefs</button>
-                        <button onClick={() => setThemePanelOpen(!themePanelOpen)}><span className="icon" aria-hidden="true">🎨</span>Theme</button>
-                        <button onClick={() => setHelpPanelOpen(!helpPanelOpen)}><span className="icon" aria-hidden="true">❔</span>Help</button>
-                        <button onClick={onToggleTheme}><span className="icon" aria-hidden="true">🌗</span>{theme === 'dark' ? 'Light' : 'Dark'} Mode</button>
+                        <button className={waveformEditorPanelOpen ? "active" : ""} onClick={() => setWaveformEditorPanelOpen(!waveformEditorPanelOpen)}><span className="icon" aria-hidden="true">♒</span>Wav</button>
+                        <button className={instrumentPanelOpen ? "active" : ""} onClick={() => setInstrumentPanelOpen(!instrumentPanelOpen)}><span className="icon" aria-hidden="true">🎛️</span>Ins</button>
+                        <button className={preferencesPanelOpen ? "active" : ""} onClick={() => setPreferencesPanelOpen(!preferencesPanelOpen)}><span className="icon" aria-hidden="true">⚙️</span></button>
+                        <button className={themePanelOpen ? "active" : ""} onClick={() => setThemePanelOpen(!themePanelOpen)}><span className="icon" aria-hidden="true">🎨</span></button>
+                        <button className={helpPanelOpen ? "active" : ""} onClick={() => setHelpPanelOpen(!helpPanelOpen)}><span className="icon" aria-hidden="true">❔</span></button>
+                        <button className={tic80PanelOpen ? "active" : ""} onClick={() => setTic80PanelOpen(!tic80PanelOpen)}><span className="icon" aria-hidden="true">👾</span>Tic-80</button>
+                        <button onClick={onToggleTheme}><span className="icon" aria-hidden="true">🌗</span>{theme === 'dark' ? 'Light' : 'Dark'}</button>
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
@@ -336,9 +338,9 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                             <span className="icon">⏹</span>
                             <span className="caption">Stop</span>
                         </button>
-                        <button className={transportState === 'play-pattern' ? 'active' : undefined} onClick={onPlayPattern}><span className="icon" aria-hidden="true">▶</span>Play Pattern</button>
-                        <button className={transportState === 'play-from-position' ? 'active' : undefined} onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">⏩</span>Play From Position</button>
-                        <button className={transportState === 'play-all' ? 'active' : undefined} onClick={onPlayAll}><span className="icon" aria-hidden="true">🎵</span>Play All</button>
+                        <button className={transportState === 'play-all' ? 'active' : undefined} onClick={onPlayAll}><span className="icon" aria-hidden="true">▶</span>Song</button>
+                        <button className={transportState === 'play-pattern' ? 'active' : undefined} onClick={onPlayPattern}><span className="icon" aria-hidden="true">▶</span>Pat</button>
+                        <button className={transportState === 'play-from-position' ? 'active' : undefined} onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">⏩</span>From Position</button>
                     </div>
                     <div className="right-controls">
                         <button
@@ -424,7 +426,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     <HelpPanel onClose={() => setHelpPanelOpen(false)} />
                 )}
 
-                <div className="tic80-frame">
+                <div className={tic80PanelOpen ? "tic80-frame" : "tic80-frame hidden"}>
                     {/* <Tic80Iframe /> */}
                     <Tic80Bridge ref={bridgeRef} />
                 </div>

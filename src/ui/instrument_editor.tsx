@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AudioController } from '../audio/controller';
-import { Tic80Instrument } from '../models/instruments';
 import { Song } from '../models/song';
+import { Tic80Caps } from '../models/tic80Capabilities';
+import { clamp, TryParseInt } from '../utils/utils';
 
 type InstrumentPanelProps = {
     song: Song;
@@ -12,19 +13,83 @@ type InstrumentPanelProps = {
 };
 
 export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, audio, currentInstrument, onSongChange, onClose }) => {
-    const selectedInstrument = currentInstrument;
+    // EditorState.currentInstrument is 1-based; Song.instruments is 0-based.
+    const instrumentIndex = Math.max(0, Math.min(song.instruments.length - 1, currentInstrument - 1));
+    const instrument = song.instruments[instrumentIndex];
 
-    const instrument = song.instruments[selectedInstrument];
+    const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        onSongChange((s) => {
+            const inst = s.instruments[instrumentIndex];
+            inst.name = value;
+        });
+    };
+
+    const handleSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = TryParseInt(e.target.value);
+        if (val === null) return;
+        onSongChange((s) => {
+            const inst = s.instruments[instrumentIndex];
+            inst.speed = clamp(val, 0, Tic80Caps.sfx.speedMax);
+        });
+    };
+
+    const handleStereoLeftChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked;
+        onSongChange((s) => {
+            const inst = s.instruments[instrumentIndex];
+            inst.stereoLeft = checked;
+        });
+    };
+
+    const handleStereoRightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked;
+        onSongChange((s) => {
+            const inst = s.instruments[instrumentIndex];
+            inst.stereoRight = checked;
+        });
+    };
+
+    const handleArpeggioReverseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked;
+        onSongChange((s) => {
+            const inst = s.instruments[instrumentIndex];
+            inst.arpeggioDown = checked;
+        });
+    };
+
+    const handlePitch16xChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked;
+        onSongChange((s) => {
+            const inst = s.instruments[instrumentIndex];
+            inst.pitch16x = checked;
+        });
+    };
+
+    if (!instrument) {
+        return (
+            <div className="instrument-panel">
+                <div className="toolbar">
+                    <label htmlFor="instrument">Instrument Editor</label>
+                    <button onClick={onClose}>Close</button>
+                </div>
+                <div className="section">
+                    <p>No instrument selected.</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="instrument-panel">
             <div className="toolbar">
                 <label htmlFor="instrument">Instrument Editor</label>
+                <span className="toolbar__title">SFX {currentInstrument}</span>
                 <button onClick={onClose}>Close</button>
             </div>
-            <div>
+            <div className="">
                 {/*
-                
+
                 instrument (SFX) editor. graphical editor for the instruments described in
                 models/instruments.ts
 
@@ -50,6 +115,65 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, audio, c
                 - octave
 
                 */}
+                <div className="field-row">
+                    <label htmlFor="instrument-name">Name</label>
+                    <input
+                        id="instrument-name"
+                        type="text"
+                        value={instrument.name}
+                        onChange={handleNameChange}
+                    />
+                </div>
+                <div className="field-row">
+                    <label htmlFor="instrument-speed">Speed</label>
+                    <input
+                        id="instrument-speed"
+                        type="number"
+                        min={0}
+                        max={Tic80Caps.sfx.speedMax}
+                        value={instrument.speed}
+                        onChange={handleSpeedChange}
+                    />
+                </div>
+                <div className="field-row">
+                    <label>Stereo</label>
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={instrument.stereoLeft}
+                            onChange={handleStereoLeftChange}
+                        />
+                        L
+                    </label>
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={instrument.stereoRight}
+                            onChange={handleStereoRightChange}
+                        />
+                        R
+                    </label>
+                </div>
+                <div className="field-row">
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={instrument.arpeggioDown}
+                            onChange={handleArpeggioReverseChange}
+                        />
+                        Arpeggio reverse
+                    </label>
+                </div>
+                <div className="field-row">
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={instrument.pitch16x}
+                            onChange={handlePitch16xChange}
+                        />
+                        Pitch 16x
+                    </label>
+                </div>
             </div>
         </div>
     );
