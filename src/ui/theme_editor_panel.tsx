@@ -1,0 +1,164 @@
+import React from 'react';
+import { useToasts } from './toast_provider';
+
+const PALETTE_KEYS = Array.from({ length: 16 }, (_, i) => `--tic-${i}`);
+const PALETTE_CONTRAST_KEYS = PALETTE_KEYS.map((k) => `${k}-contrast`);
+
+const THEME_VARS = [
+    '--bg',
+    '--panel',
+    '--panel-strong',
+    '--text',
+    '--muted',
+    '--border',
+    '--border-strong',
+    '--accent',
+    '--accent-strong',
+    '--row-a',
+    '--row-b',
+    '--row-active',
+    '--tooltip-bg',
+    '--tooltip-text',
+    '--success-accent',
+    '--error-accent',
+];
+
+function readCssVar(name: string, target: HTMLElement = document.documentElement): string {
+    const val = getComputedStyle(target).getPropertyValue(name) || '';
+    return val.trim();
+}
+
+export const PaletteSwatch: React.FC<{ color: string; }> = ({ color }) => {
+    const onDragStart = (event: React.DragEvent<HTMLDivElement>) => {
+        event.dataTransfer.setData('application/json', color);
+        event.dataTransfer.setData('text/plain', color);
+    };
+
+    const onDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+        // Allow dropping by preventing the default behavior
+        event.preventDefault();
+    };
+
+    return (
+        <div
+            className="theme-panel__swatch"
+            style={{ background: color }}
+            draggable
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            title={color}
+            aria-label={color}
+        />
+    );
+};
+
+// <button
+//     key={key}
+//     className="theme-panel__swatch"
+//     style={{ background: values[key] }}
+//     draggable
+//     onDragStart={(ev) => {
+//         ev.dataTransfer.setData('application/json', JSON.stringify(values[key]));
+//         ev.dataTransfer.setData('text/plain', values[key]);
+
+//         // ev.dataTransfer.setData('application/x-chromatic-color', values[key]);
+//         // ev.dataTransfer.setData('text/plain', values[key]);
+//         //ev.dataTransfer.effectAllowed = 'copy';
+//     }}
+//     title={`${key} ${values[key]}`}
+//     aria-label={`${key} ${values[key]}`}
+// />
+
+
+
+export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+    const { pushToast } = useToasts();
+    const [values, setValues] = React.useState<Record<string, string>>(() => {
+        const obj: Record<string, string> = {};
+        for (const key of [...PALETTE_KEYS, ...PALETTE_CONTRAST_KEYS, ...THEME_VARS]) {
+            obj[key] = readCssVar(key);
+        }
+        return obj;
+    });
+
+    const applyVar = React.useCallback((name: string, value: string) => {
+        document.documentElement.style.setProperty(name, value);
+        setValues((prev) => ({ ...prev, [name]: value }));
+    }, []);
+
+    const handleDrop = (ev: React.DragEvent<HTMLButtonElement>, varName: string) => {
+        ev.preventDefault();
+        const color = ev.dataTransfer.getData('application/x-chromatic-color') || ev.dataTransfer.getData('text/plain');
+        if (!color) return;
+        applyVar(varName, color);
+    };
+
+    const handleDragOver = (ev: React.DragEvent) => {
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = 'copy';
+    };
+
+    const paletteContrastMap = React.useMemo(() => {
+        const m = new Map<string, string>();
+        for (let i = 0; i < PALETTE_KEYS.length; i++) {
+            const base = values[PALETTE_KEYS[i]];
+            const contrast = values[PALETTE_CONTRAST_KEYS[i]];
+            if (base && contrast) m.set(base, contrast);
+        }
+        return m;
+    }, [values]);
+
+    const getForegroundForValue = (val: string) => paletteContrastMap.get(val) || '#000';
+
+    const handleCopy = async () => {
+        const lines = [...THEME_VARS].map((name) => `${name}: ${values[name]};`);
+        const css = lines.join('\n  ');
+        try {
+            await navigator.clipboard.writeText(css);
+            pushToast({ message: 'Theme variables copied to clipboard', variant: 'success' });
+            console.log('Theme variables copied to clipboard');
+        } catch (err) {
+            pushToast({ message: 'Copy failed', variant: 'error' });
+        }
+    };
+
+    return (
+        <div className="theme-panel" role="dialog" aria-label="Theme editor">
+            <h2>Theme Editor (dev)</h2>
+            <p>Drag a palette swatch onto a variable to assign it. Export copies current vars.</p>
+
+            <div className="theme-panel__palette" aria-label="TIC-80 palette">
+                {PALETTE_KEYS.map((key) => (
+                    <PaletteSwatch
+                        key={key}
+                        color={values[key]}
+                    />
+                ))}
+            </div>
+
+            <div className="theme-panel__vars" aria-label="Theme variables">
+                {THEME_VARS.map((name) => (
+                    <button
+                        key={name}
+                        className="theme-panel__var"
+                        onDragOver={handleDragOver}
+                        onDrop={(ev) => handleDrop(ev, name)}
+                        style={{ background: values[name], color: getForegroundForValue(values[name]) }}
+                        title={`${name} ${values[name]} (drop a swatch to change)`}
+                    >
+                        <span className="theme-panel__var-name">{name}</span>
+                        <span className="theme-panel__var-value">{values[name]}</span>
+                    </button>
+                ))}
+            </div>
+
+            <div className="theme-panel__actions">
+                <button onClick={() => pushToast({ message: 'Example toast success', variant: 'success' })}>Example Toast success</button>
+                <button onClick={() => pushToast({ message: 'Example toast error', variant: 'error' })}>Example Toast error</button>
+                <span className='menu-separator'></span>
+                <button onClick={handleCopy}>Copy CSS</button>
+                <button onClick={onClose}>Close</button>
+            </div>
+        </div>
+    );
+};

@@ -32,42 +32,75 @@
     --tic-14: #566c86;
     --tic-15: #333c57;
 
+    /*
+    
+    domains:
+    - error - success (toasts, indicators)
+        - bg
+        - foreground accent
+        - border
+    - elevation1 - 2 - 3 (surfaces)
+        - bg
+        - foreground text
+    - pattern
+        - row A, row B, active row
+
+    */
+
+    /* Palette contrast helpers (choose a TIC color with good foreground contrast) */
+    --tic-0-contrast: var(--tic-12);
+    --tic-1-contrast: var(--tic-12);
+    --tic-2-contrast: var(--tic-12);
+    --tic-3-contrast: var(--tic-0);
+    --tic-4-contrast: var(--tic-0);
+    --tic-5-contrast: var(--tic-0);
+    --tic-6-contrast: var(--tic-0);
+    --tic-7-contrast: var(--tic-12);
+    --tic-8-contrast: var(--tic-12);
+    --tic-9-contrast: var(--tic-12);
+    --tic-10-contrast: var(--tic-0);
+    --tic-11-contrast: var(--tic-0);
+    --tic-12-contrast: var(--tic-0);
+    --tic-13-contrast: var(--tic-0);
+    --tic-14-contrast: var(--tic-12);
+    --tic-15-contrast: var(--tic-12);
+
     /* Theme tokens (light default) */
-    --bg: var(--tic-7);
-    --panel: var(--tic-12);
-    --panel-strong: var(--tic-13);
-    --text: var(--tic-1);
-    --muted: var(--tic-14);
-    --border: var(--tic-14);
-    --border-strong: var(--tic-15);
-    --accent: var(--tic-10);
-    --accent-strong: var(--tic-11);
-    --row-a: var(--tic-3);
-    --row-b: var(--tic-10);
-    --row-active: var(--tic-6);
-    --tooltip-bg: var(--tic-8);
-    --tooltip-text: var(--tic-12);
-    --success-accent: var(--tic-6);
-    --error-accent: var(--tic-2);
+    --bg: #566c86;
+    --panel: #94b0c2;
+    --panel-strong: #f4f4f4;
+    --text: #5d275d;
+    --muted: #94b0c2;
+    --border: #566c86;
+    --border-strong: #333c57;
+    --accent: #41a6f6;
+    --accent-strong: #73eff7;
+    --row-a: #f4f4f4;
+    --row-b: #73eff7;
+    --row-active: #38b764;
+    --tooltip-bg: #29366f;
+    --tooltip-text: #f4f4f4;
+    --success-accent: #38b764;
+    --error-accent: #b13e53;
 }
 
 .theme-dark {
-    --bg: var(--tic-1);
-    --panel: var(--tic-8);
-    --panel-strong: var(--tic-7);
-    --text: var(--tic-12);
-    --muted: var(--tic-13);
-    --border: var(--tic-15);
-    --border-strong: var(--tic-14);
-    --accent: var(--tic-10);
-    --accent-strong: var(--tic-11);
-    --row-a: var(--tic-3);
-    --row-b: var(--tic-10);
-    --row-active: var(--tic-6);
-    --tooltip-bg: var(--tic-0);
-    --tooltip-text: var(--tic-12);
-    --success-accent: var(--tic-6);
-    --error-accent: var(--tic-2);
+    --bg: #1a1c2c;
+    --panel: #29366f;
+    --panel-strong: #257179;
+    --text: #f4f4f4;
+    --muted: #1a1c2c;
+    --border: #333c57;
+    --border-strong: #566c86;
+    --accent: #41a6f6;
+    --accent-strong: #73eff7;
+    --row-a: #29366f;
+    --row-b: #3b5dc9;
+    --row-active: #38b764;
+    --tooltip-bg: #1a1c2c;
+    --tooltip-text: #f4f4f4;
+    --success-accent: #38b764;
+    --error-accent: #b13e53;
 }
 
 html,
@@ -256,6 +289,59 @@ option {
     padding: 8px;
 }
 
+.theme-panel {
+    position: relative;
+    margin: 8px;
+    padding: 12px 14px;
+    background: var(--panel-strong);
+    border: 1px solid var(--border);
+    color: var(--text);
+    overflow: auto;
+    /* max-width: 520px; */
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.2);
+    gap: 12px;
+}
+
+.theme-panel__palette {
+    display: flex;
+}
+
+.theme-panel__swatch {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border: 1px solid var(--border-strong);
+    cursor: grab;
+    padding: 0;
+}
+
+.theme-panel__vars {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+}
+
+.theme-panel__var {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid var(--border-strong);
+    padding: 6px 8px;
+    cursor: grab;
+}
+
+.theme-panel__var-name {}
+
+.theme-panel__var-value {
+    font-family: var(--ff-mono);
+    font-size: 12px;
+}
+
+.theme-panel__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
 .help-panel {
     position: relative;
     margin: 8px;
@@ -356,6 +442,7 @@ option {
     position: relative;
     height: 100px;
     overflow-x: scroll;
+    margin: 0;
 }
 
 .key {
@@ -366,6 +453,7 @@ option {
 button.key {
     align-items: flex-end;
     justify-content: center;
+    border: 1px solid var(--border-strong);
 }
 
 .key.white {

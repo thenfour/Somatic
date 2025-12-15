@@ -18,6 +18,7 @@ import { SongEditor } from './ui/song_editor';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { ToastProvider, useToasts } from './ui/toast_provider';
 import { Keyboard } from './ui/keyboard';
+import { ThemeEditorPanel } from './ui/theme_editor_panel';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -35,6 +36,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);
     const [helpPanelOpen, setHelpPanelOpen] = useState(false);
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
+    const [themePanelOpen, setThemePanelOpen] = useState(false);
     const [transportState, setTransportState] = useState<TransportState>('stop');
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
@@ -317,6 +319,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     <div className="menu-group">
                         <button onClick={() => setInstrumentPanelOpen(!instrumentPanelOpen)}><span className="icon" aria-hidden="true">🎛️</span>Instruments</button>
                         <button onClick={() => setPreferencesPanelOpen(!preferencesPanelOpen)}><span className="icon" aria-hidden="true">⚙️</span>Preferences</button>
+                        <button onClick={() => setThemePanelOpen(!themePanelOpen)}><span className="icon" aria-hidden="true">🎨</span>Theme</button>
                         <button onClick={() => setHelpPanelOpen(!helpPanelOpen)}><span className="icon" aria-hidden="true">❔</span>Help</button>
                         <button onClick={onToggleTheme}><span className="icon" aria-hidden="true">🌗</span>{theme === 'dark' ? 'Light' : 'Dark'} Mode</button>
                     </div>
@@ -399,6 +402,9 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                         midiDevices={midiDevices}
                         onClose={() => setPreferencesPanelOpen(false)}
                     />
+                )}
+                {themePanelOpen && (
+                    <ThemeEditorPanel onClose={() => setThemePanelOpen(false)} />
                 )}
                 {helpPanelOpen && (
                     <HelpPanel onClose={() => setHelpPanelOpen(false)} />
