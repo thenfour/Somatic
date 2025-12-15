@@ -24,7 +24,14 @@ export class Tic80Backend implements AudioBackend {
       this.song = song;
       if (song) {
          this.serializedSong = serializeSongForTic80Bridge(song);
-         //await this.tryUploadSong();
+
+         const b = this.bridge();
+         if (!b || !b.isReady())
+            return;
+
+         await b.invokeExclusive(async tx => {
+            tx.uploadSongData(this.serializedSong!);
+         });
       } else {
          // todo: an actual empty song.
          this.serializedSong = null;
@@ -42,7 +49,7 @@ export class Tic80Backend implements AudioBackend {
          return;
 
       await b.invokeExclusive(async (tx) => {
-         await this.tryUploadSong(tx);
+         //await this.tryUploadSong(tx);
 
          //const sfxId = this.findInstrumentIndex(instrument);
          //const clampedNote = Math.max(0, Math.min(95, Math.round(note)));
@@ -76,7 +83,7 @@ export class Tic80Backend implements AudioBackend {
       if (!b || !b.isReady())
          return;
       b.invokeExclusive(async (tx) => {
-         await this.tryUploadSong(tx);
+         //await this.tryUploadSong(tx);
          // todo: proper pattern playback support
          await tx.play({track: 0, frame: 0, row: 0, loop: true});
       });
@@ -91,7 +98,7 @@ export class Tic80Backend implements AudioBackend {
       // Currently just triggers play track 0; proper song sequencing will come after uploads
       // todo: implement
       await b.invokeExclusive(async (tx) => {
-         await this.tryUploadSong(tx);
+         //await this.tryUploadSong(tx);
          await tx.play({track: startPosition, frame: 0, row: 0, loop: true});
       });
       this.emit.position(startPosition);
@@ -109,15 +116,15 @@ export class Tic80Backend implements AudioBackend {
       this.emit.stop();
    }
 
-   private async tryUploadSong(tx: Tic80BridgeTransaction) {
-      if (!this.serializedSong)
-         return;
-      const b = this.bridge();
-      if (!b || !b.isReady())
-         return;
+   //    private async tryUploadSong(tx: Tic80BridgeTransaction) {
+   //       if (!this.serializedSong)
+   //          return;
+   //       const b = this.bridge();
+   //       if (!b || !b.isReady())
+   //          return;
 
-      await tx.uploadSongData(this.serializedSong);
-   }
+   //       await tx.uploadSongData(this.serializedSong);
+   //    }
 
    //    private findInstrumentIndex(instrument: Tic80Instrument): number {
    //       if (!this.song)

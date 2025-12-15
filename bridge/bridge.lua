@@ -319,7 +319,12 @@ local function handle_begin_upload()
 end
 
 local function handle_end_upload()
-	-- No-op placeholder; host signals completion
+	-- Force reload of music data
+	-- https://github.com/nesbox/TIC-80/wiki/sync
+	-- flags = 8 (sfx) + 16 (music) = 24
+	-- bank = 0 (default)
+	-- true means sync from runtime -> cart.
+	sync(24, 0, true)
 	publish_cmd(CMD_END_UPLOAD, 0)
 	log("END_UPLOAD")
 end
@@ -398,7 +403,9 @@ local function draw_status()
 	y = y + 8
 	print(isPlaying and ("PLAY tr:" .. playingTrack) or "IDLE", 40, y, isPlaying and 11 or 6)
 	y = y + 8
-	print("last:" .. tostring(lastCmd) .. " res:" .. tostring(lastCmdResult), 40, y, 6)
+	-- print("last:" .. tostring(lastCmd) .. " res:" .. tostring(lastCmdResult), 40, y, 6)
+	print("s:" .. peek(81556) .. "r:" .. peek(81557) .. "t" .. peek(81558), 40, y, 6)
+
 	y = y + 10
 
 	-- Recent logs

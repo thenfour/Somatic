@@ -465,6 +465,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             await sendMailboxCommandRaw([cmd, sfxId, note, channel & 0xff], "Stop SFX");
         }
 
+        // note that you may need to sync runtime vs. cart memory!
         function writeMailboxBytes(bytes: number[], token?: number) {
             assertReady();
             const mb = TIC.MAILBOX_ADDR;
@@ -517,7 +518,8 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                         }
                         if (performance.now() - start > timeoutMs) {
                             console.log(`---------------- sendMailboxCommand: ${description} TIMEOUT`);
-                            reject(new Error(`TIC-80 command timed out: ${description}`));
+                            //reject(new Error(`TIC-80 command timed out: ${description}`));
+                            resolve();
                             return;
                         }
                         requestAnimationFrame(poll);

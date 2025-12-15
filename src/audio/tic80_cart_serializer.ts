@@ -165,8 +165,6 @@ function packTrackFrame(channelPatterns: [number, number, number, number]): [num
 };
 
 function encodeTrack(song: Song): Uint8Array {
-   const buf = new Uint8Array(3 * Tic80Caps.song.maxSongLength + 3); // 48 bytes positions + speed/rows/tempo
-
    /*
 This represents the music track data. This is copied to RAM at 0x13E64...0x13FFB.
 
@@ -208,9 +206,11 @@ To get the correct tempo of the track do: T + 150.
    // we will fill all 16 steps, intended to alternate between front and back "buffer"s of pattern data.
    // in order to keep swaps single-op, each pattern "buffer" is 4 patterns long (one per channel).
 
+   const buf = new Uint8Array(3 * Tic80Caps.song.maxSongLength + 3); // 48 bytes positions + speed/rows/tempo
    for (let i = 0; i < Tic80Caps.song.maxSongLength; i++) {
       const isFrontBuffer = (i % 2) === 0; // 0 or 1
-      const channelPatterns: [number, number, number, number] = isFrontBuffer ? [0, 1, 2, 3] : [4, 5, 6, 7];
+      // pattern id 0 is a "no pattern". they are 1-based in the track data.
+      const channelPatterns: [number, number, number, number] = isFrontBuffer ? [1, 2, 3, 4] : [5, 6, 7, 8];
       const [b0, b1, b2] = packTrackFrame(channelPatterns);
       const base = i * 3;
       buf[base + 0] = b0;
@@ -220,12 +220,15 @@ To get the correct tempo of the track do: T + 150.
 
    // Speed: decode is (S + 6) % 255; clamp to 0..254
    //const speedByte = (song.speed - 6 + 255) % 255;
-   buf[48] = encodeTrackSpeed(song.speed); //speedByte & 0xff;
+   // peek(81556)
+   buf[50] = encodeTrackSpeed(song.speed); //speedByte & 0xff;
 
    // Rows: decode is 64 - R (so encode is the same op)
+   // peek(81557)
    buf[49] = 64 - song.rowsPerPattern;
 
-   buf[50] = encodeTempo(song.tempo);
+   // peek(81558)
+   buf[48] = encodeTempo(song.tempo);
 
    //return writeChunk(CHUNK.MUSIC_TRACKS, buf);
    return buf;

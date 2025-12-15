@@ -21,7 +21,7 @@ import {Tic80Caps} from "./tic80Capabilities";
 
 //export const SFX_FRAME_COUNT = 30;
 
-export interface Tic80InstrumentFields {
+export interface Tic80InstrumentDto {
    name: string;
 
    speed: number; // 0-7
@@ -35,23 +35,23 @@ export interface Tic80InstrumentFields {
    stereoRight: boolean;
 
    // volume envelope
-   volumeFrames: Int8Array;  // volume frames (0-15)
+   volumeFrames: number[];   // volume frames (0-15)
    volumeLoopStart: number;  // 0-29
    volumeLoopLength: number; // 0-29
 
    // arpeggio frames
-   arpeggioFrames: Int8Array;  // arpeggio frames (0-15)
+   arpeggioFrames: number[];   // arpeggio frames (0-15)
    arpeggioLoopStart: number;  // 0-29
    arpeggioLoopLength: number; // 0-29
    arpeggioDown: boolean;      // aka "reverse"
 
    // waveform id frames
-   waveFrames: Int8Array;  // waveform id frames (0-15)
+   waveFrames: number[];   // waveform id frames (0-15)
    waveLoopStart: number;  // 0-29
    waveLoopLength: number; // 0-29
 
    // pitch frames
-   pitchFrames: Int8Array;  // pitch frames (-8 to +7)
+   pitchFrames: number[];   // pitch frames (-8 to +7)
    pitchLoopStart: number;  // 0-29
    pitchLoopLength: number; // 0-29
    pitch16x: boolean;
@@ -59,7 +59,7 @@ export interface Tic80InstrumentFields {
 ;
 
 // aka "SFX" aka "sample" (from tic.h / sound.c)
-export class Tic80Instrument implements Tic80InstrumentFields {
+export class Tic80Instrument {
    name: string;
 
    speed: number;    // 0-7
@@ -91,10 +91,10 @@ export class Tic80Instrument implements Tic80InstrumentFields {
    pitch16x: boolean;
 
    // editor-only...
-   constructor(data: Partial<Tic80InstrumentFields> = {}) {
+   constructor(data: Partial<Tic80InstrumentDto> = {}) {
       this.name = data.name ?? "";
 
-      this.speed = clamp(data.speed ?? 0, 0, Tic80Caps.sfx.speedMax);
+      this.speed = clamp(data.speed ?? 3, 0, Tic80Caps.sfx.speedMax);
 
       // because this is a tracker, you'll never trigger an sfx using its base note. it's always specified
       // in pattern data. therefore baseNote & octave are actually ignored.
@@ -141,11 +141,11 @@ export class Tic80Instrument implements Tic80InstrumentFields {
       this.pitch16x = CoalesceBoolean(data.pitch16x, false);
    }
 
-   static fromData(data?: Partial<Tic80InstrumentFields>): Tic80Instrument {
+   static fromData(data?: Partial<Tic80InstrumentDto>): Tic80Instrument {
       return new Tic80Instrument(data || {});
    }
 
-   toData(): Tic80InstrumentFields {
+   toData(): Tic80InstrumentDto {
       return {
          name: this.name,
 
@@ -154,17 +154,17 @@ export class Tic80Instrument implements Tic80InstrumentFields {
          octave: this.octave,
          stereoLeft: this.stereoLeft,
          stereoRight: this.stereoRight,
-         volumeFrames: new Int8Array(this.volumeFrames),
+         volumeFrames: [...this.volumeFrames],
          volumeLoopStart: this.volumeLoopStart,
          volumeLoopLength: this.volumeLoopLength,
-         arpeggioFrames: new Int8Array(this.arpeggioFrames),
+         arpeggioFrames: [...this.arpeggioFrames],
          arpeggioLoopStart: this.arpeggioLoopStart,
          arpeggioLoopLength: this.arpeggioLoopLength,
          arpeggioDown: this.arpeggioDown,
-         waveFrames: new Int8Array(this.waveFrames),
+         waveFrames: [...this.waveFrames],
          waveLoopStart: this.waveLoopStart,
          waveLoopLength: this.waveLoopLength,
-         pitchFrames: new Int8Array(this.pitchFrames),
+         pitchFrames: [...this.pitchFrames],
          pitchLoopStart: this.pitchLoopStart,
          pitchLoopLength: this.pitchLoopLength,
          pitch16x: this.pitch16x,
@@ -172,6 +172,6 @@ export class Tic80Instrument implements Tic80InstrumentFields {
    };
 
    clone(): Tic80Instrument {
-      return new Tic80Instrument(this);
+      return new Tic80Instrument(this.toData());
    }
 }
