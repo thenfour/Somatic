@@ -82,21 +82,6 @@ export class Song {
       this.highlightRowCount = clamp(data.highlightRowCount ?? 16, 1, 64);
    }
 
-   //   usedPatterns(): Set<number> {
-   //     const patterns = new Set<number>();
-   //     for (let i = 0; i < this.length; i++) patterns.add(this.positions[i]);
-   //     return patterns;
-   //   }
-
-   //   setPosition(index: number, value: number) {
-   //     if (index < 0 || index >= this.positions.length) return;
-   //     this.positions[index] = clamp(value, 0, PATTERN_COUNT - 1);
-   //   }
-
-   //   setLength(value: number) {
-   //     this.length = clamp(value, 1, 256);
-   //   }
-
    setTempo(value: number) { this.tempo = clamp(value, 1, 255); }
 
    setSpeed(value: number) { this.speed = clamp(value, 1, 31); }

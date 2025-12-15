@@ -1,11 +1,13 @@
 import {assert, clamp} from "../utils/utils";
 import {Tic80Caps, Tic80ChannelIndex} from "./tic80Capabilities";
 
+
 export type PatternCell = {
-   midiNote?: number;        //
+   midiNote?: number;        // (when serializde to tic80, N is the note number (4-15 for notes and <4 for stops))
    instrumentIndex?: number; //
-   effect?: number;
-   effectArg?: number;
+   effect?: number;          // 0-7
+   effectX?: number;         // 0-15
+   effectY?: number;         // 0-15
 };
 
 export type PatternChannelDto = {

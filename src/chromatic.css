@@ -529,9 +529,16 @@ button.key {
 }
 
 .pattern-grid td.note-cell,
-.pattern-grid td.instrument-cell {
-    transition: color 0.12s ease, opacity 0.12s ease;
+.pattern-grid td.instrument-cell,
+.pattern-grid td.command-cell,
+.pattern-grid td.param-cell {}
+
+
+.pattern-grid td.note-cell {
+    /* margin-left: 18px; */
+    border-left: 18px solid transparent;
 }
+
 
 .pattern-grid td.empty-cell {
     color: var(--muted);
