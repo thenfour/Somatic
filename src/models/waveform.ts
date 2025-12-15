@@ -1,10 +1,10 @@
 // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
 
-import {Tic80Caps} from './tic80Capabilities';
+import {Tic80Caps} from "./tic80Capabilities";
 
 export interface Tic80WaveformDto {
-  name: string;
-  amplitudes: Uint8Array;  // arpeggio frames (0-15)
+   name: string;
+   amplitudes: Uint8Array;
 }
 ;
 
@@ -17,30 +17,29 @@ export interface Tic80WaveformDto {
 // possible to store 2 height in 1 byte, this is why waveforms are 16 bytes but
 // in the editor there are 32 points you can edit.
 export class Tic80Waveform implements Tic80WaveformDto {
-  name: string;
-  amplitudes: Uint8Array;  // arpeggio frames (0-15)
+   name: string;
+   amplitudes: Uint8Array;
 
-  // editor-only...
-  constructor(data: Partial<Tic80WaveformDto> = {}) {
-    this.name = data.name ?? '';
+   // editor-only...
+   constructor(data: Partial<Tic80WaveformDto> = {}) {
+      this.name = data.name ?? "";
 
-    this.amplitudes = data.amplitudes ?
-        new Uint8Array(data.amplitudes) :
-        new Uint8Array(Tic80Caps.waveform.pointCount);
-  }
+      this.amplitudes =
+         data.amplitudes ? new Uint8Array(data.amplitudes) : new Uint8Array(Tic80Caps.waveform.pointCount);
+   }
 
-  static fromData(data?: Partial<Tic80WaveformDto>): Tic80Waveform {
-    return new Tic80Waveform(data || {});
-  }
+   static fromData(data?: Partial<Tic80WaveformDto>): Tic80Waveform {
+      return new Tic80Waveform(data || {});
+   }
 
-  toData(): Tic80WaveformDto {
-    return {
-      name: this.name,
-      amplitudes: new Uint8Array(this.amplitudes),
-    };
-  };
+   toData(): Tic80WaveformDto {
+      return {
+         name: this.name,
+         amplitudes: new Uint8Array(this.amplitudes),
+      };
+   };
 
-  clone(): Tic80Waveform {
-    return new Tic80Waveform(this);
-  }
+   clone(): Tic80Waveform {
+      return new Tic80Waveform(this);
+   }
 }

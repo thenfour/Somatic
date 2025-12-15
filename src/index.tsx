@@ -397,7 +397,6 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     <WaveformEditor
                         song={song}
                         editorState={editorState}
-                        onEditorStateChange={updateEditorState}
                         onSongChange={updateSong}
                     />
                 )}

@@ -33,14 +33,15 @@ typedef struct
 
 export const WaveformSwatch: React.FC<{
     value: Tic80Waveform;
+    scale: number;
     onClick?: () => void;
 }> = ({ value, onClick }) => {
-    //Tic80Caps.waveform.pointCount;
     return (
         <div className="waveform-swatch" onClick={onClick}>
             {/* 
-            a selectable waveform swatch rendering the waveform visually.
-            fixed size is fine, 
+            a waveform swatch rendering the waveform visually as a kind of thumbnail.
+            width = scale * Tic80Caps.waveform.pointCount
+            height = scale * Tic80Caps.waveform.amplitudeRange
             */}
         </div>
     );
@@ -55,25 +56,46 @@ export const WaveformSelect: React.FC<{
     return (
         <div className="waveform-select">
             {/* 
-            display grid of waveforms (4x4), highlight selected.
+            display grid of waveform swatches (4x4), highlight selected.
             onClickWaveform when item clicked.
             */}
         </div>
     );
 }
 
+
 export const WaveformEditor: React.FC<{
     song: Song;
     editorState: EditorState;
-    onEditorStateChange: (mutator: (state: EditorState) => void) => void;
     onSongChange: (mutator: (song: Song) => void) => void;
-}> = ({ song, editorState, onEditorStateChange, onSongChange }) => {
+}> = ({ song, editorState, onSongChange }) => {
+
+    return (
+        <div className="waveform-editor">
+            {/*
+            waveform editor UI here
+            - each waveform has Tic80Caps.waveform.pointCount amplitudes to edit
+            - amplitude values 0..Tic80Caps.waveform.amplitudeRange-1
+            - we should show this as a graphical grid; y-axis is amplitude, x-axis is point index
+            - allow click+drag to draw amplitude values
+            */}
+        </div>);
+
+};
+
+
+
+export const WaveformEditorPanel: React.FC<{
+    song: Song;
+    editorState: EditorState;
+    onSongChange: (mutator: (song: Song) => void) => void;
+}> = ({ song, editorState, onSongChange }) => {
 
     return (
         <div className="waveform-editor-panel">
             <h3>Waveform Editor</h3>
             {/*
-            waveform editor UI here
+            waveform editor panel here
             - waveform select grid
             - graphical waveform editor
             */}
