@@ -24,9 +24,13 @@ import {Tic80Caps} from "./tic80Capabilities";
 export interface Tic80InstrumentFields {
    name: string;
 
-   speed: number;    // 0-7
-   baseNote: number; // 0-15 (what is this?? it's tic_sample.note in tic.h)
-   octave: number;   // 0-7
+   speed: number; // 0-7
+
+   // this is tic_sample.note in tic.h
+   // 0-11, semitones within the octave. this is combined with 'octave' to get the actual note played.
+   // 0 = note C, 1 = C#, ... 11 = B.
+   baseNote: number;
+   octave: number; // 0-7
    stereoLeft: boolean;
    stereoRight: boolean;
 
@@ -91,8 +95,12 @@ export class Tic80Instrument implements Tic80InstrumentFields {
       this.name = data.name ?? "";
 
       this.speed = clamp(data.speed ?? 0, 0, Tic80Caps.sfx.speedMax);
-      this.baseNote = clamp(data.baseNote ?? 0, 0, 15);
-      this.octave = clamp(data.octave ?? 0, 0, 7);
+
+      // because this is a tracker, you'll never trigger an sfx using its base note. it's always specified
+      // in pattern data. therefore baseNote & octave are actually ignored.
+      this.baseNote = clamp(data.baseNote ?? 0, 0, 11);
+      this.octave = clamp(data.octave ?? 4, 0, 7);
+
       this.stereoLeft = Boolean(data.stereoLeft);
       this.stereoRight = Boolean(data.stereoRight);
 
@@ -119,7 +127,9 @@ export class Tic80Instrument implements Tic80InstrumentFields {
       this.pitch16x = Boolean(data.pitch16x);
    }
 
-   static fromData(data?: Partial<Tic80InstrumentFields>): Tic80Instrument { return new Tic80Instrument(data || {}); }
+   static fromData(data?: Partial<Tic80InstrumentFields>): Tic80Instrument {
+      return new Tic80Instrument(data || {});
+   }
 
    toData(): Tic80InstrumentFields {
       return {
@@ -147,5 +157,7 @@ export class Tic80Instrument implements Tic80InstrumentFields {
       };
    };
 
-   clone(): Tic80Instrument { return new Tic80Instrument(this); }
+   clone(): Tic80Instrument {
+      return new Tic80Instrument(this);
+   }
 }
