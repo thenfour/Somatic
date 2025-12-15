@@ -1,11 +1,9 @@
-import {IsNullOrWhitespace} from "../utils/utils";
+import {clamp, IsNullOrWhitespace} from "../utils/utils";
 
 import {Tic80Instrument, Tic80InstrumentFields} from "./instruments";
 import {Pattern, PatternDto} from "./pattern";
 import {Tic80Caps} from "./tic80Capabilities";
 import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
-
-const clamp = (val: number, min: number, max: number): number => Math.min(Math.max(val, min), max);
 
 // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#music-tracks
 // export type InstrumentData = ReturnType<Tic80Instrument['toData']>;
@@ -18,6 +16,7 @@ export type SongDto = {
 
    tempo: number;
    speed: number;
+   rowsPerPattern: number;
 
    name: string;
    highlightRowCount: number;
@@ -58,6 +57,7 @@ export class Song {
    instruments: Tic80Instrument[];
    waveforms: Tic80Waveform[];
    patterns: Pattern[];
+   rowsPerPattern: number;
    // positions: number[];
 
    tempo: number;
@@ -72,6 +72,7 @@ export class Song {
       this.instruments = makeInstrumentList(data.instruments || []);
       this.patterns = makePatternList(data.patterns || []);
       this.waveforms = makeWaveformList(data.waveforms || []);
+      this.rowsPerPattern = clamp(data.rowsPerPattern ?? Tic80Caps.pattern.maxRows, 1, Tic80Caps.pattern.maxRows);
       // this.positions = Array.from(
       //     {length: 256},
       //     (_, i) => clamp(data.positions?.[i] ?? 0, 0, PATTERN_COUNT - 1));
@@ -82,11 +83,21 @@ export class Song {
       this.highlightRowCount = clamp(data.highlightRowCount ?? 16, 1, 64);
    }
 
-   setTempo(value: number) { this.tempo = clamp(value, 1, 255); }
+   setTempo(value: number) {
+      this.tempo = clamp(value, 1, 255);
+   }
 
-   setSpeed(value: number) { this.speed = clamp(value, 1, 31); }
+   setSpeed(value: number) {
+      this.speed = clamp(value, 1, 31);
+   }
 
-   setHighlightRowCount(value: number) { this.highlightRowCount = clamp(value, 1, 64); }
+   setHighlightRowCount(value: number) {
+      this.highlightRowCount = clamp(value, 1, 64);
+   }
+
+   setRowsPerPattern(value: number) {
+      this.rowsPerPattern = clamp(value, 1, Tic80Caps.pattern.maxRows);
+   }
 
    toData(): Required<SongDto> {
       return {
@@ -95,15 +106,19 @@ export class Song {
          waveforms: this.waveforms.map((wave) => wave.toData()),
          tempo: this.tempo,
          speed: this.speed,
-         // length: this.length,
+         rowsPerPattern: this.rowsPerPattern,
          name: this.name,
          highlightRowCount: this.highlightRowCount,
       };
    }
 
-   toJSON(): string { return JSON.stringify(this.toData(), null, 2); }
+   toJSON(): string {
+      return JSON.stringify(this.toData(), null, 2);
+   }
 
-   static fromData(data?: SongDto|null): Song { return new Song(data || {}); }
+   static fromData(data?: SongDto|null): Song {
+      return new Song(data || {});
+   }
 
    static fromJSON(json: string): Song {
       try {
@@ -115,5 +130,7 @@ export class Song {
       }
    }
 
-   clone(): Song { return Song.fromData(this.toData()); }
+   clone(): Song {
+      return Song.fromData(this.toData());
+   }
 }

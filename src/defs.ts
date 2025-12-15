@@ -11,10 +11,13 @@ export const MAX_PATTERN_NOTE = 95;
 export const MAX_NOTE_NUM = MAX_PATTERN_NOTE; // backwards compatibility alias
 
 export type NoteInfo = {
-   midi: number; name: string; frequency: number; semitone: number; // 0..11 within octave
-   octave: number;                                                  // MIDI-standard display octave (C4 = 60)
-   ticOctave: number;                                               // 0..7 used by TIC-80 encoding
-   ticNoteNibble: number;                                           // 4..15 used by TIC-80 encoding
+   midi: number; // 0..11 within octave
+   name: string;
+   frequency: number;
+   semitone: number;
+   octave: number;        // MIDI-standard display octave (C4 = 60)
+   ticOctave: number;     // 0..7 used by TIC-80 encoding
+   ticNoteNibble: number; // 4..15 used by TIC-80 encoding
    isAvailableInPattern: boolean;
 };
 

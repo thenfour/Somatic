@@ -6,7 +6,7 @@ UseTab: Never
 ColumnLimit: 120
 ContinuationIndentWidth: 3
 BreakBeforeBraces: Attach
-AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 SpacesBeforeTrailingComments: 1

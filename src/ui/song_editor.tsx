@@ -28,6 +28,11 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
         onSongChange((s) => s.setTempo(val));
     };
 
+    const onRowsPerPatternChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseInt(e.target.value, 10);
+        onSongChange((s) => s.setRowsPerPattern(val));
+    };
+
     // const onLengthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     //     const val = parseInt(e.target.value, 10);
     //     onSongChange((s) => s.setLength(val));
@@ -77,6 +82,19 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 <input id="song-tempo" type="number" min={1} max={255} value={song.tempo} onChange={onTempoChange} />
             </div>
             <div className="field-row">
+                <label htmlFor="song-rows-per-pattern">Rows per pattern</label>
+                <Tooltip
+                    content={(
+                        <>
+                            Affects all patterns
+                        </>
+                    )}
+                >
+                    <span aria-hidden="true">?</span>
+                </Tooltip>
+                <input id="song-rows-per-pattern" type="number" min={1} max={Tic80Caps.pattern.maxRows} value={song.rowsPerPattern} onChange={onRowsPerPatternChange} />
+            </div>
+            <div className="field-row">
                 <label htmlFor="song-speed">Speed</label>
                 <Tooltip
                     label="Speed help"
@@ -103,7 +121,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
             </label>
             <label>
                 Octave
-                <input type="number" min={1} max={Tic80Caps.pattern.octaveCount} value={editorState.octave} onChange={onOctaveChange} />
+                <input type="number" min={1} max={Tic80Caps.pattern.octaveCount/* -1 + 1 for 1-baseddisplay */} value={editorState.octave} onChange={onOctaveChange} />
             </label>
             <label>
                 Instrument
