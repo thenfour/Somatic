@@ -77,5 +77,5 @@ export function midiToTicPitch(midi: number): { octave: number; noteNibble: numb
     return { octave: info.ticOctave, noteNibble: info.ticNoteNibble };
 }
 
-export const PATTERN_COUNT = 64;
-export const INSTRUMENT_COUNT = 15;
+// export const PATTERN_COUNT = 64;
+// export const INSTRUMENT_COUNT = 15;

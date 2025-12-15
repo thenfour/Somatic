@@ -1,32 +1,32 @@
-import { INSTRUMENT_COUNT, OCTAVE_COUNT, PATTERN_COUNT } from "../defs";
+import { Tic80Caps } from "./tic80Capabilities";
 
 const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
 
 export class EditorState {
     octave: number;
-    pattern: number;
+    patternIndex: number;
     selectedPosition: number;
     currentInstrument: number;
     editingEnabled: boolean;
     patternEditRow: number;
     patternEditChannel: number;
 
-    constructor({ octave = Math.floor(OCTAVE_COUNT / 2), pattern = 0, selectedPosition = 0, currentInstrument = 1, editingEnabled = true, patternEditRow = 0, patternEditChannel = 0 }: Partial<EditorState> = {}) {
-        this.octave = clamp(octave, 1, OCTAVE_COUNT);
-        this.pattern = clamp(pattern, 0, PATTERN_COUNT - 1);
+    constructor({ octave = Math.floor(Tic80Caps.pattern.octaveCount / 2), patternIndex: pattern = 0, selectedPosition = 0, currentInstrument = 1, editingEnabled = true, patternEditRow = 0, patternEditChannel = 0 }: Partial<EditorState> = {}) {
+        this.octave = clamp(octave, 1, Tic80Caps.pattern.octaveCount);
+        this.patternIndex = clamp(pattern, 0, Tic80Caps.pattern.count - 1);
         this.selectedPosition = clamp(selectedPosition, 0, 255);
-        this.currentInstrument = clamp(currentInstrument, 1, INSTRUMENT_COUNT);
+        this.currentInstrument = clamp(currentInstrument, 1, Tic80Caps.sfx.count);
         this.editingEnabled = Boolean(editingEnabled);
         this.patternEditRow = clamp(patternEditRow, 0, 63);
         this.patternEditChannel = clamp(patternEditChannel, 0, 3);
     }
 
     setOctave(nextOctave: number) {
-        this.octave = clamp(nextOctave, 1, OCTAVE_COUNT);
+        this.octave = clamp(nextOctave, 1, Tic80Caps.pattern.octaveCount);
     }
 
     setPattern(nextPattern: number) {
-        this.pattern = clamp(nextPattern, 0, PATTERN_COUNT - 1);
+        this.patternIndex = clamp(nextPattern, 0, Tic80Caps.pattern.count - 1);
     }
 
     setSelectedPosition(nextPosition: number) {
@@ -34,7 +34,7 @@ export class EditorState {
     }
 
     setCurrentInstrument(nextInstrument: number) {
-        this.currentInstrument = clamp(nextInstrument, 1, INSTRUMENT_COUNT);
+        this.currentInstrument = clamp(nextInstrument, 1, Tic80Caps.sfx.count);
     }
 
     setEditingEnabled(enabled: boolean) {
@@ -49,7 +49,7 @@ export class EditorState {
     toData() {
         return {
             octave: this.octave,
-            pattern: this.pattern,
+            pattern: this.patternIndex,
             selectedPosition: this.selectedPosition,
             currentInstrument: this.currentInstrument,
             editingEnabled: this.editingEnabled,

@@ -1,8 +1,9 @@
-import { INSTRUMENT_COUNT, PATTERN_COUNT, midiToTicPitch } from "../defs";
-import type { Song } from "../models/song";
-import type { Pattern } from "../models/pattern";
-import type { Tic80Instrument } from "../models/instruments";
-import { clamp } from "../utils/utils";
+import { midiToTicPitch} from "../defs";
+import type {Song} from "../models/song";
+import type {Pattern} from "../models/pattern";
+import type {Tic80Instrument} from "../models/instruments";
+import {clamp} from "../utils/utils";
+import {Tic80Caps} from "../models/tic80Capabilities";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -13,16 +14,17 @@ const CHUNK = {
     MUSIC_PATTERNS: 15,
 } as const;
 
-const SONG_TRACK_STEPS = 16; // TIC-80 stores 16 pattern slots per track
-const PATTERN_ROWS = 16; // patterns chunk stores 16 rows per channel (192 bytes)
-const CHANNEL_COUNT = 4;
-const SFX_TICKS = 30;
+//const SONG_TRACK_STEPS = 16; // TIC-80 stores 16 pattern slots per track
+//const PATTERN_ROWS = 16; // patterns chunk stores 16 rows per channel (192 bytes)
+//const CHANNEL_COUNT = 4;
+//const SFX_TICKS = 30;
 const SFX_BYTES_PER_SAMPLE = 66;
 
 /** Trim trailing zero bytes (spec allows chunk truncation). */
 function trimTrailingZeros(data: Uint8Array): Uint8Array {
     let last = data.length - 1;
-    while (last >= 0 && data[last] === 0) last--;
+    while (last >= 0 && data[last] === 0)
+        last--;
     return data.slice(0, last + 1);
 }
 
@@ -40,7 +42,8 @@ function writeChunk(type: number, payload: Uint8Array, bank = 0): Uint8Array {
 function encodeNoteTriplet(midiNoteValue: number, instrument: number): [number, number, number] {
     // Rest/no-note
     const ticPitch = midiToTicPitch(midiNoteValue);
-    if (!ticPitch) return [0, 0, 0];
+    if (!ticPitch)
+        return [0, 0, 0];
 
     const sfx = Math.max(0, Math.min(255, instrument | 0));
     const command = 0; // no effect command for now
@@ -53,29 +56,34 @@ function encodeNoteTriplet(midiNoteValue: number, instrument: number): [number, 
 }
 
 function encodePattern(pattern: Pattern): Uint8Array {
-    const buf = new Uint8Array(PATTERN_ROWS * CHANNEL_COUNT * 3);
+    // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#music-patterns
+    // chunk type 15
+    // RAM at 0x11164...0x13E63
+    // 192 bytes per pattern (16 rows x 4 channels x 3 bytes)
+    const buf = new Uint8Array(Tic80Caps.pattern.maxRows * 3);
 
-    for (let row = 0; row < PATTERN_ROWS; row++) {
-        for (let ch = 0; ch < CHANNEL_COUNT; ch++) {
-            const rowData = pattern.channels[ch]?.rows[row];
-            const midiNoteValue = rowData?.note ?? 0;
-            const inst = rowData?.instrument ?? 0;
-            const [b0, b1, b2] = encodeNoteTriplet(midiNoteValue, inst);
-            const idx = (row * CHANNEL_COUNT + ch) * 3;
-            buf[idx + 0] = b0;
-            buf[idx + 1] = b1;
-            buf[idx + 2] = b2;
-        }
-    }
+    // for (let row = 0; row < PATTERN_ROWS; row++) {
+    //     for (let ch = 0; ch < CHANNEL_COUNT; ch++) {
+    //         const rowData = pattern.channels[ch]?.rows[row];
+    //         const midiNoteValue = rowData?.note ?? 0;
+    //         const inst = rowData?.instrument ?? 0;
+    //         const [b0, b1, b2] = encodeNoteTriplet(midiNoteValue, inst);
+    //         const idx = (row * CHANNEL_COUNT + ch) * 3;
+    //         buf[idx + 0] = b0;
+    //         buf[idx + 1] = b1;
+    //         buf[idx + 2] = b2;
+    //     }
+    // }
 
     return buf;
 }
 
 function encodePatterns(song: Song): Uint8Array {
-    const patterns = new Uint8Array(PATTERN_COUNT * PATTERN_ROWS * CHANNEL_COUNT * 3);
-    for (let p = 0; p < PATTERN_COUNT; p++) {
+    const patterns = new Uint8Array(Tic80Caps.pattern.count * Tic80Caps.pattern.maxRows * 3);
+    for (let p = 0; p < Tic80Caps.pattern.count; p++) {
         const pattern = song.patterns[p];
-        if (!pattern) continue;
+        if (!pattern)
+            continue;
         const encoded = encodePattern(pattern);
         patterns.set(encoded, p * encoded.length);
     }
@@ -84,18 +92,18 @@ function encodePatterns(song: Song): Uint8Array {
 
 function encodeTrack(song: Song): Uint8Array {
     const buf = new Uint8Array(51); // 48 bytes positions + speed/rows/tempo
-    const steps = Math.min(SONG_TRACK_STEPS, song.length);
-    for (let i = 0; i < steps; i++) {
-        const patIndex = song.positions[i] ?? 0;
-        const packed = (patIndex & 0x3f) // F
-            | ((patIndex & 0x3f) << 6) // S
-            | ((patIndex & 0x3f) << 12) // T
-            | ((patIndex & 0x3f) << 18); // Q
-        const base = i * 3;
-        buf[base + 0] = packed & 0xff;
-        buf[base + 1] = (packed >> 8) & 0xff;
-        buf[base + 2] = (packed >> 16) & 0xff;
-    }
+    // const steps = Math.min(SONG_TRACK_STEPS, song.length);
+    // for (let i = 0; i < steps; i++) {
+    //     const patIndex = song.positions[i] ?? 0;
+    //     const packed = (patIndex & 0x3f) // F
+    //         | ((patIndex & 0x3f) << 6) // S
+    //         | ((patIndex & 0x3f) << 12) // T
+    //         | ((patIndex & 0x3f) << 18); // Q
+    //     const base = i * 3;
+    //     buf[base + 0] = packed & 0xff;
+    //     buf[base + 1] = (packed >> 8) & 0xff;
+    //     buf[base + 2] = (packed >> 16) & 0xff;
+    // }
 
     // Speed: decode is (S + 6) % 255; clamp to 0..254
     const speedByte = (song.speed - 6 + 255) % 255;
@@ -130,7 +138,7 @@ function encodeWaveforms(): Uint8Array {
 }
 
 function encodeSfx(song: Song): Uint8Array {
-    const packLoop = (start: number | undefined, length: number | undefined): number => {
+    const packLoop = (start: number|undefined, length: number|undefined): number => {
         const loopStart = clamp(start ?? 0, 0, 15);
         const loopSize = clamp(length ?? 0, 0, 15);
         return (loopSize << 4) | loopStart;
@@ -138,9 +146,10 @@ function encodeSfx(song: Song): Uint8Array {
 
     const encodeInstrument = (inst?: Tic80Instrument): Uint8Array => {
         const out = new Uint8Array(SFX_BYTES_PER_SAMPLE);
-        if (!inst) return out;
+        if (!inst)
+            return out;
 
-        for (let tick = 0; tick < SFX_TICKS; tick++) {
+        for (let tick = 0; tick < Tic80Caps.sfx.envelopeFrameCount; tick++) {
             const vol = clamp(inst.volumeFrames?.[tick] ?? 0, 0, 15);
             const wave = clamp(inst.waveFrames?.[tick] ?? 0, 0, 15);
             const chord = clamp(inst.arpeggioFrames?.[tick] ?? 0, 0, 15);
@@ -170,7 +179,7 @@ function encodeSfx(song: Song): Uint8Array {
     };
 
     // 66 bytes per SFX (up to 64 entries in RAM). We only fill instruments (1..INSTRUMENT_COUNT).
-    const sfxCount = INSTRUMENT_COUNT + 1; // reserve index 0
+    const sfxCount = Tic80Caps.maxSfx; // reserve index 0
     const buf = new Uint8Array(sfxCount * SFX_BYTES_PER_SAMPLE);
 
     for (let i = 1; i < sfxCount; i++) {

@@ -5,8 +5,14 @@ import { EditorState } from '../models/editor_state';
 import { Pattern } from '../models/pattern';
 import { Song } from '../models/song';
 
-const formatNote = (note: number) => (note === 0 ? '---' : midiToName(note) || '???');
-const formatInstrument = (val: number) => val.toString(16).toUpperCase();
+const formatMidiNote = (midiNote: number | undefined | null) => {
+    return !midiNote ? '---' : midiToName(midiNote);
+};
+
+const formatInstrument = (val: number | undefined | null) => {
+    if (val === null || val === undefined) return '--';
+    return val.toString(16).toUpperCase();
+};
 
 const noteKeyMap = '-zsxdcvgbhnjmq2w3er5t6y7ui'.split('');
 const instrumentKeyMap = '0123456789abcdef'.split('');
@@ -25,7 +31,7 @@ export type PatternGridHandle = {
 
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
     ({ song, audio, editorState, onEditorStateChange, onSongChange }, ref) => {
-        const pattern: Pattern = song.patterns[editorState.pattern];
+        const pattern: Pattern = song.patterns[editorState.patternIndex];
         const [activeRow, setActiveRow] = useState<number | null>(null);
         const cellRefs = useMemo(
             () => Array.from({ length: 64 }, () => Array(8).fill(null) as (HTMLTableCellElement | null)[]),
@@ -53,7 +59,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const setRowValue = (channelIndex: number, rowIndex: number, field: 'note' | 'instrument', value: number) => {
             onSongChange((s) => {
-                s.patterns[editorState.pattern].channels[channelIndex].setRow(rowIndex, field, value);
+
+                //s.patterns[editorState.patternIndex].channels[channelIndex].setRow(rowIndex, field, value);
             });
         };
 
@@ -167,11 +174,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                     <td className="row-number">{rowIndex}</td>
                                     {pattern.channels.map((channel, channelIndex) => {
                                         const row = channel.rows[rowIndex];
-                                        const noteText = formatNote(row.note);
-                                        const instText = formatInstrument(row.instrument);
+                                        const noteText = formatMidiNote(row.midiNote);
+                                        const instText = formatInstrument(row.instrumentIndex);
                                         const noteCol = channelIndex * 2;
                                         const instCol = channelIndex * 2 + 1;
-                                        const isNoteEmpty = row.note === 0;
+                                        const isNoteEmpty = !row.midiNote;
                                         const noteClass = `note-cell${isNoteEmpty ? ' empty-cell' : ''}`;
                                         const instClass = `instrument-cell${isNoteEmpty ? ' empty-cell' : ''}`;
                                         return (

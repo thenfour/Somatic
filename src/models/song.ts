@@ -1,128 +1,134 @@
-import { Tic80Instrument } from './instruments';
-import { Pattern } from './pattern';
-import { PATTERN_COUNT, INSTRUMENT_COUNT } from '../defs';
+import {IsNullOrWhitespace} from "../utils/utils";
+
+import {Tic80Instrument, Tic80InstrumentFields} from "./instruments";
+import {Pattern, PatternDto} from "./pattern";
+import {Tic80Caps} from "./tic80Capabilities";
+import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
 
 const clamp = (val: number, min: number, max: number): number => Math.min(Math.max(val, min), max);
 
-export type InstrumentData = ReturnType<Tic80Instrument['toData']>;
-export type PatternData = ReturnType<Pattern['toData']> | null;
-export type SongData = {
-    instruments?: (InstrumentData | Partial<InstrumentData> | undefined)[];
-    patterns?: (PatternData | undefined)[];
-    positions?: number[];
-    tempo?: number;
-    speed?: number;
-    length?: number;
-    highlightRowCount?: number;
+// https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#music-tracks
+// export type InstrumentData = ReturnType<Tic80Instrument['toData']>;
+// export type PatternData = ReturnType<Pattern['toData']>;
+
+export type SongDto = {
+   instruments: Tic80InstrumentFields[]; //
+   waveforms: Tic80WaveformDto[];
+   patterns: PatternDto[];
+
+   tempo: number;
+   speed: number;
+
+   name: string;
+   highlightRowCount: number;
 };
 
-const makeInstrumentList = (data?: SongData['instruments']): Tic80Instrument[] => {
-    const length = INSTRUMENT_COUNT + 1; // index 0 unused, indexes 1..INSTRUMENT_COUNT
-    const list = Array.from({ length }, (_, i) => {
-        const instData = data && data[i];
-        return new Tic80Instrument(instData || {});
-    });
-    if (!list[1].name) list[1].name = 'SFX 1';
-    return list;
+const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {
+   return Array.from({length: Tic80Caps.waveform.count}, (_, i) => {
+      const waveData = data[i]!;
+      const ret = new Tic80Waveform(waveData);
+      if (IsNullOrWhitespace(ret.name))
+         ret.name = `WAVE ${i}`;
+      return ret;
+   });
 };
 
-const makePatternList = (data?: SongData['patterns']): Pattern[] => {
-    return Array.from({ length: PATTERN_COUNT }, (_, i) => Pattern.fromData(data ? data[i] : undefined));
+const makeInstrumentList = (data: Tic80InstrumentFields[]): Tic80Instrument[] => {
+   //const length =  INSTRUMENT_COUNT + 1; // index 0 unused, indexes 1..INSTRUMENT_COUNT
+   const list = Array.from({length: Tic80Caps.sfx.count}, (_, i) => {
+      const instData = data[i]!;
+      const ret = new Tic80Instrument(instData);
+      if (IsNullOrWhitespace(ret.name))
+         ret.name = `SFX ${i}`;
+      return ret;
+   });
+   return list;
+};
+
+const makePatternList = (data: PatternDto[]): Pattern[] => {
+   const ret = data.map((patternData) => Pattern.fromData(patternData));
+   // ensure at least 1 pattern.
+   if (ret.length === 0) {
+      ret.push(new Pattern());
+   }
+   return ret;
 };
 
 export class Song {
-    instruments: Tic80Instrument[];
-    patterns: Pattern[];
-    positions: number[];
-    tempo: number;
-    speed: number;
-    length: number;
-    highlightRowCount: number;
+   instruments: Tic80Instrument[];
+   waveforms: Tic80Waveform[];
+   patterns: Pattern[];
+   // positions: number[];
 
-    constructor(data: SongData = {}) {
-        this.instruments = makeInstrumentList(data.instruments);
-        this.patterns = makePatternList(data.patterns);
-        this.positions = Array.from({ length: 256 }, (_, i) => clamp(data.positions?.[i] ?? 0, 0, PATTERN_COUNT - 1));
-        this.tempo = clamp(data.tempo ?? 120, 1, 255);
-        this.speed = clamp(data.speed ?? 6, 1, 31);
-        this.length = clamp(data.length ?? 1, 1, 256);
-        this.highlightRowCount = clamp(data.highlightRowCount ?? 16, 1, 64);
-    }
+   tempo: number;
+   speed: number;
+   // length: number;
 
-    usedPatterns(): Set<number> {
-        const patterns = new Set<number>();
-        for (let i = 0; i < this.length; i++) patterns.add(this.positions[i]);
-        return patterns;
-    }
+   // editor-specific
+   name: string;
+   highlightRowCount: number;
 
-    usedInstruments(): Set<number> {
-        const instruments = new Set<number>();
-        for (const patternNumber of this.usedPatterns()) {
-            const pattern = this.patterns[patternNumber];
-            for (const inst of pattern.usedInstruments()) instruments.add(inst);
-        }
-        return instruments;
-    }
+   constructor(data: Partial<SongDto> = {}) {
+      this.instruments = makeInstrumentList(data.instruments || []);
+      this.patterns = makePatternList(data.patterns || []);
+      this.waveforms = makeWaveformList(data.waveforms || []);
+      // this.positions = Array.from(
+      //     {length: 256},
+      //     (_, i) => clamp(data.positions?.[i] ?? 0, 0, PATTERN_COUNT - 1));
+      this.tempo = clamp(data.tempo ?? 120, 1, 255);
+      this.speed = clamp(data.speed ?? 6, 1, 31);
+      // this.length = clamp(data.length ?? 1, 1, 256);
+      this.name = data.name ?? "New song";
+      this.highlightRowCount = clamp(data.highlightRowCount ?? 16, 1, 64);
+   }
 
-    setPosition(index: number, value: number) {
-        if (index < 0 || index >= this.positions.length) return;
-        this.positions[index] = clamp(value, 0, PATTERN_COUNT - 1);
-    }
+   //   usedPatterns(): Set<number> {
+   //     const patterns = new Set<number>();
+   //     for (let i = 0; i < this.length; i++) patterns.add(this.positions[i]);
+   //     return patterns;
+   //   }
 
-    setLength(value: number) {
-        this.length = clamp(value, 1, 256);
-    }
+   //   setPosition(index: number, value: number) {
+   //     if (index < 0 || index >= this.positions.length) return;
+   //     this.positions[index] = clamp(value, 0, PATTERN_COUNT - 1);
+   //   }
 
-    setTempo(value: number) {
-        this.tempo = clamp(value, 1, 255);
-    }
+   //   setLength(value: number) {
+   //     this.length = clamp(value, 1, 256);
+   //   }
 
-    setSpeed(value: number) {
-        this.speed = clamp(value, 1, 31);
-    }
+   setTempo(value: number) { this.tempo = clamp(value, 1, 255); }
 
-    setHighlightRowCount(value: number) {
-        this.highlightRowCount = clamp(value, 1, 64);
-    }
+   setSpeed(value: number) { this.speed = clamp(value, 1, 31); }
 
-    getLuaCode(): string {
-        // Simplified export: return a Lua script that contains serialized TIC-80 style instrument and pattern data.
-        const data = this.toData();
-        const json = JSON.stringify(data, null, 2);
-        return `-- TIC-80 song data (JSON blob for tooling; not a runnable player)\nreturn [[${json}]]`;
-    }
+   setHighlightRowCount(value: number) { this.highlightRowCount = clamp(value, 1, 64); }
 
-    toData(): Required<SongData> {
-        return {
-            instruments: this.instruments.map((inst) => inst.toData()),
-            patterns: this.patterns.map((pattern) => pattern.toData()),
-            positions: [...this.positions],
-            tempo: this.tempo,
-            speed: this.speed,
-            length: this.length,
-            highlightRowCount: this.highlightRowCount,
-        };
-    }
+   toData(): Required<SongDto> {
+      return {
+         instruments: this.instruments.map((inst) => inst.toData()),
+         patterns: this.patterns.map((pattern) => pattern.toData()),
+         waveforms: this.waveforms.map((wave) => wave.toData()),
+         tempo: this.tempo,
+         speed: this.speed,
+         // length: this.length,
+         name: this.name,
+         highlightRowCount: this.highlightRowCount,
+      };
+   }
 
-    toJSON(): string {
-        return JSON.stringify(this.toData());
-    }
+   toJSON(): string { return JSON.stringify(this.toData(), null, 2); }
 
-    static fromData(data?: SongData | null): Song {
-        return new Song(data || {});
-    }
+   static fromData(data?: SongDto|null): Song { return new Song(data || {}); }
 
-    static fromJSON(json: string): Song {
-        try {
-            const data: SongData = JSON.parse(json);
-            return Song.fromData(data);
-        } catch (err) {
-            console.error('Failed to parse song JSON', err);
-            return new Song();
-        }
-    }
+   static fromJSON(json: string): Song {
+      try {
+         const data: SongDto = JSON.parse(json);
+         return Song.fromData(data);
+      } catch (err) {
+         console.error("Failed to parse song JSON", err);
+         return new Song();
+      }
+   }
 
-    clone(): Song {
-        return Song.fromData(this.toData());
-    }
+   clone(): Song { return Song.fromData(this.toData()); }
 }

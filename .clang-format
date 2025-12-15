@@ -1,0 +1,17 @@
+BasedOnStyle: Google
+Language: JavaScript
+IndentWidth: 3
+TabWidth: 3
+UseTab: Never
+ColumnLimit: 120
+ContinuationIndentWidth: 3
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+SpacesBeforeTrailingComments: 1
+AlignTrailingComments: true
+SpaceBeforeParens: ControlStatements
+JavaScriptQuotes: Double
+ReflowComments: false
+SortIncludes: false

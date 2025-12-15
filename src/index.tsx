@@ -19,6 +19,8 @@ import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { ToastProvider, useToasts } from './ui/toast_provider';
 import { Keyboard } from './ui/keyboard';
 import { ThemeEditorPanel } from './ui/theme_editor_panel';
+import { clamp } from './utils/utils';
+import { ToTic80ChannelIndex } from './models/tic80Capabilities';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -155,22 +157,23 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 const ed = editorRef.current;
                 const instIdx = Math.max(1, Math.min(s.instruments.length - 1, ed.currentInstrument || 1));
                 const instrument = s.instruments[instIdx];
-                const channel = Math.max(0, Math.min(3, ed.patternEditChannel || 0));
+                const channel = ToTic80ChannelIndex(ed.patternEditChannel);
                 if (instrument) {
                     audio.sfxNoteOn(instrument, evt.note, channel);
                 }
 
                 if (ed.editingEnabled !== false) {
                     setSong((prev) => {
-                        const next = prev.clone();
-                        const pat = next.patterns[ed.pattern];
-                        const ch = pat?.channels[ed.patternEditChannel];
-                        if (pat && ch) {
-                            const row = Math.max(0, Math.min(ch.rows.length - 1, ed.patternEditRow));
-                            ch.setRow(row, 'note', evt.note);
-                            ch.setRow(row, 'instrument', instIdx);
-                        }
-                        return next;
+                        const newSong = prev.clone();
+                        const pat = newSong.patterns[ed.patternIndex];
+                        //const ch = pat.channels[ed.patternEditChannel];
+                        //const rowIndex = clamp(ed.patternEditRow, 0, song.row - 1);
+                        //const existingRow = ch.getRow(rowIndex);
+                        //ch.setRow(row, 'note', evt.note);
+                        //ch.setRow(row, 'instrument', instIdx);
+                        const existingCell = pat.getCell(channel, ed.patternEditRow);
+                        pat.setCell(channel, ed.patternEditRow, { ...existingCell, midiNote: evt.note, instrumentIndex: instIdx });
+                        return newSong;
                     });
                 }
             });
@@ -239,11 +242,12 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     };
 
     const exportLua = () => {
-        saveSync(song.getLuaCode(), 'song.lua');
+        saveSync("todo", 'song.lua');
     };
 
     const copyNative = async () => {
         const text = song.toJSON();
+        console.log(song.toData());
         try {
             await navigator.clipboard.writeText(text);
             pushToast({ message: 'Song copied to clipboard.', variant: 'success' });
@@ -254,7 +258,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     };
 
     const copyTic = async () => {
-        const text = song.getLuaCode();
+        const text = "todo";
         try {
             await navigator.clipboard.writeText(text);
             pushToast({ message: 'TIC-80 export copied to clipboard.', variant: 'success' });
@@ -287,7 +291,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 
     const onPlayPattern = () => {
         setTransportState('play-pattern');
-        audio.playPattern(song.patterns[editorState.pattern]);
+        audio.playPattern(song.patterns[editorState.patternIndex]);
     };
 
     const onPlayAll = () => {

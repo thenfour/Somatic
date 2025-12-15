@@ -52,25 +52,6 @@ export const PaletteSwatch: React.FC<{ color: string; }> = ({ color }) => {
     );
 };
 
-// <button
-//     key={key}
-//     className="theme-panel__swatch"
-//     style={{ background: values[key] }}
-//     draggable
-//     onDragStart={(ev) => {
-//         ev.dataTransfer.setData('application/json', JSON.stringify(values[key]));
-//         ev.dataTransfer.setData('text/plain', values[key]);
-
-//         // ev.dataTransfer.setData('application/x-chromatic-color', values[key]);
-//         // ev.dataTransfer.setData('text/plain', values[key]);
-//         //ev.dataTransfer.effectAllowed = 'copy';
-//     }}
-//     title={`${key} ${values[key]}`}
-//     aria-label={`${key} ${values[key]}`}
-// />
-
-
-
 export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const { pushToast } = useToasts();
     const [values, setValues] = React.useState<Record<string, string>>(() => {

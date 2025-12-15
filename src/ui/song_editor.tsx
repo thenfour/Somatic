@@ -1,10 +1,11 @@
 import React from 'react';
 import { AudioController } from '../audio/controller';
-import { INSTRUMENT_COUNT, OCTAVE_COUNT, PATTERN_COUNT } from '../defs';
+//import { INSTRUMENT_COUNT, OCTAVE_COUNT, PATTERN_COUNT } from '../defs';
 import { EditorState } from '../models/editor_state';
 import { Song } from '../models/song';
-import { PositionList } from './position_list';
+//import { PositionList } from './position_list';
 import { Tooltip } from './tooltip';
+import { Tic80Caps } from '../models/tic80Capabilities';
 
 type SongEditorProps = {
     song: Song;
@@ -27,10 +28,10 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
         onSongChange((s) => s.setTempo(val));
     };
 
-    const onLengthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value, 10);
-        onSongChange((s) => s.setLength(val));
-    };
+    // const onLengthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    //     const val = parseInt(e.target.value, 10);
+    //     onSongChange((s) => s.setLength(val));
+    // };
 
     const onOctaveChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseInt(e.target.value, 10);
@@ -54,13 +55,13 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
 
     return (
         <div className="section">
-            <PositionList
+            {/* <PositionList
                 song={song}
                 editorState={editorState}
                 onSongChange={onSongChange}
                 onEditorStateChange={onEditorStateChange}
                 audio={audio}
-            />
+            /> */}
             <div className="field-row">
                 <label htmlFor="song-tempo">Tempo</label>
                 <Tooltip
@@ -91,10 +92,6 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 <input id="song-speed" type="number" min={1} max={31} value={song.speed} onChange={onSpeedChange} />
             </div>
             <label>
-                Length
-                <input type="number" min={1} max={256} value={song.length} onChange={onLengthChange} />
-            </label>
-            <label>
                 Highlight rows
                 <input
                     type="number"
@@ -106,21 +103,21 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
             </label>
             <label>
                 Octave
-                <input type="number" min={1} max={OCTAVE_COUNT} value={editorState.octave} onChange={onOctaveChange} />
+                <input type="number" min={1} max={Tic80Caps.pattern.octaveCount} value={editorState.octave} onChange={onOctaveChange} />
             </label>
             <label>
                 Instrument
                 <input
                     type="number"
                     min={1}
-                    max={INSTRUMENT_COUNT}
+                    max={Tic80Caps.sfx.count}
                     value={editorState.currentInstrument}
                     onChange={onCurrentInstrumentChange}
                 />
             </label>
             <label>
                 Pattern
-                <input type="number" min={0} max={PATTERN_COUNT - 1} value={editorState.pattern} onChange={onPatternChange} />
+                <input type="number" min={0} max={Tic80Caps.pattern.count - 1} value={editorState.patternIndex} onChange={onPatternChange} />
             </label>
         </div>
     );
