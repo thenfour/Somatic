@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
 import { Tic80Caps } from "../models/tic80Capabilities";
@@ -83,7 +83,7 @@ export const WaveformSelect: React.FC<{
     onClickWaveform: (waveformId: number) => void;
 }> = ({ selectedWaveformId, song, onClickWaveform }) => {
     const waveformCount = Math.min(song.waveforms.length, Tic80Caps.waveform.count);
-    const scale = 2;
+    const scale = 3;
 
     return (
         <div className="waveform-select">
@@ -116,16 +116,28 @@ export const WaveformEditor: React.FC<{
     const maxAmp = amplitudeRange - 1;
 
     const [isDrawing, setIsDrawing] = useState(false);
+    const canvasRef = useRef<HTMLDivElement | null>(null);
+    const lastIndexRef = useRef<number | null>(null);
+    const lastAmpRef = useRef<number | null>(null);
 
     const waveform = song.waveforms[editingWaveformId];
 
-    const handleDrawAtEvent = (event: React.MouseEvent<HTMLDivElement>) => {
+    const handleDrawAtPosition = (clientX: number, clientY: number) => {
         if (!waveform) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
 
-        const rect = event.currentTarget.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+        const rect = canvas.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) return;
+
+        let x = clientX - rect.left;
+        let y = clientY - rect.top;
+
+        // Clamp to the canvas bounds so drawing just outside still works
+        if (x < 0) x = 0;
+        if (x > rect.width) x = rect.width;
+        if (y < 0) y = 0;
+        if (y > rect.height) y = rect.height;
 
         let index = Math.floor((x / rect.width) * pointCount);
         if (index < 0) index = 0;
@@ -136,35 +148,79 @@ export const WaveformEditor: React.FC<{
         if (amp < 0) amp = 0;
         if (amp > maxAmp) amp = maxAmp;
 
-        const targetIndex = index;
-        const targetAmp = amp;
+        const prevIndex = lastIndexRef.current;
+        const prevAmp = lastAmpRef.current;
+        const nextIndex = index;
+        const nextAmp = amp;
 
         onSongChange((s) => {
             const wf = s.waveforms[editingWaveformId];
             if (!wf) return;
-            if (targetIndex < 0 || targetIndex >= wf.amplitudes.length) return;
-            wf.amplitudes[targetIndex] = targetAmp;
+            const len = wf.amplitudes.length;
+
+            const writePoint = (i: number, value: number) => {
+                if (i < 0 || i >= len) return;
+                wf.amplitudes[i] = value;
+            };
+
+            // Interpolate any skipped indices between the previous and current point
+            if (prevIndex != null && prevAmp != null && prevIndex !== nextIndex) {
+                const step = nextIndex > prevIndex ? 1 : -1;
+                const dx = nextIndex - prevIndex;
+                for (let i = prevIndex + step; i !== nextIndex; i += step) {
+                    const t = (i - prevIndex) / dx;
+                    const interpAmp = Math.round(prevAmp + t * (nextAmp - prevAmp));
+                    writePoint(i, interpAmp);
+                }
+            }
+
+            writePoint(nextIndex, nextAmp);
         });
+
+        lastIndexRef.current = nextIndex;
+        lastAmpRef.current = nextAmp;
     };
 
     const handleMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
         if (event.button !== 0) return;
+        lastIndexRef.current = null;
+        lastAmpRef.current = null;
         setIsDrawing(true);
-        handleDrawAtEvent(event);
+        handleDrawAtPosition(event.clientX, event.clientY);
     };
 
     const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
         if (!isDrawing) return;
-        handleDrawAtEvent(event);
+        handleDrawAtPosition(event.clientX, event.clientY);
     };
 
     const handleMouseUp = () => {
         setIsDrawing(false);
+        lastIndexRef.current = null;
+        lastAmpRef.current = null;
     };
 
-    const handleMouseLeave = () => {
-        setIsDrawing(false);
-    };
+    useEffect(() => {
+        if (!isDrawing) return;
+
+        const handleWindowMouseMove = (event: MouseEvent) => {
+            handleDrawAtPosition(event.clientX, event.clientY);
+        };
+
+        const handleWindowMouseUp = () => {
+            setIsDrawing(false);
+            lastIndexRef.current = null;
+            lastAmpRef.current = null;
+        };
+
+        window.addEventListener("mousemove", handleWindowMouseMove);
+        window.addEventListener("mouseup", handleWindowMouseUp);
+
+        return () => {
+            window.removeEventListener("mousemove", handleWindowMouseMove);
+            window.removeEventListener("mouseup", handleWindowMouseUp);
+        };
+    }, [isDrawing]);
 
     if (!waveform) {
         return (
@@ -228,10 +284,10 @@ export const WaveformEditor: React.FC<{
             <div
                 className="waveform-editor__canvas"
                 style={{ width, height }}
+                ref={canvasRef}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseLeave}
             >
                 <svg
                     className="waveform-editor__svg"
