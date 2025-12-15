@@ -183,7 +183,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         };
 
         const handleArrowNav = (row: number, col: number, key: string, ctrlKey: boolean): readonly [number, number] | null => {
-            const rowCount = 64;
+            const rowCount = song.rowsPerPattern;
             const colCount = 16;
             const jumpSize = Math.max(song.highlightRowCount || 1, 1);
             if (key === 'ArrowUp') {
@@ -309,7 +309,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         </tr>
                     </thead>
                     <tbody>
-                        {pattern.channels[0].rows.map((_, rowIndex) => {
+                        {Array.from({ length: song.rowsPerPattern }, (_, rowIndex) => {
                             const chunkSize = Math.max(song.highlightRowCount || 1, 1);
                             const sectionIndex = Math.floor(rowIndex / chunkSize) % 2;
                             const rowClass = `${sectionIndex === 0 ? 'row-section-a' : 'row-section-b'}${activeRow === rowIndex ? ' active-row' : ''}`;
