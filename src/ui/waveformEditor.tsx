@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AudioController } from "../audio/controller";
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
@@ -34,18 +35,47 @@ typedef struct
 export const WaveformSwatch: React.FC<{
     value: Tic80Waveform;
     scale: number;
+    isSelected?: boolean;
     onClick?: () => void;
-}> = ({ value, onClick }) => {
+}> = ({ value, scale, isSelected, onClick }) => {
+    const pointCount = Tic80Caps.waveform.pointCount;
+    const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
+    const width = scale * pointCount;
+    const height = scale * amplitudeRange;
+
+    const maxAmp = amplitudeRange - 1;
+
+    const circles: JSX.Element[] = [];
+    for (let i = 0; i < pointCount; i += 1) {
+        const amp = Math.max(0, Math.min(maxAmp, value.amplitudes[i] ?? 0));
+        const x = (i + 0.5) * (width / pointCount);
+        const y = height - ((amp + 0.5) * height) / amplitudeRange;
+        circles.push(
+            <circle
+                key={i}
+                cx={x}
+                cy={y}
+                r={Math.max(1, scale * 0.4)}
+            />,
+        );
+    }
+
+    const className = `waveform-swatch${isSelected ? " waveform-swatch--selected" : ""}`;
+
     return (
-        <div className="waveform-swatch" onClick={onClick}>
-            {/* 
-            a waveform swatch rendering the waveform visually as a kind of thumbnail.
-            width = scale * Tic80Caps.waveform.pointCount
-            height = scale * Tic80Caps.waveform.amplitudeRange
-            */}
-        </div>
+        <button type="button" className={className} onClick={onClick} style={{ width, height }}>
+            <svg
+                className="waveform-swatch__svg"
+                viewBox={`0 0 ${width} ${height}`}
+                width={width}
+                height={height}
+                aria-hidden="true"
+            >
+                {circles}
+            </svg>
+        </button>
     );
-}
+};
 
 
 export const WaveformSelect: React.FC<{
@@ -53,12 +83,23 @@ export const WaveformSelect: React.FC<{
     song: Song;
     onClickWaveform: (waveformId: number) => void;
 }> = ({ selectedWaveformId, song, onClickWaveform }) => {
+    const waveformCount = Math.min(song.waveforms.length, Tic80Caps.waveform.count);
+    const scale = 2;
+
     return (
         <div className="waveform-select">
-            {/* 
-            display grid of waveform swatches (4x4), highlight selected.
-            onClickWaveform when item clicked.
-            */}
+            {Array.from({ length: waveformCount }, (_, index) => {
+                const waveform = song.waveforms[index];
+                return (
+                    <WaveformSwatch
+                        key={index}
+                        value={waveform}
+                        scale={scale}
+                        isSelected={index === selectedWaveformId}
+                        onClick={() => onClickWaveform(index)}
+                    />
+                );
+            })}
         </div>
     );
 }
@@ -66,9 +107,10 @@ export const WaveformSelect: React.FC<{
 
 export const WaveformEditor: React.FC<{
     song: Song;
+    editingWaveformId: number;
     editorState: EditorState;
     onSongChange: (mutator: (song: Song) => void) => void;
-}> = ({ song, editorState, onSongChange }) => {
+}> = ({ song, editingWaveformId, editorState, onSongChange }) => {
 
     return (
         <div className="waveform-editor">
@@ -91,14 +133,23 @@ export const WaveformEditorPanel: React.FC<{
     onSongChange: (mutator: (song: Song) => void) => void;
 }> = ({ song, editorState, onSongChange }) => {
 
+    const [editingWaveformId, setEditingWaveformId] = useState<number>(0);
+
     return (
         <div className="waveform-editor-panel">
             <h3>Waveform Editor</h3>
-            {/*
-            waveform editor panel here
-            - waveform select grid
-            - graphical waveform editor
-            */}
+            <WaveformSelect
+                onClickWaveform={setEditingWaveformId}
+                selectedWaveformId={editingWaveformId}
+                song={song}
+            />
+
+            <WaveformEditor
+                song={song}
+                editorState={editorState}
+                onSongChange={onSongChange}
+                editingWaveformId={editingWaveformId}
+            />
         </div>);
 
 };

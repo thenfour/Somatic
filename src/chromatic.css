@@ -286,6 +286,29 @@ option {
     padding: 8px;
 }
 
+.waveform-select {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(40px, 1fr));
+    gap: 4px;
+}
+
+.waveform-swatch {
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--border);
+    background: var(--panel-strong);
+    cursor: pointer;
+}
+
+.waveform-swatch--selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
+.waveform-swatch__svg {
+    display: block;
+}
+
 .theme-panel {
     position: relative;
     margin: 8px;

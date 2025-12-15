@@ -21,7 +21,7 @@ import { Keyboard } from './ui/keyboard';
 import { ThemeEditorPanel } from './ui/theme_editor_panel';
 import { clamp } from './utils/utils';
 import { ToTic80ChannelIndex } from './models/tic80Capabilities';
-import { WaveformEditor } from './ui/waveformEditor';
+import { WaveformEditor, WaveformEditorPanel } from './ui/waveformEditor';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -394,7 +394,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     onSongChange={updateSong}
                 />
                 {waveformEditorPanelOpen && (
-                    <WaveformEditor
+                    <WaveformEditorPanel
                         song={song}
                         editorState={editorState}
                         onSongChange={updateSong}
