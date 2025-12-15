@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
 import { Tic80Caps } from "../models/tic80Capabilities";
 import { Tic80Waveform } from "../models/waveform";
+import { WaveformCanvas } from "./waveform_canvas";
 
 // keep tied in with Tic80Caps.
 
@@ -110,153 +111,7 @@ export const WaveformEditor: React.FC<{
     editorState: EditorState;
     onSongChange: (mutator: (song: Song) => void) => void;
 }> = ({ song, editingWaveformId, editorState, onSongChange }) => {
-
-    const pointCount = Tic80Caps.waveform.pointCount;
-    const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
-    const maxAmp = amplitudeRange - 1;
-
-    const [isDrawing, setIsDrawing] = useState(false);
-    const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-    const [hoverAmp, setHoverAmp] = useState<number | null>(null);
-    const canvasRef = useRef<HTMLDivElement | null>(null);
-    const lastIndexRef = useRef<number | null>(null);
-    const lastAmpRef = useRef<number | null>(null);
-
     const waveform = song.waveforms[editingWaveformId];
-
-    const getPointFromClientPosition = (clientX: number, clientY: number) => {
-        if (!waveform) return null;
-        const canvas = canvasRef.current;
-        if (!canvas) return null;
-
-        const rect = canvas.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) return null;
-
-        let x = clientX - rect.left;
-        let y = clientY - rect.top;
-
-        // Clamp to the canvas bounds so drawing just outside still works
-        if (x < 0) x = 0;
-        if (x > rect.width) x = rect.width;
-        if (y < 0) y = 0;
-        if (y > rect.height) y = rect.height;
-
-        let index = Math.floor((x / rect.width) * pointCount);
-        if (index < 0) index = 0;
-        if (index >= pointCount) index = pointCount - 1;
-
-        const yNorm = 1 - y / rect.height; // 0 at bottom, 1 at top
-        let amp = Math.round(yNorm * maxAmp);
-        if (amp < 0) amp = 0;
-        if (amp > maxAmp) amp = maxAmp;
-
-        return { index, amp };
-    };
-
-    const handleDrawAtPosition = (clientX: number, clientY: number) => {
-        const point = getPointFromClientPosition(clientX, clientY);
-        if (!point) return;
-
-        const { index, amp } = point;
-
-        setHoverIndex(index);
-        setHoverAmp(amp);
-
-        const prevIndex = lastIndexRef.current;
-        const prevAmp = lastAmpRef.current;
-        const nextIndex = index;
-        const nextAmp = amp;
-
-        onSongChange((s) => {
-            const wf = s.waveforms[editingWaveformId];
-            if (!wf) return;
-            const len = wf.amplitudes.length;
-
-            const writePoint = (i: number, value: number) => {
-                if (i < 0 || i >= len) return;
-                wf.amplitudes[i] = value;
-            };
-
-            // Interpolate any skipped indices between the previous and current point
-            if (prevIndex != null && prevAmp != null && prevIndex !== nextIndex) {
-                const step = nextIndex > prevIndex ? 1 : -1;
-                const dx = nextIndex - prevIndex;
-                for (let i = prevIndex + step; i !== nextIndex; i += step) {
-                    const t = (i - prevIndex) / dx;
-                    const interpAmp = Math.round(prevAmp + t * (nextAmp - prevAmp));
-                    writePoint(i, interpAmp);
-                }
-            }
-
-            writePoint(nextIndex, nextAmp);
-        });
-
-        lastIndexRef.current = nextIndex;
-        lastAmpRef.current = nextAmp;
-    };
-
-    const handleMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-        if (event.button !== 0) return;
-        lastIndexRef.current = null;
-        lastAmpRef.current = null;
-        setIsDrawing(true);
-        handleDrawAtPosition(event.clientX, event.clientY);
-    };
-
-    const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
-        const point = getPointFromClientPosition(event.clientX, event.clientY);
-        if (point) {
-            setHoverIndex(point.index);
-            setHoverAmp(point.amp);
-        } else {
-            setHoverIndex(null);
-            setHoverAmp(null);
-        }
-
-        if (!isDrawing) return;
-        handleDrawAtPosition(event.clientX, event.clientY);
-    };
-
-    const handleMouseUp = () => {
-        setIsDrawing(false);
-        lastIndexRef.current = null;
-        lastAmpRef.current = null;
-        setHoverIndex(null);
-        setHoverAmp(null);
-    };
-
-    useEffect(() => {
-        if (!isDrawing) return;
-
-        const handleWindowMouseMove = (event: MouseEvent) => {
-            const point = getPointFromClientPosition(event.clientX, event.clientY);
-            if (point) {
-                setHoverIndex(point.index);
-                setHoverAmp(point.amp);
-                handleDrawAtPosition(event.clientX, event.clientY);
-            } else {
-                setHoverIndex(null);
-                setHoverAmp(null);
-            }
-        };
-
-        const handleWindowMouseUp = () => {
-            setIsDrawing(false);
-            lastIndexRef.current = null;
-            lastAmpRef.current = null;
-            setHoverIndex(null);
-            setHoverAmp(null);
-        };
-
-        window.addEventListener("mousemove", handleWindowMouseMove);
-        window.addEventListener("mouseup", handleWindowMouseUp);
-
-        return () => {
-            window.removeEventListener("mousemove", handleWindowMouseMove);
-            window.removeEventListener("mouseup", handleWindowMouseUp);
-        };
-    }, [isDrawing]);
-
     if (!waveform) {
         return (
             <div className="waveform-editor">
@@ -265,105 +120,29 @@ export const WaveformEditor: React.FC<{
         );
     }
 
-    const scale = 16;
-    const width = pointCount * scale;
-    const height = amplitudeRange * scale;
+    const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
+    const maxAmp = amplitudeRange - 1;
 
-    const gridLines: JSX.Element[] = [];
-    for (let y = 0; y <= amplitudeRange; y += 1) {
-        const yy = (y * height) / amplitudeRange;
-        gridLines.push(
-            <line
-                key={`h-${y}`}
-                x1={0}
-                x2={width}
-                y1={yy}
-                y2={yy}
-                className="waveform-editor__grid-line"
-            />,
-        );
-    }
-    for (let x = 0; x <= pointCount; x += 1) {
-        const xx = (x * width) / pointCount;
-        gridLines.push(
-            <line
-                key={`v-${x}`}
-                x1={xx}
-                x2={xx}
-                y1={0}
-                y2={height}
-                className="waveform-editor__grid-line"
-            />,
-        );
-    }
-
-    const points: JSX.Element[] = [];
-    for (let i = 0; i < pointCount; i += 1) {
-        const amp = Math.max(0, Math.min(maxAmp, waveform.amplitudes[i] ?? 0));
-        const x = (i + 0.5) * (width / pointCount);
-        const y = height - ((amp + 0.5) * height) / amplitudeRange;
-        const isHovered = hoverIndex === i;
-        points.push(
-            <rect
-                key={i}
-                x={x - scale * 0.4}
-                y={y - scale * 0.4}
-                width={scale * 0.8}
-                height={scale * 0.8}
-                className={isHovered ? "waveform-editor__point waveform-editor__point--hovered" : "waveform-editor__point"}
-            />,
-        );
-    }
-
-    let hoverPreview: JSX.Element | null = null;
-    if (hoverIndex != null && hoverAmp != null) {
-        const x = (hoverIndex + 0.5) * (width / pointCount);
-        const y = height - ((hoverAmp + 0.5) * height) / amplitudeRange;
-        hoverPreview = (
-            <rect
-                x={x - scale * 0.4}
-                y={y - scale * 0.4}
-                width={scale * 0.8}
-                height={scale * 0.8}
-                className="waveform-editor__point-preview"
-            />
-        );
-    }
+    const handleCanvasChange = (nextValues: number[]) => {
+        onSongChange((s) => {
+            const wf = s.waveforms[editingWaveformId];
+            if (!wf) return;
+            const len = Math.min(wf.amplitudes.length, nextValues.length);
+            for (let i = 0; i < len; i += 1) {
+                const v = Math.max(0, Math.min(maxAmp, nextValues[i] ?? 0));
+                wf.amplitudes[i] = v;
+            }
+        });
+    };
 
     return (
-        <div className="waveform-editor">
-            <div
-                className="waveform-editor__canvas"
-                style={{ width, height }}
-                ref={canvasRef}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={() => {
-                    setHoverIndex(null);
-                    setHoverAmp(null);
-                }}
-            >
-                <svg
-                    className="waveform-editor__svg"
-                    viewBox={`0 0 ${width} ${height}`}
-                    width={width}
-                    height={height}
-                    aria-label="Waveform editor"
-                >
-                    <rect
-                        x={0}
-                        y={0}
-                        width={width}
-                        height={height}
-                        className="waveform-editor__background"
-                    />
-                    {gridLines}
-                    {points}
-                    {hoverPreview}
-                </svg>
-            </div>
-        </div>
+        <WaveformCanvas
+            values={Array.from(waveform.amplitudes)}
+            maxValue={maxAmp}
+            scale={16}
+            classNamePrefix="waveform-editor"
+            onChange={handleCanvasChange}
+        />
     );
 
 };
