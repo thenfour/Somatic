@@ -65,13 +65,8 @@ export type Tic80BridgeTransaction = {
     playSfx: (opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; speed: number }) => Promise<void>;
     stopSfx: (opts: { channel: Tic80ChannelIndex; }) => Promise<void>;
     play: (opts?: {
-        track?: number;
-        frame?: number;
+        songPosition?: number;
         row?: number;
-        loop?: boolean;
-        sustain?: boolean;
-        tempo?: number; // 0 = default
-        speed?: number; // 0 = default
     }) => Promise<void>;
     stop: () => Promise<void>;
     ping: () => Promise<void>;
@@ -388,10 +383,8 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
 
         async function stopSfxRaw(opts: { channel: Tic80ChannelIndex; }) {
             const channel = opts.channel ?? 0;
-            const sfxId = 0;
-            const note = 0;
             const cmd = TicBridge.CMD_PLAY_SFX_OFF;
-            await sendMailboxCommandRaw([cmd, sfxId, note, channel & 0xff], "Stop SFX");
+            await sendMailboxCommandRaw([cmd, 0, 0, channel & 0xff], "Stop SFX");
         }
 
         // note that you may need to sync runtime vs. cart memory!
@@ -462,30 +455,27 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         }
 
         async function playRaw(opts?: {
-            track?: number;
-            frame?: number;
+            songPosition?: number;
             row?: number;
             loop?: boolean;
             sustain?: boolean;
             tempo?: number;
             speed?: number;
         }) {
-            const track = opts?.track ?? 0;
-            const frame = opts?.frame ?? 0;
+            const songPosition = opts?.songPosition ?? 0;
             const row = opts?.row ?? 0;
             const loop = opts?.loop ?? true;
             const sustain = opts?.sustain ?? false;
             const tempo = opts?.tempo ?? 0;
             const speed = opts?.speed ?? 0;
 
-            log("play() request", { track, frame, row, loop, sustain, tempo, speed });
+            log("play() request", { songPosition, row, loop, sustain, tempo, speed });
 
             // Mailbox layout from the Lua:
-            // 0 cmd, 1 track, 2 frame, 3 row, 4 loop, 5 sustain, 6 tempo, 7 speed
+            // 0 cmd, 1 songPosition, 2 row, 3 loop, 4 sustain, 5 tempo, 6 speed
             await sendMailboxCommandRaw([
                 TicBridge.CMD_PLAY,
-                track & 0xff,
-                frame & 0xff,
+                songPosition & 0xff,
                 row & 0xff,
                 loop ? 1 : 0,
                 sustain ? 1 : 0,

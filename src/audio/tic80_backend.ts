@@ -4,21 +4,21 @@ import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
 import type {Tic80BridgeHandle} from "../ui/Tic80Bridged";
-import {AudioBackend, BackendContext, MakeEmptyMusicState, MusicState} from "./backend";
+import {AudioBackend, MakeEmptyMusicState, MusicState} from "./backend";
 import {serializeSongForTic80Bridge, Tic80SerializedSong} from "./tic80_cart_serializer";
 
 // Minimal TIC-80 backend: delegates transport commands to the bridge.
 // Song/instrument upload is not implemented yet; this is a transport stub.
 export class Tic80Backend implements AudioBackend {
-   private readonly emit: BackendContext["emit"];
+   //private readonly emit: BackendContext["emit"];
    private readonly bridge: () => Tic80BridgeHandle | null;
    private song: Song|null = null;
    private serializedSong: Tic80SerializedSong|null = null;
    private lastKnownMusicState: MusicState = MakeEmptyMusicState();
    //private volume = 0.3;
 
-   constructor(ctx: BackendContext, bridgeGetter: () => Tic80BridgeHandle | null) {
-      this.emit = ctx.emit;
+   constructor(bridgeGetter: () => Tic80BridgeHandle | null) {
+      //this.emit = ctx.emit;
       this.bridge = bridgeGetter;
    }
 
@@ -145,28 +145,22 @@ export class Tic80Backend implements AudioBackend {
       const b = this.bridge();
       if (!b || !b.isReady())
          return;
-      b.invokeExclusive(async (tx) => {
-         //await this.tryUploadSong(tx);
-         // todo: proper pattern playback support
-         await tx.play({track: 0, frame: 0, row: 0, loop: true});
-      });
-      // todo: emit correct position
-      this.emit.row(0, _pattern);
+      b.invokeExclusive(
+         async (tx) => {
+            //await this.tryUploadSong(tx);
+            // todo: proper pattern playback support
+            //await tx.play({songPosition: 0, row: 0, loop: true});
+         });
+      //this.emit.row(0, _pattern);
    }
 
-   async playSong(startPosition: number) {
+   async playSong(startPosition: number, startRow?: number) {
       const b = this.bridge();
       if (!b || !b.isReady())
          return;
-      // Currently just triggers play track 0; proper song sequencing will come after uploads
-      // todo: implement
       await b.invokeExclusive(async (tx) => {
-         //await this.tryUploadSong(tx);
-         await tx.play({track: startPosition, frame: 0, row: 0, loop: true});
+         await tx.play({songPosition: startPosition, row: startRow ?? 0});
       });
-      this.emit.position(startPosition);
-      //await this.tryUploadSong();
-      //await b.play({ track: startPosition, frame: 0, row: 0, loop: true });
       //this.emit.position(startPosition);
    }
 
@@ -192,7 +186,7 @@ export class Tic80Backend implements AudioBackend {
          }
       });
 
-      this.emit.stop();
+      //this.emit.stop();
    }
 
    async stop() {
@@ -201,7 +195,7 @@ export class Tic80Backend implements AudioBackend {
          await b.invokeExclusive(async (tx) => {
             await tx.stop();
          });
-      this.emit.stop();
+      //this.emit.stop();
    }
 
    getMusicState(): MusicState {

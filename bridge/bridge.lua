@@ -27,14 +27,13 @@ local CMD_PLAY_SFX_OFF = 7
 -- The cart only reads when BUSY=0 and SEQ has changed.
 local INBOX = {
 	CMD = ADDR.INBOX + 0,
-	TRACK = ADDR.INBOX + 1,
-	FRAME = ADDR.INBOX + 2,
-	ROW = ADDR.INBOX + 3,
-	LOOP = ADDR.INBOX + 4,
-	SUSTAIN = ADDR.INBOX + 5,
-	TEMPO = ADDR.INBOX + 6,
-	SPEED = ADDR.INBOX + 7,
-	HOST_ACK = ADDR.INBOX + 8,
+	SONG_POSITION = ADDR.INBOX + 1,
+	ROW = ADDR.INBOX + 2,
+	LOOP = ADDR.INBOX + 3,
+	SUSTAIN = ADDR.INBOX + 4,
+	TEMPO = ADDR.INBOX + 5,
+	SPEED = ADDR.INBOX + 6,
+	HOST_ACK = ADDR.INBOX + 7,
 	MUTEX = ADDR.INBOX + 12, -- non-zero while host is writing
 	SEQ = ADDR.INBOX + 13, -- increments per host write
 	TOKEN = ADDR.INBOX + 14, -- host increments per command; echoed back on completion
@@ -101,16 +100,15 @@ local LOG_CMD_LOG = 1 -- log message to host
 
 -- =========================
 -- =========================
--- INBOX.CMD     : cmd  (0=NOP, 1=PLAY, 2=STOP, 3=PING/FX)
--- INBOX.TRACK   : track (0..7)
--- INBOX.FRAME   : frame (0..15)
--- INBOX.ROW     : row   (0..63)
--- INBOX.LOOP    : loop (0/1)
--- INBOX.SUSTAIN : sustain (0/1)
--- INBOX.TEMPO   : tempo (0=default)
--- INBOX.SPEED   : speed (0=default)
--- INBOX.HOST_ACK: hostAck (optional; host may write its logReadPtr here if you want)
--- INBOX + 9..   : reserved
+-- INBOX.CMD          : cmd  (0=NOP, 1=PLAY, 2=STOP, 3=PING/FX)
+-- INBOX.SONG_POSITION: song order position (0..255)
+-- INBOX.ROW          : row   (0..63)
+-- INBOX.LOOP         : loop (0/1)
+-- INBOX.SUSTAIN      : sustain (0/1)
+-- INBOX.TEMPO        : tempo (0=default)
+-- INBOX.SPEED        : speed (0=default)
+-- INBOX.HOST_ACK     : hostAck (optional; host may write its logReadPtr here if you want)
+-- INBOX + 8..        : reserved
 
 -- =========================
 -- Marker
@@ -234,7 +232,9 @@ end
 -- =========================
 -- Commands
 local function handle_play()
-	tf_music_init()
+	local songPosition = peek(INBOX.SONG_POSITION)
+	local startRow = peek(INBOX.ROW)
+	tf_music_init(songPosition, startRow)
 	publish_cmd(CMD_PLAY, 0)
 end
 
@@ -252,10 +252,10 @@ local function handle_ping_fx()
 end
 
 local function handle_play_sfx_on()
-	local sfx_id = peek(INBOX.TRACK)
-	local note = peek(INBOX.FRAME)
-	local channel = peek(INBOX.ROW) & 0x03
-	local speed = peek(INBOX.LOOP) - 4 -- subtract 4 to get signed speed in the requisite range -4..+3
+	local sfx_id = peek(INBOX.SONG_POSITION)
+	local note = peek(INBOX.ROW)
+	local channel = peek(INBOX.LOOP) & 0x03
+	local speed = peek(INBOX.SUSTAIN) - 4 -- subtract 4 to get signed speed in the requisite range -4..+3
 	-- Clamp to valid ranges for TIC sfx API
 	if note > 95 then
 		note = 95
@@ -278,7 +278,7 @@ local function handle_play_sfx_on()
 end
 
 local function handle_play_sfx_off()
-	local channel = peek(INBOX.ROW) & 0x03
+	local channel = peek(INBOX.LOOP) & 0x03
 	-- id, note, duration (-1 = sustained), channel 0..3, volume 15, speed 0
 	sfx(-1, 0, 0, channel)
 	publish_cmd(CMD_PLAY_SFX_OFF, 0)
@@ -613,14 +613,17 @@ end
 tf_music_reset_state()
 
 -- init state and begin playback from start
-tf_music_init = function()
+tf_music_init = function(songPosition, startRow)
+	songPosition = songPosition or 0
+	startRow = startRow or 0
+
 	-- seed state
-	currentSongOrder = 0
+	currentSongOrder = songPosition
 	backBufferIsA = true -- act like we came from buffer B so tick() will set it correctly on first pass.
 	lastPlayingFrame = -1 -- this means tick() will immediately seed the back buffer.
 	stopPlayingOnNextFrame = false
 
-	log("tf_music_init: Starting playback from beginning.")
+	log("tf_music_init: Starting playback from position " .. tostring(songPosition) .. " row " .. tostring(startRow))
 
 	local patternIndex = swapInPlayorder(currentSongOrder, bufferALocation)
 
@@ -629,7 +632,7 @@ tf_music_init = function()
 	music(
 		0, -- track
 		0, -- frame
-		0, -- row
+		startRow, -- row
 		false, -- loop
 		true -- sustain
 	)

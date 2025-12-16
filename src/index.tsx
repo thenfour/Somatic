@@ -375,7 +375,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 
     const onPlayFromPosition = () => {
         setTransportState('play-from-position');
-        audio.playSong(editorState.selectedPosition);
+        audio.playSong(editorState.selectedPosition, editorState.patternEditRow);
     };
 
     const onPanic = () => {

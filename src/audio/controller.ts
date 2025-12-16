@@ -24,14 +24,14 @@ export class AudioController {
       this.volume = 0.3;
       this.song = null;
       this.isPlaying = false;
-      const ctx = {
-         emit: {
-            row: (rowNumber: number, pattern: Pattern) => this.emitRow(rowNumber, pattern),
-            position: (positionNumber: number) => this.emitPosition(positionNumber),
-            stop: () => this.emitStop(),
-         },
-      } as const;
-      this.backend = new Tic80Backend(ctx, opts.bridgeGetter);
+      // const ctx = {
+      //    emit: {
+      //       row: (rowNumber: number, pattern: Pattern) => this.emitRow(rowNumber, pattern),
+      //       position: (positionNumber: number) => this.emitPosition(positionNumber),
+      //       stop: () => this.emitStop(),
+      //    },
+      // } as const;
+      this.backend = new Tic80Backend(opts.bridgeGetter);
    }
 
    setSong(song: Song|null) {
@@ -73,8 +73,8 @@ export class AudioController {
       this.isPlaying = true;
    }
 
-   playSong(startPosition: number) {
-      this.backend.playSong(startPosition);
+   playSong(startPosition: number, startRow?: number) {
+      this.backend.playSong(startPosition, startRow);
       this.isPlaying = true;
    }
 

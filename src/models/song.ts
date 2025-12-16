@@ -38,10 +38,16 @@ const makeInstrumentList = (data: Tic80InstrumentDto[]): Tic80Instrument[] => {
    const list = Array.from({length: Tic80Caps.sfx.count}, (_, i) => {
       const instData = data[i]!;
       const ret = new Tic80Instrument(instData);
-      if (IsNullOrWhitespace(ret.name))
-         ret.name = `SFX ${i}`;
+      if (IsNullOrWhitespace(ret.name)) {
+         if (i === 0) {
+            ret.name = "dontuse";
+         } else {
+            ret.name = `SFX ${i}`;
+         }
+      }
       return ret;
    });
+
    return list;
 };
 
