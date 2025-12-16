@@ -75,6 +75,7 @@ export type Tic80BridgeTransaction = {
 export type Tic80BridgeProps = {
     className?: string;
     style?: React.CSSProperties;
+    onReady?: (handle: Tic80BridgeHandle) => void;
 };
 
 function findAllSubarrayIndices(haystack: Uint8Array, needle: Uint8Array): number[] {
@@ -103,6 +104,7 @@ function getHeapU8(Module: any): Uint8Array {
 export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
     function Tic80Bridge(
         {
+            onReady,
         },
         ref
     ) {
@@ -243,7 +245,25 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             } catch (e) {
                 log("init outbox read ptr failed", e);
             }
-        }, [ready]);
+
+            // Notify parent that bridge is ready
+            if (onReady) {
+                const handle: Tic80BridgeHandle = {
+                    isReady: () => ready,
+                    getModule: () => moduleRef.current,
+                    getRamBase: () => ramBaseRef.current,
+                    peekU8,
+                    peekS8,
+                    pokeU8,
+                    pokeS8,
+                    pokeBlock,
+                    peekBlock,
+                    invokeExclusive,
+                    ping,
+                };
+                onReady(handle);
+            }
+        }, [ready, onReady]);
 
         function readOutboxCommands() {
             if (!ready) return;

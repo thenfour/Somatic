@@ -383,6 +383,11 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         audio.panic();
     };
 
+    const handleBridgeReady = React.useCallback((handle: Tic80BridgeHandle) => {
+        console.log('[App] Bridge ready, uploading current song');
+        audio.setSong(song);
+    }, [audio, song]);
+
     return (
         <div className="app">
             <div className="stickyHeader appRow">
@@ -515,7 +520,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 
                 <div className={tic80PanelOpen ? "tic80-frame" : "tic80-frame hidden"}>
                     {/* <Tic80Iframe /> */}
-                    <Tic80Bridge ref={bridgeRef} />
+                    <Tic80Bridge ref={bridgeRef} onReady={handleBridgeReady} />
                 </div>
             </div>
             <div className="footer appRow">
