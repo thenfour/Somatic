@@ -1,6 +1,8 @@
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
-
+import { Tic80Caps } from "../models/tic80Capabilities";
+import { Pattern } from "../models/pattern";
+import { clamp } from "../utils/utils";
 
 export const ArrangementEditor: React.FC<{
     song: Song;
@@ -8,27 +10,142 @@ export const ArrangementEditor: React.FC<{
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
     onSongChange: (mutator: (song: Song) => void) => void;
 }> = ({ song, editorState, onEditorStateChange, onSongChange }) => {
-    return (<div className="arrangement-editor">
-        {/*
-        
-        Arrangement editor implementation goes here.
-        it's a narrow vertical list that defines the song order.
+    const maxPatterns = Tic80Caps.pattern.count;
+    const maxPositions = Tic80Caps.arrangement.count;
 
-        each row has:
-        [delete] [position id] [dec pattern index] [pattern index] [inc pattern index]
+    const formattedIndex = (index: number) => index.toString().padStart(2, "0");
 
-        at the bottom, a button to add a new position (which appends a new position with the last used pattern index)
+    const ensurePatternExists = (s: Song, patternIndex: number) => {
+        const target = clamp(patternIndex, 0, maxPatterns - 1);
+        while (s.patterns.length <= target && s.patterns.length < maxPatterns) {
+            s.patterns.push(new Pattern());
+        }
+        return target;
+    };
 
-        rough example:
-        🗑️ 00 ‹ 02 ›
-        🗑️ 01 ‹ 02 ›
-        🗑️ 02 ‹ 03 ›
-        +
+    const changePatternAtPosition = (positionIndex: number, delta: number) => {
+        onSongChange((s) => {
+            if (positionIndex < 0 || positionIndex >= s.songOrder.length) return;
+            const current = s.songOrder[positionIndex] ?? 0;
+            let next = current + delta;
+            next = clamp(next, 0, maxPatterns - 1);
+            next = ensurePatternExists(s, next);
+            s.songOrder[positionIndex] = next;
+        });
+    };
 
+    const handleDeletePosition = (positionIndex: number) => {
+        onSongChange((s) => {
+            if (s.songOrder.length <= 1) return; // keep at least one position
+            if (positionIndex < 0 || positionIndex >= s.songOrder.length) return;
+            s.songOrder.splice(positionIndex, 1);
+        });
+        onEditorStateChange((state) => {
+            if (state.selectedPosition >= positionIndex && state.selectedPosition > 0) {
+                state.setSelectedPosition(state.selectedPosition - 1);
+            }
+        });
+    };
 
-        * dec/inc buttons change the pattern index for that position in the song order. ask the song to make sure the pattern exists.
-        * delete button removes that position from the song order (closing the gap). it does not delete the pattern itself.
+    const handleAddPosition = () => {
+        onSongChange((s) => {
+            if (s.songOrder.length >= maxPositions) return;
+            const last = s.songOrder[s.songOrder.length - 1] ?? 0;
+            let next = clamp(last, 0, maxPatterns - 1);
+            next = ensurePatternExists(s, next);
+            s.songOrder.push(next);
+        });
+    };
 
-        */}
-    </div>);
+    const handleSelectPosition = (positionIndex: number) => {
+        onEditorStateChange((state) => {
+            state.setSelectedPosition(positionIndex);
+        });
+    };
+
+    const handleJumpToPattern = (patternIndex: number) => {
+        onEditorStateChange((state) => {
+            state.setPattern(patternIndex);
+        });
+    };
+
+    return (
+        <div className="arrangement-editor">
+            {song.songOrder.map((patternIndex, positionIndex) => {
+                const clampedPattern = clamp(patternIndex ?? 0, 0, maxPatterns - 1);
+                const isSelected = editorState.selectedPosition === positionIndex;
+                const canDelete = song.songOrder.length > 1;
+                return (
+                    <div
+                        key={positionIndex}
+                        className={
+                            isSelected
+                                ? "arrangement-editor__row arrangement-editor__row--selected"
+                                : "arrangement-editor__row"
+                        }
+                        onClick={() => handleSelectPosition(positionIndex)}
+                    >
+                        <button
+                            type="button"
+                            className="arrangement-editor__delete"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePosition(positionIndex);
+                            }}
+                            disabled={!canDelete}
+                            aria-label="Delete position"
+                        >
+                            🗑️
+                        </button>
+                        <span className="arrangement-editor__position-id">{formattedIndex(positionIndex)}</span>
+                        <button
+                            type="button"
+                            className="arrangement-editor__step"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                changePatternAtPosition(positionIndex, -1);
+                            }}
+                            disabled={clampedPattern <= 0}
+                            aria-label="Previous pattern"
+                        >
+                            {"<"}
+                        </button>
+                        <button
+                            type="button"
+                            className="arrangement-editor__pattern"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleJumpToPattern(clampedPattern);
+                            }}
+                        >
+                            {formattedIndex(clampedPattern)}
+                        </button>
+                        <button
+                            type="button"
+                            className="arrangement-editor__step"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                changePatternAtPosition(positionIndex, 1);
+                            }}
+                            disabled={clampedPattern >= maxPatterns - 1}
+                            aria-label="Next pattern"
+                        >
+                            {">"}
+                        </button>
+                    </div>
+                );
+            })}
+            <div className="arrangement-editor__footer">
+                <button
+                    type="button"
+                    className="arrangement-editor__add"
+                    onClick={handleAddPosition}
+                    disabled={song.songOrder.length >= maxPositions}
+                    aria-label="Add position"
+                >
+                    +
+                </button>
+            </div>
+        </div>
+    );
 };

@@ -907,3 +907,37 @@ button.key {
     align-items: center;
     cursor: pointer;
 }
+
+.arrangement-editor {
+    display: flex;
+    flex-direction: column;
+}
+
+.arrangement-editor button {
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.arrangement-editor__row {
+    display: flex;
+}
+
+.arrangement-editor__row--selected {
+    background-color: var(--accent);
+    color: var(--tic-0);
+}
+
+.arrangement-editor__step {
+    opacity: 0;
+}
+
+.arrangement-editor__row:hover .arrangement-editor__step {
+    opacity: 1;
+}
+
+.arrangement-editor button.arrangement-editor__pattern {
+    color: var(--text);
+    background-color: var(--row-a);
+}

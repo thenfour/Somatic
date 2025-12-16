@@ -7,7 +7,7 @@ export class EditorState {
    octave: number;
    patternIndex: number;
    selectedPosition: number;
-   currentInstrument: number; // 0-based internal instrument index.
+   currentInstrument: number;
    editingEnabled: boolean;
    patternEditRow: number;
    patternEditChannel: Tic80ChannelIndex;
