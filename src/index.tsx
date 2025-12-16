@@ -64,7 +64,17 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const patternGridRef = React.useRef<PatternGridHandle | null>(null);
     const audio = useMemo(() => new AudioController({ bridgeGetter: () => bridgeRef.current }), []);
     const { pushToast } = useToasts();
-    const [song, setSong] = useState(() => new Song());
+    const [song, setSong] = useState(() => {
+        try {
+            const saved = localStorage.getItem('chromatic-song');
+            if (saved) {
+                return Song.fromJSON(saved);
+            }
+        } catch (err) {
+            console.error('Failed to load song from localStorage', err);
+        }
+        return new Song();
+    });
     const [editorState, setEditorState] = useState(() => new EditorState());
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);
     const [waveformEditorPanelOpen, setWaveformEditorPanelOpen] = useState(false);
@@ -250,6 +260,16 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             return next;
         });
     };
+
+    // Save song to localStorage whenever it changes
+    useEffect(() => {
+        try {
+            localStorage.setItem('chromatic-song', song.toJSON());
+        } catch (err) {
+            console.error('Failed to save song to localStorage', err);
+        }
+    }, [song]);
+
     const updateEditorState = (mutator: EditorStateMutator) => {
         setEditorState((prev) => {
             const next = prev.clone();

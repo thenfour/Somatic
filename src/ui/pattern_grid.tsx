@@ -109,7 +109,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 pat.setCell(channelIndex, rowIndex, {
                     ...oldCell,
                     midiNote: midiNoteValue,
-                    instrumentIndex: oldCell.instrumentIndex == null ? editorState.currentInstrument : oldCell.instrumentIndex,
+                    instrumentIndex: editorState.currentInstrument,
                 });
             });
 
