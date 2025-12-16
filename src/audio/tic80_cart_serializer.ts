@@ -1,9 +1,9 @@
-import {midiToTicPitch} from "../defs";
-import type {Song} from "../models/song";
-import {Pattern} from "../models/pattern";
+import {NOTE_INFOS} from "../defs";
 import type {Tic80Instrument} from "../models/instruments";
+import {Pattern} from "../models/pattern";
+import type {Song} from "../models/song";
+import {Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {assert, clamp} from "../utils/utils";
-import {Tic80Caps} from "../models/tic80Capabilities";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -40,30 +40,41 @@ const SFX_BYTES_PER_SAMPLE = 66;
 //    return header;
 // }
 
-// function encodeNoteTriplet(midiNoteValue: number, instrument: number): [number, number, number] {
-//    // Rest/no-note
-//    const ticPitch = midiToTicPitch(midiNoteValue);
-//    if (!ticPitch)
-//       return [0, 0, 0];
+function encodePatternNote(midiNoteValue: number|undefined): {noteNibble: number; octave: number}|null {
+   if (midiNoteValue === undefined) {
+      return {noteNibble: 0, octave: 0};
+   }
+   const noteInfo = NOTE_INFOS[midiNoteValue]!;
+   return {
+      noteNibble: noteInfo.ticNoteNibble, octave: noteInfo.octave,
+   }
+};
 
-//    const sfx = Math.max(0, Math.min(255, instrument | 0));
-//    const command = 0; // no effect command for now
-//    const arg = 0;
+function encodePatternCellTriplet(
+   midiNoteValue: number|undefined, instrument: number, command: number, arg: number): [number, number, number] {
+   // Rest/no-note
+   const ticPitch = encodePatternNote(midiNoteValue);
+   if (!ticPitch)
+      return [0, 0, 0];
 
-//    const byte0 = ticPitch.noteNibble & 0x0f;
-//    const byte1 = ((sfx >> 5) & 0x01) << 7 | ((command & 0x07) << 4) | (arg & 0x0f);
-//    const byte2 = ((ticPitch.octave & 0x07) << 5) | (sfx & 0x1f);
-//    return [byte0, byte1, byte2];
-// }
+   const sfx = Math.max(0, Math.min(255, instrument | 0));
 
-function encodePattern(pattern: Pattern): Uint8Array {
+   const byte0 = ticPitch.noteNibble & 0x0f;
+   const byte1 = ((sfx >> 5) & 0x01) << 7 | ((command & 0x07) << 4) | (arg & 0x0f);
+   const byte2 = ((ticPitch.octave & 0x07) << 5) | (sfx & 0x1f);
+   return [byte0, byte1, byte2];
+}
+
+// outputs 4 patterns (one for each channel)
+export function encodePatternChannel(pattern: Pattern, channelIndex: Tic80ChannelIndex): Uint8Array {
    // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#music-patterns
    // chunk type 15
    // RAM at 0x11164...0x13E63
    // 192 bytes per pattern (16 rows x 4 channels x 3 bytes)
    // note: sfx number of 0 is valid in tic-80.
 
-   //    Each pattern is 192 bytes long (trailing zeros are removed). Each note in a patters is represented by a triplet of bytes, like this: ----NNNN SCCCAAAA OOOSSSSS
+   //    Each pattern is 192 bytes long (trailing zeros are removed). Each note in a patters is represented by a triplet of bytes, like this:
+   // ----NNNN SCCCAAAA OOOSSSSS
 
    // Explanation :
 
@@ -73,48 +84,61 @@ function encodePattern(pattern: Pattern): Uint8Array {
    //     A is the x and y arguments for each command
    //     O is the octave of each note
 
-
    const buf = new Uint8Array(Tic80Caps.pattern.maxRows * 3);
 
-   // for (let row = 0; row < PATTERN_ROWS; row++) {
-   //     for (let ch = 0; ch < CHANNEL_COUNT; ch++) {
-   //         const rowData = pattern.channels[ch]?.rows[row];
-   //         const midiNoteValue = rowData?.note ?? 0;
-   //         const inst = rowData?.instrument ?? 0;
-   //         const [b0, b1, b2] = encodeNoteTriplet(midiNoteValue, inst);
-   //         const idx = (row * CHANNEL_COUNT + ch) * 3;
-   //         buf[idx + 0] = b0;
-   //         buf[idx + 1] = b1;
-   //         buf[idx + 2] = b2;
-   //     }
-   // }
+   // TODO: zero unnecessary cell data (0 note but non-zero instrument)
+
+   for (let row = 0; row < Tic80Caps.pattern.maxRows; row++) {
+      //for (let ch = 0; ch < Tic80Caps.song.audioChannels; ch++) {
+      //const channelIndex = ch as Tic80ChannelIndex;
+      const cellData = pattern.getCell(channelIndex, row); // pattern.channels[ch]?.rows[row];
+      const inst = cellData.instrumentIndex ?? 0;
+      const commandArgX = cellData.effectX ?? 0;
+      const commandArgY = cellData.effectY ?? 0;
+      const commandArgs = (commandArgX << 4) | (commandArgY & 0x0f);
+      const [b0, b1, b2] = encodePatternCellTriplet(cellData.midiNote, inst, cellData.effect ?? 0, commandArgs);
+      const base = 3 * row;
+      buf[base + 0] = b0;
+      buf[base + 1] = b1;
+      buf[base + 2] = b2;
+   }
+   //}
 
    return buf;
 }
 
-function encodeNullPatterns(song: Song): Uint8Array {
-   const patterns = new Uint8Array(Tic80Caps.pattern.count * Tic80Caps.pattern.maxRows * 3);
-   for (let p = 0; p < Tic80Caps.pattern.count; p++) {
-      const pattern = new Pattern();
-      const encoded = encodePattern(pattern);
-      patterns.set(encoded, p * encoded.length);
-   }
-   return patterns;
-   //return writeChunk(CHUNK.MUSIC_PATTERNS, patterns);
-}
+export function encodePattern(pattern: Pattern): [Uint8Array, Uint8Array, Uint8Array, Uint8Array] {
+   const encoded0 = encodePatternChannel(pattern, 0);
+   const encoded1 = encodePatternChannel(pattern, 1);
+   const encoded2 = encodePatternChannel(pattern, 2);
+   const encoded3 = encodePatternChannel(pattern, 3);
+   return [encoded0, encoded1, encoded2, encoded3];
+};
 
 // each pattern is actually 4 patterns (channel A, B, C, D) in series.
 // so for double-buffering, the front buffer for the 4 channels is [0,1,2,3], and the back buffer is [4,5,6,7], etc.
 function encodeRealPatterns(song: Song): Uint8Array[] {
    const ret: Uint8Array[] = [];
    for (let p = 0; p < song.patterns.length; p++) {
-      const patternBuffer = new Uint8Array(Tic80Caps.pattern.maxRows * 3);
       const pattern = song.patterns[p]!;
-      const encoded = encodePattern(pattern);
-      patternBuffer.set(encoded, 0);
-      ret.push(patternBuffer);
+      const [encoded0, encoded1, encoded2, encoded3] = encodePattern(pattern);
+      ret.push(encoded0);
+      ret.push(encoded1);
+      ret.push(encoded2);
+      ret.push(encoded3);
    }
    return ret;
+   //return writeChunk(CHUNK.MUSIC_PATTERNS, patterns);
+}
+
+function encodeNullPatterns(): Uint8Array {
+   const patterns = new Uint8Array(Tic80Caps.pattern.count * Tic80Caps.pattern.maxRows * 3);
+   //    for (let p = 0; p < Tic80Caps.pattern.count; p++) {
+   //       const pattern = new Pattern();
+   //       const encoded = encodePattern(pattern);
+   //       patterns.set(encoded, p * encoded.length);
+   //    }
+   return patterns;
    //return writeChunk(CHUNK.MUSIC_PATTERNS, patterns);
 }
 
@@ -166,41 +190,28 @@ function packTrackFrame(channelPatterns: [number, number, number, number]): [num
 
 function encodeTrack(song: Song): Uint8Array {
    /*
-This represents the music track data. This is copied to RAM at 0x13E64...0x13FFB.
+    This represents the music track data. This is copied to RAM at 0x13E64...0x13FFB.
 
-This chunk contains the various music tracks, as composed of 51 bytes where trailing zeros are removed, the structure is as follows
+    This chunk contains the various music tracks, as composed of 51 bytes where trailing zeros are removed, the structure is as follows
 
-1-48 	FFFFFFSSSSSSTTTTTTQQQQQQ 	The bytes here are arranged in triplets where
-F is the number of the pattern on the first channel
-S is the number of the pattern on the second channel
-T is the number of the pattern on the third channel
-Q is the number of the pattern on the fourth channel
-49 	SSSSSSSS 	S is the speed of the track
-50 	RRRRRRRR 	R is the number of rows in each pattern
-51 	TTTTTTTT 	T is the tempo of the track
+    1-48 	FFFFFFSSSSSSTTTTTTQQQQQQ 	The bytes here are arranged in triplets where
+    F is the number of the pattern on the first channel
+    S is the number of the pattern on the second channel
+    T is the number of the pattern on the third channel
+    Q is the number of the pattern on the fourth channel
+    49 	SSSSSSSS 	S is the speed of the track
+    50 	RRRRRRRR 	R is the number of rows in each pattern
+    51 	TTTTTTTT 	T is the tempo of the track
 
-Although the individual notes are stored as 6 bits in the editor the maximum number that can be used is 60 (may be possible to insert illegal pattern in music tracks?)
-To get the correct speed of the track do: (S + 6) % 255
-To get the correct number of rows of the track do: 64 - R
-To get the correct tempo of the track do: T + 150.
+    Although the individual notes are stored as 6 bits in the editor the maximum number that can be used is 60 (may be possible to insert illegal pattern in music tracks?)
+    To get the correct speed of the track do: (S + 6) % 255
+    To get the correct number of rows of the track do: 64 - R
+    To get the correct tempo of the track do: T + 150.
 
-- tempo is a signed byte. it's stored as the delta from the default tempo of 150 bpm.
-  so to get the actual tempo, you do: T + 150
+    - tempo is a signed byte. it's stored as the delta from the default tempo of 150 bpm.
+    so to get the actual tempo, you do: T + 150
 
    */
-
-   // const steps = Math.min(SONG_TRACK_STEPS, song.length);
-   // for (let i = 0; i < steps; i++) {
-   //     const patIndex = song.positions[i] ?? 0;
-   //     const packed = (patIndex & 0x3f) // F
-   //         | ((patIndex & 0x3f) << 6) // S
-   //         | ((patIndex & 0x3f) << 12) // T
-   //         | ((patIndex & 0x3f) << 18); // Q
-   //     const base = i * 3;
-   //     buf[base + 0] = packed & 0xff;
-   //     buf[base + 1] = (packed >> 8) & 0xff;
-   //     buf[base + 2] = (packed >> 16) & 0xff;
-   // }
 
    // fill tracks with our double-buffering strategy.
    // we will fill all 16 steps, intended to alternate between front and back "buffer"s of pattern data.
@@ -261,7 +272,8 @@ function encodeSfx(song: Song): Uint8Array {
    const packLoop = (start: number, length: number): number => {
       const loopStart = clamp(start, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       const loopSize = clamp(
-         length, 0,
+         length,
+         0,
          Tic80Caps.sfx.envelopeFrameCount - 1); // don't care about logical correctness; just that we don't overflow
       return (loopSize << 4) | loopStart;
    };
@@ -286,7 +298,8 @@ function encodeSfx(song: Song): Uint8Array {
          const wave = clamp(inst.waveFrames[tick], 0, 15);
          const chord = clamp(inst.arpeggioFrames[tick], 0, 15);
          const pitch = clamp(
-            inst.pitchFrames[tick] + Tic80Caps.sfx.pitchMin, Tic80Caps.sfx.pitchMin,
+            inst.pitchFrames[tick] + Tic80Caps.sfx.pitchMin,
+            Tic80Caps.sfx.pitchMin,
             Tic80Caps.sfx.pitchMax); // incoming is 0-15; map to -8..+7
 
          out[tick * 2 + 0] = ((wave & 0x0f) << 4) | (vol & 0x0f);
@@ -389,7 +402,7 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
 
    const waveformData = encodeWaveforms(song);
    const sfxData = encodeSfx(song);
-   const nullPatternData = encodeNullPatterns(song);
+   const nullPatternData = encodeNullPatterns();
    const realPatternData = encodeRealPatterns(song); // separate pattern data for playback use
    const trackData = encodeTrack(song);
 
@@ -415,4 +428,146 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
       memory_0FFE4: out,
       patternData: realPatternData,
    };
+}
+
+// Run-length encode the input data; return shortened output.
+export function RLEncode(input: Uint8Array): Uint8Array {
+   const output: number[] = [];
+   let i = 0;
+
+   while (i < input.length) {
+      const value = input[i];
+      let runLength = 1;
+
+      // Count consecutive identical bytes (max run length 255)
+      while (i + runLength < input.length && input[i + runLength] === value && runLength < 255) {
+         runLength++;
+      }
+
+      // Emit run: [length, value]
+      output.push(runLength);
+      output.push(value);
+
+      i += runLength;
+   }
+
+   return new Uint8Array(output);
+}
+
+export function RLEDecode(input: Uint8Array): Uint8Array {
+   const output: number[] = [];
+   let i = 0;
+
+   while (i < input.length - 1) {
+      const runLength = input[i];
+      const value = input[i + 1];
+
+      // Emit 'runLength' copies of 'value'
+      for (let j = 0; j < runLength; j++) {
+         output.push(value);
+      }
+
+      i += 2;
+   }
+
+   return new Uint8Array(output);
+}
+
+// Run-length encode 3-byte cells: [b0,b1,b2] repeated.
+// Input length MUST be a multiple of 3.
+export function RLEncodeTriplets(input: Uint8Array): Uint8Array {
+   if (input.length % 3 !== 0) {
+      throw new Error(`RLEncodeTriplets: input length ${input.length} not multiple of 3`);
+   }
+
+   const output: number[] = [];
+   const n = input.length;
+   let i = 0;
+
+   while (i < n) {
+      const b0 = input[i];
+      const b1 = input[i + 1];
+      const b2 = input[i + 2];
+
+      let runLength = 1;
+
+      // Count how many times this triplet repeats (max 255)
+      while (i + runLength * 3 < n && runLength < 255 && input[i + runLength * 3] === b0 &&
+             input[i + runLength * 3 + 1] === b1 && input[i + runLength * 3 + 2] === b2) {
+         runLength++;
+      }
+
+      // Emit run: [runLength, b0, b1, b2]
+      output.push(runLength & 0xff, b0 & 0xff, b1 & 0xff, b2 & 0xff);
+
+      i += runLength * 3;
+   }
+
+   return new Uint8Array(output);
+}
+
+
+// Decode 3-byte-cell RLE into a fixed number of cells.
+export function RLEDecodeTriplets(
+   input: Uint8Array,
+   expectedLength: number,
+   ): Uint8Array {
+   const output = new Uint8Array(expectedLength);
+   const n = input.length;
+
+   if (n % 4 !== 0) {
+      throw new Error(`RLEDecodeTriplets: input length ${n} not multiple of 4`);
+   }
+
+   let i = 0;   // index in encoded stream
+   let out = 0; // index in output bytes
+
+   while (i < n) {
+      const runLength = input[i]; // 0..255
+      const b0 = input[i + 1];
+      const b1 = input[i + 2];
+      const b2 = input[i + 3];
+      i += 4;
+
+      if (runLength === 0) {
+         throw new Error("RLEDecodeTriplets: zero-length run");
+      }
+
+      for (let r = 0; r < runLength; r++) {
+         if (out + 3 > output.length) {
+            throw new Error(
+               `RLEDecodeTriplets: decoded too much data (out=${out}, len=${output.length})`,
+            );
+         }
+         output[out++] = b0;
+         output[out++] = b1;
+         output[out++] = b2;
+      }
+   }
+
+   if (out !== output.length) {
+      throw new Error(
+         `RLEDecodeTriplets: decoded length ${out} != expected ${output.length}`,
+      );
+   }
+
+   return output;
+}
+
+export function toBase64(data: Uint8Array): string {
+   let binary = "";
+   for (let i = 0; i < data.length; i++) {
+      binary += String.fromCharCode(data[i]);
+   }
+   return btoa(binary);
+}
+
+export function fromBase64(base64: string): Uint8Array {
+   const binary = atob(base64);
+   const len = binary.length;
+   const bytes = new Uint8Array(len);
+   for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+   }
+   return bytes;
 }
