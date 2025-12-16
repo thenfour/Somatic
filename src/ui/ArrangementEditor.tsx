@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import type { MusicState } from "../audio/backend";
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
 import { Tic80Caps } from "../models/tic80Capabilities";
@@ -9,9 +10,10 @@ import { useConfirmDialog } from "./confirm_dialog";
 export const ArrangementEditor: React.FC<{
     song: Song;
     editorState: EditorState;
+    musicState: MusicState;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
     onSongChange: (mutator: (song: Song) => void) => void;
-}> = ({ song, editorState, onEditorStateChange, onSongChange }) => {
+}> = ({ song, editorState, musicState, onEditorStateChange, onSongChange }) => {
     const { confirm } = useConfirmDialog();
     const maxPatterns = Tic80Caps.pattern.count;
     const maxPositions = Tic80Caps.arrangement.count;
@@ -117,6 +119,8 @@ export const ArrangementEditor: React.FC<{
         setEditingPatternNameIndex(null);
     };
 
+    const activeSongPosition = musicState.chromaticSongPosition ?? -1;
+
     return (
         <div className="arrangement-editor">
             <div className="arrangement-editor__header">
@@ -133,15 +137,17 @@ export const ArrangementEditor: React.FC<{
             {song.songOrder.map((patternIndex, positionIndex) => {
                 const clampedPattern = clamp(patternIndex ?? 0, 0, maxPatterns - 1);
                 const isSelected = editorState.selectedPosition === positionIndex;
+                const isPlaying = activeSongPosition === positionIndex;
                 const canDelete = song.songOrder.length > 1;
+                const rowClass = [
+                    "arrangement-editor__row",
+                    isSelected && "arrangement-editor__row--selected",
+                    isPlaying && "arrangement-editor__row--playing",
+                ].filter(Boolean).join(" ");
                 return (
                     <div
                         key={positionIndex}
-                        className={
-                            isSelected
-                                ? "arrangement-editor__row arrangement-editor__row--selected"
-                                : "arrangement-editor__row"
-                        }
+                        className={rowClass}
                         onClick={() => handleSelectPosition(positionIndex, clampedPattern)}
                     >
                         <button
@@ -159,6 +165,16 @@ export const ArrangementEditor: React.FC<{
                         <span className="arrangement-editor__position-id">{formattedIndex(positionIndex)}</span>
                         <button
                             type="button"
+                            className="arrangement-editor__pattern"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectPosition(positionIndex, clampedPattern);
+                            }}
+                        >
+                            {formattedIndex(clampedPattern)}
+                        </button>
+                        <button
+                            type="button"
                             className="arrangement-editor__step"
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -168,16 +184,6 @@ export const ArrangementEditor: React.FC<{
                             aria-label="Previous pattern"
                         >
                             {"<"}
-                        </button>
-                        <button
-                            type="button"
-                            className="arrangement-editor__pattern"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleSelectPosition(positionIndex, clampedPattern);
-                            }}
-                        >
-                            {formattedIndex(clampedPattern)}
                         </button>
                         <button
                             type="button"

@@ -1,5 +1,6 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import React, { forwardRef, useImperativeHandle, useMemo } from 'react';
 import { AudioController } from '../audio/controller';
+import type { MusicState } from '../audio/backend';
 import { midiToName } from '../defs';
 import { EditorState } from '../models/editor_state';
 import { Pattern } from '../models/pattern';
@@ -38,6 +39,7 @@ const formatParam = (val: number | undefined | null) => {
 type PatternGridProps = {
     song: Song;
     audio: AudioController;
+    musicState: MusicState;
     editorState: EditorState;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
     onSongChange: (mutator: (song: Song) => void) => void;
@@ -48,12 +50,11 @@ export type PatternGridHandle = {
 };
 
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
-    ({ song, audio, editorState, onEditorStateChange, onSongChange }, ref) => {
+    ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange }, ref) => {
         const currentPosition = Math.max(0, Math.min(song.songOrder.length - 1, editorState.selectedPosition || 0));
         const currentPatternIndex = song.songOrder[currentPosition] ?? 0;
         const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
         const pattern: Pattern = song.patterns[safePatternIndex];
-        const [activeRow, setActiveRow] = useState<number | null>(null);
         //const [focusedCell, setFocusedCell] = useState<{ row: number; channel: number } | null>(null);
         const cellRefs = useMemo(
             () => Array.from({ length: 64 }, () => Array(16).fill(null) as (HTMLTableCellElement | null)[]),
@@ -61,23 +62,15 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         );
         const editingEnabled = editorState.editingEnabled !== false;
 
-        useEffect(() => {
-            if (!audio) return undefined;
-            const onRow = (rowNumber: number, patternPlaying: Pattern) => {
-                if (patternPlaying === pattern) {
-                    setActiveRow(rowNumber);
-                } else {
-                    setActiveRow(null);
-                }
-            };
-            const onStop = () => setActiveRow(null);
-            const offRow = audio.onRow(onRow);
-            const offStop = audio.onStop(onStop);
-            return () => {
-                offRow();
-                offStop();
-            };
-        }, [audio, pattern]);
+        const playbackSongPosition = musicState.chromaticSongPosition ?? -1;
+        const playbackRowIndexRaw = musicState.tic80RowIndex ?? -1;
+        const playbackPatternIndex = playbackSongPosition >= 0 && song.songOrder.length > 0
+            ? song.songOrder[Math.min(playbackSongPosition, song.songOrder.length - 1)] ?? null
+            : null;
+        const isViewingActivePattern = playbackPatternIndex !== null && playbackPatternIndex === safePatternIndex;
+        const activeRow = isViewingActivePattern && playbackRowIndexRaw >= 0
+            ? Math.max(0, Math.min(song.rowsPerPattern - 1, playbackRowIndexRaw))
+            : null;
 
         // const setRowValue = (channelIndex: number, rowIndex: number, field: 'note' | 'instrument', value: number) => {
         //     onSongChange((s) => {

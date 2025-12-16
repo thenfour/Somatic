@@ -6,6 +6,7 @@ import { saveSync } from 'save-file';
 import './chromatic.css';
 
 import { AudioController } from './audio/controller';
+import type { MusicState } from './audio/backend';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { EditorState } from './models/editor_state';
@@ -29,29 +30,13 @@ type EditorStateMutator = (state: EditorState) => void;
 type TransportState = 'stop' | 'play-pattern' | 'play-from-position' | 'play-all';
 type Theme = 'light' | 'dark';
 
-const MusicStateDisplay: React.FC<{ controller: AudioController }> = ({ controller }) => {
-
-    // const state = controller.getMusicState();
-
-    // We can't just display state; it's ever-changing. Use requestAnimationFrame to poll.
-    const [state, setState] = useState(controller.getMusicState());
-
-    useEffect(() => {
-        let animationFrameId: number;
-        const poll = () => {
-            setState(controller.getMusicState());
-            animationFrameId = requestAnimationFrame(poll);
-        };
-        animationFrameId = requestAnimationFrame(poll);
-        return () => cancelAnimationFrame(animationFrameId);
-    }, [controller]);
-
+const MusicStateDisplay: React.FC<{ musicState: MusicState }> = ({ musicState }) => {
     return <div className='musicState-panel'>
         <div className='flags'>
-            <div className='key'>c_pos</div><div className='value'>{state.chromaticSongPosition}</div>
-            <div className='key'>t_trk</div><div className='value'>{state.tic80TrackIndex}</div>
-            <div className='key'>t_frm</div><div className='value'>{state.tic80FrameIndex}</div>
-            <div className='key'>t_row</div><div className='value'>{state.tic80RowIndex}</div>
+            <div className='key'>c_pos</div><div className='value'>{musicState.chromaticSongPosition}</div>
+            <div className='key'>t_trk</div><div className='value'>{musicState.tic80TrackIndex}</div>
+            <div className='key'>t_frm</div><div className='value'>{musicState.tic80FrameIndex}</div>
+            <div className='key'>t_row</div><div className='value'>{musicState.tic80RowIndex}</div>
             {/* <div className='key'>t_lup</div><div className='value'>{state.isLooping ? 'Yes' : 'No'}</div> */}
         </div>
     </div>;
@@ -85,6 +70,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const [transportState, setTransportState] = useState<TransportState>('stop');
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
+    const [musicState, setMusicState] = useState(() => audio.getMusicState());
 
     const connectedMidiInputs = useMemo(() => midiDevices.filter((d) => d.state === 'connected').length, [midiDevices]);
     const midiIndicatorState = midiStatus === 'ready'
@@ -104,6 +90,16 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         : midiIndicatorLabel;
 
     const toggleEditingEnabled = () => updateEditorState((s) => s.setEditingEnabled(!s.editingEnabled));
+
+    useEffect(() => {
+        let animationFrameId: number;
+        const poll = () => {
+            setMusicState(audio.getMusicState());
+            animationFrameId = requestAnimationFrame(poll);
+        };
+        animationFrameId = requestAnimationFrame(poll);
+        return () => cancelAnimationFrame(animationFrameId);
+    }, [audio]);
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
@@ -437,7 +433,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                             <span className="midi-indicator__dot" aria-hidden="true" />
                             <span className="midi-indicator__label">{midiIndicatorLabel}</span>
                         </div>
-                        <MusicStateDisplay controller={audio} />
+                        <MusicStateDisplay musicState={musicState} />
                         {/* <div id="master-volume-container">
                             <label htmlFor="master-volume">master volume</label>
                             <input
@@ -467,6 +463,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 <ArrangementEditor
                     song={song}
                     editorState={editorState}
+                    musicState={musicState}
                     onEditorStateChange={updateEditorState}
                     onSongChange={updateSong}
                 />
@@ -474,6 +471,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     ref={patternGridRef}
                     song={song}
                     audio={audio}
+                    musicState={musicState}
                     editorState={editorState}
                     onEditorStateChange={updateEditorState}
                     onSongChange={updateSong}

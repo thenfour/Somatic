@@ -671,7 +671,6 @@ function tf_music_tick()
 	if orderCount == 0 or currentSongOrder >= orderCount then
 		clearPatternBuffer(destPointer)
 		stopPlayingOnNextFrame = true
-		ch_set_playroutine_regs(0xFF)
 		return
 	end
 

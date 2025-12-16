@@ -1011,6 +1011,15 @@ option {
     color: var(--tic-0);
 }
 
+.arrangement-editor__row--playing {
+    box-shadow: 0 0 0 2px var(--row-active) inset;
+    border-radius: 4px;
+}
+
+.arrangement-editor__row--selected.arrangement-editor__row--playing {
+    box-shadow: 0 0 0 2px var(--tic-0) inset, 0 0 0 4px var(--row-active) inset;
+}
+
 .arrangement-editor__step {
     opacity: 0;
 }
