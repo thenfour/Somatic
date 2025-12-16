@@ -294,7 +294,7 @@ end
 
 local function handle_stop()
 	music()
-	--set_playing(playingTrack, false)
+	tf_music_reset_state()
 	publish_cmd(CMD_STOP, 0)
 	--log("STOP")
 end
@@ -503,7 +503,9 @@ end
 local function swapInPlayorder(songPosition, destPointer)
 	local patternIndex0b = peek(ADDR.TF_ORDER_LIST_ENTRIES + songPosition)
 	local patternData = readPattern(patternIndex0b)
-	-- copy the patternData to destPointer
+	-- copy the patternData to destPointer.
+	-- the patternData is expected to be exactly 192*4 = 768 bytes.
+	-- but we require length if we decide to compress pattern data later.
 	for i = 0, #patternData - 1 do
 		poke(destPointer + i, patternData[i + 1])
 	end
@@ -625,8 +627,15 @@ local function clearPatternBuffer(destPointer)
 	end
 end
 
+tf_music_reset_state = function()
+	currentSongOrder = 0
+	lastPlayingFrame = -1
+	backBufferIsA = false
+	stopPlayingOnNextFrame = false
+end
+
 -- init state and begin playback from start
-local function tf_music_init()
+tf_music_init = function()
 	-- seed state
 	currentSongOrder = 0
 	backBufferIsA = true -- act like we came from buffer B so tick() will set it correctly on first pass.
