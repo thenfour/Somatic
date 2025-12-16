@@ -287,6 +287,7 @@ local function handle_play_sfx_on()
 	local sfx_id = peek(INBOX.TRACK)
 	local note = peek(INBOX.FRAME)
 	local channel = peek(INBOX.ROW) & 0x03
+	local speed = peek(INBOX.LOOP) - 4 -- subtract 4 to get signed speed in the requisite range -4..+3
 	-- Clamp to valid ranges for TIC sfx API
 	if note > 95 then
 		note = 95
@@ -296,8 +297,14 @@ local function handle_play_sfx_on()
 		sfx_id = 63
 	end
 
+	if speed < -4 then
+		speed = -4
+	elseif speed > 3 then
+		speed = 3
+	end
+
 	-- id, note, duration (-1 = sustained), channel 0..3, volume 15, speed 0
-	sfx(sfx_id, note, -1, channel, 15, 0)
+	sfx(sfx_id, note, -1, channel, 15, speed)
 	publish_cmd(CMD_PLAY_SFX_ON, 0)
 	log(string.format("PLAY_SFX_ON id=%d note=%d ch=%d", sfx_id, note, channel))
 end
@@ -305,7 +312,7 @@ end
 local function handle_play_sfx_off()
 	local channel = peek(INBOX.ROW) & 0x03
 	-- id, note, duration (-1 = sustained), channel 0..3, volume 15, speed 0
-	sfx(-1, 0, 0, channel, 0, 0)
+	sfx(-1, 0, 0, channel)
 	publish_cmd(CMD_PLAY_SFX_OFF, 0)
 	log(string.format("PLAY_SFX_OFF ch=%d", channel))
 end

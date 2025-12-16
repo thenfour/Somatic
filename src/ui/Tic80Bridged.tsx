@@ -104,7 +104,7 @@ export type Tic80BridgeHandle = {
 
 export type Tic80BridgeTransaction = {
     uploadSongData: (data: Tic80SerializedSong) => Promise<void>;
-    playSfx: (opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; }) => Promise<void>;
+    playSfx: (opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; speed: number }) => Promise<void>;
     stopSfx: (opts: { channel: Tic80ChannelIndex; }) => Promise<void>;
     play: (opts?: {
         track?: number;
@@ -449,12 +449,14 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             await sendMailboxCommandRaw([TIC.CMD_END_UPLOAD], "End song Upload");
         }
 
-        async function playSfxRaw(opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; }) {
-            const channel = opts.channel ?? 0;
+        async function playSfxRaw(opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; speed: number }) {
+            const channel = (opts.channel ?? 0) & 0xff;
             const sfxId = opts.sfxId & 0xff;
             const note = opts.tic80Note & 0xff;
+            const speed = opts.speed & 0xff;
+            console.log("playSfxRaw", { sfxId, note, channel, speed });
             const cmd = TIC.CMD_PLAY_SFX_ON;
-            await sendMailboxCommandRaw([cmd, sfxId, note, channel & 0xff], "Play SFX");
+            await sendMailboxCommandRaw([cmd, sfxId, note, channel, speed], "Play SFX");
         }
 
         async function stopSfxRaw(opts: { channel: Tic80ChannelIndex; }) {

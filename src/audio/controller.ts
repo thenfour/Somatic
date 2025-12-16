@@ -45,7 +45,10 @@ export class AudioController {
    }
 
    sfxNoteOn(instrumentIndex: number, note: number, channel: Tic80ChannelIndex) {
-      this.backend.sfxNoteOn(instrumentIndex, note, channel);
+      if (!this.song) {
+         return;
+      }
+      this.backend.sfxNoteOn(instrumentIndex, this.song.instruments[instrumentIndex], note, channel);
    }
 
    sfxNoteOff(channel: Tic80ChannelIndex) {

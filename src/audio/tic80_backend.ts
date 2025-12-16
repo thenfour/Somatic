@@ -1,4 +1,5 @@
 import {getNoteInfo} from "../defs";
+import {Tic80Instrument} from "../models/instruments";
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {Tic80ChannelIndex} from "../models/tic80Capabilities";
@@ -43,7 +44,7 @@ export class Tic80Backend implements AudioBackend {
    //       // TODO: route to cart when mixer control exists
    //    }
 
-   async sfxNoteOn(instrumentIndex: number, midiNote: number, channel: Tic80ChannelIndex) {
+   async sfxNoteOn(instrumentIndex: number, instrument: Tic80Instrument, midiNote: number, channel: Tic80ChannelIndex) {
       const b = this.bridge();
       if (!b || !b.isReady())
          return;
@@ -55,8 +56,9 @@ export class Tic80Backend implements AudioBackend {
          //const clampedNote = Math.max(0, Math.min(95, Math.round(note)));
          //const ch = Math.max(0, Math.min(3, Math.round(channel)));
          const note = getNoteInfo(midiNote)!.ticAbsoluteNoteIndex;
+         const speed = instrument.speed;
 
-         await tx.playSfx({sfxId: instrumentIndex, tic80Note: note, channel}).catch((err) => {
+         await tx.playSfx({sfxId: instrumentIndex, tic80Note: note, channel, speed}).catch((err) => {
             console.warn("[Tic80Backend] sfxNoteOn failed", err);
          });
       });
