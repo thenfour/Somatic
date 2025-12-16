@@ -168,9 +168,12 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 //}
 
                 if (ed.editingEnabled !== false) {
+                    const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.selectedPosition || 0));
+                    const currentPatternIndex = s.songOrder[currentPosition] ?? 0;
                     setSong((prev) => {
                         const newSong = prev.clone();
-                        const pat = newSong.patterns[ed.patternIndex];
+                        const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, newSong.patterns.length - 1));
+                        const pat = newSong.patterns[safePatternIndex];
                         //const ch = pat.channels[ed.patternEditChannel];
                         //const rowIndex = clamp(ed.patternEditRow, 0, song.row - 1);
                         //const existingRow = ch.getRow(rowIndex);
@@ -236,7 +239,6 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         const loaded = Song.fromJSON(text);
         setSong(loaded);
         updateEditorState((s) => {
-            s.setPattern(0);
             s.setSelectedPosition(0);
         });
     };
@@ -278,7 +280,6 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             const loaded = Song.fromJSON(text);
             setSong(loaded);
             updateEditorState((s) => {
-                s.setPattern(0);
                 s.setSelectedPosition(0);
             });
             pushToast({ message: 'Song pasted from clipboard.', variant: 'success' });
@@ -295,7 +296,10 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 
     const onPlayPattern = () => {
         setTransportState('play-pattern');
-        audio.playPattern(song.patterns[editorState.patternIndex]);
+        const currentPosition = Math.max(0, Math.min(song.songOrder.length - 1, editorState.selectedPosition || 0));
+        const currentPatternIndex = song.songOrder[currentPosition] ?? 0;
+        const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
+        audio.playPattern(song.patterns[safePatternIndex]);
     };
 
     const onPlayAll = () => {

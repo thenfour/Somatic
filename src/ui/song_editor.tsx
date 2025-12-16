@@ -55,12 +55,6 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
         onSongChange((s) => s.setHighlightRowCount(val));
     };
 
-    const onPatternChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = TryParseInt(e.target.value);
-        if (val === null) return;
-        onEditorStateChange((state) => state.setPattern(val));
-    };
-
     return (
         <div className="section">
             {/* <PositionList
@@ -147,8 +141,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 /> */}
             </label>
             <label>
-                Pattern
-                <input type="number" min={0} max={Tic80Caps.pattern.count - 1} value={editorState.patternIndex} onChange={onPatternChange} />
+                {/* Pattern is now implied by the selected song position */}
             </label>
         </div>
     );

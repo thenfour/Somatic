@@ -49,7 +49,10 @@ export type PatternGridHandle = {
 
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
     ({ song, audio, editorState, onEditorStateChange, onSongChange }, ref) => {
-        const pattern: Pattern = song.patterns[editorState.patternIndex];
+        const currentPosition = Math.max(0, Math.min(song.songOrder.length - 1, editorState.selectedPosition || 0));
+        const currentPatternIndex = song.songOrder[currentPosition] ?? 0;
+        const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
+        const pattern: Pattern = song.patterns[safePatternIndex];
         const [activeRow, setActiveRow] = useState<number | null>(null);
         //const [focusedCell, setFocusedCell] = useState<{ row: number; channel: number } | null>(null);
         const cellRefs = useMemo(
@@ -96,7 +99,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             //if (midiNoteValue > MAX_NOTE_NUM) return;
 
             onSongChange((s) => {
-                const pat = s.patterns[editorState.patternIndex];
+                const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                const pat = s.patterns[patIndex];
                 const oldCell = pat.getCell(channelIndex, rowIndex);
                 //const channel = pat.channels[channelIndex];
                 //const row = channel.rows[rowIndex];
@@ -118,7 +122,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const idx = instrumentKeyMap.indexOf(key);
             if (idx === -1) return;
             onSongChange((s) => {
-                const pat = s.patterns[editorState.patternIndex];
+                const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                const pat = s.patterns[patIndex];
                 const oldCell = pat.getCell(channelIndex, rowIndex);
                 pat.setCell(channelIndex, rowIndex, {
                     ...oldCell,
@@ -133,7 +138,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const idx = commandKeyMap.indexOf(key);
             if (idx === -1) return;
             onSongChange((s) => {
-                const pat = s.patterns[editorState.patternIndex];
+                const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                const pat = s.patterns[patIndex];
                 const oldCell = pat.getCell(channelIndex, rowIndex);
                 pat.setCell(channelIndex, rowIndex, {
                     ...oldCell,
@@ -146,7 +152,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const idx = paramKeyMap.indexOf(key);
             if (idx === -1) return;
             onSongChange((s) => {
-                const pat = s.patterns[editorState.patternIndex];
+                const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                const pat = s.patterns[patIndex];
                 const oldCell = pat.getCell(channelIndex, rowIndex);
                 //console.log(`oldxy=[${oldCell.effectX},${oldCell.effectY}]; idx=${idx}; typeof(oldCell.effectX)=${typeof (oldCell.effectX)}`);
                 const currentParam = oldCell.effectY ?? 0; // slide over Y to X
@@ -273,7 +280,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 handleParamKey(channelIndex, rowIndex, e.key);
             } else if (e.key === '0' && cellType === 'note' && !e.repeat) {
                 onSongChange((s) => {
-                    const pat = s.patterns[editorState.patternIndex];
+                    const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                    const pat = s.patterns[patIndex];
                     const oldCell = pat.getCell(channelIndex, rowIndex);
                     pat.setCell(channelIndex, rowIndex, { ...oldCell, midiNote: undefined });
                 });

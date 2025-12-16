@@ -34,6 +34,9 @@ export const ArrangementEditor: React.FC<{
             next = ensurePatternExists(s, next);
             s.songOrder[positionIndex] = next;
         });
+        onEditorStateChange((state) => {
+            state.setSelectedPosition(positionIndex);
+        });
     };
 
     const deletePosition = (positionIndex: number) => {
@@ -77,15 +80,9 @@ export const ArrangementEditor: React.FC<{
         });
     };
 
-    const handleSelectPosition = (positionIndex: number) => {
+    const handleSelectPosition = (positionIndex: number, _patternIndex: number) => {
         onEditorStateChange((state) => {
             state.setSelectedPosition(positionIndex);
-        });
-    };
-
-    const handleJumpToPattern = (patternIndex: number) => {
-        onEditorStateChange((state) => {
-            state.setPattern(patternIndex);
         });
     };
 
@@ -103,7 +100,7 @@ export const ArrangementEditor: React.FC<{
                                 ? "arrangement-editor__row arrangement-editor__row--selected"
                                 : "arrangement-editor__row"
                         }
-                        onClick={() => handleSelectPosition(positionIndex)}
+                        onClick={() => handleSelectPosition(positionIndex, clampedPattern)}
                     >
                         <button
                             type="button"
@@ -135,7 +132,7 @@ export const ArrangementEditor: React.FC<{
                             className="arrangement-editor__pattern"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                handleJumpToPattern(clampedPattern);
+                                handleSelectPosition(positionIndex, clampedPattern);
                             }}
                         >
                             {formattedIndex(clampedPattern)}
