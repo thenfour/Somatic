@@ -136,6 +136,12 @@ export class Tic80Instrument {
 
       this.pitchFrames =
          data.pitchFrames ? new Int8Array(data.pitchFrames) : new Int8Array(Tic80Caps.sfx.envelopeFrameCount);
+      // default values for pitch frames
+      if (!data.pitchFrames) {
+         for (let i = 0; i < Tic80Caps.sfx.envelopeFrameCount; i++) {
+            this.pitchFrames[i] = -Tic80Caps.sfx.pitchMin;
+         }
+      }
       this.pitchLoopStart = clamp(data.pitchLoopStart ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       this.pitchLoopLength = clamp(data.pitchLoopLength ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       this.pitch16x = CoalesceBoolean(data.pitch16x, false);
