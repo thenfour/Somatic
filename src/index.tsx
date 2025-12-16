@@ -12,7 +12,7 @@ import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
 import { ToTic80ChannelIndex } from './models/tic80Capabilities';
 import { ArrangementEditor } from './ui/ArrangementEditor';
-import { ConfirmDialogProvider } from './ui/confirm_dialog';
+import { ConfirmDialogProvider, useConfirmDialog } from './ui/confirm_dialog';
 import { HelpPanel } from './ui/help_panel';
 import { InstrumentPanel } from './ui/instrument_editor';
 import { Keyboard } from './ui/keyboard';
@@ -64,6 +64,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const patternGridRef = React.useRef<PatternGridHandle | null>(null);
     const audio = useMemo(() => new AudioController({ bridgeGetter: () => bridgeRef.current }), []);
     const { pushToast } = useToasts();
+    const { confirm } = useConfirmDialog();
     const [song, setSong] = useState(() => {
         try {
             const saved = localStorage.getItem('chromatic-song');
@@ -278,6 +279,28 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         });
     };
 
+    const createNewSong = async () => {
+        const confirmed = await confirm({
+            content: (
+                <div>
+                    <p>Create a new song? Your current song will be replaced.</p>
+                    <p>Make sure you've saved your work first!</p>
+                </div>
+            ),
+            defaultAction: 'no',
+            yesLabel: 'Create New',
+            noLabel: 'Cancel',
+        });
+
+        if (!confirmed) return;
+
+        setSong(new Song());
+        updateEditorState((s) => {
+            s.setSelectedPosition(0);
+        });
+        pushToast({ message: 'New song created.', variant: 'success' });
+    };
+
     const openSongFile = async () => {
         const files = (await fileDialog()) as FileList | File[] | undefined;
         const fileArray = files ? Array.from(files as any) : [];
@@ -365,6 +388,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             <div className="stickyHeader appRow">
                 <div className="menu">
                     <div className="menu-group">
+                        <button onClick={createNewSong}><span className="icon" aria-hidden="true">📄</span>New</button>
                         <button onClick={openSongFile}><span className="icon" aria-hidden="true">📂</span>Open</button>
                         <button onClick={saveSongFile}><span className="icon" aria-hidden="true">💾</span>Save</button>
                         <button onClick={exportLua}><span className="icon" aria-hidden="true">📤</span>Export</button>

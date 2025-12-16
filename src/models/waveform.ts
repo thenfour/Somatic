@@ -4,7 +4,7 @@ import {Tic80Caps} from "./tic80Capabilities";
 
 export interface Tic80WaveformDto {
    name: string;
-   amplitudes: Uint8Array;
+   amplitudes: number[]; // length = 32
 }
 ;
 
@@ -16,7 +16,7 @@ export interface Tic80WaveformDto {
 // effects. Due to the fact that waveforms heights go from 0 to 15 is is
 // possible to store 2 height in 1 byte, this is why waveforms are 16 bytes but
 // in the editor there are 32 points you can edit.
-export class Tic80Waveform implements Tic80WaveformDto {
+export class Tic80Waveform {
    name: string;
    amplitudes: Uint8Array;
 
@@ -26,6 +26,13 @@ export class Tic80Waveform implements Tic80WaveformDto {
 
       this.amplitudes =
          data.amplitudes ? new Uint8Array(data.amplitudes) : new Uint8Array(Tic80Caps.waveform.pointCount);
+
+      // ensure correct length
+      if (this.amplitudes.length !== Tic80Caps.waveform.pointCount) {
+         const newAmps = new Uint8Array(Tic80Caps.waveform.pointCount);
+         newAmps.set(this.amplitudes.subarray(0, Math.min(this.amplitudes.length, Tic80Caps.waveform.pointCount)));
+         this.amplitudes = newAmps;
+      }
    }
 
    static fromData(data?: Partial<Tic80WaveformDto>): Tic80Waveform {
@@ -35,11 +42,11 @@ export class Tic80Waveform implements Tic80WaveformDto {
    toData(): Tic80WaveformDto {
       return {
          name: this.name,
-         amplitudes: new Uint8Array(this.amplitudes),
+         amplitudes: [...this.amplitudes],
       };
    };
 
    clone(): Tic80Waveform {
-      return new Tic80Waveform(this);
+      return new Tic80Waveform(this.toData());
    }
 }

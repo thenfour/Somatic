@@ -25,7 +25,7 @@ export type SongDto = {
 
 const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {
    return Array.from({length: Tic80Caps.waveform.count}, (_, i) => {
-      const waveData = data[i]!;
+      const waveData = data[i];
       const ret = new Tic80Waveform(waveData);
       if (IsNullOrWhitespace(ret.name))
          ret.name = `WAVE ${i}`;

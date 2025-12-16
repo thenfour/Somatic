@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { clamp } from "../utils/utils";
 
 export type WaveformCanvasProps = {
     values: ReadonlyArray<number>;
@@ -43,10 +44,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     }
 
     const clampValue = (v: number) => {
-        if (Number.isNaN(v)) return 0;
-        if (v < 0) return 0;
-        if (v > maxValue) return maxValue;
-        return v;
+        return clamp(v, 0, maxValue);
     };
 
     // Keep an internal mutable buffer in sync with props whenever we're not actively drawing.

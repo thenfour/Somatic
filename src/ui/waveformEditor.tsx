@@ -113,6 +113,7 @@ export const WaveformEditor: React.FC<{
 }> = ({ song, editingWaveformId, editorState, onSongChange }) => {
     const waveform = song.waveforms[editingWaveformId];
     if (!waveform) {
+        //console.log(`No waveform found at index ${editingWaveformId}`, song.waveforms);
         return (
             <div className="waveform-editor">
                 <p>No waveform selected.</p>
