@@ -3,6 +3,7 @@ import { Song } from "../models/song";
 import { Tic80Caps } from "../models/tic80Capabilities";
 import { Pattern } from "../models/pattern";
 import { clamp } from "../utils/utils";
+import { useConfirmDialog } from "./confirm_dialog";
 
 export const ArrangementEditor: React.FC<{
     song: Song;
@@ -10,6 +11,7 @@ export const ArrangementEditor: React.FC<{
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
     onSongChange: (mutator: (song: Song) => void) => void;
 }> = ({ song, editorState, onEditorStateChange, onSongChange }) => {
+    const { confirm } = useConfirmDialog();
     const maxPatterns = Tic80Caps.pattern.count;
     const maxPositions = Tic80Caps.arrangement.count;
 
@@ -34,7 +36,7 @@ export const ArrangementEditor: React.FC<{
         });
     };
 
-    const handleDeletePosition = (positionIndex: number) => {
+    const deletePosition = (positionIndex: number) => {
         onSongChange((s) => {
             if (s.songOrder.length <= 1) return; // keep at least one position
             if (positionIndex < 0 || positionIndex >= s.songOrder.length) return;
@@ -45,6 +47,24 @@ export const ArrangementEditor: React.FC<{
                 state.setSelectedPosition(state.selectedPosition - 1);
             }
         });
+    };
+
+    const handleDeletePosition = async (positionIndex: number) => {
+        const confirmed = await confirm({
+            content: (
+                <div>
+                    <p>
+                        Are you sure you want to delete position {formattedIndex(positionIndex)} from the arrangement?
+                    </p>
+                </div>
+            ),
+            defaultAction: 'no',
+            yesLabel: 'Delete',
+            noLabel: 'Cancel',
+        });
+
+        if (!confirmed) return;
+        deletePosition(positionIndex);
     };
 
     const handleAddPosition = () => {

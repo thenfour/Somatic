@@ -908,6 +908,60 @@ button.key {
     cursor: pointer;
 }
 
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-dialog {
+    min-width: 320px;
+    max-width: 480px;
+    background: var(--panel-strong);
+    color: var(--text);
+    border-radius: 6px;
+    border: 2px solid var(--border-strong);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    padding: 16px 20px;
+}
+
+.modal-dialog__body {
+    margin-bottom: 16px;
+}
+
+.modal-dialog__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.modal-dialog__button {
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.modal-dialog__button:hover {
+    background: var(--panel-strong);
+}
+
+.modal-dialog__button--primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--tic-0);
+}
+
+.modal-dialog__button--primary:hover {
+    background: var(--accent-strong);
+}
+
 .arrangement-editor {
     display: flex;
     flex-direction: column;

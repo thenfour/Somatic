@@ -23,6 +23,7 @@ import { clamp } from './utils/utils';
 import { ToTic80ChannelIndex } from './models/tic80Capabilities';
 import { WaveformEditor, WaveformEditorPanel } from './ui/waveformEditor';
 import { ArrangementEditor } from './ui/ArrangementEditor';
+import { ConfirmDialogProvider } from './ui/confirm_dialog';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -475,9 +476,11 @@ const AppWrapper: React.FC = () => {
 
     return (
         <ToastProvider>
-            {hasContinued
-                ? <App theme={theme} onToggleTheme={toggleTheme} />
-                : <SplashScreen onContinue={() => setHasContinued(true)} />}
+            <ConfirmDialogProvider>
+                {hasContinued
+                    ? <App theme={theme} onToggleTheme={toggleTheme} />
+                    : <SplashScreen onContinue={() => setHasContinued(true)} />}
+            </ConfirmDialogProvider>
         </ToastProvider>
     );
 }
