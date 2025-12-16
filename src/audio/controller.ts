@@ -5,6 +5,7 @@ import {Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {Tic80BridgeHandle} from "../ui/Tic80Bridged";
 import type {AudioBackend} from "./backend";
 import {Tic80Backend} from "./tic80_backend";
+import {VoiceManager} from "./voice_manager";
 
 type RowListener = (rowNumber: number, pattern: Pattern) => void;
 type PositionListener = (positionNumber: number) => void;
@@ -15,6 +16,7 @@ export class AudioController {
    song: Song|null;
    volume: number;
    isPlaying: boolean;
+   private voiceManager: VoiceManager;
 
    private rowListeners = new Set<RowListener>();
    private positionListeners = new Set<PositionListener>();
@@ -24,6 +26,7 @@ export class AudioController {
       this.volume = 0.3;
       this.song = null;
       this.isPlaying = false;
+      this.voiceManager = new VoiceManager();
       // const ctx = {
       //    emit: {
       //       row: (rowNumber: number, pattern: Pattern) => this.emitRow(rowNumber, pattern),
@@ -48,15 +51,19 @@ export class AudioController {
       return this.backend.getMusicState();
    }
 
-   sfxNoteOn(instrumentIndex: number, note: number, channel: Tic80ChannelIndex) {
+   sfxNoteOn(instrumentIndex: number, note: number) {
       if (!this.song) {
          return;
       }
+      const channel = this.voiceManager.allocateVoice(instrumentIndex, note);
       this.backend.sfxNoteOn(instrumentIndex, this.song.instruments[instrumentIndex], note, channel);
    }
 
-   sfxNoteOff(channel: Tic80ChannelIndex) {
-      this.backend.sfxNoteOff(channel);
+   sfxNoteOff(note: number) {
+      const channel = this.voiceManager.releaseVoice(note);
+      if (channel !== null) {
+         this.backend.sfxNoteOff(channel);
+      }
    }
 
    readRow(pattern: Pattern, rowNumber: number) {
@@ -79,6 +86,7 @@ export class AudioController {
    }
 
    panic() {
+      this.voiceManager.releaseAll();
       this.backend.panic();
       this.isPlaying = false;
    }

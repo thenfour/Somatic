@@ -198,7 +198,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 //const instrument = s.instruments[instIdx];
                 const channel = ToTic80ChannelIndex(ed.patternEditChannel);
                 //if (instrument) {
-                audio.sfxNoteOn(ed.currentInstrument, evt.note, channel);
+                audio.sfxNoteOn(ed.currentInstrument, evt.note);
                 //}
 
                 if (ed.editingEnabled !== false) {
@@ -220,9 +220,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 }
             });
 
-            offNoteOff = midi.onNoteOff(() => {
-                const ed = editorRef.current;
-                audio.sfxNoteOff(ed.patternEditChannel);
+            offNoteOff = midi.onNoteOff((evt) => {
+                audio.sfxNoteOff(evt.note);
             });
         });
 
@@ -240,13 +239,12 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         //const instrument = s.instruments[instIdx];
         //const channel = Math.max(0, Math.min(3, editorState.patternEditChannel || 0));
         //if (instrument) {
-        audio.sfxNoteOn(editorState.currentInstrument, midiNote, editorState.patternEditChannel);
+        audio.sfxNoteOn(editorState.currentInstrument, midiNote);
         //}
     };
 
-    const handleNoteOff = (_midiNote: number) => {
-        //const channel = clamp(editorState.patternEditChannel, 0, 3);
-        audio.sfxNoteOff(editorState.patternEditChannel);
+    const handleNoteOff = (midiNote: number) => {
+        audio.sfxNoteOff(midiNote);
     };
 
     const updateSong = (mutator: SongMutator) => {
