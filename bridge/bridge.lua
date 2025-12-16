@@ -14,6 +14,14 @@ local ADDR = {
 	TF_PATTERN_DATA = 0x8101, --       // MAP_BASE + 256 // theoretically you can support the whole map area for pattern data (32640 bytes).
 }
 
+local CMD_PLAY = 1
+local CMD_STOP = 2
+local CMD_PING = 3
+local CMD_BEGIN_UPLOAD = 4
+local CMD_END_UPLOAD = 5
+local CMD_PLAY_SFX_ON = 6
+local CMD_PLAY_SFX_OFF = 7
+
 -- Host->cart synchronization registers (mutex-ish)
 -- The host sets BUSY=1 while writing a payload, then bumps SEQ and clears BUSY.
 -- The cart only reads when BUSY=0 and SEQ has changed.
@@ -208,31 +216,25 @@ local fps = 0
 local fps_last_time = 0
 local fps_frame_count = 0
 
-local isPlaying = false
-local playingTrack = 0
+-- local isPlaying = false
+-- local playingTrack = 0
+
 local lastCmd = 0
 local lastCmdResult = 0
 local host_last_seq = 0
-local CMD_PLAY = 1
-local CMD_STOP = 2
-local CMD_PING = 3
-local CMD_BEGIN_UPLOAD = 4
-local CMD_END_UPLOAD = 5
-local CMD_PLAY_SFX_ON = 6
-local CMD_PLAY_SFX_OFF = 7
 
-local function set_playing(track, playing)
-	isPlaying = playing
-	playingTrack = track or playingTrack
+-- local function set_playing(track, playing)
+-- 	isPlaying = playing
+-- 	playingTrack = track or playingTrack
 
-	local flags = 0
-	if isPlaying then
-		flags = flags | 0x01
-	end
+-- 	local flags = 0
+-- 	if isPlaying then
+-- 		flags = flags | 0x01
+-- 	end
 
-	out_set(OUTBOX.STATE_FLAGS, flags)
-	out_set(OUTBOX.PLAYING_TRACK, playingTrack & 0xFF)
-end
+-- 	out_set(OUTBOX.STATE_FLAGS, flags)
+-- 	out_set(OUTBOX.PLAYING_TRACK, playingTrack & 0xFF)
+-- end
 
 local function publish_cmd(cmd, result)
 	lastCmd = cmd
@@ -246,52 +248,55 @@ end
 -- Commands
 -- =========================
 local function handle_play()
-	local track = peek(INBOX.TRACK)
-	local frame = peek(INBOX.FRAME)
-	local row = peek(INBOX.ROW)
-	local loop = peek(INBOX.LOOP) ~= 0
-	local sustain = peek(INBOX.SUSTAIN) ~= 0
-	local tempo = peek(INBOX.TEMPO)
-	local speed = peek(INBOX.SPEED)
+	tf_music_init()
+	publish_cmd(CMD_PLAY, 0)
 
-	-- Defensive clamps (so garbage commands don't crash your bridge behavior)
-	if track > 7 then
-		track = 7
-	end
-	if frame > 15 then
-		frame = 15
-	end
-	if row > 63 then
-		row = 63
-	end
+	-- local track = peek(INBOX.TRACK)
+	-- local frame = peek(INBOX.FRAME)
+	-- local row = peek(INBOX.ROW)
+	-- local loop = peek(INBOX.LOOP) ~= 0
+	-- local sustain = peek(INBOX.SUSTAIN) ~= 0
+	-- local tempo = peek(INBOX.TEMPO)
+	-- local speed = peek(INBOX.SPEED)
 
-	if tempo == 0 and speed == 0 then
-		music(track, frame, row, loop, sustain)
-	else
-		music(track, frame, row, loop, sustain, tempo, speed)
-	end
+	-- -- Defensive clamps (so garbage commands don't crash your bridge behavior)
+	-- if track > 7 then
+	-- 	track = 7
+	-- end
+	-- if frame > 15 then
+	-- 	frame = 15
+	-- end
+	-- if row > 63 then
+	-- 	row = 63
+	-- end
 
-	set_playing(track, true)
-	publish_cmd(1, 0)
-	log(
-		string.format(
-			"PLAY tr=%d f=%d r=%d L=%d S=%d T=%d Sp=%d",
-			track,
-			frame,
-			row,
-			loop and 1 or 0,
-			sustain and 1 or 0,
-			tempo,
-			speed
-		)
-	)
+	-- if tempo == 0 and speed == 0 then
+	-- 	music(track, frame, row, loop, sustain)
+	-- else
+	-- 	music(track, frame, row, loop, sustain, tempo, speed)
+	-- end
+
+	-- set_playing(track, true)
+	-- publish_cmd(1, 0)
+	-- log(
+	-- 	string.format(
+	-- 		"PLAY tr=%d f=%d r=%d L=%d S=%d T=%d Sp=%d",
+	-- 		track,
+	-- 		frame,
+	-- 		row,
+	-- 		loop and 1 or 0,
+	-- 		sustain and 1 or 0,
+	-- 		tempo,
+	-- 		speed
+	-- 	)
+	-- )
 end
 
 local function handle_stop()
 	music()
-	set_playing(playingTrack, false)
+	--set_playing(playingTrack, false)
 	publish_cmd(CMD_STOP, 0)
-	log("STOP")
+	--log("STOP")
 end
 
 local function handle_ping_fx()
@@ -337,7 +342,7 @@ end
 local function handle_begin_upload()
 	-- Stop any playback before host overwrites music data
 	music()
-	set_playing(playingTrack, false)
+	-- set_playing(playingTrack, false)
 	publish_cmd(CMD_BEGIN_UPLOAD, 0)
 	log("BEGIN_UPLOAD")
 end
@@ -413,10 +418,10 @@ local function draw_idle_anim()
 	end
 
 	-- Pulse bar
-	local w = 30
-	local p = (t % 60) / 59
-	rect(2, 22, w, 3, 5)
-	rect(2, 22, math.floor(w * p), 3, isPlaying and 11 or 12)
+	-- local w = 30
+	-- local p = (t % 60) / 59
+	-- rect(2, 22, w, 3, 5)
+	-- rect(2, 22, math.floor(w * p), 3, isPlaying and 11 or 12)
 end
 
 local function get_music_pos()
@@ -442,8 +447,8 @@ local function draw_status()
 	y = y + 8
 	--print("hb:" .. tostring(out_get(OUTBOX.HEARTBEAT)), 40, y, 13)
 	--y = y + 8
-	print(isPlaying and ("PLAY tr:" .. playingTrack) or "IDLE", 40, y, isPlaying and 11 or 6)
-	y = y + 8
+	--print(isPlaying and ("PLAY tr:" .. playingTrack) or "IDLE", 40, y, isPlaying and 11 or 6)
+	--y = y + 8
 
 	local track, frame, row, looping = get_music_pos()
 	print(string.format("track:%d frame:%d row:%d loop:%s", track, frame, row, tostring(looping)), 40, y, 6)
@@ -457,28 +462,52 @@ end
 -- =========================
 -- tracker-specific playroutine support
 
-local function getSongOrderCount() {
+local function getSongOrderCount()
 	return peek(ADDR.TF_ORDER_LIST_COUNT)
-}
-
-local function swapInPlayorder(songPosition, destPointer) {
-	local patternIndex = peek(ADDR.TF_ORDER_LIST_ENTRIES + songPosition)
-	-- read the pattern pointer (3 bytes little-endian)
-	-- at ADDR.TF_PATTERN_DATA
-	-- * first byte is pattern count
-	-- * then for N patterns, 3 bytes each little-endian offset.
-	--   the offset is from the start of TF_PATTERN_DATA
-	local patternPointerOffset = 1 + 1 + patternIndex * 3
-	local b0 = peek(ADDR.TF_PATTERN_DATA + patternPointerOffset + 0)
-	local b1 = peek(ADDR.TF_PATTERN_DATA + patternPointerOffset + 1)
-	local b2 = peek(ADDR.TF_PATTERN_DATA + patternPointerOffset + 2)
-	local patternPointer = b0 + (b1 << 8) + (b2 << 16) + ADDR.TF_PATTERN_DATA
-
---   patternPointer = peek(music patterns pointer list + patternIndex * 4)
---   copy 192 bytes * 4 channels from patternPointer to destPointer
 end
 
-}
+local function readPattern(patternIndex0b)
+	-- ADDR.TF_PATTERN_DATA contains patterns in sequence.
+	-- each pattern is serialized as
+	-- * 16-bit little-endian pattern blob size
+	-- * the blob itself (length as above)
+
+	local readPos = ADDR.TF_PATTERN_DATA
+
+	-- Skip past patterns before the one we want
+	for i = 0, patternIndex0b - 1 do
+		-- Read 16-bit little-endian length
+		local len_lo = peek(readPos)
+		local len_hi = peek(readPos + 1)
+		local patternSize = len_lo + (len_hi * 256)
+
+		-- Skip past this pattern's header (2 bytes) and data
+		readPos = readPos + 2 + patternSize
+	end
+
+	-- Now read the target pattern
+	local len_lo = peek(readPos)
+	local len_hi = peek(readPos + 1)
+	local patternSize = len_lo + (len_hi * 256)
+	readPos = readPos + 2 -- skip past length header
+
+	-- Read pattern data into table
+	local patternData = {}
+	for i = 0, patternSize - 1 do
+		patternData[i + 1] = peek(readPos + i)
+	end
+
+	return patternData
+end
+
+local function swapInPlayorder(songPosition, destPointer)
+	local patternIndex0b = peek(ADDR.TF_ORDER_LIST_ENTRIES + songPosition)
+	local patternData = readPattern(patternIndex0b)
+	-- copy the patternData to destPointer
+	for i = 0, #patternData - 1 do
+		poke(destPointer + i, patternData[i + 1])
+	end
+end
 
 -- =========================
 -- demo-specific playroutine support
@@ -561,7 +590,7 @@ end
 -- 	return #TF_MUSIC_DATA.songOrder
 -- }
 
--- -- demo version:
+-- demo version:
 -- local function swapInPlayorder(songPosition0b, destPointer) {
 --   patternIndex0b = TF_MUSIC_DATA.songOrder[songPosition0b + 1]
 --   patternString = TF_MUSIC_DATA.patterns[patternIndex0b + 1]
@@ -574,37 +603,79 @@ end
 
 -- =========================
 -- general playroutine support
-function tf_music_tick()
-	--
+currentSongOrder = 0
+lastPlayingFrame = -1
+backBufferIsA = false -- A means patterns 0,1,2,3; B = 4,5,6,7
+stopPlayingOnNextFrame = false
+local PATTERN_BUFFER_BYTES = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
+local bufferALocation = 0x11164 -- pointer to first pattern https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
+local bufferBLocation = bufferALocation + PATTERN_BUFFER_BYTES -- pointer to pattern 4
+
+local function getBufferPointer()
+	if backBufferIsA then
+		return bufferALocation
+	else
+		return bufferBLocation
+	end
 end
 
--- currentSongOrder = 0
--- lastPlayingFrame = -1
--- backBufferIsA = false // A means patterns 0,1,2,3; B = 4,5,6,7
--- bufferALocation = pointer to pattern 0
--- bufferBLocation = pointer to pattern 4
--- stopPlayingOnNextFrame = false
+local function clearPatternBuffer(destPointer)
+	for i = 0, PATTERN_BUFFER_BYTES - 1 do
+		poke(destPointer + i, 0)
+	end
+end
 
--- getBufferPointer() {
---   if (backBufferIsA) {
---     return bufferALocation
---   } else {
---     return bufferBLocation
---   }
--- }
+-- init state and begin playback from start
+local function tf_music_init()
+	-- seed state
+	currentSongOrder = 0
+	backBufferIsA = true -- act like we came from buffer B so tick() will set it correctly on first pass.
+	lastPlayingFrame = -1 -- this means tick() will immediately seed the back buffer.
+	stopPlayingOnNextFrame = false
 
--- // demo calls similar to begin playback.
--- handle_music_ready {
---   // seed state
---   currentSongOrder = 0
---   backBufferIsA = true // act like we came from buffer B so tick() will set it correctly on first pass.
---   lastPlayingFrame = -1 // this means tick() will immediately seed the back buffer.
---   stopPlayingOnNextFrame = false
+	swapInPlayorder(currentSongOrder, bufferALocation)
 
---   swapInPlayorder(currentSongOrder, bufferALocation);
+	music(
+		0, -- track
+		0, -- frame
+		0, -- row
+		false, -- loop
+		true -- sustain
+	)
+end
 
---   music(...)
--- }
+function tf_music_tick()
+	local track, currentFrame = get_music_pos()
+
+	if track == -1 then
+		return -- not playing
+	end
+
+	if currentFrame == lastPlayingFrame then
+		return
+	end
+
+	if stopPlayingOnNextFrame then
+		music() -- stops playback.
+		stopPlayingOnNextFrame = false
+		return
+	end
+
+	backBufferIsA = not backBufferIsA
+	lastPlayingFrame = currentFrame
+	currentSongOrder = currentSongOrder + 1
+
+	local destPointer = getBufferPointer()
+	local orderCount = getSongOrderCount() or 0
+
+	if orderCount == 0 or currentSongOrder >= orderCount then
+		clearPatternBuffer(destPointer)
+		stopPlayingOnNextFrame = true
+		return
+	end
+
+	swapInPlayorder(currentSongOrder, destPointer)
+end
 
 -- on_music_tick {
 --   currentFrame = tic80_get_playing_frame()

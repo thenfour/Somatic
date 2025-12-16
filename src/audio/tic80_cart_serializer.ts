@@ -441,39 +441,30 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
    };
 }
 
-// we will serialize like this:
-// [0]: pattern count N (1..256)
-// [1..N*3]: pattern offsets (3 bytes each, little-endian)
-// [..]: pattern data blobs in series.
+// for each pattern blob, serialize as:
+// [0..1] length of the pattern blob (u16 little-endian)
+// [2..N] the blob
+// it means to find pattern i, you have to walk the struct.
 function ch_serializePatterns(patterns: Uint8Array[]): Uint8Array {
-   const count = patterns.length & 0xff;
-
    // Calculate total size needed
-   const headerSize = 1 + count * 3; // count byte + offset table
-   const dataSize = patterns.reduce((sum, p) => sum + p.length, 0);
-   const totalSize = headerSize + dataSize;
-
-   const output = new Uint8Array(totalSize);
-
-   // Write pattern count
-   output[0] = count;
-
-   // Calculate and write offsets
-   let dataOffset = headerSize;
-   for (let i = 0; i < count; i++) {
-      const offsetBase = 1 + i * 3;
-      // Write 24-bit offset in little-endian
-      output[offsetBase + 0] = dataOffset & 0xff;
-      output[offsetBase + 1] = (dataOffset >> 8) & 0xff;
-      output[offsetBase + 2] = (dataOffset >> 16) & 0xff;
-      dataOffset += patterns[i].length;
+   let totalSize = 0;
+   for (const pattern of patterns) {
+      totalSize += 2 + pattern.length; // 2 bytes for length + pattern data
    }
 
-   // Write pattern data
-   let writePos = headerSize;
-   for (let i = 0; i < count; i++) {
-      output.set(patterns[i], writePos);
-      writePos += patterns[i].length;
+   const output = new Uint8Array(totalSize);
+   let writePos = 0;
+
+   for (const pattern of patterns) {
+      const length = pattern.length & 0xffff;
+
+      // Write length as u16 little-endian
+      output[writePos++] = length & 0xff;
+      output[writePos++] = (length >> 8) & 0xff;
+
+      // Write pattern data
+      output.set(pattern, writePos);
+      writePos += pattern.length;
    }
 
    return output;
