@@ -13,6 +13,7 @@ export type SongDto = {
    instruments: Tic80InstrumentDto[]; //
    waveforms: Tic80WaveformDto[];
    patterns: PatternDto[];
+   songOrder: number[]; // index into patterns
 
    tempo: number;
    speed: number;
@@ -57,13 +58,13 @@ export class Song {
    instruments: Tic80Instrument[];
    waveforms: Tic80Waveform[];
    patterns: Pattern[];
+   songOrder: number[]; // index into patterns
    rowsPerPattern: number;
    // positions: number[];
 
    // tic80 music editor shows a range of 40-250. theoretically it's 32-255 apparently https://github.com/nesbox/TIC-80/issues/2153
    tempo: number;
    speed: number;
-   // length: number;
 
    // editor-specific
    name: string;
@@ -72,14 +73,11 @@ export class Song {
    constructor(data: Partial<SongDto> = {}) {
       this.instruments = makeInstrumentList(data.instruments || []);
       this.patterns = makePatternList(data.patterns || []);
+      this.songOrder = data.songOrder || [0]; // default to first pattern
       this.waveforms = makeWaveformList(data.waveforms || []);
       this.rowsPerPattern = clamp(data.rowsPerPattern ?? Tic80Caps.pattern.maxRows, 1, Tic80Caps.pattern.maxRows);
-      // this.positions = Array.from(
-      //     {length: 256},
-      //     (_, i) => clamp(data.positions?.[i] ?? 0, 0, PATTERN_COUNT - 1));
       this.tempo = clamp(data.tempo ?? 120, 1, 255);
       this.speed = clamp(data.speed ?? 6, 1, 31);
-      // this.length = clamp(data.length ?? 1, 1, 256);
       this.name = data.name ?? "New song";
       this.highlightRowCount = clamp(data.highlightRowCount ?? 16, 1, 64);
    }
@@ -105,6 +103,7 @@ export class Song {
          instruments: this.instruments.map((inst) => inst.toData()),
          patterns: this.patterns.map((pattern) => pattern.toData()),
          waveforms: this.waveforms.map((wave) => wave.toData()),
+         songOrder: this.songOrder,
          tempo: this.tempo,
          speed: this.speed,
          rowsPerPattern: this.rowsPerPattern,

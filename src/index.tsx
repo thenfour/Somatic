@@ -22,6 +22,7 @@ import { ThemeEditorPanel } from './ui/theme_editor_panel';
 import { clamp } from './utils/utils';
 import { ToTic80ChannelIndex } from './models/tic80Capabilities';
 import { WaveformEditor, WaveformEditorPanel } from './ui/waveformEditor';
+import { ArrangementEditor } from './ui/ArrangementEditor';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -386,6 +387,12 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 />
             </div>
             <div className="main-editor-area  appRow">
+                <ArrangementEditor
+                    song={song}
+                    editorState={editorState}
+                    onEditorStateChange={updateEditorState}
+                    onSongChange={updateSong}
+                />
                 <PatternGrid
                     ref={patternGridRef}
                     song={song}

@@ -85,19 +85,6 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 <input id="song-tempo" type="number" min={1} max={255} value={song.tempo} onChange={onTempoChange} />
             </div>
             <div className="field-row">
-                <label htmlFor="song-rows-per-pattern">Pattern Len</label>
-                <Tooltip
-                    content={(
-                        <>
-                            Rows per pattern. Affects all patterns in the song.
-                        </>
-                    )}
-                >
-                    <span aria-hidden="true">?</span>
-                </Tooltip>
-                <input id="song-rows-per-pattern" type="number" min={1} max={Tic80Caps.pattern.maxRows} value={song.rowsPerPattern} onChange={onRowsPerPatternChange} />
-            </div>
-            <div className="field-row">
                 <label htmlFor="song-speed">Speed</label>
                 <Tooltip
                     label="Speed help"
@@ -111,6 +98,19 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     <span aria-hidden="true">?</span>
                 </Tooltip>
                 <input id="song-speed" type="number" min={1} max={31} value={song.speed} onChange={onSpeedChange} />
+            </div>
+            <div className="field-row">
+                <label htmlFor="song-rows-per-pattern">Pattern Len</label>
+                <Tooltip
+                    content={(
+                        <>
+                            Rows per pattern. Affects all patterns in the song.
+                        </>
+                    )}
+                >
+                    <span aria-hidden="true">?</span>
+                </Tooltip>
+                <input id="song-rows-per-pattern" type="number" min={1} max={Tic80Caps.pattern.maxRows} value={song.rowsPerPattern} onChange={onRowsPerPatternChange} />
             </div>
             <label>
                 Highlight rows
