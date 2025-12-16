@@ -8,6 +8,10 @@ local ADDR = {
 	REGISTERS = 0x14E40, -- 0x40 bytes for internal registers
 	INBOX = 0x14E80, -- 0x40 bytes for incoming args
 	OUTBOX = 0x14EC0, -- for strings, this is bigger than inbox (~256 bytes)
+
+	TF_ORDER_LIST_COUNT = 0x8000, --   // MAP_BASE + 0
+	TF_ORDER_LIST_ENTRIES = 0x8001, -- // MAP_BASE + 1 -- max 256 entries
+	TF_PATTERN_DATA = 0x8101, --       // MAP_BASE + 256 // theoretically you can support the whole map area for pattern data (32640 bytes).
 }
 
 -- Host->cart synchronization registers (mutex-ish)
@@ -399,7 +403,7 @@ local function draw_idle_anim()
 	local phase = (t // 4) % 8
 	local r = 6
 
-	circ(cx, cy, r, 1) -- ring
+	--circ(cx, cy, r, 1) -- ring
 	for i = 0, 7 do
 		local a = i * (math.pi * 2 / 8) + t * 0.02
 		local px = cx + math.cos(a) * r
@@ -415,30 +419,7 @@ local function draw_idle_anim()
 	rect(2, 22, math.floor(w * p), 3, isPlaying and 11 or 12)
 end
 
-local function draw_status()
-	local y = 2
-	print("BRIDGE", 40, y, 12)
-	y = y + 8
-	print("fps:" .. tostring(fps), 40, y, 13)
-	y = y + 8
-	print("hb:" .. tostring(out_get(OUTBOX.HEARTBEAT)), 40, y, 13)
-	y = y + 8
-	print(isPlaying and ("PLAY tr:" .. playingTrack) or "IDLE", 40, y, isPlaying and 11 or 6)
-	y = y + 8
-
-	local track, frame, row, looping = get_music_pos()
-	print(string.format("track:%d frame:%d row:%d loop:%s", track, frame, row, tostring(looping)), 40, y, 6)
-
-	-- Recent logs
-	for i = #log_lines, 1, -1 do
-		print(log_lines[i], 2, 90 + (i - 1) * 8, 6)
-	end
-end
-
--- =========================
--- chromatic playroutine support
--- =========================
-function get_music_pos()
+local function get_music_pos()
 	local track = peek(0x13FFC)
 	local frame = peek(0x13FFD)
 	local row = peek(0x13FFE)
@@ -453,9 +434,199 @@ function get_music_pos()
 	return track, frame, row, looping
 end
 
-function tf_music_tick()
-	-- call every music tick (row advance)
+local function draw_status()
+	local y = 2
+	print("BRIDGE", 40, y, 12)
+	y = y + 8
+	print("fps:" .. tostring(fps), 40, y, 13)
+	y = y + 8
+	--print("hb:" .. tostring(out_get(OUTBOX.HEARTBEAT)), 40, y, 13)
+	--y = y + 8
+	print(isPlaying and ("PLAY tr:" .. playingTrack) or "IDLE", 40, y, isPlaying and 11 or 6)
+	y = y + 8
+
+	local track, frame, row, looping = get_music_pos()
+	print(string.format("track:%d frame:%d row:%d loop:%s", track, frame, row, tostring(looping)), 40, y, 6)
+
+	-- Recent logs
+	for i = #log_lines, 1, -1 do
+		print(log_lines[i], 2, 90 + (i - 1) * 8, 6)
+	end
 end
+
+-- =========================
+-- tracker-specific playroutine support
+
+local function getSongOrderCount() {
+	return peek(ADDR.TF_ORDER_LIST_COUNT)
+}
+
+local function swapInPlayorder(songPosition, destPointer) {
+	local patternIndex = peek(ADDR.TF_ORDER_LIST_ENTRIES + songPosition)
+	-- read the pattern pointer (3 bytes little-endian)
+	-- at ADDR.TF_PATTERN_DATA
+	-- * first byte is pattern count
+	-- * then for N patterns, 3 bytes each little-endian offset.
+	--   the offset is from the start of TF_PATTERN_DATA
+	local patternPointerOffset = 1 + 1 + patternIndex * 3
+	local b0 = peek(ADDR.TF_PATTERN_DATA + patternPointerOffset + 0)
+	local b1 = peek(ADDR.TF_PATTERN_DATA + patternPointerOffset + 1)
+	local b2 = peek(ADDR.TF_PATTERN_DATA + patternPointerOffset + 2)
+	local patternPointer = b0 + (b1 << 8) + (b2 << 16) + ADDR.TF_PATTERN_DATA
+
+--   patternPointer = peek(music patterns pointer list + patternIndex * 4)
+--   copy 192 bytes * 4 channels from patternPointer to destPointer
+end
+
+}
+
+-- =========================
+-- demo-specific playroutine support
+
+-- local TF_MUSIC_DATA = {
+-- 	songOrder = {
+-- 		0,1,
+-- 	}, -- pattern indices (0-based)
+-- 	patterns = { -- base85 encoded pattern data
+-- 		"",
+-- 		"",
+-- 	},
+-- }
+
+-- -- base85 decode (ASCII85-style) for TIC-80 Lua
+-- -- Will become your compressed byte stream (before RLE3 decode)
+-- -- local bytes = base85_decode_to_bytes(PAT0_B85, COMPRESSED_LEN)
+-- -- returns array of byte values
+-- function base85_decode_to_bytes(s, expectedLen)
+--    -- Alphabet: chars with codes 33..117 ('!'..'u')
+--    local BASE85_RADIX  = 85
+--    local BASE85_OFFSET = 33
+
+--    local n = #s
+--   if n % 5 ~= 0 then
+--     error("base85_decode_to_bytes: input length not multiple of 5")
+--   end
+
+--   local bytes = {}
+--   local outCount = 0
+--   local i = 1
+
+--   while i <= n do
+--     local v = 0
+
+--     -- Read 5 base85 chars -> 32-bit value
+--     for j = 1, 5 do
+--       local c = s:byte(i); i = i + 1
+--       local digit = c - BASE85_OFFSET
+--       if digit < 0 or digit >= BASE85_RADIX then
+--         error("base85_decode_to_bytes: invalid base85 char")
+--       end
+--       v = v * BASE85_RADIX + digit
+--     end
+
+--     -- Extract 4 bytes (big-endian)
+--     local b0 = math.floor(v / 16777216) % 256 -- 256^3
+--     local b1 = math.floor(v / 65536)    % 256 -- 256^2
+--     local b2 = math.floor(v / 256)      % 256 -- 256^1
+--     local b3 = v                        % 256 -- 256^0
+
+--     -- Append, but don't exceed expectedLen
+--     local remaining = expectedLen - outCount
+--     if remaining <= 0 then
+--       break
+--     end
+
+--     if remaining >= 1 then
+--       bytes[#bytes + 1] = b0; outCount = outCount + 1
+--     end
+--     if remaining >= 2 then
+--       bytes[#bytes + 1] = b1; outCount = outCount + 1
+--     end
+--     if remaining >= 3 then
+--       bytes[#bytes + 1] = b2; outCount = outCount + 1
+--     end
+--     if remaining >= 4 then
+--       bytes[#bytes + 1] = b3; outCount = outCount + 1
+--     end
+--   end
+
+--   if outCount ~= expectedLen then
+--     error("base85_decode_to_bytes: decoded length mismatch")
+--   end
+
+--   return bytes
+-- end
+
+-- local function getSongOrderCount() {
+-- 	return #TF_MUSIC_DATA.songOrder
+-- }
+
+-- -- demo version:
+-- local function swapInPlayorder(songPosition0b, destPointer) {
+--   patternIndex0b = TF_MUSIC_DATA.songOrder[songPosition0b + 1]
+--   patternString = TF_MUSIC_DATA.patterns[patternIndex0b + 1]
+--   local patternLengthBytes = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
+--   patternBytes = base85_decode_to_bytes(patternString, patternLengthBytes)
+--   for i = 0, patternLengthBytes - 1 do
+-- 	poke(destPointer + i, patternBytes[i + 1])
+--   end
+-- }
+
+-- =========================
+-- general playroutine support
+function tf_music_tick()
+	--
+end
+
+-- currentSongOrder = 0
+-- lastPlayingFrame = -1
+-- backBufferIsA = false // A means patterns 0,1,2,3; B = 4,5,6,7
+-- bufferALocation = pointer to pattern 0
+-- bufferBLocation = pointer to pattern 4
+-- stopPlayingOnNextFrame = false
+
+-- getBufferPointer() {
+--   if (backBufferIsA) {
+--     return bufferALocation
+--   } else {
+--     return bufferBLocation
+--   }
+-- }
+
+-- // demo calls similar to begin playback.
+-- handle_music_ready {
+--   // seed state
+--   currentSongOrder = 0
+--   backBufferIsA = true // act like we came from buffer B so tick() will set it correctly on first pass.
+--   lastPlayingFrame = -1 // this means tick() will immediately seed the back buffer.
+--   stopPlayingOnNextFrame = false
+
+--   swapInPlayorder(currentSongOrder, bufferALocation);
+
+--   music(...)
+-- }
+
+-- on_music_tick {
+--   currentFrame = tic80_get_playing_frame()
+--   if (currentFrame != lastPlayingFrame) {
+
+--     if (stopPlayingOnNextFrame) {
+--       tic80_stop_music()
+--       return
+--     }
+--     // advance
+--     backBufferIsA = !backBufferIsA
+--     lastPlayingFrame = currentFrame
+--     currentSongOrder += 1
+--     if (currentSongOrder >= getSongOrderCount()) {
+--       // next frame will stop the song. copy silence and wait for next frame.
+--       copy silence to getBufferPointer()
+--       stopPlayingOnNextFrame = true
+--     }
+
+--     swapInPlayorder(currentSongOrder, getBufferPointer())
+--   }
+-- } // on music tick
 
 -- =========================
 -- TIC loop

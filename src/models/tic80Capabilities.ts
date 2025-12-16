@@ -3,6 +3,11 @@
 
 import {clamp} from "../utils/utils";
 
+export const ChromaticCaps = {
+   maxPatternCount: 256,
+   maxSongLength: 256,
+} as const;
+
 export const Tic80Caps = {
    frameRate: 60,
 
@@ -67,10 +72,17 @@ export const TicMemoryMap = {
    OUTBOX_MUTEX_ADDR: 0x14ec0 + 12,
    OUTBOX_SEQ_ADDR: 0x14ec0 + 13,
    OUTBOX_TOKEN_ADDR: 0x14ec0 + 14,
+
    LOG_WRITE_PTR_ADDR: 0x14ec0 + 7,
 
    LOG_BASE: 0x14ec0 + 16,
    LOG_SIZE: 240,
+
+   MAP_BASE: 0x8000,
+   TF_ORDER_LIST_COUNT: 0x8000,   // MAP_BASE + 0
+   TF_ORDER_LIST_ENTRIES: 0x8001, // MAP_BASE + 1 -- max 256 entries
+   TF_PATTERN_DATA:
+      0x8101, // MAP_BASE + 256 // theoretically you can support the whole map area for pattern data (32640 bytes).
 
    // TIC cartridge chunk IDs (subset)
    // CHUNK_WAVEFORMS: 10,

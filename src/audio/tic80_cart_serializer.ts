@@ -2,7 +2,7 @@ import {NOTE_INFOS} from "../defs";
 import type {Tic80Instrument} from "../models/instruments";
 import {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
-import {Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
+import {ChromaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {assert, clamp} from "../utils/utils";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
@@ -376,9 +376,11 @@ export interface Tic80SerializedPattern {}
 export interface Tic80SerializedSong {
    memory_0FFE4: Uint8Array;
 
-   // each pattern is actually 4 patterns (channel A, B, C, D) in series.
-   // so for double-buffering, the front buffer for the 4 channels is [0,1,2,3], and the back buffer is [4,5,6,7], etc.
-   patternData: Uint8Array[];
+   // length + order itself
+   songOrderData: Uint8Array;
+
+   // each chromatic pattern is actually 4 patterns (channel A, B, C, D) in series. allows copying patterns in 1 go for all 4 channels.
+   patternData: Uint8Array;
 }
 
 
@@ -395,7 +397,6 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
    const waveformData = encodeWaveforms(song);
    const sfxData = encodeSfx(song);
    const nullPatternData = encodeNullPatterns();
-   const realPatternData = encodeRealPatterns(song); // separate pattern data for playback use
    const trackData = encodeTrack(song);
 
    //    // overwrite nullPatternData with real patterns for testing
@@ -422,10 +423,60 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
       out.set(p, offset);
       offset += p.length;
    }
+
+   // serialize song order data
+   const songOrderData = new Uint8Array(1 + ChromaticCaps.maxSongLength);
+   songOrderData[0] = song.songOrder.length & 0xff;
+   for (let i = 0; i < ChromaticCaps.maxSongLength; i++) {
+      const patternIndex = song.songOrder[i] ?? 0;
+      songOrderData[1 + i] = patternIndex & 0xff;
+   }
+
+   const realPatternData = encodeRealPatterns(song); // separate pattern data for playback use
+
    return {
       memory_0FFE4: out,
-      patternData: realPatternData,
+      songOrderData,
+      patternData: ch_serializePatterns(realPatternData),
    };
+}
+
+// we will serialize like this:
+// [0]: pattern count N (1..256)
+// [1..N*3]: pattern offsets (3 bytes each, little-endian)
+// [..]: pattern data blobs in series.
+function ch_serializePatterns(patterns: Uint8Array[]): Uint8Array {
+   const count = patterns.length & 0xff;
+
+   // Calculate total size needed
+   const headerSize = 1 + count * 3; // count byte + offset table
+   const dataSize = patterns.reduce((sum, p) => sum + p.length, 0);
+   const totalSize = headerSize + dataSize;
+
+   const output = new Uint8Array(totalSize);
+
+   // Write pattern count
+   output[0] = count;
+
+   // Calculate and write offsets
+   let dataOffset = headerSize;
+   for (let i = 0; i < count; i++) {
+      const offsetBase = 1 + i * 3;
+      // Write 24-bit offset in little-endian
+      output[offsetBase + 0] = dataOffset & 0xff;
+      output[offsetBase + 1] = (dataOffset >> 8) & 0xff;
+      output[offsetBase + 2] = (dataOffset >> 16) & 0xff;
+      dataOffset += patterns[i].length;
+   }
+
+   // Write pattern data
+   let writePos = headerSize;
+   for (let i = 0; i < count; i++) {
+      output.set(patterns[i], writePos);
+      writePos += patterns[i].length;
+   }
+
+   return output;
 }
 
 // Run-length encode the input data; return shortened output.
@@ -568,4 +619,78 @@ export function fromBase64(base64: string): Uint8Array {
       bytes[i] = binary.charCodeAt(i);
    }
    return bytes;
+}
+
+
+// Custom ASCII85-style base85: digits 0..84 map to chars 33..117 ('!'..'u')
+const BASE85_RADIX = 85;
+const BASE85_OFFSET = 33; // '!' in ASCII
+
+export function base85Encode(data: Uint8Array): string {
+   let out = "";
+   const n = data.length;
+
+   for (let i = 0; i < n; i += 4) {
+      const b0 = data[i] ?? 0;
+      const b1 = data[i + 1] ?? 0;
+      const b2 = data[i + 2] ?? 0;
+      const b3 = data[i + 3] ?? 0;
+
+      // Pack 4 bytes into one 32-bit unsigned value
+      let v = ((b0 << 24) >>> 0) | ((b1 << 16) >>> 0) | ((b2 << 8) >>> 0) | (b3 >>> 0);
+
+      // Convert to 5 base85 digits (most significant first)
+      const digits = new Array<number>(5);
+      for (let d = 4; d >= 0; d--) {
+         digits[d] = v % BASE85_RADIX;
+         v = Math.floor(v / BASE85_RADIX);
+      }
+
+      // Map digits to ASCII chars
+      for (let d = 0; d < 5; d++) {
+         out += String.fromCharCode(BASE85_OFFSET + digits[d]);
+      }
+   }
+
+   return out;
+}
+
+export function base85Decode(str: string, expectedLength: number): Uint8Array {
+   if (str.length % 5 !== 0) {
+      throw new Error(`base85Decode: input length ${str.length} is not a multiple of 5`);
+   }
+
+   const tmp: number[] = [];
+   const groups = str.length / 5;
+   let idx = 0;
+
+   for (let g = 0; g < groups; g++) {
+      let v = 0;
+
+      for (let d = 0; d < 5; d++) {
+         const code = str.charCodeAt(idx++);
+         const digit = code - BASE85_OFFSET;
+         if (digit < 0 || digit >= BASE85_RADIX) {
+            throw new Error(`base85Decode: invalid base85 char '${str[d]}' at index ${idx - 1}`);
+         }
+         v = v * BASE85_RADIX + digit;
+      }
+
+      // Unpack 32-bit value into 4 bytes
+      const b0 = (v >>> 24) & 0xff;
+      const b1 = (v >>> 16) & 0xff;
+      const b2 = (v >>> 8) & 0xff;
+      const b3 = v & 0xff;
+
+      tmp.push(b0, b1, b2, b3);
+   }
+
+   // Trim padding to the expected raw byte length
+   if (expectedLength > tmp.length) {
+      throw new Error(
+         `base85Decode: expectedLength ${expectedLength} > decoded length ${tmp.length}`,
+      );
+   }
+
+   return new Uint8Array(tmp.slice(0, expectedLength));
 }
