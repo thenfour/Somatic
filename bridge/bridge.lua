@@ -200,6 +200,9 @@ end
 -- =========================
 local t = 0
 local booted = false
+local fps = 0
+local fps_last_time = 0
+local fps_frame_count = 0
 
 local isPlaying = false
 local playingTrack = 0
@@ -416,6 +419,8 @@ local function draw_status()
 	local y = 2
 	print("BRIDGE", 40, y, 12)
 	y = y + 8
+	print("fps:" .. tostring(fps), 40, y, 13)
+	y = y + 8
 	print("hb:" .. tostring(out_get(OUTBOX.HEARTBEAT)), 40, y, 13)
 	y = y + 8
 	print(isPlaying and ("PLAY tr:" .. playingTrack) or "IDLE", 40, y, isPlaying and 11 or 6)
@@ -461,6 +466,7 @@ function TIC()
 		write_marker()
 		out_init()
 		host_last_seq = peek(INBOX.SEQ)
+		fps_last_time = time()
 		log("BOOT")
 		booted = true
 	end
@@ -468,6 +474,16 @@ function TIC()
 	tf_music_tick()
 
 	t = t + 1
+
+	-- Calculate FPS
+	fps_frame_count = fps_frame_count + 1
+	local current_time = time()
+	local elapsed = current_time - fps_last_time
+	if elapsed >= 1000 then -- Update FPS every second
+		fps = math.floor((fps_frame_count * 1000) / elapsed + 0.5)
+		fps_frame_count = 0
+		fps_last_time = current_time
+	end
 
 	-- heartbeat
 	out_set(OUTBOX.HEARTBEAT, (out_get(OUTBOX.HEARTBEAT) + 1) & 0xFF)
