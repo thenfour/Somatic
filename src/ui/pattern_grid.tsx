@@ -83,8 +83,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             audio.playRow(pattern, rowIndex);
         };
 
-        const stopRow = () => audio.stop();
-
         const handleNoteKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string) => {
             const idx = noteKeyMap.indexOf(key);
             if (idx === -1) return;
@@ -261,6 +259,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
             updateEditTarget({ rowIndex, channelIndex });
 
+            if (e.key === 'Enter' && !e.repeat) {
+                e.preventDefault();
+                playRow(rowIndex);
+                return;
+            }
+
             if (!editingEnabled) return;
 
             if (cellType === 'note' && noteKeyMap.includes(e.key) && !e.repeat) {
@@ -282,8 +286,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         };
 
         const onCellKeyUp = () => {
-            stopRow();
+            //stopRow();
         };
+
 
         const onCellFocus = (rowIndex: number, channelIndex: Tic80ChannelIndex, col: number) => {
             updateEditTarget({ rowIndex, channelIndex });

@@ -2,7 +2,7 @@ import {getNoteInfo} from "../defs";
 import {Tic80Instrument} from "../models/instruments";
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
-import {Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
+import {Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
 import type {Tic80BridgeHandle} from "../ui/Tic80Bridged";
 import {AudioBackend, BackendContext, MakeEmptyMusicState, MusicState} from "./backend";
 import {serializeSongForTic80Bridge, Tic80SerializedSong} from "./tic80_cart_serializer";
@@ -51,11 +51,6 @@ export class Tic80Backend implements AudioBackend {
          return;
 
       await b.invokeExclusive(async (tx) => {
-         //await this.tryUploadSong(tx);
-
-         //const sfxId = this.findInstrumentIndex(instrument);
-         //const clampedNote = Math.max(0, Math.min(95, Math.round(note)));
-         //const ch = Math.max(0, Math.min(3, Math.round(channel)));
          const note = getNoteInfo(midiNote)!.ticAbsoluteNoteIndex;
          const speed = instrument.speed;
 
@@ -77,8 +72,73 @@ export class Tic80Backend implements AudioBackend {
       });
    }
 
-   async playRow(_pattern: Pattern, _rowNumber: number) {
-      console.warn("[Tic80Backend] playRow not yet implemented");
+   async playRow(pattern: Pattern, rowNumber: number) {
+      const song = this.song;
+      if (!song) {
+         return;
+      }
+
+      const b = this.bridge();
+      if (!b || !b.isReady()) {
+         return;
+      }
+
+      type PlaybackRequest = { channel: Tic80ChannelIndex; sfxId: number; tic80Note: number; speed: number };
+      const requests: PlaybackRequest[] = [];
+
+      for (let channel = 0; channel < Tic80Caps.song.audioChannels; channel++) {
+         const channelIndex = channel as Tic80ChannelIndex;
+         const cell = pattern.getCell(channelIndex, rowNumber);
+         if (!cell.midiNote || cell.instrumentIndex == null) {
+            continue;
+         }
+
+         const noteInfo = getNoteInfo(cell.midiNote);
+         if (!noteInfo) {
+            continue;
+         }
+
+         const instrumentIndex = cell.instrumentIndex;
+
+         const clampedInstrumentIndex = Math.max(0, Math.min(song.instruments.length - 1, instrumentIndex));
+         const instrument = song.instruments[clampedInstrumentIndex];
+         if (!instrument) {
+            continue;
+         }
+
+         const speed = Math.max(0, Math.min(7, instrument.speed ?? 0));
+
+         requests.push({
+            channel: channelIndex,
+            sfxId: clampedInstrumentIndex,
+            tic80Note: noteInfo.ticAbsoluteNoteIndex,
+            speed,
+         });
+      }
+
+      const serialized = this.serializedSong;
+
+      await b.invokeExclusive(async (tx) => {
+         if (serialized) {
+            await tx.uploadSongData(serialized);
+         }
+
+         for (const channel of [0, 1, 2, 3] as const) {
+            try {
+               await tx.stopSfx({channel: channel as Tic80ChannelIndex});
+            } catch (err) {
+               console.warn("[Tic80Backend] stopSfx failed", err);
+            }
+         }
+
+         for (const req of requests) {
+            try {
+               await tx.playSfx(req);
+            } catch (err) {
+               console.warn("[Tic80Backend] playSfx failed", err);
+            }
+         }
+      });
    }
 
    async playPattern(_pattern: Pattern) {
