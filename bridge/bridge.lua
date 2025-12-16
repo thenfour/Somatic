@@ -43,12 +43,10 @@ local INBOX = {
 local CH_REGISTERS = {
 	-- NB: KEEP IN SYNC WITH HOST (search FOR "BRIDGE_MEMORY_MAP")
 	SONG_POSITION = ADDR.REGISTERS + 0, -- current song position (0..255)
-	PATTERN_ID = ADDR.REGISTERS + 1, -- current pattern id (0..255)
 }
 
-local function ch_set_playroutine_regs(songPosition, patternId)
+local function ch_set_playroutine_regs(songPosition)
 	poke(CH_REGISTERS.SONG_POSITION, songPosition & 0xFF)
-	poke(CH_REGISTERS.PATTERN_ID, patternId & 0xFF)
 end
 
 -- Cart->host synchronization registers (mirrors the above for OUTBOX)
@@ -454,31 +452,31 @@ local function swapInPlayorder(songPosition, destPointer)
 
 	log("swapInPlayorder: Swapping in song position " .. tostring(songPosition))
 	log("                   : pattern index " .. tostring(patternIndex0b))
-	log("                   : pattern data length " .. tostring(#patternData) .. " bytes")
-	log("                   : writing to destPointer " .. string.format("0x%04X", destPointer))
+	--log("                   : pattern data length " .. tostring(#patternData) .. " bytes")
+	--log("                   : writing to destPointer " .. string.format("0x%04X", destPointer))
 	-- similar to ch_serializePatterns, calculate checksum and log checksum, length, first 8 bytes.
-	local runningTotal = 0
-	for i = 1, #patternData do
-		runningTotal = runningTotal + patternData[i]
-	end
-	local firstBytes = {}
-	for i = 1, math.min(8, #patternData) do
-		firstBytes[i] = string.format("%02X", patternData[i])
-	end
-	log(
-		string.format(
-			"               : checksum=%d length=%d firstBytes=%s",
-			runningTotal,
-			#patternData,
-			table.concat(firstBytes, " ")
-		)
-	)
+	-- local runningTotal = 0
+	-- for i = 1, #patternData do
+	-- 	runningTotal = runningTotal + patternData[i]
+	-- end
+	-- local firstBytes = {}
+	-- for i = 1, math.min(8, #patternData) do
+	-- 	firstBytes[i] = string.format("%02X", patternData[i])
+	-- end
+	-- log(
+	-- 	string.format(
+	-- 		"               : checksum=%d length=%d firstBytes=%s",
+	-- 		runningTotal,
+	-- 		#patternData,
+	-- 		table.concat(firstBytes, " ")
+	-- 	)
+	-- )
 
 	-- deduce which buffer that corresponds to and log it.
 	if destPointer == 0x11164 then
-		log("                   : (buffer A)")
+		log("                   : -> (buffer A)")
 	elseif destPointer == 0x11464 then
-		log("                   : (buffer B)")
+		log("                   : -> (buffer B)")
 	end
 
 	-- copy the patternData to destPointer.
@@ -488,7 +486,7 @@ local function swapInPlayorder(songPosition, destPointer)
 		poke(destPointer + i, patternData[i + 1])
 	end
 
-	sync(24, 0, true)
+	-- sync(24, 0, true)
 
 	return patternIndex0b
 end
@@ -609,7 +607,7 @@ tf_music_reset_state = function()
 	backBufferIsA = false
 	stopPlayingOnNextFrame = false
 	log("tf_music_reset_state: Music state reset.")
-	ch_set_playroutine_regs(0xFF, 0xFF)
+	ch_set_playroutine_regs(0xFF)
 end
 
 tf_music_reset_state()
@@ -626,7 +624,7 @@ tf_music_init = function()
 
 	local patternIndex = swapInPlayorder(currentSongOrder, bufferALocation)
 
-	ch_set_playroutine_regs(currentSongOrder, patternIndex)
+	ch_set_playroutine_regs(currentSongOrder)
 
 	music(
 		0, -- track
@@ -648,8 +646,12 @@ function tf_music_tick()
 		return
 	end
 
+	-- log current & last playing frame
+	log("tf_music_tick: currentFrame=" .. tostring(currentFrame) .. " lastPlayingFrame=" .. tostring(lastPlayingFrame))
+
 	if stopPlayingOnNextFrame then
 		log("tf_music_tick: Stopping playback; next music frame reached.")
+		-- log the current & last playing frame
 		music() -- stops playback.
 		tf_music_reset_state()
 		return
@@ -657,6 +659,7 @@ function tf_music_tick()
 
 	backBufferIsA = not backBufferIsA
 	lastPlayingFrame = currentFrame
+	ch_set_playroutine_regs(currentSongOrder) -- the queued pattern is now playing; inform host.
 	currentSongOrder = currentSongOrder + 1
 
 	local destPointer = getBufferPointer()
@@ -668,12 +671,11 @@ function tf_music_tick()
 	if orderCount == 0 or currentSongOrder >= orderCount then
 		clearPatternBuffer(destPointer)
 		stopPlayingOnNextFrame = true
-		ch_set_playroutine_regs(0xFF, 0xFF)
+		ch_set_playroutine_regs(0xFF)
 		return
 	end
 
 	local patternIndex = swapInPlayorder(currentSongOrder, destPointer)
-	ch_set_playroutine_regs(currentSongOrder, patternIndex)
 end
 
 -- =========================

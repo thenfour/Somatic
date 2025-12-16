@@ -48,12 +48,11 @@ const MusicStateDisplay: React.FC<{ controller: AudioController }> = ({ controll
 
     return <div className='musicState-panel'>
         <div className='flags'>
-            <div className='key'>c_pat</div><div className='value'>{state.chromaticPatternIndex}</div>
             <div className='key'>c_pos</div><div className='value'>{state.chromaticSongPosition}</div>
             <div className='key'>t_trk</div><div className='value'>{state.tic80TrackIndex}</div>
             <div className='key'>t_frm</div><div className='value'>{state.tic80FrameIndex}</div>
             <div className='key'>t_row</div><div className='value'>{state.tic80RowIndex}</div>
-            <div className='key'>t_lup</div><div className='value'>{state.isLooping ? 'Yes' : 'No'}</div>
+            {/* <div className='key'>t_lup</div><div className='value'>{state.isLooping ? 'Yes' : 'No'}</div> */}
         </div>
     </div>;
 };

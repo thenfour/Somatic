@@ -137,7 +137,7 @@ export class Tic80Backend implements AudioBackend {
          tic80FrameIndex: frame,
          tic80TrackIndex: track,
          chromaticPatternIndex,
-         chromaticSongPosition,
+         chromaticSongPosition: chromaticSongPosition === 255 ? -1 : chromaticSongPosition,
          isLooping,
       };
       return this.lastKnownMusicState;
