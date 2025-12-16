@@ -1,9 +1,13 @@
 -- TIC-80 orchestration bridge
 
 local ADDR = {
-	MARKER = 0x14E24,
-	INBOX = 0x14E40,
-	OUTBOX = 0x14E80,
+	-- NB: KEEP IN SYNC WITH HOST (search FOR "BRIDGE_MEMORY_MAP")
+	-- https://tic80.com/learn <-- memory map of tic80
+	-- another candidate is at 0x14004 which is 1kb of "persistent memory"
+	MARKER = 0x14E24, -- beginning of reserved region; 12764 bytes free
+	REGISTERS = 0x14E40, -- 0x40 bytes for internal registers
+	INBOX = 0x14E80, -- 0x40 bytes for incoming args
+	OUTBOX = 0x14EC0, -- for strings, this is bigger than inbox (~256 bytes)
 }
 
 -- Host->cart synchronization registers (mutex-ish)
@@ -22,6 +26,12 @@ local INBOX = {
 	MUTEX = ADDR.INBOX + 12, -- non-zero while host is writing
 	SEQ = ADDR.INBOX + 13, -- increments per host write
 	TOKEN = ADDR.INBOX + 14, -- host increments per command; echoed back on completion
+}
+
+local CH_REGISTERS = {
+	-- NB: KEEP IN SYNC WITH HOST (search FOR "BRIDGE_MEMORY_MAP")
+	SONG_POSITION = ADDR.REGISTERS + 0, -- current song position (0..255)
+	PATTERN_ID = ADDR.REGISTERS + 1, -- current pattern id (0..255)
 }
 
 -- Cart->host synchronization registers (mirrors the above for OUTBOX)
@@ -126,7 +136,7 @@ local function log_drop()
 end
 
 local function log_write_ascii(s)
-	trace("cart log: " .. s)
+	trace("TIC80: " .. s)
 	out_set(OUTBOX.MUTEX, 1)
 
 	-- Clamp payload so entries stay small and parsing is trivial
@@ -410,17 +420,36 @@ local function draw_status()
 	y = y + 8
 	print(isPlaying and ("PLAY tr:" .. playingTrack) or "IDLE", 40, y, isPlaying and 11 or 6)
 	y = y + 8
-	-- print("last:" .. tostring(lastCmd) .. " res:" .. tostring(lastCmdResult), 40, y, 6)
-	print("env0:" .. peek(65764) .. " flg0:" .. peek(65824), 40, y, 6)
-	y = y + 8
-	print("env1:" .. peek(65764 + 66) .. " flg1:" .. peek(65824 + 66), 40, y, 6)
 
-	y = y + 10
+	local track, frame, row, looping = get_music_pos()
+	print(string.format("track:%d frame:%d row:%d loop:%s", track, frame, row, tostring(looping)), 40, y, 6)
 
 	-- Recent logs
 	for i = #log_lines, 1, -1 do
 		print(log_lines[i], 2, 90 + (i - 1) * 8, 6)
 	end
+end
+
+-- =========================
+-- chromatic playroutine support
+-- =========================
+function get_music_pos()
+	local track = peek(0x13FFC)
+	local frame = peek(0x13FFD)
+	local row = peek(0x13FFE)
+	local flags = peek(0x13FFF)
+
+	if track == 255 then
+		track = -1
+	end -- stopped / none
+
+	local looping = (flags & 0x01) ~= 0 -- in newer builds
+
+	return track, frame, row, looping
+end
+
+function tf_music_tick()
+	-- call every music tick (row advance)
 end
 
 -- =========================
@@ -435,6 +464,8 @@ function TIC()
 		log("BOOT")
 		booted = true
 	end
+
+	tf_music_tick()
 
 	t = t + 1
 

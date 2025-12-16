@@ -10,25 +10,53 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
+import { ToTic80ChannelIndex } from './models/tic80Capabilities';
+import { ArrangementEditor } from './ui/ArrangementEditor';
+import { ConfirmDialogProvider } from './ui/confirm_dialog';
 import { HelpPanel } from './ui/help_panel';
 import { InstrumentPanel } from './ui/instrument_editor';
+import { Keyboard } from './ui/keyboard';
 import { PatternGrid, PatternGridHandle } from './ui/pattern_grid';
 import { PreferencesPanel } from './ui/preferences_panel';
 import { SongEditor } from './ui/song_editor';
+import { ThemeEditorPanel } from './ui/theme_editor_panel';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { ToastProvider, useToasts } from './ui/toast_provider';
-import { Keyboard } from './ui/keyboard';
-import { ThemeEditorPanel } from './ui/theme_editor_panel';
-import { clamp } from './utils/utils';
-import { ToTic80ChannelIndex } from './models/tic80Capabilities';
-import { WaveformEditor, WaveformEditorPanel } from './ui/waveformEditor';
-import { ArrangementEditor } from './ui/ArrangementEditor';
-import { ConfirmDialogProvider } from './ui/confirm_dialog';
+import { WaveformEditorPanel } from './ui/waveformEditor';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
 type TransportState = 'stop' | 'play-pattern' | 'play-from-position' | 'play-all';
 type Theme = 'light' | 'dark';
+
+const MusicStateDisplay: React.FC<{ controller: AudioController }> = ({ controller }) => {
+
+    // const state = controller.getMusicState();
+
+    // We can't just display state; it's ever-changing. Use requestAnimationFrame to poll.
+    const [state, setState] = useState(controller.getMusicState());
+
+    useEffect(() => {
+        let animationFrameId: number;
+        const poll = () => {
+            setState(controller.getMusicState());
+            animationFrameId = requestAnimationFrame(poll);
+        };
+        animationFrameId = requestAnimationFrame(poll);
+        return () => cancelAnimationFrame(animationFrameId);
+    }, [controller]);
+
+    return <div className='musicState-panel'>
+        <div className='flags'>
+            <div className='key'>c_pat</div><div className='value'>{state.chromaticPatternIndex}</div>
+            <div className='key'>c_pos</div><div className='value'>{state.chromaticSongPosition}</div>
+            <div className='key'>t_trk</div><div className='value'>{state.tic80TrackIndex}</div>
+            <div className='key'>t_frm</div><div className='value'>{state.tic80FrameIndex}</div>
+            <div className='key'>t_row</div><div className='value'>{state.tic80RowIndex}</div>
+            <div className='key'>t_lup</div><div className='value'>{state.isLooping ? 'Yes' : 'No'}</div>
+        </div>
+    </div>;
+};
 
 const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
     const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
@@ -366,6 +394,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                             <span className="midi-indicator__dot" aria-hidden="true" />
                             <span className="midi-indicator__label">{midiIndicatorLabel}</span>
                         </div>
+                        <MusicStateDisplay controller={audio} />
                         {/* <div id="master-volume-container">
                             <label htmlFor="master-volume">master volume</label>
                             <input

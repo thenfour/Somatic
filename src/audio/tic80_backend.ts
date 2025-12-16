@@ -2,9 +2,9 @@ import {getNoteInfo} from "../defs";
 import {Tic80Instrument} from "../models/instruments";
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
-import {Tic80ChannelIndex} from "../models/tic80Capabilities";
-import type {Tic80BridgeHandle, Tic80BridgeTransaction} from "../ui/Tic80Bridged";
-import {AudioBackend, BackendContext} from "./backend";
+import {Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
+import type {Tic80BridgeHandle} from "../ui/Tic80Bridged";
+import {AudioBackend, BackendContext, MakeEmptyMusicState, MusicState} from "./backend";
 import {serializeSongForTic80Bridge, Tic80SerializedSong} from "./tic80_cart_serializer";
 
 // Minimal TIC-80 backend: delegates transport commands to the bridge.
@@ -14,6 +14,7 @@ export class Tic80Backend implements AudioBackend {
    private readonly bridge: () => Tic80BridgeHandle | null;
    private song: Song|null = null;
    private serializedSong: Tic80SerializedSong|null = null;
+   private lastKnownMusicState: MusicState = MakeEmptyMusicState();
    //private volume = 0.3;
 
    constructor(ctx: BackendContext, bridgeGetter: () => Tic80BridgeHandle | null) {
@@ -117,6 +118,31 @@ export class Tic80Backend implements AudioBackend {
          });
       this.emit.stop();
    }
+
+   getMusicState(): MusicState {
+      const b = this.bridge();
+      if (!b || !b.isReady())
+         return this.lastKnownMusicState;
+
+      const track = b.peekS8(TicMemoryMap.MUSIC_STATE_TRACK);
+      const frame = b.peekU8(TicMemoryMap.MUSIC_STATE_FRAME);
+      const row = b.peekU8(TicMemoryMap.MUSIC_STATE_ROW);
+      const flags = b.peekU8(TicMemoryMap.MUSIC_STATE_FLAGS);
+      const chromaticPatternIndex = b.peekU8(TicMemoryMap.MUSIC_STATE_CHROMATIC_PATTERN_ID);
+      const chromaticSongPosition = b.peekU8(TicMemoryMap.MUSIC_STATE_CHROMATIC_SONG_POSITION);
+
+      const isLooping = !!(flags & 0x1);
+      this.lastKnownMusicState = {
+         tic80RowIndex: row,
+         tic80FrameIndex: frame,
+         tic80TrackIndex: track,
+         chromaticPatternIndex,
+         chromaticSongPosition,
+         isLooping,
+      };
+      return this.lastKnownMusicState;
+   }
+
 
    //    private async tryUploadSong(tx: Tic80BridgeTransaction) {
    //       if (!this.serializedSong)

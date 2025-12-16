@@ -229,6 +229,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         <div className="instrument-panel">
             <div className="toolbar">
                 <label htmlFor="instrument">Instrument Editor</label>
+                {instrumentIndex === 0 && <div className='alertPanel'>!! instrument 0 is weird and should not be used.</div>}
                 <button onClick={onClose}>Close</button>
             </div>
             <div className="">

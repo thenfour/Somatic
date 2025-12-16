@@ -44,6 +44,10 @@ export class AudioController {
       this.isPlaying = false;
    }
 
+   getMusicState() {
+      return this.backend.getMusicState();
+   }
+
    sfxNoteOn(instrumentIndex: number, note: number, channel: Tic80ChannelIndex) {
       if (!this.song) {
          return;

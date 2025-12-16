@@ -21,6 +21,9 @@ const THEME_VARS = [
     '--tooltip-text',
     '--success-accent',
     '--error-accent',
+    '--error-surface-bg',
+    '--error-surface-text',
+    '--error-surface-border',
 ];
 
 function readCssVar(name: string, target: HTMLElement = document.documentElement): string {

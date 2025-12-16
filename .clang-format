@@ -15,3 +15,5 @@ SpaceBeforeParens: ControlStatements
 JavaScriptQuotes: Double
 ReflowComments: false
 SortIncludes: false
+BinPackArguments: false
+BinPackParameters: false

@@ -67,22 +67,25 @@
     --tic-15-contrast: var(--tic-12);
 
     /* Theme tokens (light default) */
-    --bg: #566c86;
-    --panel: #94b0c2;
-    --panel-strong: #f4f4f4;
-    --text: #5d275d;
-    --muted: #94b0c2;
-    --border: #566c86;
-    --border-strong: #333c57;
+    --bg: #1a1c2c;
+    --panel: #29366f;
+    --panel-strong: #257179;
+    --text: #f4f4f4;
+    --muted: #1a1c2c;
+    --border: #333c57;
+    --border-strong: #566c86;
     --accent: #41a6f6;
     --accent-strong: #73eff7;
-    --row-a: #f4f4f4;
-    --row-b: #73eff7;
+    --row-a: #29366f;
+    --row-b: #3b5dc9;
     --row-active: #38b764;
-    --tooltip-bg: #29366f;
+    --tooltip-bg: #1a1c2c;
     --tooltip-text: #f4f4f4;
     --success-accent: #38b764;
     --error-accent: #b13e53;
+    --error-surface-bg: #b13e53;
+    --error-surface-text: #ffcd75;
+    --error-surface-border: #ef7d57;
 }
 
 .theme-dark {
@@ -102,6 +105,9 @@
     --tooltip-text: #f4f4f4;
     --success-accent: #38b764;
     --error-accent: #b13e53;
+    --error-surface-bg: #b13e53;
+    --error-surface-text: #ffcd75;
+    --error-surface-border: #ef7d57;
 }
 
 html,
@@ -147,6 +153,12 @@ select {
 option {
     font-family: var(--ff-mono);
     font-size: var(--ff-size-1x);
+}
+
+.alertPanel {
+    border: 2px solid var(--error-surface-border);
+    background-color: var(--error-surface-bg);
+    color: var(--error-surface-text);
 }
 
 .app {
@@ -557,18 +569,18 @@ option {
     margin: 0;
 }
 
-.key {
+#keyboard .key {
     position: absolute;
     font-size: var(--ff-size-1x);
 }
 
-button.key {
+#keyboard button.key {
     align-items: flex-end;
     justify-content: center;
     border: 1px solid var(--border-strong);
 }
 
-.key.white {
+#keyboard .key.white {
     height: 100px;
     width: 32px;
     z-index: 0;
@@ -576,7 +588,7 @@ button.key {
     color: var(--text);
 }
 
-.key.black {
+#keyboard .key.black {
     height: 50px;
     width: 28px;
     z-index: 1;
@@ -584,7 +596,7 @@ button.key {
     color: var(--accent);
 }
 
-.key.active {
+#keyboard .key.active {
     background-color: var(--accent);
 }
 
@@ -1034,4 +1046,21 @@ button.key {
     width: 100%;
     padding: 1px 2px;
     border: 1px solid var(--border);
+}
+
+.musicState-panel div.flags {
+    display: flex;
+    background-color: var(--panel-strong);
+}
+
+.musicState-panel div.flags div.key {
+    display: flex;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.musicState-panel div.flags div.value {
+    display: flex;
+    min-width: 28px;
+    font-size: 14px;
 }
