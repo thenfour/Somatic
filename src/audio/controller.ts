@@ -78,6 +78,11 @@ export class AudioController {
       this.isPlaying = true;
    }
 
+   panic() {
+      this.backend.panic();
+      this.isPlaying = false;
+   }
+
    //    setVolume(vol: number) {
    //       this.volume = vol;
    //       this.backend.setVolume(vol);

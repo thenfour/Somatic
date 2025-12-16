@@ -170,6 +170,31 @@ export class Tic80Backend implements AudioBackend {
       //this.emit.position(startPosition);
    }
 
+   async panic() {
+      const b = this.bridge();
+      if (!b || !b.isReady()) {
+         return;
+      }
+
+      await b.invokeExclusive(async (tx) => {
+         for (const channel of [0, 1, 2, 3] as const) {
+            try {
+               await tx.stopSfx({channel: channel as Tic80ChannelIndex});
+            } catch (err) {
+               console.warn("[Tic80Backend] panic stopSfx failed", err);
+            }
+         }
+
+         try {
+            await tx.stop();
+         } catch (err) {
+            console.warn("[Tic80Backend] panic stop failed", err);
+         }
+      });
+
+      this.emit.stop();
+   }
+
    async stop() {
       const b = this.bridge();
       if (b && b.isReady())

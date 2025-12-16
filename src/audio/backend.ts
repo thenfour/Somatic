@@ -38,6 +38,7 @@ export interface AudioBackend {
    playRow(pattern: Pattern, rowNumber: number): void|Promise<void>;
    playPattern(pattern: Pattern): void|Promise<void>;
    playSong(startPosition: number): void|Promise<void>;
+   panic(): void|Promise<void>;
    stop(): void|Promise<void>;
 }
 

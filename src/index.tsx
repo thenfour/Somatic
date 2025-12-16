@@ -378,6 +378,11 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         audio.playSong(editorState.selectedPosition);
     };
 
+    const onPanic = () => {
+        setTransportState('stop');
+        audio.panic();
+    };
+
     return (
         <div className="app">
             <div className="stickyHeader appRow">
@@ -406,6 +411,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
+                        <button onClick={onPanic} title="Stop all audio"><span className="icon" aria-hidden="true">‼</span>Panic</button>
                         <button className={transportState === 'stop' ? 'active' : undefined} onClick={onStop}>
                             <span className="icon">⏹</span>
                             <span className="caption">Stop</span>
