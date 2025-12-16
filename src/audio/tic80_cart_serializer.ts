@@ -40,7 +40,7 @@ const SFX_BYTES_PER_SAMPLE = 66;
 //    return header;
 // }
 
-function encodePatternNote(midiNoteValue: number|undefined): {noteNibble: number; octave: number}|null {
+function encodePatternNote(midiNoteValue: number|undefined): {noteNibble: number; octave: number} {
    if (midiNoteValue === undefined) {
       return {noteNibble: 0, octave: 0};
    }
@@ -51,17 +51,13 @@ function encodePatternNote(midiNoteValue: number|undefined): {noteNibble: number
 };
 
 function encodePatternCellTriplet(
-   midiNoteValue: number|undefined, instrument: number, command: number, arg: number): [number, number, number] {
-   // Rest/no-note
+   midiNoteValue: number|undefined, instrument: number, command: number, argX: number, argY: number):
+   [number, number, number] {
    const ticPitch = encodePatternNote(midiNoteValue);
-   if (!ticPitch)
-      return [0, 0, 0];
 
-   const sfx = Math.max(0, Math.min(255, instrument | 0));
-
-   const byte0 = ticPitch.noteNibble & 0x0f;
-   const byte1 = ((sfx >> 5) & 0x01) << 7 | ((command & 0x07) << 4) | (arg & 0x0f);
-   const byte2 = ((ticPitch.octave & 0x07) << 5) | (sfx & 0x1f);
+   const byte0 = ((argX & 0xf) << 4) | (ticPitch.noteNibble & 0x0f);
+   const byte1 = ((instrument >> 5) & 0x01) << 7 | ((command & 0x07) << 4) | (argY & 0x0f);
+   const byte2 = ((ticPitch.octave & 0x07) << 5) | (instrument & 0x1f);
    return [byte0, byte1, byte2];
 }
 
@@ -86,17 +82,13 @@ export function encodePatternChannel(pattern: Pattern, channelIndex: Tic80Channe
 
    const buf = new Uint8Array(Tic80Caps.pattern.maxRows * 3);
 
-   // TODO: zero unnecessary cell data (0 note but non-zero instrument)
-
    for (let row = 0; row < Tic80Caps.pattern.maxRows; row++) {
-      //for (let ch = 0; ch < Tic80Caps.song.audioChannels; ch++) {
-      //const channelIndex = ch as Tic80ChannelIndex;
-      const cellData = pattern.getCell(channelIndex, row); // pattern.channels[ch]?.rows[row];
+      const cellData = pattern.getCell(channelIndex, row);
       const inst = cellData.instrumentIndex ?? 0;
       const commandArgX = cellData.effectX ?? 0;
       const commandArgY = cellData.effectY ?? 0;
-      const commandArgs = (commandArgX << 4) | (commandArgY & 0x0f);
-      const [b0, b1, b2] = encodePatternCellTriplet(cellData.midiNote, inst, cellData.effect ?? 0, commandArgs);
+      const command = cellData.effect === undefined ? 0 : clamp(cellData.effect + 1, 0, 7);
+      const [b0, b1, b2] = encodePatternCellTriplet(cellData.midiNote, inst, command, commandArgX, commandArgY);
       const base = 3 * row;
       buf[base + 0] = b0;
       buf[base + 1] = b1;
@@ -406,10 +398,16 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
    const realPatternData = encodeRealPatterns(song); // separate pattern data for playback use
    const trackData = encodeTrack(song);
 
+   //    // overwrite nullPatternData with real patterns for testing
+   //    for (let i = 0; i < realPatternData.length; i++) {
+   //       const patternBytes = realPatternData[i]!;
+   //       nullPatternData.set(patternBytes, i * patternBytes.length);
+   //    }
+
    assert(waveformData.length == 256, `Unexpected waveform chunk size: ${waveformData.length}; expected 256`);
    assert(sfxData.length == 4224, `Unexpected SFX chunk size: ${sfxData.length}; expected 4224`);
    assert(nullPatternData.length == 11520, `Unexpected patterns chunk size: ${nullPatternData.length}; expected 11520`);
-   //assert(trackData.length == 408, `Unexpected track chunk size: ${trackData.length}; expected 408`);
+   //assert(realPatternData.length == 408, `Unexpected realPatternData size: ${realPatternData.length}; expected 408`);
    assert(trackData.length == 51, `Unexpected track chunk size: ${trackData.length}; expected 51`);
 
    parts.push(waveformData);
