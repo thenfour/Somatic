@@ -67,17 +67,17 @@
     --tic-15-contrast: var(--tic-12);
 
     /* Theme tokens (light default) */
-    --bg: #1a1c2c;
-    --panel: #29366f;
-    --panel-strong: #257179;
-    --text: #f4f4f4;
+    --bg: #f4f4f4;
+    --panel: #94b0c2;
+    --panel-strong: #73eff7;
+    --text: #1a1c2c;
     --muted: #1a1c2c;
     --border: #333c57;
-    --border-strong: #566c86;
-    --accent: #41a6f6;
-    --accent-strong: #73eff7;
-    --row-a: #29366f;
-    --row-b: #3b5dc9;
+    --border-strong: #333c57;
+    --accent: #a7f070;
+    --accent-strong: #3b5dc9;
+    --row-a: #94b0c2;
+    --row-b: #41a6f6;
     --row-active: #38b764;
     --tooltip-bg: #1a1c2c;
     --tooltip-text: #f4f4f4;
