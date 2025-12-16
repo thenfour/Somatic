@@ -1,11 +1,9 @@
-import {CoalesceBoolean} from "../utils/utils";
+import {clamp, CoalesceBoolean} from "../utils/utils";
 import {Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex} from "./tic80Capabilities";
-
-const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
 
 export class EditorState {
    octave: number;
-   patternIndex: number;
+   //patternIndex: number;
    selectedPosition: number;
    currentInstrument: number;
    editingEnabled: boolean;
@@ -14,7 +12,7 @@ export class EditorState {
 
    constructor({
       octave = Math.floor(Tic80Caps.pattern.octaveCount / 2),
-      patternIndex: pattern = 0,
+      //patternIndex: pattern = 0,
       selectedPosition = 0,
       currentInstrument = 0,
       editingEnabled = true,
@@ -22,7 +20,7 @@ export class EditorState {
       patternEditChannel = 0
    }: Partial<EditorState> = {}) {
       this.octave = clamp(octave, 1, Tic80Caps.pattern.octaveCount);
-      this.patternIndex = clamp(pattern, 0, Tic80Caps.pattern.count - 1);
+      //this.patternIndex = clamp(pattern, 0, Tic80Caps.pattern.count - 1);
       this.selectedPosition = clamp(selectedPosition, 0, 255);
       this.currentInstrument = clamp(currentInstrument, 0, Tic80Caps.sfx.count - 1);
       this.editingEnabled = CoalesceBoolean(editingEnabled, true);
@@ -34,9 +32,9 @@ export class EditorState {
       this.octave = clamp(nextOctave, 1, Tic80Caps.pattern.octaveCount);
    }
 
-   setPattern(nextPattern: number) {
-      this.patternIndex = clamp(nextPattern, 0, Tic80Caps.pattern.count - 1);
-   }
+   //    setPattern(nextPattern: number) {
+   //       //this.patternIndex = clamp(nextPattern, 0, Tic80Caps.pattern.count - 1);
+   //    }
 
    setSelectedPosition(nextPosition: number) {
       this.selectedPosition = clamp(nextPosition, 0, 255);
@@ -58,7 +56,7 @@ export class EditorState {
    toData() {
       return {
          octave: this.octave,
-         pattern: this.patternIndex,
+         //pattern: this.patternIndex,
          selectedPosition: this.selectedPosition,
          currentInstrument: this.currentInstrument,
          editingEnabled: this.editingEnabled,

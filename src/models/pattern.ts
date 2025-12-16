@@ -52,15 +52,17 @@ export class PatternChannel implements PatternChannelDto {
 
 //////////////////////////////////////////////////////////////////////////////////
 export type PatternDto = {
-   channels: [PatternChannelDto, PatternChannelDto, PatternChannelDto, PatternChannelDto];
+   name: string; channels: [PatternChannelDto, PatternChannelDto, PatternChannelDto, PatternChannelDto];
 };
 
 export class Pattern implements PatternDto {
+   name: string;
    channels: [PatternChannel, PatternChannel, PatternChannel, PatternChannel];
 
    constructor(data?: PatternDto) {
       if (data) {
          assert(data.channels.length === Tic80Caps.song.audioChannels);
+         this.name = data.name ?? "";
          this.channels = [
             new PatternChannel(data.channels[0]),
             new PatternChannel(data.channels[1]),
@@ -68,6 +70,7 @@ export class Pattern implements PatternDto {
             new PatternChannel(data.channels[3]),
          ];
       } else {
+         this.name = "";
          this.channels = [
             new PatternChannel(),
             new PatternChannel(),
@@ -79,7 +82,7 @@ export class Pattern implements PatternDto {
 
    toData(): PatternDto {
       return {
-         channels: [
+         name: this.name, channels: [
             this.channels[0].toData(),
             this.channels[1].toData(),
             this.channels[2].toData(),

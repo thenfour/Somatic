@@ -967,6 +967,22 @@ button.key {
     flex-direction: column;
 }
 
+.arrangement-editor__header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 2px 4px;
+}
+
+.arrangement-editor__toggle-names {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 1px 4px;
+}
+
+.arrangement-editor__toggle-names[aria-pressed="true"] {}
+
 .arrangement-editor button {
     border: 0;
     background: transparent;
@@ -994,4 +1010,28 @@ button.key {
 .arrangement-editor button.arrangement-editor__pattern {
     color: var(--text);
     background-color: var(--row-a);
+}
+
+.arrangement-editor__pattern-name-container {
+    margin-left: 6px;
+    flex: 1;
+}
+
+.arrangement-editor__pattern-name {
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 40px;
+    display: inline-block;
+    height: 100%;
+    cursor: pointer;
+}
+
+.arrangement-editor__pattern-name-input {
+    font-family: var(--ff-mono);
+    font-size: 11px;
+    width: 100%;
+    padding: 1px 2px;
+    border: 1px solid var(--border);
 }

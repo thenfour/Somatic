@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
 import { Tic80Caps } from "../models/tic80Capabilities";
@@ -14,6 +15,10 @@ export const ArrangementEditor: React.FC<{
     const { confirm } = useConfirmDialog();
     const maxPatterns = Tic80Caps.pattern.count;
     const maxPositions = Tic80Caps.arrangement.count;
+
+    const [showPatternNames, setShowPatternNames] = useState(false);
+    const [editingPatternNameIndex, setEditingPatternNameIndex] = useState<number | null>(null);
+    const [editingPatternNameValue, setEditingPatternNameValue] = useState("");
 
     const formattedIndex = (index: number) => index.toString().padStart(2, "0");
 
@@ -86,8 +91,45 @@ export const ArrangementEditor: React.FC<{
         });
     };
 
+    const patternDisplayName = (patternIndex: number) => {
+        const pat = song.patterns[patternIndex]!;
+        return pat.name;
+    };
+
+    const startEditingPatternName = (patternIndex: number) => {
+        setEditingPatternNameIndex(patternIndex);
+        setEditingPatternNameValue(patternDisplayName(patternIndex));
+    };
+
+    const commitEditingPatternName = () => {
+        if (editingPatternNameIndex === null) return;
+        const index = editingPatternNameIndex;
+        const value = editingPatternNameValue.trim();
+        onSongChange((s) => {
+            const pat = s.patterns[index];
+            if (!pat) return;
+            pat.name = value;
+        });
+        setEditingPatternNameIndex(null);
+    };
+
+    const cancelEditingPatternName = () => {
+        setEditingPatternNameIndex(null);
+    };
+
     return (
         <div className="arrangement-editor">
+            <div className="arrangement-editor__header">
+                <button
+                    type="button"
+                    className="arrangement-editor__toggle-names"
+                    onClick={() => setShowPatternNames((v) => !v)}
+                    aria-pressed={showPatternNames}
+                    title="Toggle pattern names"
+                >
+                    Names
+                </button>
+            </div>
             {song.songOrder.map((patternIndex, positionIndex) => {
                 const clampedPattern = clamp(patternIndex ?? 0, 0, maxPatterns - 1);
                 const isSelected = editorState.selectedPosition === positionIndex;
@@ -149,6 +191,40 @@ export const ArrangementEditor: React.FC<{
                         >
                             {">"}
                         </button>
+                        {showPatternNames && (
+                            <div
+                                className="arrangement-editor__pattern-name-container"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {editingPatternNameIndex === clampedPattern ? (
+                                    <input
+                                        type="text"
+                                        className="arrangement-editor__pattern-name-input"
+                                        value={editingPatternNameValue}
+                                        autoFocus
+                                        onChange={(e) => setEditingPatternNameValue(e.target.value)}
+                                        onBlur={commitEditingPatternName}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                commitEditingPatternName();
+                                            } else if (e.key === "Escape") {
+                                                e.preventDefault();
+                                                cancelEditingPatternName();
+                                            }
+                                        }}
+                                    />
+                                ) : (
+                                    <span
+                                        className="arrangement-editor__pattern-name"
+                                        title={patternDisplayName(clampedPattern)}
+                                        onDoubleClick={() => startEditingPatternName(clampedPattern)}
+                                    >
+                                        {patternDisplayName(clampedPattern)}
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 );
             })}

@@ -18,6 +18,9 @@ type SongEditorProps = {
 
 export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSongChange, onEditorStateChange, audio }) => {
     const effectiveBpm = Math.round(((song.tempo * 6) / song.speed) * 10) / 10; // TIC BPM approximation
+    const patternId = song.songOrder[editorState.selectedPosition]!;
+    const pattern = song.patterns[patternId]!;
+    console.log(pattern)
 
     const onSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = TryParseInt(e.target.value);
@@ -43,11 +46,11 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
         onEditorStateChange((state) => state.setOctave(val));
     };
 
-    const onCurrentInstrumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = TryParseInt(e.target.value);
-        if (val === null) return;
-        onEditorStateChange((state) => state.setCurrentInstrument(val));
-    };
+    // const onCurrentInstrumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    //     const val = TryParseInt(e.target.value);
+    //     if (val === null) return;
+    //     onEditorStateChange((state) => state.setCurrentInstrument(val));
+    // };
 
     const onHighlightRowCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = TryParseInt(e.target.value);
@@ -140,9 +143,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     onChange={onCurrentInstrumentChange}
                 /> */}
             </label>
-            <label>
-                {/* Pattern is now implied by the selected song position */}
-            </label>
+            <div>{patternId}: {pattern.name}</div>
         </div>
     );
 };
