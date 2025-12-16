@@ -369,6 +369,10 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             assertReady();
             await sendMailboxCommandRaw([TicBridge.CMD_BEGIN_UPLOAD], "Begin song Upload");
             pokeBlock(TicMemoryMap.WAVEFORMS_ADDR, data.memory_0FFE4);
+            pokeBlock(TicMemoryMap.TF_ORDER_LIST, data.songOrderData);
+            pokeBlock(TicMemoryMap.TF_PATTERN_DATA, data.patternData);
+
+            // write pattern data
             await sendMailboxCommandRaw([TicBridge.CMD_END_UPLOAD], "End song Upload");
         }
 

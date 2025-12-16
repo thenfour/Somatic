@@ -79,10 +79,8 @@ export const TicMemoryMap = {
    LOG_SIZE: 240,
 
    MAP_BASE: 0x8000,
-   TF_ORDER_LIST_COUNT: 0x8000,   // MAP_BASE + 0
-   TF_ORDER_LIST_ENTRIES: 0x8001, // MAP_BASE + 1 -- max 256 entries
-   TF_PATTERN_DATA:
-      0x8101, // MAP_BASE + 256 // theoretically you can support the whole map area for pattern data (32640 bytes).
+   TF_ORDER_LIST: 0x8000,   // MAP_BASE: 1 length byte + 256 entries.
+   TF_PATTERN_DATA: 0x8101, //theoretically you can support the whole map area for pattern data (32640 bytes).
 
    // TIC cartridge chunk IDs (subset)
    // CHUNK_WAVEFORMS: 10,

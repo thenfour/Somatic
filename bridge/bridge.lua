@@ -46,6 +46,11 @@ local CH_REGISTERS = {
 	PATTERN_ID = ADDR.REGISTERS + 1, -- current pattern id (0..255)
 }
 
+local function ch_set_playroutine_regs(songPosition, patternId)
+	poke(CH_REGISTERS.SONG_POSITION, songPosition & 0xFF)
+	poke(CH_REGISTERS.PATTERN_ID, patternId & 0xFF)
+end
+
 -- Cart->host synchronization registers (mirrors the above for OUTBOX)
 local OUTBOX = {
 	MAGIC = ADDR.OUTBOX + 0,
@@ -149,43 +154,43 @@ end
 
 local function log_write_ascii(s)
 	trace("TIC80: " .. s)
-	out_set(OUTBOX.MUTEX, 1)
+	-- out_set(OUTBOX.MUTEX, 1)
 
-	-- Clamp payload so entries stay small and parsing is trivial
-	local n = #s
-	if n > 31 then
-		n = 31
-	end
+	-- -- Clamp payload so entries stay small and parsing is trivial
+	-- local n = #s
+	-- if n > 31 then
+	-- 	n = 31
+	-- end
 
-	local wp = out_get(OUTBOX.LOG_WRITE_PTR)
+	-- local wp = out_get(OUTBOX.LOG_WRITE_PTR)
 
-	local needed = 2 + n -- cmd + len + payload
+	-- local needed = 2 + n -- cmd + len + payload
 
-	-- If we would wrap across end, write wrap marker and reset
-	if wp + needed >= OUTBOX.LOG_SIZE then
-		poke(OUTBOX.LOG_BASE + wp + 0, 0) -- cmd=0 wrap marker
-		poke(OUTBOX.LOG_BASE + wp + 1, 0)
-		wp = 0
-	end
+	-- -- If we would wrap across end, write wrap marker and reset
+	-- if wp + needed >= OUTBOX.LOG_SIZE then
+	-- 	poke(OUTBOX.LOG_BASE + wp + 0, 0) -- cmd=0 wrap marker
+	-- 	poke(OUTBOX.LOG_BASE + wp + 1, 0)
+	-- 	wp = 0
+	-- end
 
-	-- If still no room (LOG_SIZE too small), drop
-	if needed >= OUTBOX.LOG_SIZE then
-		out_set(OUTBOX.MUTEX, 0)
-		log_drop()
-		return
-	end
+	-- -- If still no room (LOG_SIZE too small), drop
+	-- if needed >= OUTBOX.LOG_SIZE then
+	-- 	out_set(OUTBOX.MUTEX, 0)
+	-- 	log_drop()
+	-- 	return
+	-- end
 
-	-- write entry
-	poke(OUTBOX.LOG_BASE + wp + 0, LOG_CMD_LOG)
-	poke(OUTBOX.LOG_BASE + wp + 1, n)
-	for i = 1, n do
-		poke(OUTBOX.LOG_BASE + wp + 1 + i, string.byte(s, i))
-	end
+	-- -- write entry
+	-- poke(OUTBOX.LOG_BASE + wp + 0, LOG_CMD_LOG)
+	-- poke(OUTBOX.LOG_BASE + wp + 1, n)
+	-- for i = 1, n do
+	-- 	poke(OUTBOX.LOG_BASE + wp + 1 + i, string.byte(s, i))
+	-- end
 
-	wp = wp + needed
-	out_set(OUTBOX.LOG_WRITE_PTR, wp & 0xFF)
-	out_set(OUTBOX.SEQ, (out_get(OUTBOX.SEQ) + 1) & 0xFF)
-	out_set(OUTBOX.MUTEX, 0)
+	-- wp = wp + needed
+	-- out_set(OUTBOX.LOG_WRITE_PTR, wp & 0xFF)
+	-- out_set(OUTBOX.SEQ, (out_get(OUTBOX.SEQ) + 1) & 0xFF)
+	-- out_set(OUTBOX.MUTEX, 0)
 end
 
 -- Also show some recent logs on-screen for sanity
@@ -216,25 +221,9 @@ local fps = 0
 local fps_last_time = 0
 local fps_frame_count = 0
 
--- local isPlaying = false
--- local playingTrack = 0
-
 local lastCmd = 0
 local lastCmdResult = 0
 local host_last_seq = 0
-
--- local function set_playing(track, playing)
--- 	isPlaying = playing
--- 	playingTrack = track or playingTrack
-
--- 	local flags = 0
--- 	if isPlaying then
--- 		flags = flags | 0x01
--- 	end
-
--- 	out_set(OUTBOX.STATE_FLAGS, flags)
--- 	out_set(OUTBOX.PLAYING_TRACK, playingTrack & 0xFF)
--- end
 
 local function publish_cmd(cmd, result)
 	lastCmd = cmd
@@ -246,50 +235,9 @@ end
 
 -- =========================
 -- Commands
--- =========================
 local function handle_play()
 	tf_music_init()
 	publish_cmd(CMD_PLAY, 0)
-
-	-- local track = peek(INBOX.TRACK)
-	-- local frame = peek(INBOX.FRAME)
-	-- local row = peek(INBOX.ROW)
-	-- local loop = peek(INBOX.LOOP) ~= 0
-	-- local sustain = peek(INBOX.SUSTAIN) ~= 0
-	-- local tempo = peek(INBOX.TEMPO)
-	-- local speed = peek(INBOX.SPEED)
-
-	-- -- Defensive clamps (so garbage commands don't crash your bridge behavior)
-	-- if track > 7 then
-	-- 	track = 7
-	-- end
-	-- if frame > 15 then
-	-- 	frame = 15
-	-- end
-	-- if row > 63 then
-	-- 	row = 63
-	-- end
-
-	-- if tempo == 0 and speed == 0 then
-	-- 	music(track, frame, row, loop, sustain)
-	-- else
-	-- 	music(track, frame, row, loop, sustain, tempo, speed)
-	-- end
-
-	-- set_playing(track, true)
-	-- publish_cmd(1, 0)
-	-- log(
-	-- 	string.format(
-	-- 		"PLAY tr=%d f=%d r=%d L=%d S=%d T=%d Sp=%d",
-	-- 		track,
-	-- 		frame,
-	-- 		row,
-	-- 		loop and 1 or 0,
-	-- 		sustain and 1 or 0,
-	-- 		tempo,
-	-- 		speed
-	-- 	)
-	-- )
 end
 
 local function handle_stop()
@@ -416,12 +364,6 @@ local function draw_idle_anim()
 		local col = (i == phase) and 12 or 5
 		pix(px, py, col)
 	end
-
-	-- Pulse bar
-	-- local w = 30
-	-- local p = (t % 60) / 59
-	-- rect(2, 22, w, 3, 5)
-	-- rect(2, 22, math.floor(w * p), 3, isPlaying and 11 or 12)
 end
 
 local function get_music_pos()
@@ -445,10 +387,6 @@ local function draw_status()
 	y = y + 8
 	print("fps:" .. tostring(fps), 40, y, 13)
 	y = y + 8
-	--print("hb:" .. tostring(out_get(OUTBOX.HEARTBEAT)), 40, y, 13)
-	--y = y + 8
-	--print(isPlaying and ("PLAY tr:" .. playingTrack) or "IDLE", 40, y, isPlaying and 11 or 6)
-	--y = y + 8
 
 	local track, frame, row, looping = get_music_pos()
 	print(string.format("track:%d frame:%d row:%d loop:%s", track, frame, row, tostring(looping)), 40, y, 6)
@@ -458,6 +396,16 @@ local function draw_status()
 		print(log_lines[i], 2, 90 + (i - 1) * 8, 6)
 	end
 end
+
+-- =========================
+-- general playroutine support
+currentSongOrder = 0
+lastPlayingFrame = -1
+backBufferIsA = false -- A means patterns 0,1,2,3; B = 4,5,6,7
+stopPlayingOnNextFrame = false
+local PATTERN_BUFFER_BYTES = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
+local bufferALocation = 0x11164 -- pointer to first pattern https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
+local bufferBLocation = bufferALocation + PATTERN_BUFFER_BYTES -- pointer to pattern 4
 
 -- =========================
 -- tracker-specific playroutine support
@@ -503,12 +451,46 @@ end
 local function swapInPlayorder(songPosition, destPointer)
 	local patternIndex0b = peek(ADDR.TF_ORDER_LIST_ENTRIES + songPosition)
 	local patternData = readPattern(patternIndex0b)
+
+	log("swapInPlayorder: Swapping in song position " .. tostring(songPosition))
+	log("                   : pattern index " .. tostring(patternIndex0b))
+	log("                   : pattern data length " .. tostring(#patternData) .. " bytes")
+	log("                   : writing to destPointer " .. string.format("0x%04X", destPointer))
+	-- similar to ch_serializePatterns, calculate checksum and log checksum, length, first 8 bytes.
+	local runningTotal = 0
+	for i = 1, #patternData do
+		runningTotal = runningTotal + patternData[i]
+	end
+	local firstBytes = {}
+	for i = 1, math.min(8, #patternData) do
+		firstBytes[i] = string.format("%02X", patternData[i])
+	end
+	log(
+		string.format(
+			"               : checksum=%d length=%d firstBytes=%s",
+			runningTotal,
+			#patternData,
+			table.concat(firstBytes, " ")
+		)
+	)
+
+	-- deduce which buffer that corresponds to and log it.
+	if destPointer == 0x11164 then
+		log("                   : (buffer A)")
+	elseif destPointer == 0x11464 then
+		log("                   : (buffer B)")
+	end
+
 	-- copy the patternData to destPointer.
 	-- the patternData is expected to be exactly 192*4 = 768 bytes.
 	-- but we require length if we decide to compress pattern data later.
 	for i = 0, #patternData - 1 do
 		poke(destPointer + i, patternData[i + 1])
 	end
+
+	sync(24, 0, true)
+
+	return patternIndex0b
 end
 
 -- =========================
@@ -601,17 +583,11 @@ end
 --   for i = 0, patternLengthBytes - 1 do
 -- 	poke(destPointer + i, patternBytes[i + 1])
 --   end
+-- sync(24, 0, true)
 -- }
 
 -- =========================
 -- general playroutine support
-currentSongOrder = 0
-lastPlayingFrame = -1
-backBufferIsA = false -- A means patterns 0,1,2,3; B = 4,5,6,7
-stopPlayingOnNextFrame = false
-local PATTERN_BUFFER_BYTES = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
-local bufferALocation = 0x11164 -- pointer to first pattern https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
-local bufferBLocation = bufferALocation + PATTERN_BUFFER_BYTES -- pointer to pattern 4
 
 local function getBufferPointer()
 	if backBufferIsA then
@@ -632,7 +608,11 @@ tf_music_reset_state = function()
 	lastPlayingFrame = -1
 	backBufferIsA = false
 	stopPlayingOnNextFrame = false
+	log("tf_music_reset_state: Music state reset.")
+	ch_set_playroutine_regs(0xFF, 0xFF)
 end
+
+tf_music_reset_state()
 
 -- init state and begin playback from start
 tf_music_init = function()
@@ -642,7 +622,11 @@ tf_music_init = function()
 	lastPlayingFrame = -1 -- this means tick() will immediately seed the back buffer.
 	stopPlayingOnNextFrame = false
 
-	swapInPlayorder(currentSongOrder, bufferALocation)
+	log("tf_music_init: Starting playback from beginning.")
+
+	local patternIndex = swapInPlayorder(currentSongOrder, bufferALocation)
+
+	ch_set_playroutine_regs(currentSongOrder, patternIndex)
 
 	music(
 		0, -- track
@@ -665,8 +649,9 @@ function tf_music_tick()
 	end
 
 	if stopPlayingOnNextFrame then
+		log("tf_music_tick: Stopping playback; next music frame reached.")
 		music() -- stops playback.
-		stopPlayingOnNextFrame = false
+		tf_music_reset_state()
 		return
 	end
 
@@ -675,38 +660,21 @@ function tf_music_tick()
 	currentSongOrder = currentSongOrder + 1
 
 	local destPointer = getBufferPointer()
-	local orderCount = getSongOrderCount() or 0
+	local orderCount = getSongOrderCount()
+
+	log("tf_music_tick: Advancing to song order " .. tostring(currentSongOrder))
+	log("             : Song order count is " .. tostring(orderCount))
 
 	if orderCount == 0 or currentSongOrder >= orderCount then
 		clearPatternBuffer(destPointer)
 		stopPlayingOnNextFrame = true
+		ch_set_playroutine_regs(0xFF, 0xFF)
 		return
 	end
 
-	swapInPlayorder(currentSongOrder, destPointer)
+	local patternIndex = swapInPlayorder(currentSongOrder, destPointer)
+	ch_set_playroutine_regs(currentSongOrder, patternIndex)
 end
-
--- on_music_tick {
---   currentFrame = tic80_get_playing_frame()
---   if (currentFrame != lastPlayingFrame) {
-
---     if (stopPlayingOnNextFrame) {
---       tic80_stop_music()
---       return
---     }
---     // advance
---     backBufferIsA = !backBufferIsA
---     lastPlayingFrame = currentFrame
---     currentSongOrder += 1
---     if (currentSongOrder >= getSongOrderCount()) {
---       // next frame will stop the song. copy silence and wait for next frame.
---       copy silence to getBufferPointer()
---       stopPlayingOnNextFrame = true
---     }
-
---     swapInPlayorder(currentSongOrder, getBufferPointer())
---   }
--- } // on music tick
 
 -- =========================
 -- TIC loop

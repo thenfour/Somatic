@@ -107,17 +107,25 @@ export function encodePattern(pattern: Pattern): [Uint8Array, Uint8Array, Uint8A
    return [encoded0, encoded1, encoded2, encoded3];
 };
 
-// each pattern is actually 4 patterns (channel A, B, C, D) in series.
+// each of OUR internal patterns is actually 4 tic80 patterns (channel A, B, C, D) in series.
 // so for double-buffering, the front buffer for the 4 channels is [0,1,2,3], and the back buffer is [4,5,6,7], etc.
+// we output as a 4-channel pattern quad in order so it can just be copied directly to TIC-80 memory.
 function encodeRealPatterns(song: Song): Uint8Array[] {
    const ret: Uint8Array[] = [];
    for (let p = 0; p < song.patterns.length; p++) {
       const pattern = song.patterns[p]!;
       const [encoded0, encoded1, encoded2, encoded3] = encodePattern(pattern);
-      ret.push(encoded0);
-      ret.push(encoded1);
-      ret.push(encoded2);
-      ret.push(encoded3);
+      // join 4 channel patterns into one buffer, push that buffer.
+      const combined = new Uint8Array(encoded0.length + encoded1.length + encoded2.length + encoded3.length);
+      let offset = 0;
+      combined.set(encoded0, offset);
+      offset += encoded0.length;
+      combined.set(encoded1, offset);
+      offset += encoded1.length;
+      combined.set(encoded2, offset);
+      offset += encoded2.length;
+      combined.set(encoded3, offset);
+      ret.push(combined);
    }
    return ret;
    //return writeChunk(CHUNK.MUSIC_PATTERNS, patterns);
@@ -452,8 +460,14 @@ function ch_serializePatterns(patterns: Uint8Array[]): Uint8Array {
       totalSize += 2 + pattern.length; // 2 bytes for length + pattern data
    }
 
+   assert(
+      patterns[0].length === 768,
+      `ch_serializePatterns: unexpected pattern length ${patterns[0].length}, expected 768`);
+
    const output = new Uint8Array(totalSize);
    let writePos = 0;
+
+   const stats: {checksum: number; length: number; firstBytes: string;}[] = [];
 
    for (const pattern of patterns) {
       const length = pattern.length & 0xffff;
@@ -465,7 +479,20 @@ function ch_serializePatterns(patterns: Uint8Array[]): Uint8Array {
       // Write pattern data
       output.set(pattern, writePos);
       writePos += pattern.length;
+
+
+      // calculate a sum of all bytes in this pattern
+      let runningTotal = 0;
+      for (let i = 0; i < pattern.length; i++) {
+         runningTotal += pattern[i];
+      }
+      runningTotal &= 0xFFFFFFFF; // keep it within 32-bit range
+      const firstBytes = Array.from(pattern.slice(0, 8)).map(b => b.toString(16).padStart(2, "0")).join(" ");
+      stats.push({checksum: runningTotal, length: pattern.length, firstBytes});
    }
+
+   console.log(`ch_serializePatterns: serialized ${patterns.length} patterns, total size ${totalSize} bytes`);
+   console.log(stats);
 
    return output;
 }
