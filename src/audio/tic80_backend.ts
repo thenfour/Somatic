@@ -32,7 +32,7 @@ export class Tic80Backend implements AudioBackend {
             return;
 
          await b.invokeExclusive(async tx => {
-            tx.uploadSongData(this.serializedSong!);
+            tx.uploadSongData(this.serializedSong!, "Song has been modified.");
          });
       } else {
          // todo: an actual empty song.
@@ -116,13 +116,7 @@ export class Tic80Backend implements AudioBackend {
          });
       }
 
-      const serialized = this.serializedSong;
-
       await b.invokeExclusive(async (tx) => {
-         if (serialized) {
-            await tx.uploadSongData(serialized);
-         }
-
          for (const channel of [0, 1, 2, 3] as const) {
             try {
                await tx.stopSfx({channel: channel as Tic80ChannelIndex});
@@ -221,25 +215,4 @@ export class Tic80Backend implements AudioBackend {
       };
       return this.lastKnownMusicState;
    }
-
-
-   //    private async tryUploadSong(tx: Tic80BridgeTransaction) {
-   //       if (!this.serializedSong)
-   //          return;
-   //       const b = this.bridge();
-   //       if (!b || !b.isReady())
-   //          return;
-
-   //       await tx.uploadSongData(this.serializedSong);
-   //    }
-
-   //    private findInstrumentIndex(instrument: Tic80Instrument): number {
-   //       if (!this.song)
-   //          return 1;
-   //       const idx = this.song.instruments.findIndex((inst) => inst === instrument);
-   //       if (idx >= 0)
-   //          return idx;
-   //       // Fallback to first instrument if not found
-   //       return 1;
-   //    }
 }

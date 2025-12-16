@@ -1,7 +1,5 @@
-import type {Tic80Instrument} from "../models/instruments";
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
-import {Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {Tic80BridgeHandle} from "../ui/Tic80Bridged";
 import type {AudioBackend} from "./backend";
 import {Tic80Backend} from "./tic80_backend";
@@ -27,19 +25,12 @@ export class AudioController {
       this.song = null;
       this.isPlaying = false;
       this.voiceManager = new VoiceManager();
-      // const ctx = {
-      //    emit: {
-      //       row: (rowNumber: number, pattern: Pattern) => this.emitRow(rowNumber, pattern),
-      //       position: (positionNumber: number) => this.emitPosition(positionNumber),
-      //       stop: () => this.emitStop(),
-      //    },
-      // } as const;
       this.backend = new Tic80Backend(opts.bridgeGetter);
    }
 
-   setSong(song: Song|null) {
+   setSong(song: Song|null, reason: string) {
       this.song = song;
-      this.backend.setSong(song);
+      this.backend.setSong(song, reason);
    }
 
    stop() {
@@ -91,11 +82,6 @@ export class AudioController {
       this.isPlaying = false;
    }
 
-   //    setVolume(vol: number) {
-   //       this.volume = vol;
-   //       this.backend.setVolume(vol);
-   //    }
-
    onRow(cb: RowListener) {
       this.rowListeners.add(cb);
       return () => this.rowListeners.delete(cb);
@@ -116,16 +102,5 @@ export class AudioController {
    }
    offStop(cb: StopListener) {
       this.stopListeners.delete(cb);
-   }
-
-   private emitRow(row: number, pattern: Pattern) {
-      this.rowListeners.forEach((cb) => cb(row, pattern));
-   }
-   private emitPosition(pos: number) {
-      this.positionListeners.forEach((cb) => cb(pos));
-   }
-   private emitStop() {
-      this.isPlaying = false;
-      this.stopListeners.forEach((cb) => cb());
    }
 }

@@ -36,32 +36,15 @@ export type Tic80BridgeHandle = {
     pokeBlock: (addr: number, data: Uint8Array) => void;
     peekBlock: (addr: number, length: number) => Uint8Array;
 
-    /** Upload song chunk stream (.tic music-related chunks) directly into TIC RAM */
-    //uploadSongData: (data: Uint8Array) => Promise<void>;
-
     /** Run a set of mailbox operations atomically to avoid interleaving */
     invokeExclusive: <T>(fn: (tx: Tic80BridgeTransaction) => Promise<T>) => Promise<T>;
-
-    /** Trigger a single SFX by ID/note (instrument audition) */
-    //playSfx: (opts: { sfxId: number; note: number }) => Promise<void>;
-
-    // /** Mailbox commands */
-    // play: (opts?: {
-    //     track?: number;
-    //     frame?: number;
-    //     row?: number;
-    //     loop?: boolean;
-    //     sustain?: boolean;
-    //     tempo?: number; // 0 = default
-    //     speed?: number; // 0 = default
-    // }) => Promise<void>;
 
     // stop: () => Promise<void>;
     ping: () => Promise<void>;
 };
 
 export type Tic80BridgeTransaction = {
-    uploadSongData: (data: Tic80SerializedSong) => Promise<void>;
+    uploadSongData: (data: Tic80SerializedSong, reason: string) => Promise<void>;
     playSfx: (opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; speed: number }) => Promise<void>;
     stopSfx: (opts: { channel: Tic80ChannelIndex; }) => Promise<void>;
     play: (opts?: {
@@ -263,7 +246,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                 };
                 onReady(handle);
             }
-        }, [ready, onReady]);
+        }, [ready]);
 
         function readOutboxCommands() {
             if (!ready) return;
@@ -380,9 +363,9 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             return heapRef.current!.slice(start, start + length);
         }
 
-        async function uploadSongDataRaw(data: Tic80SerializedSong) {
+        async function uploadSongDataRaw(data: Tic80SerializedSong, reason: string) {
             assertReady();
-            await sendMailboxCommandRaw([TicBridge.CMD_BEGIN_UPLOAD], "Begin song Upload");
+            await sendMailboxCommandRaw([TicBridge.CMD_BEGIN_UPLOAD], `Begin song Upload: ${reason}`);
             pokeBlock(TicMemoryMap.WAVEFORMS_ADDR, data.memory_0FFE4);
             pokeBlock(TicMemoryMap.TF_ORDER_LIST, data.songOrderData);
             pokeBlock(TicMemoryMap.TF_PATTERN_DATA, data.patternData);
@@ -535,30 +518,6 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                 release();
             }
         }
-
-        // async function uploadSongData(data: Uint8Array) {
-        //     return invokeExclusive((tx) => tx.uploadSongData(data));
-        // }
-
-        // async function playSfx(opts: { sfxId: number; note: number }) {
-        //     return invokeExclusive((tx) => tx.playSfx(opts));
-        // }
-
-        // async function play(opts?: {
-        //     track?: number;
-        //     frame?: number;
-        //     row?: number;
-        //     loop?: boolean;
-        //     sustain?: boolean;
-        //     tempo?: number;
-        //     speed?: number;
-        // }) {
-        //     return invokeExclusive((tx) => tx.play(opts));
-        // }
-
-        // async function stop() {
-        //     return invokeExclusive((tx) => tx.stop());
-        // }
 
         async function ping() {
             return invokeExclusive((tx) => tx.ping());

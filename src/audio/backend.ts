@@ -3,12 +3,6 @@ import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {Tic80ChannelIndex} from "../models/tic80Capabilities";
 
-// export type BackendEmitters = {
-//    row: (rowNumber: number, pattern: Pattern) => void; //
-//    position: (positionNumber: number) => void;         //
-//    stop: () => void;                                   //
-// };
-
 export type MusicState = {
    chromaticPatternIndex: number; //
    chromaticSongPosition: number; //
@@ -30,7 +24,7 @@ export function MakeEmptyMusicState(): MusicState{
 };
 
 export interface AudioBackend {
-   setSong(song: Song|null): void|Promise<void>;
+   setSong(song: Song|null, reason: string): void|Promise<void>;
    getMusicState(): MusicState;
    sfxNoteOn(instrumentIndex: number, instrument: Tic80Instrument, midiNote: number, channel: Tic80ChannelIndex):
       void|Promise<void>;
@@ -41,7 +35,3 @@ export interface AudioBackend {
    panic(): void|Promise<void>;
    stop(): void|Promise<void>;
 }
-
-// export interface BackendContext {
-//    emit: BackendEmitters;
-// }

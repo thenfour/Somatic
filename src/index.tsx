@@ -157,8 +157,12 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     }, []);
 
     useEffect(() => {
-        audio.setSong(song);
-    }, [audio, song]);
+        audio.setSong(song, "Audio object changed");
+    }, [audio]);
+
+    useEffect(() => {
+        audio.setSong(song, "Song instance changed (from index.tsx)");
+    }, [song]);
 
     useEffect(() => {
         const handleStop = () => setTransportState('stop');
@@ -383,7 +387,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 
     const handleBridgeReady = React.useCallback((handle: Tic80BridgeHandle) => {
         console.log('[App] Bridge ready, uploading current song');
-        audio.setSong(song);
+        audio.setSong(song, "Bridge ready; initial upload");
     }, [audio, song]);
 
     return (
