@@ -5,9 +5,9 @@ import type {AudioBackend} from "./backend";
 import {Tic80Backend} from "./tic80_backend";
 import {VoiceManager} from "./voice_manager";
 
-type RowListener = (rowNumber: number, pattern: Pattern) => void;
-type PositionListener = (positionNumber: number) => void;
-type StopListener = () => void;
+// type RowListener = (rowNumber: number, pattern: Pattern) => void;
+// type PositionListener = (positionNumber: number) => void;
+// type StopListener = () => void;
 
 export class AudioController {
    backend: AudioBackend;
@@ -16,9 +16,9 @@ export class AudioController {
    isPlaying: boolean;
    private voiceManager: VoiceManager;
 
-   private rowListeners = new Set<RowListener>();
-   private positionListeners = new Set<PositionListener>();
-   private stopListeners = new Set<StopListener>();
+   // private rowListeners = new Set<RowListener>();
+   // private positionListeners = new Set<PositionListener>();
+   // private stopListeners = new Set<StopListener>();
 
    constructor(opts: {bridgeGetter: () => Tic80BridgeHandle | null}) {
       this.volume = 0.3;
@@ -66,10 +66,10 @@ export class AudioController {
       this.backend.playRow(pattern, rowNumber);
    }
 
-   playPattern(pattern: Pattern) {
-      this.backend.playPattern(pattern);
-      this.isPlaying = true;
-   }
+   // playPattern(pattern: Pattern) {
+   //    this.backend.playPattern(pattern);
+   //    this.isPlaying = true;
+   // }
 
    playSong(startPosition: number, startRow?: number) {
       this.backend.playSong(startPosition, startRow);
@@ -82,25 +82,25 @@ export class AudioController {
       this.isPlaying = false;
    }
 
-   onRow(cb: RowListener) {
-      this.rowListeners.add(cb);
-      return () => this.rowListeners.delete(cb);
-   }
-   offRow(cb: RowListener) {
-      this.rowListeners.delete(cb);
-   }
-   onPosition(cb: PositionListener) {
-      this.positionListeners.add(cb);
-      return () => this.positionListeners.delete(cb);
-   }
-   offPosition(cb: PositionListener) {
-      this.positionListeners.delete(cb);
-   }
-   onStop(cb: StopListener) {
-      this.stopListeners.add(cb);
-      return () => this.stopListeners.delete(cb);
-   }
-   offStop(cb: StopListener) {
-      this.stopListeners.delete(cb);
-   }
+   // onRow(cb: RowListener) {
+   //    this.rowListeners.add(cb);
+   //    return () => this.rowListeners.delete(cb);
+   // }
+   // offRow(cb: RowListener) {
+   //    this.rowListeners.delete(cb);
+   // }
+   // onPosition(cb: PositionListener) {
+   //    this.positionListeners.add(cb);
+   //    return () => this.positionListeners.delete(cb);
+   // }
+   // offPosition(cb: PositionListener) {
+   //    this.positionListeners.delete(cb);
+   // }
+   // onStop(cb: StopListener) {
+   //    this.stopListeners.add(cb);
+   //    return () => this.stopListeners.delete(cb);
+   // }
+   // offStop(cb: StopListener) {
+   //    this.stopListeners.delete(cb);
+   // }
 }

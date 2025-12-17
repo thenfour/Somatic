@@ -41,6 +41,8 @@ const makeInstrumentList = (data: Tic80InstrumentDto[]): Tic80Instrument[] => {
       if (IsNullOrWhitespace(ret.name)) {
          if (i === 0) {
             ret.name = "dontuse";
+         } else if (i === 1) {
+            ret.name = "off";
          } else {
             ret.name = `SFX ${i}`;
          }

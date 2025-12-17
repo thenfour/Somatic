@@ -14,7 +14,7 @@ export class EditorState {
       octave = Math.floor(Tic80Caps.pattern.octaveCount / 2),
       //patternIndex: pattern = 0,
       selectedPosition = 0,
-      currentInstrument = 1,
+      currentInstrument = 2, // 0 = reserved, 1 = off
       editingEnabled = true,
       patternEditRow = 0,
       patternEditChannel = 0

@@ -157,6 +157,25 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 setTic80PanelOpen((open) => !open);
                 return;
             }
+            // alt+0 = play / stop
+            if (e.altKey && !hasMeta && e.code === 'Digit0') {
+                e.preventDefault();
+                if (audio.getMusicState().somaticSongPosition >= 0) {
+                    audio.stop();
+                } else {
+                    audio.playSong(0);
+                }
+            }
+            // alt+9 = play from position
+            if (e.altKey && !hasMeta && e.code === 'Digit9') {
+                e.preventDefault();
+                audio.playSong(editorState.selectedPosition, editorState.patternEditRow);
+            }
+            // alt+8 = play from pattern
+            if (e.altKey && !hasMeta && e.code === 'Digit8') {
+                e.preventDefault();
+                audio.playSong(editorState.selectedPosition, 0);
+            }
             if (e.code === 'Escape') {
                 e.preventDefault();
                 // toggle edit mode
@@ -411,10 +430,11 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 
     const onPlayPattern = () => {
         //setTransportState('play-pattern');
-        const currentPosition = Math.max(0, Math.min(song.songOrder.length - 1, editorState.selectedPosition || 0));
-        const currentPatternIndex = song.songOrder[currentPosition] ?? 0;
-        const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
-        audio.playPattern(song.patterns[safePatternIndex]);
+        // const currentPosition = Math.max(0, Math.min(song.songOrder.length - 1, editorState.selectedPosition || 0));
+        // const currentPatternIndex = song.songOrder[currentPosition] ?? 0;
+        // const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
+        // audio.playPattern(song.patterns[safePatternIndex]);
+        audio.playSong(editorState.selectedPosition, 0);
     };
 
     const onPlayAll = () => {
