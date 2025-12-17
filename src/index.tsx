@@ -35,6 +35,22 @@ type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
 //type TransportState = 'stop' | 'play-pattern' | 'play-from-position' | 'play-all';
 type Theme = 'light' | 'dark';
+type PatternCellType = 'note' | 'instrument' | 'command' | 'param';
+
+const getActivePatternCellType = (): PatternCellType | null => {
+    if (typeof document === 'undefined') return null;
+    const active = document.activeElement;
+    if (!active || !(active instanceof HTMLElement)) return null;
+    const cellType = active.getAttribute('data-cell-type');
+    return cellType === 'note' || cellType === 'instrument' || cellType === 'command' || cellType === 'param'
+        ? cellType
+        : null;
+};
+
+const isEditingCommandOrParamCell = () => {
+    const cellType = getActivePatternCellType();
+    return cellType === 'command' || cellType === 'param';
+};
 
 const MusicStateDisplay: React.FC<{ musicState: MusicState }> = ({ musicState }) => {
     return <div className='musicState-panel'>
@@ -266,10 +282,11 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         const s = songRef.current;
         const ed = editorRef.current;
         const channel = ToTic80ChannelIndex(ed.patternEditChannel);
+        const skipNoteEntry = isEditingCommandOrParamCell();
         autoSave.flush();
         audio.sfxNoteOn(ed.currentInstrument, note);
 
-        if (ed.editingEnabled !== false) {
+        if (ed.editingEnabled !== false && !skipNoteEntry) {
             const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.activeSongPosition || 0));
             const currentPatternIndex = s.songOrder[currentPosition] ?? 0;
             const rowsPerPattern = s.rowsPerPattern;

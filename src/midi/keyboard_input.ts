@@ -13,6 +13,21 @@ const isEditableTarget = (target: EventTarget|null) => {
    return tag === "input" || tag === "textarea" || tag === "select" || tag === "button" || el.isContentEditable;
 };
 
+const getPatternCellType = (target: EventTarget|null) => {
+   const el = target as HTMLElement | null;
+   if (!el)
+      return null;
+   const cellType = el.dataset?.cellType;
+   return cellType === "note" || cellType === "instrument" || cellType === "command" || cellType === "param" ?
+      cellType :
+      null;
+};
+
+const isPatternCommandOrParamCell = (target: EventTarget|null) => {
+   const cellType = getPatternCellType(target);
+   return cellType === "command" || cellType === "param";
+};
+
 export class KeyboardNoteInput implements NoteInputSource {
    private noteOnListeners = new Set<(evt: NoteEvent) => void>();
    private noteOffListeners = new Set<(evt: NoteEvent) => void>();
@@ -67,6 +82,8 @@ export class KeyboardNoteInput implements NoteInputSource {
       if (!this.enabled)
          return;
       if (isEditableTarget(e.target))
+         return;
+      if (isPatternCommandOrParamCell(e.target))
          return;
       if (e.metaKey || e.ctrlKey || e.altKey)
          return;

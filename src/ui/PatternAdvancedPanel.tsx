@@ -152,12 +152,13 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enab
                     </button>
                 </section>
 
+                {/* TODO:
                 <section className="pattern-advanced-panel__section">
                     <div className="pattern-advanced-panel__buttonRow">
                         <button type="button" className="pattern-advanced-panel__button pattern-advanced-panel__button--primary">Expand 2×</button>
                         <button type="button" className="pattern-advanced-panel__button pattern-advanced-panel__button--primary">Shrink ½</button>
                     </div>
-                </section>
+                </section> */}
             </div>
         </aside>
     );
