@@ -656,11 +656,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         return (
             <div className={`pattern-grid-shell${advancedPanelOpen ? ' pattern-grid-shell--advanced-open' : ''}`}>
-                {advancedPanelOpen &&
-                    <PatternAdvancedPanel
-                        open={advancedPanelOpen}
-                    />
-                }
+                {advancedPanelOpen && <PatternAdvancedPanel />}
                 <div className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}>
                     <Tooltip title={advancedPanelOpen ? 'Hide advanced edit panel' : 'Show advanced edit panel'} >
                         <button
