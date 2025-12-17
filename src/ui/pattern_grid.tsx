@@ -416,7 +416,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         };
 
         return (
-            <div className={`pattern-grid-container${editingEnabled ? '' : ' pattern-grid-container--locked'}`}>
+            <div className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}>
                 {!editingEnabled && (
                     <div className="edit-locked-banner" role="status" aria-label="Editing disabled">
                         <span className="edit-locked-banner__dot" aria-hidden="true" />

@@ -67,8 +67,8 @@
     --tic-15-contrast: var(--tic-12);
 
     /* Theme tokens (light default) */
-    --bg: #f4f4f4;
-    --panel: #94b0c2;
+    --bg: #94b0c2;
+    --panel: #f4f4f4;
     --panel-strong: #73eff7;
     --text: #1a1c2c;
     --muted: #3b5dc9;
@@ -76,7 +76,7 @@
     --border-strong: #333c57;
     --accent: #a7f070;
     --accent-strong: #3b5dc9;
-    --row-a: #41a6f6;
+    --row-a: #f4f4f4;
     --row-b: #73eff7;
     --row-active: #38b764;
     --tooltip-bg: #1a1c2c;
@@ -86,6 +86,7 @@
     --error-surface-bg: #b13e53;
     --error-surface-text: #ffcd75;
     --error-surface-border: #ef7d57;
+    --edit-border: #b13e53;
     --cell-note: #1a1c2c;
     --cell-instrument: #257179;
     --cell-command: #5d275d;
@@ -93,7 +94,7 @@
     --keyboard-white-key: #f4f4f4;
     --keyboard-black-key: #333c57;
     --keyboard-white-text: #1a1c2c;
-    --keyboard-black-text: #a7f070;
+    --keyboard-black-text: #94b0c2;
 }
 
 .theme-dark {
@@ -116,6 +117,7 @@
     --error-surface-bg: #b13e53;
     --error-surface-text: #ffcd75;
     --error-surface-border: #ef7d57;
+    --edit-border: #b13e53;
     --cell-note: #a7f070;
     --cell-instrument: #38b764;
     --cell-command: #ffcd75;
@@ -449,7 +451,6 @@ option {
 .theme-panel__swatch {
     width: 100%;
     aspect-ratio: 1 / 1;
-    border: 1px solid var(--border-strong);
     cursor: grab;
     padding: 0;
 }
@@ -458,13 +459,14 @@ option {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 8px;
+    margin: 12px 0;
 }
 
 .theme-panel__var {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border: 1px solid var(--border-strong);
+    border: 0;
     padding: 6px 8px;
     cursor: grab;
 }
@@ -787,7 +789,12 @@ option {
 }
 
 .pattern-grid-container--locked {
-    filter: grayscale(0.25);
+    filter: grayscale(.3);
+}
+
+.pattern-grid-container--editMode {
+    box-shadow: 0 0 0 3px var(--edit-border) inset;
+
 }
 
 .edit-locked-banner {

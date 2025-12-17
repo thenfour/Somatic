@@ -24,6 +24,7 @@ const THEME_VARS = [
     '--error-surface-bg',
     '--error-surface-text',
     '--error-surface-border',
+    '--edit-border',
     '--cell-note',
     '--cell-instrument',
     '--cell-command',

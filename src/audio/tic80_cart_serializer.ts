@@ -6,7 +6,7 @@ import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabili
 import {assert, clamp} from "../utils/utils";
 import {base85Encode} from "./encoding";
 import playroutineTemplate from "../../bridge/playroutine-min.lua";
-import {OptimizeSong} from "../utils/SongOptimizer";
+import {getMaxSfxUsedIndex, getMaxWaveformUsedIndex, OptimizeSong} from "../utils/SongOptimizer";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -232,7 +232,9 @@ function encodeWaveforms(song: Song): Uint8Array {
    const bytesPerWave = Tic80Caps.waveform.pointCount / 2; // 32 samples, 4 bits each, packed 2 per byte
    const buf = new Uint8Array(Tic80Caps.waveform.count * bytesPerWave);
 
-   for (let w = 0; w < Tic80Caps.waveform.count; w++) {
+   const usedWaveformCount = getMaxWaveformUsedIndex(song) + 1;
+
+   for (let w = 0; w < usedWaveformCount; w++) {
       const waveform = song.waveforms[w];
       // serialize 32 samples (4 bits each, packed 2 per byte)
       for (let i = 0; i < 16; i++) {
@@ -303,7 +305,7 @@ function encodeSfx(song: Song): Uint8Array {
    };
 
    // 66 bytes per SFX (up to 64 entries in RAM). We only fill instruments (1..INSTRUMENT_COUNT).
-   const sfxCount = Tic80Caps.maxSfx; // 64
+   const sfxCount = getMaxSfxUsedIndex(song);
    const buf = new Uint8Array(sfxCount * SFX_BYTES_PER_SAMPLE);
 
    for (let i = 1; i < sfxCount; i++) {
@@ -354,11 +356,11 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
    //       nullPatternData.set(patternBytes, i * patternBytes.length);
    //    }
 
-   assert(waveformData.length == 256, `Unexpected waveform chunk size: ${waveformData.length}; expected 256`);
-   assert(sfxData.length == 4224, `Unexpected SFX chunk size: ${sfxData.length}; expected 4224`);
-   assert(nullPatternData.length == 11520, `Unexpected patterns chunk size: ${nullPatternData.length}; expected 11520`);
-   //assert(realPatternData.length == 408, `Unexpected realPatternData size: ${realPatternData.length}; expected 408`);
-   assert(trackData.length == 51, `Unexpected track chunk size: ${trackData.length}; expected 51`);
+   // assert(waveformData.length == 256, `Unexpected waveform chunk size: ${waveformData.length}; expected 256`);
+   // assert(sfxData.length == 4224, `Unexpected SFX chunk size: ${sfxData.length}; expected 4224`);
+   // assert(nullPatternData.length == 11520, `Unexpected patterns chunk size: ${nullPatternData.length}; expected 11520`);
+   // //assert(realPatternData.length == 408, `Unexpected realPatternData size: ${realPatternData.length}; expected 408`);
+   // assert(trackData.length == 51, `Unexpected track chunk size: ${trackData.length}; expected 51`);
 
    parts.push(waveformData);
    parts.push(sfxData);
@@ -439,11 +441,15 @@ function ch_serializePatterns(patterns: Uint8Array[]): Uint8Array {
 }
 
 function removeTrailingZerosFn(data: Uint8Array): Uint8Array {
+   if (data.length === 0) {
+      return data;
+   }
    let endIndex = data.length;
    while (endIndex > 0 && data[endIndex - 1] === 0) {
       endIndex--;
    }
-   return data.slice(0, endIndex);
+   // ensure at least 1 byte remains; i don't know what happens if we send a zero-length chunk.
+   return data.slice(0, Math.max(1, endIndex));
 }
 
 function createChunk(type: number, payload: Uint8Array, removeTrailingZeros: boolean, bank = 0): Uint8Array {
