@@ -267,6 +267,44 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
             if (!editingEnabled) return;
 
+            // Delete key: clear entire cell
+            if (e.key === 'Delete' && !e.repeat) {
+                e.preventDefault();
+                onSongChange((s) => {
+                    const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                    const pat = s.patterns[patIndex];
+                    pat.setCell(channelIndex, rowIndex, {
+                        midiNote: undefined,
+                        instrumentIndex: undefined,
+                        effect: undefined,
+                        effectX: undefined,
+                        effectY: undefined
+                    });
+                });
+                return;
+            }
+
+            // Backspace: clear only the field under cursor
+            if (e.key === 'Backspace' && !e.repeat) {
+                e.preventDefault();
+                onSongChange((s) => {
+                    const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                    const pat = s.patterns[patIndex];
+                    const oldCell = pat.getCell(channelIndex, rowIndex);
+
+                    if (cellType === 'note') {
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, midiNote: undefined });
+                    } else if (cellType === 'instrument') {
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, instrumentIndex: undefined });
+                    } else if (cellType === 'command') {
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, effect: undefined });
+                    } else if (cellType === 'param') {
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, effectX: undefined, effectY: undefined });
+                    }
+                });
+                return;
+            }
+
             if (cellType === 'note' && noteKeyMap.includes(e.key) && !e.repeat) {
                 handleNoteKey(channelIndex, rowIndex, e.key);
             } else if (cellType === 'instrument' && instrumentKeyMap.includes(e.key) && !e.repeat) {
