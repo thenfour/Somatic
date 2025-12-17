@@ -1,25 +1,10 @@
 import React from 'react';
 
 const shortcuts: Array<{ key: string; action: string }> = [
+    // Global shortcuts
     {
-        key: 'Arrow keys',
-        action: 'Move focus across the pattern grid.',
-    },
-    {
-        key: 'Page Up / Down',
-        action: 'Jump to the first or last row of the pattern.',
-    },
-    {
-        key: 'Alt+1',
-        action: 'Focus the pattern grid.',
-    },
-    {
-        key: '0-9 A-G',
-        action: 'Pattern notes (piano layout)',
-    },
-    {
-        key: '0-F',
-        action: 'Instrument column',
+        key: 'Escape',
+        action: 'Toggle edit mode + panic',
     },
     {
         key: '[ / ]',
@@ -27,15 +12,97 @@ const shortcuts: Array<{ key: string; action: string }> = [
     },
     {
         key: 'Shift+[ / Shift+]',
-        action: 'Instrument down / up.',
+        action: 'instrument down / up.',
+    },
+    {
+        key: 'Alt+0',
+        action: 'Play song from beginning / Stop.',
+    },
+    {
+        key: 'Alt+8',
+        action: 'Play song from current pattern.',
+    },
+    {
+        key: 'Alt+9',
+        action: 'Play song from current position',
+    },
+    {
+        key: 'Alt+1',
+        action: 'Focus the pattern grid.',
+    },
+    {
+        key: 'Alt+2',
+        action: 'Toggle waveform editor panel.',
+    },
+    {
+        key: 'Alt+3',
+        action: 'Toggle instrument panel.',
+    },
+    {
+        key: 'Alt+4',
+        action: 'Toggle TIC-80 panel.',
+    },
+
+    // Pattern grid navigation
+    {
+        key: 'Ctrl+Arrow Left/Right/Up/Down',
+        action: 'Jump over cells',
+    },
+    {
+        key: 'Page Up / Down',
+        action: 'Jump by highlight block size.',
+    },
+    {
+        key: 'Home',
+        action: 'Jump to first row (same column).',
+    },
+    {
+        key: 'End',
+        action: 'Jump to last row (same column).',
+    },
+    {
+        key: 'Ctrl+Home',
+        action: 'Jump to first row, first column.',
+    },
+    {
+        key: 'Ctrl+End',
+        action: 'Jump to last row, last column.',
+    },
+    {
+        key: 'Enter',
+        action: 'Preview the current row.',
+    },
+
+    // Pattern editing (when edit mode enabled)
+    {
+        key: '0-9, A-F',
+        action: 'instrument (0-F) or effect parameters.',
+    },
+    {
+        key: 'M, C, J, S, P, V, D',
+        action: 'Effect commands.',
     },
     {
         key: '0 (on note cell)',
-        action: 'Clear a note while focused on the note cell.',
+        action: 'Clear the note.',
     },
     {
-        key: 'Play menu buttons',
-        action: 'Play Pattern / From Position / All, or Stop.',
+        key: 'Shift+Backspace (on note)',
+        action: 'Insert note cut (^^^).',
+    },
+    {
+        key: 'Backspace',
+        action: 'Clear the current field (note/inst/cmd/param).',
+    },
+    {
+        key: 'Delete',
+        action: 'Clear the entire cell (all columns).',
+    },
+
+    // Selection and clipboard
+    {
+        key: 'Mouse drag',
+        action: 'Select multiple cells.',
     },
 ];
 

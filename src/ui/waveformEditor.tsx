@@ -353,7 +353,6 @@ export const WaveformEditorPanel: React.FC<{
             />
             <div className="waveform-editor-controls">
                 <div className="waveform-editor-controls__row">
-                    <span className="waveform-editor-controls__label">Clipboard</span>
                     <button type="button" onClick={handleCopy}>Copy</button>
                     <button type="button" onClick={handlePaste}>Paste</button>
                 </div>
