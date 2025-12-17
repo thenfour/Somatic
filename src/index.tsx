@@ -30,6 +30,8 @@ import { ToastProvider, useToasts } from './ui/toast_provider';
 import { WaveformEditorPanel } from './ui/waveformEditor';
 import { useWriteBehindEffect } from './hooks/useWriteBehindEffect';
 import { OptimizeSong } from './utils/SongOptimizer';
+import { UndoStack } from './utils/UndoStack';
+import type { UndoSnapshot } from './utils/UndoStack';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -68,6 +70,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const midiRef = React.useRef<MidiManager | null>(new MidiManager());
     const keyboardRef = React.useRef<KeyboardNoteInput | null>(null);
     const patternGridRef = React.useRef<PatternGridHandle | null>(null);
+    const undoStackRef = React.useRef<UndoStack | null>(null);
     const audio = useMemo(() => new AudioController({ bridgeGetter: () => bridgeRef.current }), []);
     const { pushToast } = useToasts();
     const { confirm } = useConfirmDialog();
@@ -96,6 +99,10 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const [keyboardEnabled, setKeyboardEnabled] = useState(true);
     const [musicState, setMusicState] = useState(() => audio.getMusicState());
     const clipboard = useClipboard();
+
+    if (!undoStackRef.current) {
+        undoStackRef.current = new UndoStack(200);
+    }
 
     const connectedMidiInputs = useMemo(() => midiDevices.filter((d) => d.state === 'connected').length, [midiDevices]);
     const midiIndicatorState = midiStatus === 'ready'
@@ -146,6 +153,76 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         return () => cancelAnimationFrame(animationFrameId);
     }, [audio]);
 
+
+    const getUndoSnapshot = useCallback(() => ({
+        song: songRef.current.toData(),
+        editor: editorRef.current.toData(),
+    }), []);
+
+    // auto-save to backend + localStorage
+    const autoSave = useWriteBehindEffect<Song>(async (doc, { signal }) => {
+        audio.setSong(doc, "Auto-save");
+        localStorage.setItem('somatic-song', doc.toJSON());
+    }, {
+        debounceMs: 1000,//
+        maxWaitMs: 2500,//
+        // onSuccess: () => {
+        //     pushToast({
+        //         message: 'Song auto-saved.', variant: 'info', durationMs: 1000
+        //     });
+        // }
+    });
+
+    const applyUndoSnapshot = useCallback((snapshot: UndoSnapshot) => {
+        autoSave.flush();
+        setSong(Song.fromData(snapshot.song));
+        setEditorState(EditorState.fromData(snapshot.editor));
+    }, [autoSave]);
+
+    const ensureUndoSnapshot = useCallback(() => {
+        undoStackRef.current?.record(getUndoSnapshot);
+    }, [getUndoSnapshot]);
+
+    const updateSong = useCallback((mutator: SongMutator) => {
+        ensureUndoSnapshot();
+        setSong((prev) => {
+            const next = prev.clone();
+            mutator(next);
+            return next;
+        });
+    }, [ensureUndoSnapshot]);
+
+    const updateEditorState = useCallback((mutator: EditorStateMutator) => {
+        setEditorState((prev) => {
+            const next = prev.clone();
+            mutator(next);
+            return next;
+        });
+    }, []);
+
+    const handleUndo = useCallback(() => {
+        const stack = undoStackRef.current;
+        if (!stack) return;
+        const snapshot = stack.undo(getUndoSnapshot);
+        if (!snapshot) {
+            pushToast({ message: 'Nothing to undo.', variant: 'info' });
+            return;
+        }
+        applyUndoSnapshot(snapshot);
+    }, [applyUndoSnapshot, getUndoSnapshot, pushToast]);
+
+    const handleRedo = useCallback(() => {
+        const stack = undoStackRef.current;
+        if (!stack) return;
+        const snapshot = stack.redo(getUndoSnapshot);
+        if (!snapshot) {
+            pushToast({ message: 'Nothing to redo.', variant: 'info' });
+            return;
+        }
+        applyUndoSnapshot(snapshot);
+    }, [applyUndoSnapshot, getUndoSnapshot, pushToast]);
+
+
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
             const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase();
@@ -155,6 +232,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             const isBracketRight = e.key === ']';// .code === 'BracketRight';
             const isDigit1 = e.code === 'Digit1';
             const hasMeta = e.metaKey || e.ctrlKey;
+            const lowerKey = e.key.toLowerCase();
 
             // pretty-print key combo.
             const parts = [];
@@ -165,6 +243,21 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             parts.push(e.code);
             const combo = parts.join('+');
             console.log(`Key combo pressed: code:${combo} key:${e.key} repeat:${e.repeat}`);
+
+            if (!isEditable && hasMeta && !e.altKey && lowerKey === 'z') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    handleRedo();
+                } else {
+                    handleUndo();
+                }
+                return;
+            }
+            if (!isEditable && hasMeta && !e.altKey && !e.shiftKey && lowerKey === 'y') {
+                e.preventDefault();
+                handleRedo();
+                return;
+            }
 
             if (e.altKey && !hasMeta && isDigit1) {
                 e.preventDefault();
@@ -247,21 +340,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
-    }, []);
-
-    // auto-save to backend + localStorage
-    const autoSave = useWriteBehindEffect<Song>(async (doc, { signal }) => {
-        audio.setSong(doc, "Auto-save");
-        localStorage.setItem('somatic-song', doc.toJSON());
-    }, {
-        debounceMs: 1000,//
-        maxWaitMs: 2500,//
-        // onSuccess: () => {
-        //     pushToast({
-        //         message: 'Song auto-saved.', variant: 'info', durationMs: 1000
-        //     });
-        // }
-    });
+    }, [handleRedo, handleUndo]);
 
     useEffect(() => {
         autoSave.enqueue(song);
@@ -291,13 +370,11 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             const currentPatternIndex = s.songOrder[currentPosition] ?? 0;
             const rowsPerPattern = s.rowsPerPattern;
             const patternEditStep = s.patternEditStep;
-            setSong((prev) => {
-                const newSong = prev.clone();
+            updateSong((newSong) => {
                 const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, newSong.patterns.length - 1));
                 const pat = newSong.patterns[safePatternIndex];
                 const existingCell = pat.getCell(channel, ed.patternEditRow);
                 pat.setCell(channel, ed.patternEditRow, { ...existingCell, midiNote: note, instrumentIndex: ed.currentInstrument });
-                return newSong;
             });
             setEditorState((prev) => {
                 const next = prev.clone();
@@ -305,7 +382,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 return next;
             });
         }
-    }, [audio, autoSave]);
+    }, [audio, autoSave, updateSong]);
 
     const handleIncomingNoteOff = useCallback((note: number) => {
         autoSave.flush();
@@ -381,22 +458,6 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         audio.sfxNoteOff(midiNote);
     };
 
-    const updateSong = (mutator: SongMutator) => {
-        setSong((prev) => {
-            const next = prev.clone();
-            mutator(next);
-            return next;
-        });
-    };
-
-    const updateEditorState = (mutator: EditorStateMutator) => {
-        setEditorState((prev) => {
-            const next = prev.clone();
-            mutator(next);
-            return next;
-        });
-    };
-
     const createNewSong = async () => {
         const confirmed = await confirm({
             content: (
@@ -416,6 +477,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         updateEditorState((s) => {
             s.setActiveSongPosition(0);
         });
+        undoStackRef.current?.clear();
         pushToast({ message: 'New song created.', variant: 'success' });
     };
 
@@ -430,6 +492,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         updateEditorState((s) => {
             s.setActiveSongPosition(0);
         });
+        undoStackRef.current?.clear();
     };
 
     const saveSongFile = () => {
@@ -467,7 +530,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         }
         const result = OptimizeSong(song);
         console.log(result);
-        setSong(result.optimizedSong);
+        ensureUndoSnapshot();
+        setSong(result.optimizedSong.clone());
     };
 
     const copyNative = async () => {
@@ -478,6 +542,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         try {
             const text = await clipboard.readTextFromClipboard();
             const loaded = Song.fromJSON(text);
+            ensureUndoSnapshot();
             setSong(loaded);
             updateEditorState((s) => {
                 s.setActiveSongPosition(0);

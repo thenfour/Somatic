@@ -1,10 +1,10 @@
 import React from 'react';
 
 const shortcuts: Array<{ key: string; action: string }> = [
-    // Global shortcuts
+    // Global + transport
     {
         key: 'Escape',
-        action: 'Toggle edit mode + panic',
+        action: 'Toggle edit mode and panic (stop all sound).',
     },
     {
         key: '[ / ]',
@@ -12,19 +12,27 @@ const shortcuts: Array<{ key: string; action: string }> = [
     },
     {
         key: 'Shift+[ / Shift+]',
-        action: 'instrument down / up.',
+        action: 'Current instrument down / up.',
+    },
+    {
+        key: 'Ctrl/Cmd+Z',
+        action: 'Undo last edit (song + cursor).',
+    },
+    {
+        key: 'Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y',
+        action: 'Redo the last undone edit.',
     },
     {
         key: 'Alt+0',
-        action: 'Play song from beginning / Stop.',
+        action: 'Play song from the beginning / Stop.',
     },
     {
         key: 'Alt+8',
-        action: 'Play song from current pattern.',
+        action: 'Play from the current pattern.',
     },
     {
         key: 'Alt+9',
-        action: 'Play song from current position',
+        action: 'Play from the current song position & row.',
     },
     {
         key: 'Alt+1',
@@ -40,69 +48,85 @@ const shortcuts: Array<{ key: string; action: string }> = [
     },
     {
         key: 'Alt+4',
-        action: 'Toggle TIC-80 panel.',
+        action: 'Toggle TIC-80 bridge panel.',
     },
 
     // Pattern grid navigation
     {
-        key: 'Ctrl+Arrow Left/Right/Up/Down',
-        action: 'Jump over cells',
+        key: 'Arrow keys',
+        action: 'Move between cells.',
     },
     {
-        key: 'Page Up / Down',
-        action: 'Jump by highlight block size.',
+        key: 'Ctrl+Arrow Left/Right',
+        action: 'Jump to previous/next channel (same column).',
     },
     {
-        key: 'Home',
-        action: 'Jump to first row (same column).',
+        key: 'Ctrl+Arrow Up/Down',
+        action: 'Jump 4 rows up/down (wrap song order).',
     },
     {
-        key: 'End',
-        action: 'Jump to last row (same column).',
+        key: 'Page Up / Page Down',
+        action: 'Jump by the highlight block size.',
     },
     {
-        key: 'Ctrl+Home',
-        action: 'Jump to first row, first column.',
+        key: 'Home / End',
+        action: 'Jump to first/last row (same column).',
     },
     {
-        key: 'Ctrl+End',
-        action: 'Jump to last row, last column.',
+        key: 'Ctrl+Home / Ctrl+End',
+        action: 'Jump to top-left / bottom-right of the pattern.',
     },
     {
         key: 'Enter',
         action: 'Preview the current row.',
     },
 
-    // Pattern editing (when edit mode enabled)
+    // Pattern editing (edit mode)
+    {
+        key: 'Computer keyboard (- Z S X ...)',
+        action: 'Enter notes using the QWERTY piano layout.',
+    },
     {
         key: '0-9, A-F',
-        action: 'instrument (0-F) or effect parameters.',
+        action: 'Enter instrument hex values or effect parameters.',
     },
     {
         key: 'M, C, J, S, P, V, D',
-        action: 'Effect commands.',
+        action: 'Enter effect commands.',
     },
     {
-        key: '0 (on note cell)',
+        key: 'Shift+Backspace (note column)',
+        action: 'Insert a note cut (^^^).',
+    },
+    {
+        key: '0 (note column)',
         action: 'Clear the note.',
     },
     {
-        key: 'Shift+Backspace (on note)',
-        action: 'Insert note cut (^^^).',
-    },
-    {
         key: 'Backspace',
-        action: 'Clear the current field (note/inst/cmd/param).',
+        action: 'Clear the focused field (note/inst/cmd/param).',
     },
     {
         key: 'Delete',
         action: 'Clear the entire cell (all columns).',
     },
 
-    // Selection and clipboard
+    // Selection + clipboard
     {
         key: 'Mouse drag',
         action: 'Select multiple cells.',
+    },
+    {
+        key: 'Ctrl/Cmd+C or Ctrl+Insert',
+        action: 'Copy selection to clipboard.',
+    },
+    {
+        key: 'Ctrl/Cmd+V or Shift+Insert',
+        action: 'Paste selection.',
+    },
+    {
+        key: 'Ctrl/Cmd+X or Shift+Delete',
+        action: 'Cut selection.',
     },
 ];
 
