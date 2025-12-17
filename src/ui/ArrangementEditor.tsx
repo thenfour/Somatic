@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import type { MusicState } from "../audio/backend";
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
@@ -21,6 +21,12 @@ export const ArrangementEditor: React.FC<{
 
     const [editingPatternNameIndex, setEditingPatternNameIndex] = useState<number | null>(null);
     const [editingPatternNameValue, setEditingPatternNameValue] = useState("");
+
+    // Create refs for all arrangement rows
+    const rowRefs = useMemo(
+        () => Array(maxPositions).fill(null) as (HTMLDivElement | null)[],
+        [maxPositions]
+    );
 
     const formattedIndex = (index: number) => index.toString().padStart(2, "0");
 
@@ -253,25 +259,6 @@ export const ArrangementEditor: React.FC<{
         });
     };
 
-    const handleSelectPosition = (positionIndex: number, shiftKey: boolean) => {
-        onEditorStateChange((state) => {
-            if (shiftKey && state.activeSongPosition !== positionIndex) {
-                // Shift+click: select range from active position to clicked position
-                const start = Math.min(state.activeSongPosition, positionIndex);
-                const end = Math.max(state.activeSongPosition, positionIndex);
-                const selection: number[] = [];
-                for (let i = start; i <= end; i++) {
-                    selection.push(i);
-                }
-                state.setArrangementSelection(selection);
-            } else {
-                // Normal click: clear selection and set active position
-                state.setActiveSongPosition(positionIndex);
-                state.setArrangementSelection([]);
-            }
-        });
-    };
-
     const patternDisplayName = (patternIndex: number) => {
         const pat = song.patterns[patternIndex]!;
         return pat.name;
@@ -296,6 +283,31 @@ export const ArrangementEditor: React.FC<{
 
     const cancelEditingPatternName = () => {
         setEditingPatternNameIndex(null);
+    };
+
+    const focusRow = (positionIndex: number) => {
+        const target = rowRefs[positionIndex];
+        if (target) target.focus();
+    };
+
+    const handleSelectPosition = (positionIndex: number, shiftKey: boolean) => {
+        onEditorStateChange((state) => {
+            if (shiftKey && state.activeSongPosition !== positionIndex) {
+                // Shift+click: select range from active position to clicked position
+                const start = Math.min(state.activeSongPosition, positionIndex);
+                const end = Math.max(state.activeSongPosition, positionIndex);
+                const selection: number[] = [];
+                for (let i = start; i <= end; i++) {
+                    selection.push(i);
+                }
+                state.setArrangementSelection(selection);
+            } else {
+                // Normal click: clear selection and set active position
+                state.setActiveSongPosition(positionIndex);
+                state.setArrangementSelection([]);
+            }
+        });
+        focusRow(positionIndex);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent, positionIndex: number) => {
@@ -359,6 +371,7 @@ export const ArrangementEditor: React.FC<{
                     return (
                         <div
                             key={positionIndex}
+                            ref={(el) => (rowRefs[positionIndex] = el)}
                             className={rowClass}
                             tabIndex={0}
                             onClick={(e) => handleSelectPosition(positionIndex, e.shiftKey)}
