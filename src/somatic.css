@@ -969,6 +969,39 @@ option {
     pointer-events: auto;
 }
 
+/* Generic tooltip component */
+.generic-tooltip {
+    position: fixed;
+    z-index: 9999;
+    background: var(--tooltip-bg);
+    color: var(--tooltip-text);
+    padding: 6px 10px;
+    font-size: var(--ff-size-1x);
+    line-height: 1.4;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    pointer-events: none;
+    max-width: 320px;
+    word-wrap: break-word;
+}
+
+.generic-tooltip--bottom {
+    transform: translate(-50%, 0);
+}
+
+.generic-tooltip--top {
+    transform: translate(-50%, -100%);
+}
+
+.generic-tooltip--left {
+    transform: translate(-100%, -50%);
+}
+
+.generic-tooltip--right {
+    transform: translate(0, -50%);
+}
+
 .splash-screen {
     font-family: var(--ff-tic);
     height: 100vh;
