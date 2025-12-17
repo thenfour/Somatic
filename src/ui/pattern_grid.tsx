@@ -6,7 +6,7 @@ import { EditorState } from '../models/editor_state';
 import { isNoteCut, Pattern } from '../models/pattern';
 import { Song } from '../models/song';
 import { SomaticEffectCommand, SomaticCaps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
-import { HelpTooltip } from './tooltip';
+import { HelpTooltip } from './HelpTooltip';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 

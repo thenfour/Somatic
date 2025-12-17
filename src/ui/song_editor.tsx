@@ -4,7 +4,7 @@ import { AudioController } from '../audio/controller';
 import { EditorState } from '../models/editor_state';
 import { Song } from '../models/song';
 //import { PositionList } from './position_list';
-import { HelpTooltip } from './tooltip';
+import { HelpTooltip } from './HelpTooltip';
 import { Tic80Caps } from '../models/tic80Capabilities';
 import { TryParseInt } from '../utils/utils';
 
