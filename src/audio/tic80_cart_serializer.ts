@@ -3,10 +3,11 @@ import type {Tic80Instrument} from "../models/instruments";
 import {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
-import {assert, clamp} from "../utils/utils";
-import {base85Encode} from "./encoding";
-import playroutineTemplate from "../../bridge/playroutine-min.lua";
-import {getMaxSfxUsedIndex, getMaxWaveformUsedIndex, OptimizeSong} from "../utils/SongOptimizer";
+import {assert, clamp, compareBuffers, getBufferFingerprint, toLuaStringLiteral} from "../utils/utils";
+import {base85Decode, base85Encode} from "./encoding";
+import playroutineDebug from "../../bridge/playroutine-debug.lua";
+import playroutineRelease from "../../bridge/playroutine-release.lua";
+import {calculateSongUsage, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, OptimizeSong} from "../utils/SongOptimizer";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -114,10 +115,10 @@ function encodeRealPatterns(song: Song): Uint8Array[] {
    return ret;
 }
 
-function encodeNullPatterns(): Uint8Array {
-   const patterns = new Uint8Array(Tic80Caps.pattern.count * Tic80Caps.pattern.maxRows * 3);
-   return patterns;
-}
+// function encodeNullPatterns(): Uint8Array {
+//    const patterns = new Uint8Array(Tic80Caps.pattern.count * Tic80Caps.pattern.maxRows * 3);
+//    return patterns;
+// }
 
 // Decode raw byte S from the CHUNK_MUSIC track into "display speed" (1..31)
 export function decodeTrackSpeed(rawSpeedByte: number): number {
@@ -326,7 +327,10 @@ function encodeSfx(song: Song): Uint8Array {
 // but we also pass a separate pattern data chunk which is used for playback because we
 // copy pattern data ourselves to work around tic80 length limitations.
 export interface Tic80SerializedSong {
-   memory_0FFE4: Uint8Array;
+   //memory_0FFE4: Uint8Array;
+   waveformData: Uint8Array;
+   sfxData: Uint8Array;
+   trackData: Uint8Array;
 
    // length + order itself
    songOrderData: Uint8Array;
@@ -347,7 +351,7 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
 
    const waveformData = encodeWaveforms(song);
    const sfxData = encodeSfx(song);
-   const nullPatternData = encodeNullPatterns();
+   //const nullPatternData = encodeNullPatterns();
    const trackData = encodeTrack(song);
 
    //    // overwrite nullPatternData with real patterns for testing
@@ -362,18 +366,23 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
    // //assert(realPatternData.length == 408, `Unexpected realPatternData size: ${realPatternData.length}; expected 408`);
    // assert(trackData.length == 51, `Unexpected track chunk size: ${trackData.length}; expected 51`);
 
-   parts.push(waveformData);
-   parts.push(sfxData);
-   parts.push(nullPatternData);
-   parts.push(trackData);
+   // parts.push(waveformData);
+   // parts.push(sfxData);
+   // parts.push(nullPatternData);
+   // parts.push(trackData);
 
-   const total = parts.reduce((sum, p) => sum + p.length, 0);
-   const out = new Uint8Array(total);
-   let offset = 0;
-   for (const p of parts) {
-      out.set(p, offset);
-      offset += p.length;
-   }
+   // const stats = calculateSongUsage(song);
+   // console.log(`serializeSongForTic80Bridge: used waveforms: ${stats.maxWaveform + 1}/${
+   //    Tic80Caps.waveform.count}, instruments: ${stats.maxInstrument + 1}/${Tic80Caps.sfx.count}, patterns: ${
+   //    stats.maxPattern + 1}/${Tic80Caps.pattern.count}`);
+
+   // const total = parts.reduce((sum, p) => sum + p.length, 0);
+   // const out = new Uint8Array(total);
+   // let offset = 0;
+   // for (const p of parts) {
+   //    out.set(p, offset);
+   //    offset += p.length;
+   // }
 
    // serialize song order data
    const songOrderData = new Uint8Array(1 + SomaticCaps.maxSongLength);
@@ -386,7 +395,10 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
    const realPatternData = encodeRealPatterns(song); // separate pattern data for playback use
 
    return {
-      memory_0FFE4: out,
+      //memory_0FFE4: out,
+      waveformData,
+      sfxData,
+      trackData,
       songOrderData,
       patternData: ch_serializePatterns(realPatternData),
    };
@@ -475,28 +487,30 @@ function stringToAsciiPayload(str: string): Uint8Array {
    return codeBytes;
 };
 
-// takes string contents, returns Lua string literal with quotes and escapes.
-function toLuaStringLiteral(str: string): string {
-   const escaped = str.replace(/\\/g, "\\\\").replace(/"/g, "\\\"").replace(/\n/g, "\\n").replace(/\r/g, "\\r");
-   return `"${escaped}"`;
+function getPlayroutineCode(variant: "debug"|"release"): string {
+   return variant === "debug" ? playroutineDebug : playroutineRelease;
 };
 
-function getCode(song: Song): string {
+function getCode(song: Song, variant: "debug"|"release"): string {
    // Generate the MUSIC_DATA section
    const songOrder = song.songOrder.map(idx => idx.toString()).join(",");
 
    const patternStringContents = song.patterns.map((pattern, patternIndex) => {
-      // encode pattern to base85 string
       const encodedPattern = encodePatternCombined(pattern);
 
-      // Calculate checksum for debugging
-      let checksum = 0;
-      for (let i = 0; i < encodedPattern.length; i++) {
-         checksum += encodedPattern[i];
-      }
-      console.log(`Pattern ${patternIndex} checksum: ${checksum} (bytes: ${encodedPattern.length})`);
+      //const fingerprint = getBufferFingerprint(encodedPattern);
+      //console.log(`Pattern ${patternIndex} fingerprint:`, fingerprint);
 
-      let patternStr = base85Encode(encodedPattern);
+      // { TestBase85Encoding("04 00 42 00 00 00 0d 00 81"); }
+
+      const patternStr = base85Encode(encodedPattern);
+      // const decodedPattern = base85Decode(patternStr, encodedPattern.length);
+
+      // console.log(`  -> b85:`, patternStr);
+
+      // const result = compareBuffers(decodedPattern, encodedPattern);
+      // console.log(`  -> round-trip`, result);
+
       return patternStr;
    });
    const patternArray = patternStringContents.map(p => toLuaStringLiteral(p)).join(",\n\t\t");
@@ -510,6 +524,7 @@ function getCode(song: Song): string {
 -- END_SOMATIC_MUSIC_DATA`;
 
    // Replace the MUSIC_DATA section in the template
+   const playroutineTemplate = getPlayroutineCode(variant);
    const markerIndex = playroutineTemplate.indexOf("-- END_SOMATIC_MUSIC_DATA");
    if (markerIndex === -1) {
       throw new Error("Template marker \"-- END_SOMATIC_MUSIC_DATA\" not found in playroutine-min.lua");
@@ -528,7 +543,7 @@ function getCode(song: Song): string {
    return beforeMusicData + musicDataSection + "\n" + afterMarker;
 }
 
-export function serializeSongToCart(song: Song, optimize: boolean): Uint8Array {
+export function serializeSongToCart(song: Song, optimize: boolean, variant: "debug"|"release"): Uint8Array {
    if (optimize) {
       song = OptimizeSong(song).optimizedSong;
    }
@@ -544,9 +559,9 @@ export function serializeSongToCart(song: Song, optimize: boolean): Uint8Array {
 
    const waveformChunk = createChunk(CHUNK.WAVEFORMS, encodeWaveforms(song), true);
    const sfxChunk = createChunk(CHUNK.SFX, encodeSfx(song), true);
-   const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, encodeNullPatterns(), true);
+   const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, new Uint8Array(1), true); // all zeros
    const trackChunk = createChunk(CHUNK.MUSIC_TRACKS, encodeTrack(song), true);
-   const codePayload = stringToAsciiPayload(getCode(song));
+   const codePayload = stringToAsciiPayload(getCode(song, variant));
    const codeChunk = createChunk(CHUNK.CODE, codePayload, false, 0);
 
    const chunks: Uint8Array[] = [

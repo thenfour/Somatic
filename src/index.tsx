@@ -421,8 +421,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         saveSync(song.toJSON(), 'song.somatic');
     };
 
-    const exportCart = () => {
-        const cartData = serializeSongToCart(song, true);
+    const exportCart = (variant: "debug" | "release") => {
+        const cartData = serializeSongToCart(song, true, variant);
 
         // Create a Blob from the Uint8Array
         const blob = new Blob([cartData as any /* workaround for Blob constructor typing */], { type: 'application/octet-stream' });
@@ -520,7 +520,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                         <button onClick={createNewSong}><span className="icon" aria-hidden="true">📄</span>New</button>
                         <button onClick={openSongFile}><span className="icon" aria-hidden="true">📂</span>Open</button>
                         <button onClick={saveSongFile}><span className="icon" aria-hidden="true">💾</span>Save</button>
-                        <button onClick={exportCart}><span className="icon" aria-hidden="true">📤</span>Export Cart</button>
+                        <button onClick={() => exportCart("debug")}><span className="icon" aria-hidden="true">📤</span>Export Cart (Debug)</button>
+                        <button onClick={() => exportCart("release")}><span className="icon" aria-hidden="true">📤</span>Export Cart (Release)</button>
                         <button onClick={optimizeSong}><span className="icon" aria-hidden="true">🧹</span>Optimize</button>
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>

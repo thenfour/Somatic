@@ -103,11 +103,11 @@ export const TicMemoryMap = {
    // RAM destinations for the chunk payloads (bank 0)
    WAVEFORMS_ADDR: 0x0ffe4,
    // WAVEFORMS_SIZE: 0x100, // 256 bytes
-   // SFX_ADDR: 0x100e4,
+   SFX_ADDR: 0x100e4,
    // SFX_SIZE: 66 * 64, // 64 sfx slots * 66 bytes
-   // PATTERNS_ADDR: 0x11164,
+   PATTERNS_ADDR: 0x11164,
    // PATTERNS_SIZE: 0x2d00, // 11520 bytes
-   // TRACKS_ADDR: 0x13e64,
+   TRACKS_ADDR: 0x13e64,
    // TRACKS_SIZE: 51 * 8, // 8 tracks * 51 bytes
 
    // local track = peek(0x13FFC)

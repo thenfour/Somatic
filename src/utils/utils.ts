@@ -32,3 +32,69 @@ export function CoalesceBoolean(value: boolean|null|undefined, defaultValue: boo
    }
    return value;
 }
+
+export interface FingerprintResult {
+   checksum: number;
+   length: number;
+   firstBytes: string;
+}
+
+export function getBufferFingerprint(buf: Uint8Array, length = 16): FingerprintResult {
+   let checksum = 0;
+   for (let i = 0; i < buf.length; i++) {
+      checksum += buf[i];
+   }
+   const firstBytes = Array.from(buf.slice(0, length)).map(b => b.toString(16).padStart(2, "0")).join(" ");
+   return {
+      checksum,
+      length: buf.length,
+      firstBytes,
+   };
+}
+
+
+// takes string contents, returns Lua string literal with quotes and escapes.
+export function toLuaStringLiteral(str: string): string {
+   const escaped = str.replace(/\\/g, "\\\\").replace(/"/g, "\\\"").replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+   return `"${escaped}"`;
+};
+
+
+export interface CompareResult {
+   match: boolean;
+   lengthA: number;
+   lengthB: number;
+   firstMismatchIndex: number;
+   description: string;
+}
+export function compareBuffers(bufA: Uint8Array, bufB: Uint8Array): CompareResult {
+   const lengthA = bufA.length;
+   const lengthB = bufB.length;
+   if (lengthA !== lengthB) {
+      return {
+         match: false,
+         lengthA,
+         lengthB,
+         firstMismatchIndex: -1,
+         description: `Length mismatch: A=${lengthA}, B=${lengthB}`,
+      };
+   }
+   for (let i = 0; i < lengthA; i++) {
+      if (bufA[i] !== bufB[i]) {
+         return {
+            match: false,
+            lengthA,
+            lengthB,
+            firstMismatchIndex: i,
+            description: `Data mismatch at index ${i}: A=${bufA[i]}, B=${bufB[i]}`,
+         };
+      }
+   }
+   return {
+      match: true,
+      lengthA,
+      lengthB,
+      firstMismatchIndex: -1,
+      description: `Buffers match, length=${lengthA}`,
+   };
+}

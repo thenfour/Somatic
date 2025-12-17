@@ -37,18 +37,6 @@ export const InstrumentEnvelopeEditor: React.FC<{
     const valueRange = maxValue - minValue;
     const canvasMaxValue = valueRange <= 0 ? 0 : valueRange;
 
-    // const mapFrameToCanvas = (v: number) => {
-    //     const clamped = clamp(v, minValue, maxValue);
-    //     return clamped - minValue;
-    // };
-
-    // const mapCanvasToFrame = (v: number) => {
-    //     const clampedCanvas = clamp(v, 0, canvasMaxValue);
-    //     return clamp(clampedCanvas + minValue, minValue, maxValue);
-    // };
-
-    //const canvasValues = Array.from(frames, (v) => mapFrameToCanvas(v));
-
     const handleCanvasChange = (nextValues: number[]) => {
         assert(nextValues.length === frameCount, 'Unexpected frame count in canvas change');
         const nextFrames = new Int8Array(nextValues);
@@ -107,7 +95,7 @@ export const InstrumentEnvelopeEditor: React.FC<{
                 values={canvasValues}
                 maxValue={canvasMaxValue}
                 // Envelopes tend to be more compact than full waveforms.
-                scale={{ x: 16, y: 8 }}
+                scale={{ x: 16, y: 12 }}
                 classNamePrefix="instrument-envelope"
                 onChange={handleCanvasChange}
             />

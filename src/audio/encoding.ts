@@ -1,3 +1,4 @@
+import {compareBuffers} from "../utils/utils";
 
 // Run-length encode the input data; return shortened output.
 export function RLEncode(input: Uint8Array): Uint8Array {
@@ -156,19 +157,17 @@ export function base85Encode(data: Uint8Array): string {
       const b2 = data[i + 2] ?? 0;
       const b3 = data[i + 3] ?? 0;
 
-      // Pack 4 bytes into one 32-bit unsigned value
-      let v = ((b0 << 24) >>> 0) | ((b1 << 16) >>> 0) | ((b2 << 8) >>> 0) | (b3 >>> 0);
+      // avoid signed-int32 behavior from bitwise ops
+      let v = b0 * 2 ** 24 + b1 * 2 ** 16 + b2 * 2 ** 8 + b3; // 0..2^32-1
 
-      // Convert to 5 base85 digits (most significant first)
       const digits = new Array<number>(5);
       for (let d = 4; d >= 0; d--) {
-         digits[d] = v % BASE85_RADIX;
-         v = Math.floor(v / BASE85_RADIX);
+         digits[d] = v % 85;
+         v = Math.floor(v / 85);
       }
 
-      // Map digits to ASCII chars
       for (let d = 0; d < 5; d++) {
-         out += String.fromCharCode(BASE85_OFFSET + digits[d]);
+         out += String.fromCharCode(33 + digits[d]);
       }
    }
 
@@ -191,7 +190,7 @@ export function base85Decode(str: string, expectedLength: number): Uint8Array {
          const code = str.charCodeAt(idx++);
          const digit = code - BASE85_OFFSET;
          if (digit < 0 || digit >= BASE85_RADIX) {
-            throw new Error(`base85Decode: invalid base85 char '${str[d]}' at index ${idx - 1}`);
+            throw new Error(`base85Decode: invalid base85 char '${str[idx - 1]}' at index ${idx - 1}`);
          }
          v = v * BASE85_RADIX + digit;
       }
@@ -213,4 +212,19 @@ export function base85Decode(str: string, expectedLength: number): Uint8Array {
    }
 
    return new Uint8Array(tmp.slice(0, expectedLength));
+}
+
+
+// string is a series of hexadecimal byte values separated by spaces
+export function TestBase85Encoding(payload: string|number[]) {
+   console.log(`TestBase85Encoding input:`, payload);
+   if (typeof payload === "string") {
+      payload = payload.split(" ").map(byteStr => parseInt(byteStr, 16));
+   }
+   const input = new Uint8Array(payload);
+   const encoded = base85Encode(input);
+   console.log(` -> Encoded:`, encoded);
+   const decoded = base85Decode(encoded, input.length);
+   const result = compareBuffers(input, decoded);
+   console.log(`TestBase85Encoding:`, result);
 }

@@ -20,46 +20,28 @@ local bufferALocation = 0x11164
 local bufferBLocation = bufferALocation + PATTERN_BUFFER_BYTES
 
 function base85_decode_to_bytes(s, expectedLen)
-	-- Alphabet: chars with codes 33..117 ('!'..'u')
-	local BASE85_RADIX = 85
-	local BASE85_OFFSET = 33
-	local n = #s
-	local bytes = {}
-	local outCount = 0
-	local i = 1
-	while i <= n do
+	local RADIX, OFFSET = 85, 33
+	local bytes, outCount = {}, 0
+	local n, i = #s, 1
+
+	while i <= n and outCount < expectedLen do
 		local v = 0
-		for j = 1, 5 do
+		for _ = 1, 5 do
 			local c = s:byte(i)
 			i = i + 1
-			local digit = c - BASE85_OFFSET
-			v = v * BASE85_RADIX + digit
+			local d = c - OFFSET
+			v = v * RADIX + d
 		end
-		local b0 = math.floor(v / 16777216) % 256
-		local b1 = math.floor(v / 65536) % 256
-		local b2 = math.floor(v / 256) % 256
-		local b3 = v % 256
-		local remaining = expectedLen - outCount
-		if remaining <= 0 then
-			break
-		end
-		if remaining >= 1 then
-			bytes[#bytes + 1] = b0
-			outCount = outCount + 1
-		end
-		if remaining >= 2 then
-			bytes[#bytes + 1] = b1
-			outCount = outCount + 1
-		end
-		if remaining >= 3 then
-			bytes[#bytes + 1] = b2
-			outCount = outCount + 1
-		end
-		if remaining >= 4 then
-			bytes[#bytes + 1] = b3
+
+		for shift = 3, 0, -1 do
+			if outCount >= expectedLen then
+				break
+			end
+			bytes[#bytes + 1] = math.floor(v / (256 ^ shift)) % 256
 			outCount = outCount + 1
 		end
 	end
+
 	return bytes
 end
 

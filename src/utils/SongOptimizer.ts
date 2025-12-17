@@ -15,7 +15,7 @@ type SongUsage = {
 };
 
 // Traverses song order -> patterns -> instruments -> waveforms to find what is actually referenced.
-function calculateSongUsage(song: Song): SongUsage {
+export function calculateSongUsage(song: Song): SongUsage {
    const usedPatterns = new Set<number>();
    const usedInstruments = new Set<number>();
    const usedWaveforms = new Set<number>();
@@ -64,12 +64,15 @@ function calculateSongUsage(song: Song): SongUsage {
 // returns the 0-based index of the waveform with the highest index that is used by
 // USED instruments in the song.
 export function getMaxWaveformUsedIndex(song: Song): number {
+   //return Tic80Caps.waveform.count - 1;
    return calculateSongUsage(song).maxWaveform;
 }
 export function getMaxSfxUsedIndex(song: Song): number {
+   //return Tic80Caps.sfx.count - 1;
    return calculateSongUsage(song).maxInstrument;
 }
 export function getMaxPatternUsedIndex(song: Song): number {
+   //return Tic80Caps.pattern.count - 1;
    return calculateSongUsage(song).maxPattern;
 }
 

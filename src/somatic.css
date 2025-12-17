@@ -348,6 +348,10 @@ option {
     display: block;
 }
 
+.waveform-swatch__svg circle {
+    fill: var(--accent);
+}
+
 .waveform-editor {
     margin-top: 8px;
 }
