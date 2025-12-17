@@ -1119,3 +1119,8 @@ option {
     min-width: 28px;
     font-size: 14px;
 }
+
+.autoSaveIndicator__label {
+    font-size: 12px;
+    width: 80px;
+}

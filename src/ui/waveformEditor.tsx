@@ -245,6 +245,34 @@ export const WaveformEditorPanel: React.FC<{
         });
     };
 
+    const handleNormalize = () => {
+        const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
+        const maxAmp = amplitudeRange - 1;
+        onSongChange((s) => {
+            const wf = s.waveforms[editingWaveformId];
+            if (!wf) return;
+
+            // Find the min and max values in the waveform
+            let min = maxAmp;
+            let max = 0;
+            for (let i = 0; i < wf.amplitudes.length; i += 1) {
+                const val = wf.amplitudes[i];
+                if (val < min) min = val;
+                if (val > max) max = val;
+            }
+
+            // If the waveform is flat, nothing to normalize
+            if (min === max) return;
+
+            // Scale to use the full range
+            const range = max - min;
+            for (let i = 0; i < wf.amplitudes.length; i += 1) {
+                const val = wf.amplitudes[i];
+                wf.amplitudes[i] = Math.round(((val - min) / range) * maxAmp);
+            }
+        });
+    };
+
     const handleCopy = async () => {
         const waveform = song.waveforms[editingWaveformId];
         await clipboard.copyObjectToClipboard(waveform.toData());
@@ -315,6 +343,7 @@ export const WaveformEditorPanel: React.FC<{
                     <span className="waveform-editor-controls__label">Shift</span>
                     <button type="button" onClick={() => handleShift(1)}>Up</button>
                     <button type="button" onClick={() => handleShift(-1)}>Down</button>
+                    <button type="button" onClick={handleNormalize}>Normalize</button>
                 </div>
             </div>
         </div>);

@@ -526,19 +526,11 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                         >
                             <span className="midi-indicator__dot" aria-hidden="true" />
                             <span className="midi-indicator__label">{midiIndicatorLabel}</span>
+
                         </button>
+                        <span className="autoSaveIndicator__label">sync:{autoSave.state.status}</span>
                         <MusicStateDisplay musicState={musicState} />
-                        {/* <div id="master-volume-container">
-                            <label htmlFor="master-volume">master volume</label>
-                            <input
-                                type="range"
-                                min="0"
-                                max="500"
-                                defaultValue={250}
-                                id="master-volume"
-                                onChange={(e) => audio.setVolume(e.target.valueAsNumber / 1000)}
-                            />
-                        </div> */}
+
                     </div>
                 </div>
 
