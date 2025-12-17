@@ -9,6 +9,21 @@ local MUSIC_DATA = {
 	},
 }
 
+-- Debug logging
+local LOG_LINES = 15
+local log_lines = {}
+local log_serial = 0
+
+local function log(s)
+	log_serial = log_serial + 1
+	local prefix = string.format("[%03d] ", log_serial)
+	trace(prefix .. s)
+	table.insert(log_lines, 1, prefix .. s)
+	if #log_lines > LOG_LINES then
+		table.remove(log_lines)
+	end
+end
+
 -- =========================
 -- general playroutine support
 musicInitialized = false
@@ -90,7 +105,9 @@ function base85_decode_to_bytes(s, expectedLen)
 end
 
 local function getSongOrderCount()
-	return #MUSIC_DATA.songOrder
+	local count = #MUSIC_DATA.songOrder
+	log("getSongOrderCount: " .. tostring(count))
+	return count
 end
 
 -- demo version:
@@ -98,10 +115,12 @@ local function swapInPlayorder(songPosition0b, destPointer)
 	patternIndex0b = MUSIC_DATA.songOrder[songPosition0b + 1]
 	patternString = MUSIC_DATA.patterns[patternIndex0b + 1]
 	local patternLengthBytes = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
+	log(string.format("swapIn: pos=%d pat=%d len=%d", songPosition0b, patternIndex0b, #patternString))
 	patternBytes = base85_decode_to_bytes(patternString, patternLengthBytes)
 	for i = 0, patternLengthBytes - 1 do
 		poke(destPointer + i, patternBytes[i + 1])
 	end
+	-- sync(24, 0, true)
 end
 
 -- =========================
@@ -126,6 +145,7 @@ tf_music_reset_state = function()
 	lastPlayingFrame = -1
 	backBufferIsA = false
 	stopPlayingOnNextFrame = false
+	log("tf_music_reset_state")
 	--ch_set_playroutine_regs(0xFF)
 end
 
@@ -135,6 +155,8 @@ tf_music_reset_state()
 tf_music_init = function(songPosition, startRow)
 	songPosition = songPosition or 0
 	startRow = startRow or 0
+
+	log(string.format("tf_music_init: pos=%d row=%d", songPosition, startRow))
 
 	-- seed state
 	currentSongOrder = songPosition
@@ -153,15 +175,19 @@ tf_music_init = function(songPosition, startRow)
 		false, -- loop
 		true -- sustain
 	)
+	log("tf_music_init: music() called")
 end
 
 local function get_music_pos()
 	local track = peek(0x13FFC)
 	local frame = peek(0x13FFD)
+	local row = peek(0x13FFE)
+
 	if track == 255 then
 		track = -1
 	end -- stopped / none
-	return track, frame
+
+	return track, frame, row
 end
 
 function tf_music_tick()
@@ -175,7 +201,10 @@ function tf_music_tick()
 		return
 	end
 
+	log(string.format("tick: frm=%d last=%d", currentFrame, lastPlayingFrame))
+
 	if stopPlayingOnNextFrame then
+		log("tick: stopping")
 		music() -- stops playback.
 		tf_music_reset_state()
 		return
@@ -189,7 +218,10 @@ function tf_music_tick()
 	local destPointer = getBufferPointer()
 	local orderCount = getSongOrderCount()
 
+	log(string.format("tick: advance to=%d count=%d", currentSongOrder, orderCount))
+
 	if orderCount == 0 or currentSongOrder >= orderCount then
+		log("tick: end of song")
 		clearPatternBuffer(destPointer)
 		stopPlayingOnNextFrame = true
 		return
@@ -203,11 +235,39 @@ end
 -- =========================
 function TIC()
 	if not musicInitialized then
+		log("Initializing music...")
 		tf_music_init(0, 0)
 		musicInitialized = true
 	end
 
 	tf_music_tick()
 	cls(0)
-	print("Somatic", 84, 68, 12)
+	local y = 2
+	print("PLAYROUTINE TEST", 52, y, 12)
+	y = y + 8
+	local track, currentFrame, currentRow = get_music_pos()
+	print(string.format("t:%d f:%d r:%d", track, currentFrame, currentRow), 60, y, 6)
+	y = y + 8
+	print(
+		string.format(
+			"ord:%d buf:%s stop:%s",
+			currentSongOrder,
+			tostring(backBufferIsA),
+			tostring(stopPlayingOnNextFrame)
+		),
+		2,
+		y,
+		11
+	)
+	y = y + 10
+
+	-- Show logs
+	print("LOGS:", 2, y, 14)
+	y = y + 8
+	for i = math.min(#log_lines, LOG_LINES), 1, -1 do
+		local logY = y + (LOG_LINES - i) * 6
+		if logY < 136 then
+			print(log_lines[i], 2, logY, 15)
+		end
+	end
 end
