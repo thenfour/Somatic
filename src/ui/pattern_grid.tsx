@@ -248,9 +248,15 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 return [targetRow, col] as const;
             }
             if (key === 'Home') {
+                if (ctrlKey || row === 0) {
+                    return [0, 0] as const;
+                }
                 return [0, col] as const;
             }
             if (key === 'End') {
+                if (ctrlKey || row === rowCount - 1) {
+                    return [rowCount - 1, colCount - 1] as const;
+                }
                 return [rowCount - 1, col] as const;
             }
             return null;
@@ -388,7 +394,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         const instCol = channelIndex * 4 + 1;
                                         const cmdCol = channelIndex * 4 + 2;
                                         const paramCol = channelIndex * 4 + 3;
-                                        const isNoteEmpty = !row.midiNote;
+                                        const isEmpty = !row.midiNote && row.effect === undefined && row.instrumentIndex == null && row.effectX === undefined && row.effectY === undefined;
                                         const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
 
                                         let errorInRow = false;
@@ -403,8 +409,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             errorInRow = true;
                                             errorText = "Instrument 0 is reserved and should not be used.";
                                         }
+                                        if (row.effect === undefined && (row.effectX !== undefined || row.effectY !== undefined)) {
+                                            errorInRow = true;
+                                            errorText = "Effect parameter set without an effect command.";
+                                        }
 
-                                        const additionalClasses = `${isNoteEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}`;
+                                        const additionalClasses = `${isEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}`;
                                         const noteClass = `note-cell${additionalClasses}`;
                                         const instClass = `instrument-cell${additionalClasses}`;
                                         const cmdClass = `command-cell${additionalClasses}`;
