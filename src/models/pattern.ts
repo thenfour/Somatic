@@ -111,4 +111,9 @@ export class Pattern implements PatternDto {
    clone(): Pattern {
       return Pattern.fromData(this.toData());
    }
+
+   contentSignature(): string {
+      const dto = this.toData();
+      return JSON.stringify({channels: dto.channels});
+   }
 }

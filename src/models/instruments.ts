@@ -180,4 +180,10 @@ export class Tic80Instrument {
    clone(): Tic80Instrument {
       return new Tic80Instrument(this.toData());
    }
+
+   contentSignature(): string {
+      const dto = this.toData();
+      const {name, ...content} = dto;
+      return JSON.stringify(content);
+   }
 }

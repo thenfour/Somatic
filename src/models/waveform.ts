@@ -49,4 +49,10 @@ export class Tic80Waveform {
    clone(): Tic80Waveform {
       return new Tic80Waveform(this.toData());
    }
+
+   contentSignature(): string {
+      const dto = this.toData();
+      const {name, ...content} = dto;
+      return JSON.stringify(content);
+   }
 }

@@ -94,7 +94,7 @@ export function OptimizeSong(song: Song): OptimizeResult {
    const working = song.clone();
    const changeLog: string[] = [];
 
-   const patternSignature = (pattern: Pattern): string => JSON.stringify(pattern.toData());
+   const patternSignature = (pattern: Pattern): string => pattern.contentSignature();
 
    // Step 1: dedupe patterns by content and remap song order.
    const patternSigToIndex = new Map<string, number>();
