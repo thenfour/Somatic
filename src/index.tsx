@@ -27,6 +27,7 @@ import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { ToastProvider, useToasts } from './ui/toast_provider';
 import { WaveformEditorPanel } from './ui/waveformEditor';
 import { useWriteBehindEffect } from './hooks/useWriteBehindEffect';
+import { OptimizeSong } from './utils/SongOptimizer';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -412,6 +413,17 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         //pushToast({ message: 'TIC-80 cartridge exported.', variant: 'success' });
     };
 
+    const optimizeSong = async () => {
+        if (!await confirm({
+            content: <p>Optimize the song to remove unused patterns, waveforms, and SFX?</p>,
+        })) {
+            return;
+        }
+        const result = OptimizeSong(song);
+        console.log(result);
+        setSong(result.optimizedSong);
+    };
+
     const copyNative = async () => {
         await clipboard.copyTextToClipboard(song.toJSON());
     };
@@ -478,6 +490,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                         <button onClick={openSongFile}><span className="icon" aria-hidden="true">📂</span>Open</button>
                         <button onClick={saveSongFile}><span className="icon" aria-hidden="true">💾</span>Save</button>
                         <button onClick={exportCart}><span className="icon" aria-hidden="true">📤</span>Export Cart</button>
+                        <button onClick={optimizeSong}><span className="icon" aria-hidden="true">🧹</span>Optimize</button>
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
