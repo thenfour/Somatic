@@ -109,7 +109,7 @@ export class Song {
       this.tempo = clamp(data.tempo ?? 120, 1, 255);
       this.speed = clamp(data.speed ?? 6, 1, 31);
       this.name = data.name ?? "New song";
-      this.highlightRowCount = clamp(data.highlightRowCount ?? 16, 1, 64);
+      this.highlightRowCount = data.highlightRowCount ?? 4;
    }
 
    setTempo(value: number) {

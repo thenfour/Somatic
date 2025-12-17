@@ -37,11 +37,10 @@ type Theme = 'light' | 'dark';
 const MusicStateDisplay: React.FC<{ musicState: MusicState }> = ({ musicState }) => {
     return <div className='musicState-panel'>
         <div className='flags'>
-            <div className='key'>s_pos</div><div className='value'>{musicState.somaticSongPosition}</div>
-            <div className='key'>t_trk</div><div className='value'>{musicState.tic80TrackIndex}</div>
-            <div className='key'>t_frm</div><div className='value'>{musicState.tic80FrameIndex}</div>
-            <div className='key'>t_row</div><div className='value'>{musicState.tic80RowIndex}</div>
-            {/* <div className='key'>t_lup</div><div className='value'>{state.isLooping ? 'Yes' : 'No'}</div> */}
+            {musicState.isPlaying ? <>
+                <div className='key'>Order:</div><div className='value'>{musicState.somaticSongPosition}</div>
+                <div className='key'>Row:</div><div className='value'>{musicState.tic80RowIndex}</div>
+            </> : <>Stopped</>}
         </div>
     </div>;
 };

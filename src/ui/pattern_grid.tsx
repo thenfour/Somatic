@@ -417,12 +417,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         return (
             <div className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}>
-                {!editingEnabled && (
-                    <div className="edit-locked-banner" role="status" aria-label="Editing disabled">
-                        <span className="edit-locked-banner__dot" aria-hidden="true" />
-                        <span className="edit-locked-banner__text">Edit mode is off</span>
-                    </div>
-                )}
                 <table className="pattern-grid">
                     <colgroup>
                         <col />
@@ -473,6 +467,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         if (row.effect === undefined && (row.effectX !== undefined || row.effectY !== undefined)) {
                                             errorInRow = true;
                                             errorText = "Effect parameter set without an effect command.";
+                                        }
+                                        if (row.instrumentIndex !== undefined && row.midiNote === undefined) {
+                                            errorInRow = true;
+                                            errorText = "Instrument set without a note.";
                                         }
 
                                         const additionalClasses = `${isEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}`;

@@ -6,6 +6,7 @@ import {Tic80ChannelIndex} from "../models/tic80Capabilities";
 export type MusicState = {
    somaticPatternIndex: number; //
    somaticSongPosition: number; //
+   isPlaying: boolean;          //
    tic80TrackIndex: number;     //
    tic80FrameIndex: number;     //
    tic80RowIndex: number;       //
@@ -16,6 +17,7 @@ export function MakeEmptyMusicState(): MusicState{
    return {
       somaticPatternIndex: 0,    //
          somaticSongPosition: 0, //
+         isPlaying: false,       //
          tic80TrackIndex: -1,    //
          tic80FrameIndex: 0,     //
          tic80RowIndex: 0,       //

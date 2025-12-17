@@ -105,7 +105,7 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
 
     const handleCopy = async () => {
         const lines = [...THEME_VARS].map((name) => `${name}: ${values[name]};`);
-        const css = lines.join('\n  ');
+        const css = lines.join('\n  ') + '\n';
         try {
             await navigator.clipboard.writeText(css);
             pushToast({ message: 'Theme variables copied to clipboard', variant: 'success' });
@@ -117,7 +117,7 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
 
     return (
         <div className="theme-panel" role="dialog" aria-label="Theme editor">
-            <h2>Theme Editor (dev)</h2>
+            <h2>Theme Editor</h2>
             <p>Drag a palette swatch onto a variable to assign it. Export copies current vars.</p>
 
             <div className="theme-panel__palette" aria-label="TIC-80 palette">

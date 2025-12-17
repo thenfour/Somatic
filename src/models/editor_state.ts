@@ -15,7 +15,7 @@ export class EditorState {
       //patternIndex: pattern = 0,
       selectedPosition = 0,
       currentInstrument = 2, // 0 = reserved, 1 = off
-      editingEnabled = true,
+      editingEnabled = false,
       patternEditRow = 0,
       patternEditChannel = 0
    }: Partial<EditorState> = {}) {

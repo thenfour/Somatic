@@ -211,6 +211,7 @@ export class Tic80Backend implements AudioBackend {
          tic80TrackIndex: track,
          somaticPatternIndex,
          somaticSongPosition: somaticSongPosition === 255 ? -1 : somaticSongPosition,
+         isPlaying: somaticSongPosition !== 255,
          isLooping,
       };
       return this.lastKnownMusicState;
