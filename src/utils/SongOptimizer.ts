@@ -7,6 +7,7 @@ interface OptimizeResult {
    // includes 0 and 1 sfx so this will always be at least 1 for instrument#0, and 2 if you only have a note cut in your whole song (weird), and >=3 for normal cases.
    usedSfxCount: number;
 
+   // hold explanations of what changed (moving patterns, deduping etc)
    changeLog: string[];
 }
 

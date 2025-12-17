@@ -391,7 +391,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     };
 
     const exportCart = () => {
-        const cartData = serializeSongToCart(song);
+        const cartData = serializeSongToCart(song, true);
 
         // Create a Blob from the Uint8Array
         const blob = new Blob([cartData as any /* workaround for Blob constructor typing */], { type: 'application/octet-stream' });

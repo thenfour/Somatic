@@ -6,6 +6,7 @@ import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabili
 import {assert, clamp} from "../utils/utils";
 import {base85Encode} from "./encoding";
 import playroutineTemplate from "../../bridge/playroutine-min.lua";
+import {OptimizeSong} from "../utils/SongOptimizer";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -437,8 +438,20 @@ function ch_serializePatterns(patterns: Uint8Array[]): Uint8Array {
    return output;
 }
 
+function removeTrailingZerosFn(data: Uint8Array): Uint8Array {
+   let endIndex = data.length;
+   while (endIndex > 0 && data[endIndex - 1] === 0) {
+      endIndex--;
+   }
+   return data.slice(0, endIndex);
+}
 
-function createChunk(type: number, payload: Uint8Array, bank = 0): Uint8Array {
+function createChunk(type: number, payload: Uint8Array, removeTrailingZeros: boolean, bank = 0): Uint8Array {
+   // most chunks can have trailing zeros removed to save space.
+   if (removeTrailingZeros) {
+      payload = removeTrailingZerosFn(payload);
+   }
+
    const chunk = new Uint8Array(4 + payload.length);
    chunk[0] = ((bank & 0x07) << 5) | (type & 0x1f);
    chunk[1] = payload.length & 0xff;
@@ -509,8 +522,11 @@ function getCode(song: Song): string {
    return beforeMusicData + musicDataSection + "\n" + afterMarker;
 }
 
-export function serializeSongToCart(song: Song): Uint8Array {
-   // TODO: optimize song.
+export function serializeSongToCart(song: Song, optimize: boolean): Uint8Array {
+   if (optimize) {
+      song = OptimizeSong(song).optimizedSong;
+   }
+
    // e.g., remove unused instruments, waveforms, patterns, shift to pack etc.
 
    // cartridges are a simple concatenation of chunks.
@@ -520,12 +536,12 @@ export function serializeSongToCart(song: Song): Uint8Array {
    // byte 1-2: payload length (u16 little-endian)
    // byte 3: reserved (0)
 
-   const waveformChunk = createChunk(CHUNK.WAVEFORMS, encodeWaveforms(song));
-   const sfxChunk = createChunk(CHUNK.SFX, encodeSfx(song));
-   const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, encodeNullPatterns());
-   const trackChunk = createChunk(CHUNK.MUSIC_TRACKS, encodeTrack(song));
+   const waveformChunk = createChunk(CHUNK.WAVEFORMS, encodeWaveforms(song), true);
+   const sfxChunk = createChunk(CHUNK.SFX, encodeSfx(song), true);
+   const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, encodeNullPatterns(), true);
+   const trackChunk = createChunk(CHUNK.MUSIC_TRACKS, encodeTrack(song), true);
    const codePayload = stringToAsciiPayload(getCode(song));
-   const codeChunk = createChunk(CHUNK.CODE, codePayload, 0);
+   const codeChunk = createChunk(CHUNK.CODE, codePayload, false, 0);
 
    const chunks: Uint8Array[] = [
       codeChunk,
