@@ -65,11 +65,21 @@ type PatternClipboardPayload = {
 };
 
 type RowRange = { start: number; end: number };
+type ScopeTargets = {
+    patternIndices: number[];
+    channels: number[];
+    rowRange: RowRange;
+};
 
 // Matches defs.ts MIDI_FOR_TIC_NOTE0 mapping (C0) and TIC-80's 8 octaves of pattern range.
 const TIC_NOTE_MIDI_BASE = 12;
 const MIN_PATTERN_MIDI = TIC_NOTE_MIDI_BASE;
 const MAX_PATTERN_MIDI = TIC_NOTE_MIDI_BASE + Tic80Caps.pattern.octaveCount * 12 - 1;
+
+const normalizeInstrumentValue = (value: number): number => {
+    if (!Number.isFinite(value)) return 0;
+    return clamp(Math.floor(value), 0, Tic80Caps.sfx.count - 1);
+};
 
 const inclusiveRange = (start: number, end: number): number[] => {
     const lower = Math.min(start, end);
@@ -78,12 +88,12 @@ const inclusiveRange = (start: number, end: number): number[] => {
     return Array.from({ length }, (_, idx) => lower + idx);
 };
 
-const transposeCellsInPattern = (
+const mutatePatternCells = (
     pattern: Pattern,
     channels: number[],
     rowRange: RowRange,
     rowsPerPattern: number,
-    amount: number,
+    mutator: (cell: PatternCell, channelIndex: Tic80ChannelIndex, rowIndex: number) => PatternCell | null,
 ): boolean => {
     const maxRow = clamp(rowsPerPattern - 1, 0, Tic80Caps.pattern.maxRows - 1);
     if (maxRow < 0) return false;
@@ -100,18 +110,62 @@ const transposeCellsInPattern = (
             const safeChannel = clamp(Math.floor(channel), 0, channelMax);
             const channelIndex = ToTic80ChannelIndex(safeChannel);
             const cell = pattern.getCell(channelIndex, row);
-            if (cell.midiNote === undefined) continue;
-            if (isNoteCut(cell)) continue;
-            const nextNote = cell.midiNote + amount;
-            if (nextNote < MIN_PATTERN_MIDI || nextNote > MAX_PATTERN_MIDI) continue;
-            //if (nextNote === cell.midiNote) continue;
-            pattern.setCell(channelIndex, row, { ...cell, midiNote: nextNote });
-            mutated = true;
+            const updatedCell = mutator(cell, channelIndex, row);
+            if (updatedCell) {
+                pattern.setCell(channelIndex, row, updatedCell);
+                mutated = true;
+            }
         }
     }
 
     return mutated;
 };
+
+const transposeCellsInPattern = (
+    pattern: Pattern,
+    channels: number[],
+    rowRange: RowRange,
+    rowsPerPattern: number,
+    amount: number,
+): boolean =>
+    mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, (cell) => {
+        if (cell.midiNote === undefined) return null;
+        if (isNoteCut(cell)) return null;
+        const nextNote = cell.midiNote + amount;
+        if (nextNote < MIN_PATTERN_MIDI || nextNote > MAX_PATTERN_MIDI) return null;
+        if (nextNote === cell.midiNote) return null;
+        return { ...cell, midiNote: nextNote };
+    });
+
+const setInstrumentInPattern = (
+    pattern: Pattern,
+    channels: number[],
+    rowRange: RowRange,
+    rowsPerPattern: number,
+    instrumentValue: number,
+): boolean =>
+    mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, (cell) => {
+        if (cell.instrumentIndex === undefined) return null;
+        if (cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex) return null;
+        if (cell.instrumentIndex === instrumentValue) return null;
+        return { ...cell, instrumentIndex: instrumentValue };
+    });
+
+const changeInstrumentInPattern = (
+    pattern: Pattern,
+    channels: number[],
+    rowRange: RowRange,
+    rowsPerPattern: number,
+    fromInstrument: number,
+    toInstrument: number,
+): boolean =>
+    mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, (cell) => {
+        if (cell.instrumentIndex === undefined) return null;
+        if (cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex) return null;
+        if (cell.instrumentIndex !== fromInstrument) return null;
+        if (fromInstrument === toInstrument) return null;
+        return { ...cell, instrumentIndex: toInstrument };
+    });
 
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
     ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange }, ref) => {
@@ -204,70 +258,140 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             return selectionBounds;
         };
 
-        const handleTranspose = useCallback((amount: number, scope: ScopeValue) => {
-            if (!amount) {
-                return;
-            }
-
+        const resolveScopeTargets = useCallback((scope: ScopeValue): ScopeTargets | null => {
             const lastRow = Math.max(song.rowsPerPattern - 1, 0);
             const fullRowRange: RowRange = { start: 0, end: lastRow };
             const patternCount = song.patterns.length;
             const allPatternIndices = Array.from({ length: patternCount }, (_, idx) => idx);
             const allChannels = inclusiveRange(0, Tic80Caps.song.audioChannels - 1);
 
-            const applyTranspose = (patterns: number[], channels: number[], rows: RowRange) => {
-                if (patterns.length === 0 || channels.length === 0) {
-                    pushToast({ message: 'Nothing to transpose in that scope.', variant: 'error' });
-                    return;
-                }
-                let mutated = false;
-                onSongChange((nextSong) => {
-                    for (const patternIndex of patterns) {
-                        const targetPattern = nextSong.patterns[patternIndex];
-                        if (!targetPattern) continue;
-                        if (transposeCellsInPattern(targetPattern, channels, rows, nextSong.rowsPerPattern, amount)) {
-                            mutated = true;
-                        }
-                    }
-                });
-                if (!mutated) {
-                    pushToast({ message: 'No notes found to transpose in that scope.', variant: 'info' });
-                }
-            };
-
             switch (scope) {
                 case 'selection': {
                     if (!selectionBounds) {
-                        pushToast({ message: 'Select a block before transposing.', variant: 'error' });
-                        return;
+                        pushToast({ message: 'Select a block before using Selection scope.', variant: 'error' });
+                        return null;
                     }
-                    const selectionChannels = inclusiveRange(selectionBounds.channelStart, selectionBounds.channelEnd);
-                    applyTranspose([safePatternIndex], selectionChannels, {
-                        start: selectionBounds.rowStart,
-                        end: selectionBounds.rowEnd,
-                    });
-                    break;
+                    return {
+                        patternIndices: [safePatternIndex],
+                        channels: inclusiveRange(selectionBounds.channelStart, selectionBounds.channelEnd),
+                        rowRange: { start: selectionBounds.rowStart, end: selectionBounds.rowEnd },
+                    };
                 }
-                case 'channel-pattern': {
-                    applyTranspose([safePatternIndex], [editorState.patternEditChannel], fullRowRange);
-                    break;
-                }
-                case 'channel-song': {
-                    applyTranspose(allPatternIndices, [editorState.patternEditChannel], fullRowRange);
-                    break;
-                }
-                case 'pattern': {
-                    applyTranspose([safePatternIndex], allChannels, fullRowRange);
-                    break;
-                }
-                case 'song': {
-                    applyTranspose(allPatternIndices, allChannels, fullRowRange);
-                    break;
-                }
+                case 'channel-pattern':
+                    return {
+                        patternIndices: [safePatternIndex],
+                        channels: [editorState.patternEditChannel],
+                        rowRange: fullRowRange,
+                    };
+                case 'channel-song':
+                    return {
+                        patternIndices: allPatternIndices,
+                        channels: [editorState.patternEditChannel],
+                        rowRange: fullRowRange,
+                    };
+                case 'pattern':
+                    return {
+                        patternIndices: [safePatternIndex],
+                        channels: allChannels,
+                        rowRange: fullRowRange,
+                    };
+                case 'song':
+                    return {
+                        patternIndices: allPatternIndices,
+                        channels: allChannels,
+                        rowRange: fullRowRange,
+                    };
                 default:
-                    break;
+                    return null;
             }
-        }, [editingEnabled, selectionBounds, editorState.patternEditChannel, song.patterns.length, song.rowsPerPattern, onSongChange, pushToast, safePatternIndex]);
+        }, [editorState.patternEditChannel, pushToast, safePatternIndex, selectionBounds, song.patterns.length, song.rowsPerPattern]);
+
+        const handleTranspose = useCallback((amount: number, scope: ScopeValue) => {
+            if (!amount) {
+                return;
+            }
+            const targets = resolveScopeTargets(scope);
+            if (!targets) return;
+            const { patternIndices, channels, rowRange } = targets;
+            if (patternIndices.length === 0 || channels.length === 0) {
+                pushToast({ message: 'Nothing to transpose in that scope.', variant: 'error' });
+                return;
+            }
+            onSongChange((nextSong) => {
+                let mutated = false;
+                for (const patternIndex of patternIndices) {
+                    const targetPattern = nextSong.patterns[patternIndex];
+                    if (!targetPattern) continue;
+                    if (transposeCellsInPattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern, amount)) {
+                        mutated = true;
+                    }
+                }
+                if (!mutated) {
+                    pushToast({ message: 'No notes found to transpose in that scope.', variant: 'info' });
+                }
+            });
+        }, [onSongChange, pushToast, resolveScopeTargets]);
+
+        const handleSetInstrument = useCallback((rawInstrument: number, scope: ScopeValue) => {
+            const instrumentValue = normalizeInstrumentValue(rawInstrument);
+            if (instrumentValue === SomaticCaps.noteCutInstrumentIndex) {
+                pushToast({ message: 'Instrument 1 is reserved for note cuts.', variant: 'error' });
+                return;
+            }
+            const targets = resolveScopeTargets(scope);
+            if (!targets) return;
+            const { patternIndices, channels, rowRange } = targets;
+            if (patternIndices.length === 0 || channels.length === 0) {
+                pushToast({ message: 'Nothing to edit in that scope.', variant: 'error' });
+                return;
+            }
+            onSongChange((nextSong) => {
+                let mutated = false;
+                for (const patternIndex of patternIndices) {
+                    const targetPattern = nextSong.patterns[patternIndex];
+                    if (!targetPattern) continue;
+                    if (setInstrumentInPattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern, instrumentValue)) {
+                        mutated = true;
+                    }
+                }
+                if (!mutated) {
+                    pushToast({ message: 'No instruments were eligible for update.', variant: 'info' });
+                }
+            });
+        }, [onSongChange, pushToast, resolveScopeTargets]);
+
+        const handleChangeInstrument = useCallback((rawFrom: number, rawTo: number, scope: ScopeValue) => {
+            const fromInstrument = normalizeInstrumentValue(rawFrom);
+            const toInstrument = normalizeInstrumentValue(rawTo);
+            if (fromInstrument === SomaticCaps.noteCutInstrumentIndex || toInstrument === SomaticCaps.noteCutInstrumentIndex) {
+                pushToast({ message: 'Instrument 1 is reserved for note cuts.', variant: 'error' });
+                return;
+            }
+            if (fromInstrument === toInstrument) {
+                pushToast({ message: 'Choose different instruments to change.', variant: 'info' });
+                return;
+            }
+            const targets = resolveScopeTargets(scope);
+            if (!targets) return;
+            const { patternIndices, channels, rowRange } = targets;
+            if (patternIndices.length === 0 || channels.length === 0) {
+                pushToast({ message: 'Nothing to edit in that scope.', variant: 'error' });
+                return;
+            }
+            onSongChange((nextSong) => {
+                let mutated = false;
+                for (const patternIndex of patternIndices) {
+                    const targetPattern = nextSong.patterns[patternIndex];
+                    if (!targetPattern) continue;
+                    if (changeInstrumentInPattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern, fromInstrument, toInstrument)) {
+                        mutated = true;
+                    }
+                }
+                if (!mutated) {
+                    pushToast({ message: 'No matching instruments were found to change.', variant: 'info' });
+                }
+            });
+        }, [onSongChange, pushToast, resolveScopeTargets]);
 
         const createClipboardPayload = (): PatternClipboardPayload | null => {
             const bounds = getSelectionBounds();
@@ -772,8 +896,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             <div className={`pattern-grid-shell${advancedPanelOpen ? ' pattern-grid-shell--advanced-open' : ''}`}>
                 {advancedPanelOpen && (
                     <PatternAdvancedPanel
-                        //disabled={!editingEnabled}
+                        // enabled={editingEnabled} // allow advanced edits even in non-edit mode
                         onTranspose={handleTranspose}
+                        onSetInstrument={handleSetInstrument}
+                        onChangeInstrument={handleChangeInstrument}
                     />
                 )}
                 <div className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}>
