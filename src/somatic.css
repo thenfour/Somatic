@@ -749,6 +749,7 @@ option {
 }
 
 .pattern-grid .row-number {
+    background-color: var(--bg);
     color: var(--muted);
 }
 
@@ -1053,12 +1054,27 @@ option {
 .arrangement-editor {
     display: flex;
     flex-direction: column;
+    height: 100%;
 }
 
 .arrangement-editor__header {
     display: flex;
     justify-content: flex-end;
     padding: 2px 4px;
+    flex-shrink: 0;
+}
+
+.arrangement-editor__content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+}
+
+.arrangement-editor__footer {
+    flex-shrink: 0;
+    padding: 4px;
+    border-top: 1px solid var(--border);
 }
 
 .arrangement-editor__toggle-names {
