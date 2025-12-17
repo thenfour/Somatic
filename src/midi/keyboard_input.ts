@@ -3,7 +3,7 @@
 
 import {NoteEvent, NoteInputSource} from "./note_input";
 
-const defaultNoteKeyMap = "-zsxdcvgbhnjmq2w3er5t6y7ui".split("");
+export const defaultNoteKeyMap = "-zsxdcvgbhnjmq2w3er5t6y7ui".split("");
 
 const isEditableTarget = (target: EventTarget|null) => {
    const el = target as HTMLElement | null;

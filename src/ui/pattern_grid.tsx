@@ -6,6 +6,7 @@ import { EditorState } from '../models/editor_state';
 import { isNoteCut, Pattern } from '../models/pattern';
 import { Song } from '../models/song';
 import { SomaticEffectCommand, SomaticCaps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
+import { defaultNoteKeyMap } from '../midi/keyboard_input';
 import { HelpTooltip } from './HelpTooltip';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
@@ -14,6 +15,7 @@ type CellType = 'note' | 'instrument' | 'command' | 'param';
 const instrumentKeyMap = '0123456789abcdef'.split('');
 const commandKeyMap = 'mcjspvd'.split('');
 const paramKeyMap = instrumentKeyMap;
+//const keyboardNoteKeySet = new Set(defaultNoteKeyMap);
 
 
 const formatMidiNote = (midiNote: number | undefined | null) => {
@@ -305,16 +307,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const columnIndex = parseInt(target.dataset.columnIndex!, 10);
             //const col = channelIndex * 4 + colOffset;
 
-            //setFocusedCell({ row: rowIndex, channel: channelIndex });
-
             const navTarget = handleArrowNav(rowIndex, columnIndex, e.key, e.ctrlKey);
             if (navTarget) {
                 focusCell(navTarget[0], navTarget[1]);
                 e.preventDefault();
                 return;
             }
-
-            updateEditTarget({ rowIndex, channelIndex });
 
             if (e.key === 'Enter' && !e.repeat) {
                 e.preventDefault();
