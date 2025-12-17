@@ -6,6 +6,7 @@ import { SomaticCaps, Tic80Caps } from "../models/tic80Capabilities";
 import { Pattern } from "../models/pattern";
 import { clamp } from "../utils/utils";
 import { useConfirmDialog } from "./confirm_dialog";
+import { Tooltip } from "./tooltip";
 
 export const ArrangementEditor: React.FC<{
     song: Song;
@@ -252,15 +253,17 @@ export const ArrangementEditor: React.FC<{
                 })}
             </div>
             <div className="arrangement-editor__footer">
-                <button
-                    type="button"
-                    className="arrangement-editor__add"
-                    onClick={handleAddPosition}
-                    disabled={song.songOrder.length >= maxPositions}
-                    aria-label="Add position"
-                >
-                    +
-                </button>
+                <Tooltip title={`Add position at the end of the list`}>
+                    <button
+                        type="button"
+                        className="arrangement-editor__add"
+                        onClick={handleAddPosition}
+                        disabled={song.songOrder.length >= maxPositions}
+                        aria-label="Add position"
+                    >
+                        +
+                    </button>
+                </Tooltip>
             </div>
         </div>
     );
