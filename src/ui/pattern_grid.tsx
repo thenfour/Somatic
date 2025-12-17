@@ -3,10 +3,12 @@ import { AudioController } from '../audio/controller';
 import type { MusicState } from '../audio/backend';
 import { midiToName } from '../defs';
 import { EditorState } from '../models/editor_state';
-import { isNoteCut, Pattern } from '../models/pattern';
+import { isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { Song } from '../models/song';
-import { SomaticEffectCommand, SomaticCaps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
+import { SomaticEffectCommand, SomaticCaps, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
 import { HelpTooltip } from './HelpTooltip';
+import { useClipboard } from '../hooks/useClipboard';
+import { useToasts } from './toast_provider';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 
@@ -49,6 +51,16 @@ export type PatternGridHandle = {
     focusPattern: () => void;
 };
 
+const PATTERN_CLIPBOARD_TYPE = 'somatic-pattern-block';
+
+type PatternClipboardPayload = {
+    type: typeof PATTERN_CLIPBOARD_TYPE;
+    version: 1;
+    rows: number;
+    channels: number;
+    cells: PatternCell[][]; // row-major order
+};
+
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
     ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange }, ref) => {
         const currentPosition = Math.max(0, Math.min(song.songOrder.length - 1, editorState.activeSongPosition || 0));
@@ -64,6 +76,17 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const selectionAnchorRef = useRef<{ rowIndex: number; channelIndex: Tic80ChannelIndex } | null>(null);
         const [isSelecting, setIsSelecting] = useState(false);
         const selectingRef = useRef(false);
+        const clipboard = useClipboard();
+        const { pushToast } = useToasts();
+
+        const selectionBounds = editorState.patternSelection
+            ? {
+                rowStart: Math.min(editorState.patternSelection.startRow, editorState.patternSelection.endRow),
+                rowEnd: Math.max(editorState.patternSelection.startRow, editorState.patternSelection.endRow),
+                channelStart: Math.min(editorState.patternSelection.startChannel, editorState.patternSelection.endChannel),
+                channelEnd: Math.max(editorState.patternSelection.startChannel, editorState.patternSelection.endChannel),
+            }
+            : null;
 
         const setSelecting = useCallback((value: boolean) => {
             selectingRef.current = value;
@@ -119,6 +142,176 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const anchor = selectionAnchorRef.current;
             if (!anchor) return;
             updateSelectionBounds(anchor, { rowIndex, channelIndex });
+        };
+
+        const getSelectionBounds = (notify = true) => {
+            if (!selectionBounds && notify) {
+                pushToast({ message: 'Select a block in the pattern first.', variant: 'error' });
+            }
+            return selectionBounds;
+        };
+
+        const createClipboardPayload = (): PatternClipboardPayload | null => {
+            const bounds = getSelectionBounds();
+            if (!bounds) return null;
+            const maxRow = Math.max(0, song.rowsPerPattern - 1);
+            const maxChannel = Tic80Caps.song.audioChannels - 1;
+            const rowStart = Math.max(0, Math.min(bounds.rowStart, maxRow));
+            const rowEnd = Math.max(0, Math.min(bounds.rowEnd, maxRow));
+            const channelStart = Math.max(0, Math.min(bounds.channelStart, maxChannel));
+            const channelEnd = Math.max(0, Math.min(bounds.channelEnd, maxChannel));
+            const rows = rowEnd - rowStart + 1;
+            const channels = channelEnd - channelStart + 1;
+            const cells = Array.from({ length: rows }, (_, rowOffset) => {
+                const sourceRow = rowStart + rowOffset;
+                return Array.from({ length: channels }, (_, channelOffset) => {
+                    const sourceChannel = channelStart + channelOffset;
+                    const cell = pattern.getCell(ToTic80ChannelIndex(sourceChannel), sourceRow);
+                    return { ...cell };
+                });
+            });
+            return {
+                type: PATTERN_CLIPBOARD_TYPE,
+                version: 1,
+                rows,
+                channels,
+                cells,
+            };
+        };
+
+        const writePayloadToClipboard = async (payload: PatternClipboardPayload): Promise<boolean> => {
+            try {
+                await clipboard.copyObjectToClipboard(payload);
+                return true;
+            } catch (err) {
+                console.error('Pattern copy failed', err);
+                pushToast({ message: 'Failed to copy pattern selection.', variant: 'error' });
+                return false;
+            }
+        };
+
+        const clearSelectionCells = () => {
+            const bounds = getSelectionBounds(false);
+            if (!bounds) return;
+            onSongChange((s) => {
+                const pat = s.patterns[safePatternIndex];
+                const maxRow = Math.max(0, s.rowsPerPattern - 1);
+                const maxChannel = Tic80Caps.song.audioChannels - 1;
+                for (let row = bounds.rowStart; row <= bounds.rowEnd && row <= maxRow; row++) {
+                    for (let channel = bounds.channelStart; channel <= bounds.channelEnd && channel <= maxChannel; channel++) {
+                        pat.setCell(ToTic80ChannelIndex(channel), row, {});
+                    }
+                }
+            });
+        };
+
+        const handleCopySelection = () => {
+            const payload = createClipboardPayload();
+            if (!payload) return;
+            void writePayloadToClipboard(payload);
+        };
+
+        const handleCutSelection = async () => {
+            const payload = createClipboardPayload();
+            if (!payload) return;
+            const copied = await writePayloadToClipboard(payload);
+            if (!copied) return;
+            clearSelectionCells();
+        };
+
+        const readClipboardPayload = async (): Promise<PatternClipboardPayload | null> => {
+            try {
+                const data = await clipboard.readObjectFromClipboard<PatternClipboardPayload>();
+                if (!data || data.type !== PATTERN_CLIPBOARD_TYPE || data.version !== 1 || !Array.isArray(data.cells)) {
+                    pushToast({ message: 'Clipboard does not contain a pattern block.', variant: 'error' });
+                    return null;
+                }
+                return data;
+            } catch (err) {
+                console.error('Pattern paste failed', err);
+                pushToast({ message: 'Failed to read clipboard for paste.', variant: 'error' });
+                return null;
+            }
+        };
+
+        const applyClipboardPayload = (payload: PatternClipboardPayload) => {
+            const startRow = Math.max(0, Math.min(editorState.patternEditRow ?? 0, song.rowsPerPattern - 1));
+            const startChannel = editorState.patternEditChannel ?? 0;
+            const maxRow = Math.max(0, song.rowsPerPattern - 1);
+            const maxChannel = Tic80Caps.song.audioChannels - 1;
+            onSongChange((s) => {
+                const pat = s.patterns[safePatternIndex];
+                for (let rowOffset = 0; rowOffset < payload.rows; rowOffset++) {
+                    const destRow = startRow + rowOffset;
+                    if (destRow > maxRow) break;
+                    const sourceRow = payload.cells[rowOffset] ?? [];
+                    for (let channelOffset = 0; channelOffset < payload.channels; channelOffset++) {
+                        const destChannel = startChannel + channelOffset;
+                        if (destChannel > maxChannel) break;
+                        const cell = sourceRow[channelOffset];
+                        if (!cell) continue;
+                        pat.setCell(ToTic80ChannelIndex(destChannel), destRow, { ...cell });
+                    }
+                }
+            });
+            const selectionEndRow = Math.min(startRow + payload.rows - 1, maxRow);
+            const selectionEndChannel = Math.min(startChannel + payload.channels - 1, maxChannel);
+            onEditorStateChange((state) => {
+                state.setPatternSelection({
+                    startRow,
+                    endRow: selectionEndRow,
+                    startChannel,
+                    endChannel: selectionEndChannel,
+                });
+                state.setPatternEditTarget({ rowIndex: selectionEndRow, channelIndex: ToTic80ChannelIndex(selectionEndChannel) });
+            });
+            selectionAnchorRef.current = { rowIndex: startRow, channelIndex: ToTic80ChannelIndex(startChannel) };
+            focusCell(startRow, startChannel * 4);
+        };
+
+        const handlePasteSelection = async () => {
+            const payload = await readClipboardPayload();
+            if (!payload) return;
+            applyClipboardPayload(payload);
+        };
+
+        const handleClipboardShortcuts = (e: React.KeyboardEvent<HTMLTableCellElement>) => {
+            if (e.repeat) return false;
+            const hasPrimaryModifier = e.ctrlKey || e.metaKey;
+            const keyLower = e.key.toLowerCase();
+
+            if (hasPrimaryModifier && !e.altKey) {
+                if (keyLower === 'c' || e.key === 'Insert') {
+                    e.preventDefault();
+                    handleCopySelection();
+                    return true;
+                }
+                if (keyLower === 'v') {
+                    e.preventDefault();
+                    void handlePasteSelection();
+                    return true;
+                }
+                if (keyLower === 'x') {
+                    e.preventDefault();
+                    void handleCutSelection();
+                    return true;
+                }
+            }
+
+            if (!hasPrimaryModifier && !e.altKey && e.shiftKey) {
+                if (e.key === 'Insert') {
+                    e.preventDefault();
+                    void handlePasteSelection();
+                    return true;
+                }
+                if (e.key === 'Delete') {
+                    e.preventDefault();
+                    void handleCutSelection();
+                    return true;
+                }
+            }
+
+            return false;
         };
 
         const playbackSongPosition = musicState.somaticSongPosition ?? -1;
@@ -364,6 +557,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const columnIndex = parseInt(target.dataset.columnIndex!, 10);
             //const col = channelIndex * 4 + colOffset;
 
+            if (handleClipboardShortcuts(e)) {
+                return;
+            }
+
             const currentRowForNav = editorState.patternEditRow ?? rowIndex;
             const navTarget = handleArrowNav(currentRowForNav, columnIndex, e.key, e.ctrlKey);
             if (navTarget) {
@@ -448,15 +645,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             updateEditTarget({ rowIndex, channelIndex });
             selectionAnchorRef.current = { rowIndex, channelIndex };
         };
-
-        const selectionBounds = editorState.patternSelection
-            ? {
-                rowStart: Math.min(editorState.patternSelection.startRow, editorState.patternSelection.endRow),
-                rowEnd: Math.max(editorState.patternSelection.startRow, editorState.patternSelection.endRow),
-                channelStart: Math.min(editorState.patternSelection.startChannel, editorState.patternSelection.endChannel),
-                channelEnd: Math.max(editorState.patternSelection.startChannel, editorState.patternSelection.endChannel),
-            }
-            : null;
 
         const isChannelSelected = (channelIndex: number) => selectionBounds
             ? channelIndex >= selectionBounds.channelStart && channelIndex <= selectionBounds.channelEnd
