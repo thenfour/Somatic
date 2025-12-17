@@ -385,6 +385,21 @@ option {
     stroke-dasharray: 4 4;
 }
 
+.instrument-envelope__coordinates {
+    fill: var(--text);
+    font-size: 16px;
+    font-family: monospace;
+    pointer-events: none;
+    /* add an outset stroke */
+    text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 0 0 2px var(--bg), 0 0 2px var(--bg);
+}
+
+.instrument-envelope-editor__controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
 .waveform-editor__point,
 .instrument-envelope__point {
     fill: var(--accent);
@@ -403,7 +418,14 @@ option {
     pointer-events: none;
 }
 
-.instrument-envelope-editor {}
+.instrument-envelope-editor {
+    padding-left: 8px;
+    margin-bottom: 32px;
+}
+
+.instrument-envelope-editor__header h4 {
+    margin-bottom: 4px;
+}
 
 .waveform-editor-controls {
     display: flex;

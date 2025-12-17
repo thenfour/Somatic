@@ -36,6 +36,7 @@ export const InstrumentEnvelopeEditor: React.FC<{
     const frameCount = frames.length;
     const valueRange = maxValue - minValue;
     const canvasMaxValue = valueRange <= 0 ? 0 : valueRange;
+    const clipboard = useClipboard();
 
     const handleCanvasChange = (nextValues: number[]) => {
         assert(nextValues.length === frameCount, 'Unexpected frame count in canvas change');
@@ -62,6 +63,62 @@ export const InstrumentEnvelopeEditor: React.FC<{
         const nextLength = clamp(val, 0, maxLen);
         const nextStart = clamp(loopStart, 0, maxLen);
         onChange(frames, nextStart, nextLength);
+    };
+
+    const handleRotateUp = () => {
+        const nextFrames = new Int8Array(frames.map(v => clamp(v + 1, minValue, maxValue)));
+        onChange(nextFrames, loopStart, loopLength);
+    };
+
+    const handleRotateDown = () => {
+        const nextFrames = new Int8Array(frames.map(v => clamp(v - 1, minValue, maxValue)));
+        onChange(nextFrames, loopStart, loopLength);
+    };
+
+    const handleRotateLeft = () => {
+        if (frameCount === 0) return;
+        const nextFrames = new Int8Array(frameCount);
+        for (let i = 0; i < frameCount; i++) {
+            nextFrames[i] = frames[(i + 1) % frameCount];
+        }
+        onChange(nextFrames, loopStart, loopLength);
+    };
+
+    const handleRotateRight = () => {
+        if (frameCount === 0) return;
+        const nextFrames = new Int8Array(frameCount);
+        for (let i = 0; i < frameCount; i++) {
+            nextFrames[i] = frames[(i - 1 + frameCount) % frameCount];
+        }
+        onChange(nextFrames, loopStart, loopLength);
+    };
+
+    const handleCopy = async () => {
+        await clipboard.copyObjectToClipboard({
+            frames: Array.from(frames),
+            loopStart,
+            loopLength,
+        });
+    };
+
+    const handlePaste = async () => {
+        const data = await clipboard.readObjectFromClipboard<{
+            frames: number[];
+            loopStart: number;
+            loopLength: number;
+        }>();
+        if (!data || !Array.isArray(data.frames)) return;
+        const nextFrames = new Int8Array(
+            data.frames.slice(0, frameCount).map(v => clamp(v, minValue, maxValue))
+        );
+        // Pad with zeros if pasted data is shorter
+        if (nextFrames.length < frameCount) {
+            const padded = new Int8Array(frameCount);
+            padded.set(nextFrames);
+            onChange(padded, data.loopStart ?? loopStart, data.loopLength ?? loopLength);
+        } else {
+            onChange(nextFrames, data.loopStart ?? loopStart, data.loopLength ?? loopLength);
+        }
     };
 
     return (
@@ -91,17 +148,27 @@ export const InstrumentEnvelopeEditor: React.FC<{
                     </label>
                 </div>
             </div>
-            <WaveformCanvas
-                values={canvasValues}
-                maxValue={canvasMaxValue}
-                // Envelopes tend to be more compact than full waveforms.
-                scale={{ x: 16, y: 12 }}
-                classNamePrefix="instrument-envelope"
-                onChange={handleCanvasChange}
-                supportsLoop={true}
-                loopStart={loopStart}
-                loopLength={loopLength}
-            />
+            <div className="instrument-envelope-editor__content">
+                <WaveformCanvas
+                    values={canvasValues}
+                    maxValue={canvasMaxValue}
+                    // Envelopes tend to be more compact than full waveforms.
+                    scale={{ x: 16, y: 12 }}
+                    classNamePrefix="instrument-envelope"
+                    onChange={handleCanvasChange}
+                    supportsLoop={true}
+                    loopStart={loopStart}
+                    loopLength={loopLength}
+                />
+                <div className="instrument-envelope-editor__controls">
+                    <button onClick={handleRotateUp} title="Rotate up">↑</button>
+                    <button onClick={handleRotateDown} title="Rotate down">↓</button>
+                    <button onClick={handleRotateLeft} title="Rotate left">←</button>
+                    <button onClick={handleRotateRight} title="Rotate right">→</button>
+                    <button onClick={handleCopy} title="Copy">Copy</button>
+                    <button onClick={handlePaste} title="Paste">Paste</button>
+                </div>
+            </div>
         </div>
     );
 };
@@ -281,7 +348,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                     </label>
                 </div>
                 <InstrumentEnvelopeEditor
-                    title="Volume Envelope"
+                    title="Volume"
                     frames={instrument.volumeFrames}
                     loopStart={instrument.volumeLoopStart}
                     loopLength={instrument.volumeLoopLength}
@@ -289,17 +356,19 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                     maxValue={Tic80Caps.sfx.volumeMax}
                     onChange={handleVolumeEnvelopeChange}
                 />
+                <div style={{ display: "flex" }}>
+                    <InstrumentEnvelopeEditor
+                        title="Waveforms"
+                        frames={instrument.waveFrames}
+                        loopStart={instrument.waveLoopStart}
+                        loopLength={instrument.waveLoopLength}
+                        minValue={0}
+                        maxValue={Tic80Caps.waveform.count - 1}
+                        onChange={handleWaveEnvelopeChange}
+                    />
+                </div>
                 <InstrumentEnvelopeEditor
-                    title="Waveform Envelope"
-                    frames={instrument.waveFrames}
-                    loopStart={instrument.waveLoopStart}
-                    loopLength={instrument.waveLoopLength}
-                    minValue={0}
-                    maxValue={Tic80Caps.waveform.count - 1}
-                    onChange={handleWaveEnvelopeChange}
-                />
-                <InstrumentEnvelopeEditor
-                    title="Arpeggio Envelope"
+                    title="Arpeggio"
                     frames={instrument.arpeggioFrames}
                     loopStart={instrument.arpeggioLoopStart}
                     loopLength={instrument.arpeggioLoopLength}
@@ -318,7 +387,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                     </label>
                 </div>
                 <InstrumentEnvelopeEditor
-                    title="Pitch Envelope"
+                    title="Pitch"
                     frames={instrument.pitchFrames}
                     loopStart={instrument.pitchLoopStart}
                     loopLength={instrument.pitchLoopLength}

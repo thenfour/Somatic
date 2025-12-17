@@ -316,6 +316,19 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         );
     }
 
+    let cursorCoordinates: JSX.Element | null = null;
+    if (hoverIndex != null && hoverValue != null) {
+        cursorCoordinates = (
+            <text
+                x={8}
+                y={16}
+                className={`${classNamePrefix}__coordinates`}
+            >
+                [{hoverIndex}, {hoverValue}]
+            </text>
+        );
+    }
+
     return (
         <div className={classNamePrefix}>
             <div
@@ -349,6 +362,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
                     {loopLines}
                     {points}
                     {hoverPreview}
+                    {cursorCoordinates}
                 </svg>
             </div>
         </div>
