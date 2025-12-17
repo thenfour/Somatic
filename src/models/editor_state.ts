@@ -1,6 +1,10 @@
 import {clamp, CoalesceBoolean} from "../utils/utils";
 import {Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex} from "./tic80Capabilities";
 
+export type PatternSelection = {
+   startRow: number; endRow: number; startChannel: number; endChannel: number;
+};
+
 export class EditorState {
    octave: number;
    activeSongPosition: number;
@@ -9,6 +13,7 @@ export class EditorState {
    patternEditRow: number;
    patternEditChannel: Tic80ChannelIndex;
    selectedArrangementPositions: number[];
+   patternSelection: PatternSelection|null;
 
    constructor({
       octave = Math.floor(Tic80Caps.pattern.octaveCount / 2),
@@ -18,6 +23,7 @@ export class EditorState {
       patternEditRow = 0,
       patternEditChannel = 0,
       selectedArrangementPositions = [],
+      patternSelection = null,
    }: Partial<EditorState> = {}) {
       this.octave = clamp(octave, 1, Tic80Caps.pattern.octaveCount);
       this.activeSongPosition = clamp(activeSongPosition, 0, 255);
@@ -26,6 +32,7 @@ export class EditorState {
       this.patternEditRow = clamp(patternEditRow, 0, 63);
       this.patternEditChannel = ToTic80ChannelIndex(patternEditChannel);
       this.selectedArrangementPositions = [...selectedArrangementPositions];
+      this.patternSelection = patternSelection ? this.normalizePatternSelection(patternSelection) : null;
    }
 
    setOctave(nextOctave: number) {
@@ -53,10 +60,33 @@ export class EditorState {
       this.selectedArrangementPositions = [...positions];
    }
 
+   setPatternSelection(selection: PatternSelection|null) {
+      if (!selection) {
+         this.patternSelection = null;
+         return;
+      }
+      this.patternSelection = this.normalizePatternSelection(selection);
+   }
+
    advancePatternEditRow(step: number, rowsPerPattern: number = Tic80Caps.pattern.maxRows) {
       const maxRow = clamp(rowsPerPattern - 1, 0, Tic80Caps.pattern.maxRows - 1);
       const safeStep = clamp(step, -Tic80Caps.pattern.maxRows, Tic80Caps.pattern.maxRows);
       this.patternEditRow = clamp(this.patternEditRow + safeStep, 0, maxRow);
+   }
+
+   private normalizePatternSelection(selection: PatternSelection): PatternSelection {
+      const rowStart = clamp(Math.min(selection.startRow, selection.endRow), 0, Tic80Caps.pattern.maxRows - 1);
+      const rowEnd = clamp(Math.max(selection.startRow, selection.endRow), 0, Tic80Caps.pattern.maxRows - 1);
+      const channelStart =
+         clamp(Math.min(selection.startChannel, selection.endChannel), 0, Tic80Caps.song.audioChannels - 1);
+      const channelEnd =
+         clamp(Math.max(selection.startChannel, selection.endChannel), 0, Tic80Caps.song.audioChannels - 1);
+      return {
+         startRow: rowStart,
+         endRow: rowEnd,
+         startChannel: channelStart,
+         endChannel: channelEnd,
+      };
    }
 
    toData() {
@@ -68,6 +98,7 @@ export class EditorState {
          patternEditRow: this.patternEditRow,
          patternEditChannel: this.patternEditChannel,
          selectedArrangementPositions: [...this.selectedArrangementPositions],
+         patternSelection: this.patternSelection ? {...this.patternSelection} : null,
       };
    }
 

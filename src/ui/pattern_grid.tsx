@@ -1,4 +1,4 @@
-import React, { forwardRef, KeyboardEvent, useImperativeHandle, useMemo } from 'react';
+import React, { forwardRef, KeyboardEvent, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { AudioController } from '../audio/controller';
 import type { MusicState } from '../audio/backend';
 import { midiToName } from '../defs';
@@ -6,7 +6,6 @@ import { EditorState } from '../models/editor_state';
 import { isNoteCut, Pattern } from '../models/pattern';
 import { Song } from '../models/song';
 import { SomaticEffectCommand, SomaticCaps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
-import { defaultNoteKeyMap } from '../midi/keyboard_input';
 import { HelpTooltip } from './HelpTooltip';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
@@ -15,7 +14,6 @@ type CellType = 'note' | 'instrument' | 'command' | 'param';
 const instrumentKeyMap = '0123456789abcdef'.split('');
 const commandKeyMap = 'mcjspvd'.split('');
 const paramKeyMap = instrumentKeyMap;
-//const keyboardNoteKeySet = new Set(defaultNoteKeyMap);
 
 
 const formatMidiNote = (midiNote: number | undefined | null) => {
@@ -63,6 +61,65 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             [],
         );
         const editingEnabled = editorState.editingEnabled !== false;
+        const selectionAnchorRef = useRef<{ rowIndex: number; channelIndex: Tic80ChannelIndex } | null>(null);
+        const [isSelecting, setIsSelecting] = useState(false);
+        const selectingRef = useRef(false);
+
+        const setSelecting = useCallback((value: boolean) => {
+            selectingRef.current = value;
+            setIsSelecting(value);
+        }, []);
+
+        const updateSelectionBounds = useCallback((anchor: { rowIndex: number; channelIndex: Tic80ChannelIndex }, target: { rowIndex: number; channelIndex: Tic80ChannelIndex }) => {
+            onEditorStateChange((state) => {
+                state.setPatternSelection({
+                    startRow: anchor.rowIndex,
+                    endRow: target.rowIndex,
+                    startChannel: anchor.channelIndex,
+                    endChannel: target.channelIndex,
+                });
+            });
+        }, [onEditorStateChange]);
+
+        useEffect(() => {
+            if (!isSelecting) return;
+            const handleMouseUp = () => setSelecting(false);
+            window.addEventListener('mouseup', handleMouseUp);
+            return () => window.removeEventListener('mouseup', handleMouseUp);
+        }, [isSelecting, setSelecting]);
+
+        const resolveSelectionAnchor = (useExistingAnchor: boolean, rowIndex: number, channelIndex: Tic80ChannelIndex) => {
+            if (useExistingAnchor) {
+                if (selectionAnchorRef.current) {
+                    return selectionAnchorRef.current;
+                }
+                if (editorState.patternSelection) {
+                    const anchor = {
+                        rowIndex: editorState.patternSelection.startRow,
+                        channelIndex: ToTic80ChannelIndex(editorState.patternSelection.startChannel),
+                    };
+                    selectionAnchorRef.current = anchor;
+                    return anchor;
+                }
+            }
+            const anchor = { rowIndex, channelIndex };
+            selectionAnchorRef.current = anchor;
+            return anchor;
+        };
+
+        const handleCellMouseDown = (e: React.MouseEvent<HTMLTableCellElement>, rowIndex: number, channelIndex: Tic80ChannelIndex) => {
+            if (e.button !== 0) return;
+            const anchor = resolveSelectionAnchor(e.shiftKey, rowIndex, channelIndex);
+            setSelecting(true);
+            updateSelectionBounds(anchor, { rowIndex, channelIndex });
+        };
+
+        const handleCellMouseEnter = (rowIndex: number, channelIndex: Tic80ChannelIndex) => {
+            if (!selectingRef.current) return;
+            const anchor = selectionAnchorRef.current;
+            if (!anchor) return;
+            updateSelectionBounds(anchor, { rowIndex, channelIndex });
+        };
 
         const playbackSongPosition = musicState.somaticSongPosition ?? -1;
         const playbackRowIndexRaw = musicState.tic80RowIndex ?? -1;
@@ -384,7 +441,17 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const onCellFocus = (rowIndex: number, channelIndex: Tic80ChannelIndex, col: number) => {
             updateEditTarget({ rowIndex, channelIndex });
+            selectionAnchorRef.current = { rowIndex, channelIndex };
         };
+
+        const selectionBounds = editorState.patternSelection
+            ? {
+                rowStart: Math.min(editorState.patternSelection.startRow, editorState.patternSelection.endRow),
+                rowEnd: Math.max(editorState.patternSelection.startRow, editorState.patternSelection.endRow),
+                channelStart: Math.min(editorState.patternSelection.startChannel, editorState.patternSelection.endChannel),
+                channelEnd: Math.max(editorState.patternSelection.startChannel, editorState.patternSelection.endChannel),
+            }
+            : null;
 
         return (
             <div className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}>
@@ -405,9 +472,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                             const chunkSize = Math.max(song.highlightRowCount || 1, 1);
                             const sectionIndex = Math.floor(rowIndex / chunkSize) % 2;
                             const rowClass = `${sectionIndex === 0 ? 'row-section-a' : 'row-section-b'}${activeRow === rowIndex ? ' active-row' : ''}`;
+                            const isRowInSelection = selectionBounds ? rowIndex >= selectionBounds.rowStart && rowIndex <= selectionBounds.rowEnd : false;
+                            const rowNumberClass = `row-number${isRowInSelection ? ' row-number--selected' : ''}`;
                             return (
                                 <tr key={rowIndex} className={rowClass}>
-                                    <td className="row-number">{rowIndex}</td>
+                                    <td className={rowNumberClass}>{rowIndex}</td>
                                     {pattern.channels.map((channel, channelIndexRaw) => {
                                         const channelIndex = ToTic80ChannelIndex(channelIndexRaw);
                                         const row = channel.rows[rowIndex];
@@ -422,6 +491,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         const paramCol = channelIndex * 4 + 3;
                                         const isEmpty = !row.midiNote && row.effect === undefined && row.instrumentIndex == null && row.effectX === undefined && row.effectY === undefined;
                                         const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
+                                        const isChannelInSelection = selectionBounds ? channelIndex >= selectionBounds.channelStart && channelIndex <= selectionBounds.channelEnd : false;
+                                        const isCellSelected = isRowInSelection && isChannelInSelection;
 
                                         let errorInRow = false;
                                         let errorText = "";
@@ -445,10 +516,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         }
 
                                         const additionalClasses = `${isEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}`;
-                                        const noteClass = `note-cell${additionalClasses}`;
-                                        const instClass = `instrument-cell${additionalClasses}`;
-                                        const cmdClass = `command-cell${additionalClasses}`;
-                                        const paramClass = `param-cell${additionalClasses}`;
+                                        const selectionClass = isCellSelected ? ' pattern-cell--selected' : '';
+                                        const noteClass = `note-cell${additionalClasses}${selectionClass}`;
+                                        const instClass = `instrument-cell${additionalClasses}${selectionClass}`;
+                                        const cmdClass = `command-cell${additionalClasses}${selectionClass}`;
+                                        const paramClass = `param-cell${additionalClasses}${selectionClass}`;
                                         return (
                                             <React.Fragment key={channelIndex}>
                                                 <td
@@ -457,6 +529,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     className={noteClass}
                                                     onKeyDown={onCellKeyDown}
                                                     onKeyUp={onCellKeyUp}
+                                                    onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
+                                                    onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
                                                     onFocus={() => onCellFocus(rowIndex, channelIndex, noteCol)}
                                                     //onBlur={onCellBlur}
                                                     data-row-index={rowIndex}
@@ -473,6 +547,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     className={instClass}
                                                     onKeyDown={onCellKeyDown}
                                                     onKeyUp={onCellKeyUp}
+                                                    onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
+                                                    onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
                                                     onFocus={() => onCellFocus(rowIndex, channelIndex, instCol)}
                                                     //onBlur={onCellBlur}
                                                     data-row-index={rowIndex}
@@ -488,6 +564,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     className={cmdClass}
                                                     onKeyDown={onCellKeyDown}
                                                     onKeyUp={onCellKeyUp}
+                                                    onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
+                                                    onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
                                                     onFocus={() => onCellFocus(rowIndex, channelIndex, cmdCol)}
                                                     //onBlur={onCellBlur}
                                                     data-row-index={rowIndex}
@@ -503,6 +581,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     className={paramClass}
                                                     onKeyDown={onCellKeyDown}
                                                     onKeyUp={onCellKeyUp}
+                                                    onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
+                                                    onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
                                                     onFocus={() => onCellFocus(rowIndex, channelIndex, paramCol)}
                                                     //onBlur={onCellBlur}
                                                     data-row-index={rowIndex}

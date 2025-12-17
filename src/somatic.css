@@ -703,6 +703,26 @@ option {
 .pattern-grid td {
     cursor: default;
     padding: 1px 6px;
+    position: relative;
+    user-select: none;
+}
+
+.pattern-grid td::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+.pattern-grid td.pattern-cell--selected::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.1);
+    /* box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25); */
+    pointer-events: none;
 }
 
 .pattern-grid td.note-cell {
@@ -751,6 +771,11 @@ option {
 .pattern-grid .row-number {
     background-color: var(--bg);
     color: var(--muted);
+}
+
+.pattern-grid .row-number.row-number--selected {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: var(--text);
 }
 
 .position-list {
