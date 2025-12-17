@@ -25,6 +25,7 @@ import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { ToastProvider, useToasts } from './ui/toast_provider';
 import { WaveformEditorPanel } from './ui/waveformEditor';
 import { serializeSongToCart } from './audio/tic80_cart_serializer';
+import { Tooltip } from './ui/tooltip';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -71,14 +72,17 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     //const [transportState, setTransportState] = useState<TransportState>('stop');
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
+    const [midiEnabled, setMidiEnabled] = useState(true);
     const [musicState, setMusicState] = useState(() => audio.getMusicState());
 
     const connectedMidiInputs = useMemo(() => midiDevices.filter((d) => d.state === 'connected').length, [midiDevices]);
     const midiIndicatorState = midiStatus === 'ready'
-        ? (connectedMidiInputs > 0 ? 'ok' : 'warn')
+        ? (midiEnabled ? (connectedMidiInputs > 0 ? 'ok' : 'warn') : 'off')
         : 'off';
     const midiIndicatorLabel = midiStatus === 'ready'
-        ? (connectedMidiInputs > 0 ? `MIDI listening (${connectedMidiInputs})` : 'MIDI ready (no devices)')
+        ? (midiEnabled
+            ? (connectedMidiInputs > 0 ? `MIDI listening (${connectedMidiInputs})` : 'MIDI ready (no devices)')
+            : 'MIDI disabled')
         : midiStatus === 'pending'
             ? 'MIDI initializing'
             : midiStatus === 'unsupported'
@@ -86,11 +90,19 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 : midiStatus === 'denied'
                     ? 'MIDI access denied'
                     : 'MIDI error';
-    const midiIndicatorTitle = connectedMidiInputs > 0
-        ? `${midiIndicatorLabel}: ${connectedMidiInputs} input${connectedMidiInputs === 1 ? '' : 's'} connected`
-        : midiIndicatorLabel;
+    const midiIndicatorTitle = midiEnabled && connectedMidiInputs > 0
+        ? `${midiIndicatorLabel}: ${connectedMidiInputs} input${connectedMidiInputs === 1 ? '' : 's'} connected. Click to disable.`
+        : midiEnabled
+            ? `${midiIndicatorLabel}. Click to disable.`
+            : `${midiIndicatorLabel}. Click to enable.`;
 
     const toggleEditingEnabled = () => updateEditorState((s) => s.setEditingEnabled(!s.editingEnabled));
+
+    const toggleMidiEnabled = () => {
+        const newEnabled = !midiEnabled;
+        setMidiEnabled(newEnabled);
+        midiRef.current?.setEnabled(newEnabled);
+    };
 
     useEffect(() => {
         let animationFrameId: number;
@@ -125,6 +137,32 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             if (e.altKey && !hasMeta && isDigit1) {
                 e.preventDefault();
                 patternGridRef.current?.focusPattern();
+                return;
+            }
+            if (e.altKey && !hasMeta && e.code === 'Digit2') {
+                e.preventDefault();
+                // toggle waveform editor
+                setWaveformEditorPanelOpen((open) => !open);
+                return;
+            }
+            // alt+3 = toggle instrument panel
+            if (e.altKey && !hasMeta && e.code === 'Digit3') {
+                e.preventDefault();
+                setInstrumentPanelOpen((open) => !open);
+                return;
+            }
+            // alt+4 = toggle tic80 panel
+            if (e.altKey && !hasMeta && e.code === 'Digit4') {
+                e.preventDefault();
+                setTic80PanelOpen((open) => !open);
+                return;
+            }
+            if (e.code === 'Escape') {
+                e.preventDefault();
+                // toggle edit mode
+                toggleEditingEnabled();
+                // and *also* panic.
+                audio.panic();
                 return;
             }
             if (isEditable) return;
@@ -351,17 +389,6 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         }
     };
 
-    // const copyTic = async () => {
-    //     const text = "todo";
-    //     try {
-    //         await navigator.clipboard.writeText(text);
-    //         pushToast({ message: 'TIC-80 export copied to clipboard.', variant: 'success' });
-    //     } catch (err) {
-    //         console.error('Copy failed', err);
-    //         pushToast({ message: 'Failed to copy TIC-80 export to clipboard.', variant: 'error' });
-    //     }
-    // };
-
     const pasteSong = async () => {
         try {
             const text = await navigator.clipboard.readText();
@@ -418,17 +445,19 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                         <button onClick={createNewSong}><span className="icon" aria-hidden="true">📄</span>New</button>
                         <button onClick={openSongFile}><span className="icon" aria-hidden="true">📂</span>Open</button>
                         <button onClick={saveSongFile}><span className="icon" aria-hidden="true">💾</span>Save</button>
-                        <button onClick={exportCart}><span className="icon" aria-hidden="true">📤</span>Export</button>
+                        <button onClick={exportCart}><span className="icon" aria-hidden="true">📤</span>Export Cart</button>
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
-                        <button onClick={copyNative}><span className="icon" aria-hidden="true">📋</span>Copy Native</button>
+                        <button onClick={copyNative}><span className="icon" aria-hidden="true">📋</span>Copy Song</button>
                         {/* <button onClick={copyTic}><span className="icon" aria-hidden="true">🧾</span>Copy Tic-80</button> */}
                         <button onClick={pasteSong}><span className="icon" aria-hidden="true">📥</span>Paste</button>
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
-                        <button className={waveformEditorPanelOpen ? "active" : ""} onClick={() => setWaveformEditorPanelOpen(!waveformEditorPanelOpen)}><span className="icon" aria-hidden="true">♒</span>Wav</button>
+                        <button className={waveformEditorPanelOpen ? "active" : ""} onClick={() => setWaveformEditorPanelOpen(!waveformEditorPanelOpen)}>
+                            <span className="icon" aria-hidden="true">♒</span>Wav
+                        </button>
                         <button className={instrumentPanelOpen ? "active" : ""} onClick={() => setInstrumentPanelOpen(!instrumentPanelOpen)}><span className="icon" aria-hidden="true">🎛️</span>Ins</button>
                         <button className={preferencesPanelOpen ? "active" : ""} onClick={() => setPreferencesPanelOpen(!preferencesPanelOpen)}><span className="icon" aria-hidden="true">⚙️</span></button>
                         <button className={themePanelOpen ? "active" : ""} onClick={() => setThemePanelOpen(!themePanelOpen)}><span className="icon" aria-hidden="true">🎨</span></button>
@@ -457,15 +486,15 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                             <span className="edit-toggle__dot" aria-hidden="true" />
                             <span className="edit-toggle__label">{editorState.editingEnabled ? 'Edit mode: On' : 'Edit mode: Off'}</span>
                         </button>
-                        <div
+                        <button
                             className={`midi-indicator midi-indicator--${midiIndicatorState}`}
                             title={midiIndicatorTitle}
                             aria-label={midiIndicatorTitle}
-                            role="status"
+                            onClick={toggleMidiEnabled}
                         >
                             <span className="midi-indicator__dot" aria-hidden="true" />
                             <span className="midi-indicator__label">{midiIndicatorLabel}</span>
-                        </div>
+                        </button>
                         <MusicStateDisplay musicState={musicState} />
                         {/* <div id="master-volume-container">
                             <label htmlFor="master-volume">master volume</label>
@@ -559,6 +588,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 const SplashScreen: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
     <div className="splash-screen" onClick={onContinue} onKeyDown={onContinue}>
         <h1>Somatic</h1>
+        <div>By tenfour</div>
         <p>A tracker for TIC-80</p>
         <button style={{ pointerEvents: 'none' }}>Click to Continue</button>
     </div>
