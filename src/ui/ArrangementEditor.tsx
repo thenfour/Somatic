@@ -373,60 +373,64 @@ export const ArrangementEditor: React.FC<{
                             key={positionIndex}
                             ref={(el) => (rowRefs[positionIndex] = el)}
                             className={rowClass}
-                            tabIndex={0}
-                            onClick={(e) => handleSelectPosition(positionIndex, e.shiftKey)}
-                            onKeyDown={(e) => handleKeyDown(e, positionIndex)}
                         >
-                            <button
-                                type="button"
-                                className="arrangement-editor__delete"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeletePosition(positionIndex);
-                                }}
-                                disabled={!canDelete}
-                                aria-label="Delete position"
+                            <div
+                                className="arrangement-editor__controls"
+                                tabIndex={0}
+                                onClick={(e) => handleSelectPosition(positionIndex, e.shiftKey)}
+                                onKeyDown={(e) => handleKeyDown(e, positionIndex)}
                             >
-                                ×
-                            </button>
-                            <span className="arrangement-editor__position-id">
-                                <span style={{ visibility: isSelected ? "visible" : "hidden" }}>▶</span>
-                                {formattedIndex(positionIndex)}
-                            </span>
-                            <button
-                                type="button"
-                                className="arrangement-editor__pattern"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleSelectPosition(positionIndex, e.shiftKey);
-                                }}
-                            >
-                                {formattedIndex(clampedPattern)}
-                            </button>
-                            <button
-                                type="button"
-                                className="arrangement-editor__step"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    changePatternAtPosition(positionIndex, -1);
-                                }}
-                                disabled={clampedPattern <= 0}
-                                aria-label="Previous pattern"
-                            >
-                                {"<"}
-                            </button>
-                            <button
-                                type="button"
-                                className="arrangement-editor__step"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    changePatternAtPosition(positionIndex, 1);
-                                }}
-                                disabled={clampedPattern >= maxPatterns - 1}
-                                aria-label="Next pattern"
-                            >
-                                {">"}
-                            </button>
+                                <button
+                                    type="button"
+                                    className="arrangement-editor__delete"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeletePosition(positionIndex);
+                                    }}
+                                    disabled={!canDelete}
+                                    aria-label="Delete position"
+                                >
+                                    ×
+                                </button>
+                                <span className="arrangement-editor__position-id">
+                                    <span style={{ visibility: isSelected ? "visible" : "hidden" }}>▶</span>
+                                    {formattedIndex(positionIndex)}
+                                </span>
+                                <button
+                                    type="button"
+                                    className="arrangement-editor__pattern"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSelectPosition(positionIndex, e.shiftKey);
+                                    }}
+                                >
+                                    {formattedIndex(clampedPattern)}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="arrangement-editor__step"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        changePatternAtPosition(positionIndex, -1);
+                                    }}
+                                    disabled={clampedPattern <= 0}
+                                    aria-label="Previous pattern"
+                                >
+                                    {"<"}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="arrangement-editor__step"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        changePatternAtPosition(positionIndex, 1);
+                                    }}
+                                    disabled={clampedPattern >= maxPatterns - 1}
+                                    aria-label="Next pattern"
+                                >
+                                    {">"}
+                                </button>
+                            </div>
                             <div
                                 className="arrangement-editor__pattern-name-container"
                                 onClick={(e) => e.stopPropagation()}
