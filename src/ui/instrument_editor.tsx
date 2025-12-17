@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
 import { AudioController } from '../audio/controller';
 import { Song } from '../models/song';
+import { Tic80Instrument, Tic80InstrumentDto } from '../models/instruments';
 import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { assert, clamp, TryParseInt } from '../utils/utils';
 import { WaveformCanvas } from './waveform_canvas';
+import { useClipboard } from '../hooks/useClipboard';
 
 /*
 
@@ -124,6 +126,7 @@ type InstrumentPanelProps = {
 export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentInstrument, onSongChange, onClose }) => {
     const instrumentIndex = currentInstrument;
     const instrument = song.instruments[instrumentIndex];
+    const clipboard = useClipboard();
 
     const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -225,12 +228,25 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
+    const handleCopy = async () => {
+        await clipboard.copyObjectToClipboard(instrument.toData());
+    };
+
+    const handlePaste = async () => {
+        const data = await clipboard.readObjectFromClipboard<Tic80InstrumentDto>();
+        onSongChange((s) => {
+            s.instruments[instrumentIndex] = Tic80Instrument.fromData(data);
+        });
+    };
+
     return (
         <div className="instrument-panel">
             <div className="toolbar">
                 <label htmlFor="instrument">Instrument Editor</label>
                 {instrumentIndex === 0 && <div className='alertPanel'>!! instrument 0 is weird and should not be used.</div>}
                 {instrumentIndex === SomaticCaps.noteCutInstrumentIndex && <div className='alertPanel'>!! This is the note-off sfx and should not be edited.</div>}
+                <button onClick={handleCopy}>Copy</button>
+                <button onClick={handlePaste}>Paste</button>
                 <button onClick={onClose}>Close</button>
             </div>
             <div className="">

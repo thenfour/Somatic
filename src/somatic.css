@@ -526,6 +526,7 @@ option {
     background-color: var(--panel-strong);
     padding: 4px;
     font-size: var(--ff-size-1x);
+    display: flex;
 }
 
 #instrument {

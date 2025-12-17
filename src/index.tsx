@@ -26,6 +26,7 @@ import { ToastProvider, useToasts } from './ui/toast_provider';
 import { WaveformEditorPanel } from './ui/waveformEditor';
 import { serializeSongToCart } from './audio/tic80_cart_serializer';
 import { Tooltip } from './ui/tooltip';
+import { ClipboardProvider, useClipboard } from './hooks/useClipboard';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -74,6 +75,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
     const [midiEnabled, setMidiEnabled] = useState(true);
     const [musicState, setMusicState] = useState(() => audio.getMusicState());
+    const clipboard = useClipboard();
 
     const connectedMidiInputs = useMemo(() => midiDevices.filter((d) => d.state === 'connected').length, [midiDevices]);
     const midiIndicatorState = midiStatus === 'ready'
@@ -397,26 +399,17 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     };
 
     const copyNative = async () => {
-        const text = song.toJSON();
-        console.log(song.toData());
-        try {
-            await navigator.clipboard.writeText(text);
-            pushToast({ message: 'Song copied to clipboard.', variant: 'success' });
-        } catch (err) {
-            console.error('Copy failed', err);
-            pushToast({ message: 'Failed to copy song to clipboard.', variant: 'error' });
-        }
+        await clipboard.copyTextToClipboard(song.toJSON());
     };
 
     const pasteSong = async () => {
         try {
-            const text = await navigator.clipboard.readText();
+            const text = await clipboard.readTextFromClipboard();
             const loaded = Song.fromJSON(text);
             setSong(loaded);
             updateEditorState((s) => {
                 s.setSelectedPosition(0);
             });
-            pushToast({ message: 'Song pasted from clipboard.', variant: 'success' });
         } catch (err) {
             console.error('Paste failed', err);
             pushToast({ message: 'Failed to paste song from clipboard. Ensure it is valid song JSON.', variant: 'error' });
@@ -634,9 +627,11 @@ const AppWrapper: React.FC = () => {
     return (
         <ToastProvider>
             <ConfirmDialogProvider>
-                {hasContinued
-                    ? <App theme={theme} onToggleTheme={toggleTheme} />
-                    : <SplashScreen onContinue={() => setHasContinued(true)} />}
+                <ClipboardProvider>
+                    {hasContinued
+                        ? <App theme={theme} onToggleTheme={toggleTheme} />
+                        : <SplashScreen onContinue={() => setHasContinued(true)} />}
+                </ClipboardProvider>
             </ConfirmDialogProvider>
         </ToastProvider>
     );

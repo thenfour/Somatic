@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useClipboard } from '../hooks/useClipboard';
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
 import { Tic80Caps } from "../models/tic80Capabilities";
-import { Tic80Waveform } from "../models/waveform";
+import { Tic80Waveform, Tic80WaveformDto } from "../models/waveform";
 import { WaveformCanvas } from "./waveform_canvas";
 
 // keep tied in with Tic80Caps.
@@ -159,7 +160,7 @@ export const WaveformEditorPanel: React.FC<{
     const [editingWaveformId, setEditingWaveformId] = useState<number>(0);
     const [mixPercent, setMixPercent] = useState<number>(100);
     const [harmonic, setHarmonic] = useState<number>(1);
-    const [clipboard, setClipboard] = useState<Uint8Array | null>(null);
+    const clipboard = useClipboard();
 
     const applyGeneratedWaveform = (generator: (index: number, pointCount: number, maxAmp: number) => number) => {
         const waveform = song.waveforms[editingWaveformId];
@@ -244,21 +245,16 @@ export const WaveformEditorPanel: React.FC<{
         });
     };
 
-    const handleCopy = () => {
+    const handleCopy = async () => {
         const waveform = song.waveforms[editingWaveformId];
-        if (!waveform) return;
-        setClipboard(new Uint8Array(waveform.amplitudes));
+        await clipboard.copyObjectToClipboard(waveform.toData());
     };
 
-    const handlePaste = () => {
-        if (!clipboard) return;
+    const handlePaste = async () => {
+        const data = await clipboard.readObjectFromClipboard<Tic80WaveformDto>();
+        if (!data) return;
         onSongChange((s) => {
-            const wf = s.waveforms[editingWaveformId];
-            if (!wf) return;
-            const len = Math.min(wf.amplitudes.length, clipboard.length);
-            for (let i = 0; i < len; i += 1) {
-                wf.amplitudes[i] = clipboard[i];
-            }
+            s.waveforms[editingWaveformId] = Tic80Waveform.fromData(data);
         });
     };
 
@@ -281,7 +277,7 @@ export const WaveformEditorPanel: React.FC<{
                 <div className="waveform-editor-controls__row">
                     <span className="waveform-editor-controls__label">Clipboard</span>
                     <button type="button" onClick={handleCopy}>Copy</button>
-                    <button type="button" onClick={handlePaste} disabled={!clipboard}>Paste</button>
+                    <button type="button" onClick={handlePaste}>Paste</button>
                 </div>
                 <div className="waveform-editor-controls__row">
                     <span className="waveform-editor-controls__label">Mix</span>
