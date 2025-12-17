@@ -6,9 +6,10 @@ type TooltipProps = {
     children: React.ReactNode;
     /** Optional aria-label override for the trigger wrapper. */
     label?: string;
+    className?: string;
 };
 
-export const Tooltip: React.FC<TooltipProps> = ({ content, children, label }) => {
+export const Tooltip: React.FC<TooltipProps> = ({ content, children, label, className }) => {
     const triggerRef = React.useRef<HTMLSpanElement | null>(null);
     const [open, setOpen] = React.useState(false);
     const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null);
@@ -43,7 +44,7 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, label }) =>
     } as const;
 
     return (
-        <span className="tooltip" role="note">
+        <span className={`tooltip ${className || ''}`} role="note">
             <span className="tooltip-trigger" {...triggerProps}>
                 {children}
             </span>

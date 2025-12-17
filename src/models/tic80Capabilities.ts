@@ -6,7 +6,19 @@ import {clamp} from "../utils/utils";
 export const SomaticCaps = {
    maxPatternCount: 256,
    maxSongLength: 256,
+   noteCutInstrumentIndex: 1, // 0 = reserved
 } as const;
+
+export enum SomaticEffectCommand {
+   // NOTE: these correspond with our 0-based pattern editor, NOT TIC-80's 1-based effect commands.
+   M = 0,
+   C = 1,
+   J = 2,
+   S = 3,
+   P = 4,
+   V = 5,
+   D = 6,
+}
 
 export const Tic80Caps = {
    frameRate: 60,

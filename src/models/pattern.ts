@@ -1,15 +1,19 @@
 import {assert, clamp} from "../utils/utils";
-import {Tic80Caps, Tic80ChannelIndex} from "./tic80Capabilities";
+import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "./tic80Capabilities";
 
 
 export type PatternCell = {
    midiNote?: number; // (when serializde to tic80, N is the note number (4-15 for notes and <4 for stops))
    instrumentIndex?:
       number; // 0-based internal instrument index. When serialized to tic80, this is +1 (1-based; 0 means no instrument).
-   effect?: number;  // 0-7
+   effect?: number;  // 0-7. 0 is the same as null / no effect. 1-7 = MCJSPVD
    effectX?: number; // 0-15
    effectY?: number; // 0-15
 };
+
+export function isNoteCut(cell: PatternCell): boolean {
+   return cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex;
+}
 
 export type PatternChannelDto = {
    rows: PatternCell[];

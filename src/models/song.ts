@@ -50,6 +50,11 @@ const makeInstrumentList = (data: Tic80InstrumentDto[]): Tic80Instrument[] => {
       return ret;
    });
 
+   // ensure the "off" instrument at 1 is configured properly. really it just needs
+   // to have a zero'd volume envelope.
+   const offInst = list[1];
+   offInst.volumeFrames.fill(0);
+
    return list;
 };
 

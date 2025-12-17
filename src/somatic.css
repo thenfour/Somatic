@@ -674,6 +674,19 @@ option {
     outline: 1px solid var(--accent);
 }
 
+.pattern-grid td.note-cut-cell {
+    /* font-style: italic; */
+    opacity: 0.5;
+    /* background-color: #0004; */
+}
+
+.pattern-grid td.error-cell {
+    background-color: var(--error-surface-bg);
+    color: var(--error-surface-text);
+    border: 1px solid var(--error-surface-border);
+}
+
+
 .pattern-grid td:focus {
     outline: 1px solid var(--border-strong);
     background-color: var(--accent);
@@ -904,6 +917,12 @@ option {
     line-height: 1.4;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
     border: 2px solid var(--border-strong);
+}
+
+.tooltip.error-tooltip .tooltip-trigger {
+    background: var(--error-surface-bg);
+    border-color: var(--error-surface-border);
+    color: var(--error-surface-text);
 }
 
 /* Portal-based tooltip is positioned relative to viewport */

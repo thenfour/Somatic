@@ -1,11 +1,12 @@
-import React, { forwardRef, useImperativeHandle, useMemo } from 'react';
+import React, { forwardRef, KeyboardEvent, useImperativeHandle, useMemo } from 'react';
 import { AudioController } from '../audio/controller';
 import type { MusicState } from '../audio/backend';
 import { midiToName } from '../defs';
 import { EditorState } from '../models/editor_state';
-import { Pattern } from '../models/pattern';
+import { isNoteCut, Pattern } from '../models/pattern';
 import { Song } from '../models/song';
-import { Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
+import { SomaticEffectCommand, SomaticCaps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
+import { Tooltip } from './tooltip';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 
@@ -28,7 +29,7 @@ const formatInstrument = (val: number | undefined | null) => {
 const formatCommand = (val: number | undefined | null) => {
     if (val === null || val === undefined) return '-';
     //return val.toString(16).toUpperCase();
-    return commandKeyMap[val].toUpperCase() || '?';
+    return `${commandKeyMap[val].toUpperCase()}` || '?';
 };
 
 const formatParam = (val: number | undefined | null) => {
@@ -83,20 +84,34 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             audio.playRow(pattern, rowIndex);
         };
 
-        const handleNoteKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string) => {
-            const idx = noteKeyMap.indexOf(key);
+        const handleNoteKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, e: KeyboardEvent<HTMLTableCellElement>) => {
+
+            // shift+backspace = note cut
+            if (e.shiftKey && e.key === 'Backspace') {
+                onSongChange((s) => {
+                    const pat = s.patterns[safePatternIndex];
+                    const oldCell = pat.getCell(channelIndex, rowIndex);
+                    pat.setCell(channelIndex, rowIndex, {
+                        ...oldCell,
+                        midiNote: 69,
+                        instrumentIndex: SomaticCaps.noteCutInstrumentIndex,
+                    });
+                });
+                return;
+            }
+
+            if (!noteKeyMap.includes(e.key)) {
+                return;
+            }
+
+            const idx = noteKeyMap.indexOf(e.key);
             if (idx === -1) return;
             const midiNoteValue = idx + (editorState.octave - 1) * 12;
             //if (midiNoteValue > MAX_NOTE_NUM) return;
 
             onSongChange((s) => {
-                const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
-                const pat = s.patterns[patIndex];
+                const pat = s.patterns[safePatternIndex];
                 const oldCell = pat.getCell(channelIndex, rowIndex);
-                //const channel = pat.channels[channelIndex];
-                //const row = channel.rows[rowIndex];
-                //row.midiNote = midiNoteValue;
-                //                channel.setRow(rowIndex, row);
                 pat.setCell(channelIndex, rowIndex, {
                     ...oldCell,
                     midiNote: midiNoteValue,
@@ -106,7 +121,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
             //setRowValue(channelIndex, rowIndex, 'note', midiNoteValue);
             //setRowValue(channelIndex, rowIndex, 'instrument', editorState.currentInstrument);
-            if (!audio.isPlaying) playRow(rowIndex);
+            if (!audio.isPlaying) {
+                playRow(rowIndex);
+            }
         };
 
         const handleInstrumentKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string) => {
@@ -268,11 +285,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             if (!editingEnabled) return;
 
             // Delete key: clear entire cell
-            if (e.key === 'Delete' && !e.repeat) {
+            if (!e.altKey && !e.shiftKey && !e.ctrlKey && e.key === 'Delete' && !e.repeat) {
                 e.preventDefault();
                 onSongChange((s) => {
-                    const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
-                    const pat = s.patterns[patIndex];
+                    const pat = s.patterns[safePatternIndex];
                     pat.setCell(channelIndex, rowIndex, {
                         midiNote: undefined,
                         instrumentIndex: undefined,
@@ -285,7 +301,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
 
             // Backspace: clear only the field under cursor
-            if (e.key === 'Backspace' && !e.repeat) {
+            if (!e.altKey && !e.shiftKey && !e.ctrlKey && e.key === 'Backspace' && !e.repeat) {
                 e.preventDefault();
                 onSongChange((s) => {
                     const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
@@ -305,8 +321,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 return;
             }
 
-            if (cellType === 'note' && noteKeyMap.includes(e.key) && !e.repeat) {
-                handleNoteKey(channelIndex, rowIndex, e.key);
+            if (cellType === 'note' && !e.repeat) {
+                handleNoteKey(channelIndex, rowIndex, e);
             } else if (cellType === 'instrument' && instrumentKeyMap.includes(e.key) && !e.repeat) {
                 handleInstrumentKey(channelIndex, rowIndex, e.key);
             } else if (cellType === 'command' && commandKeyMap.includes(e.key) && !e.repeat) {
@@ -363,8 +379,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                     {pattern.channels.map((channel, channelIndexRaw) => {
                                         const channelIndex = ToTic80ChannelIndex(channelIndexRaw);
                                         const row = channel.rows[rowIndex];
-                                        const noteText = formatMidiNote(row.midiNote);
-                                        const instText = formatInstrument(row.instrumentIndex);
+                                        const noteCut = isNoteCut(row);
+                                        const noteText = noteCut ? "^^^" : formatMidiNote(row.midiNote);
+                                        const instText = noteCut ? "" : formatInstrument(row.instrumentIndex);
                                         const cmdText = formatCommand(row.effect);
                                         const paramText = formatParam(row.effectX !== undefined && row.effectY !== undefined ? (row.effectX << 4) | row.effectY : undefined);
                                         const noteCol = channelIndex * 4;
@@ -373,10 +390,25 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         const paramCol = channelIndex * 4 + 3;
                                         const isNoteEmpty = !row.midiNote;
                                         const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
-                                        const noteClass = `note-cell${isNoteEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}`;
-                                        const instClass = `instrument-cell${isNoteEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}`;
-                                        const cmdClass = `command-cell${isNoteEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}`;
-                                        const paramClass = `param-cell${isNoteEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}`;
+
+                                        let errorInRow = false;
+                                        let errorText = "";
+                                        // J command is an error (not compatible with playroutine)                                        
+                                        if (row.effect === SomaticEffectCommand.J) {
+                                            errorInRow = true;
+                                            errorText = "The 'J' command is not supported in Somatic patterns.";
+                                        }
+                                        // usage of instrument 0 is an error (reserved)
+                                        if (row.midiNote !== undefined && row.instrumentIndex === 0) {
+                                            errorInRow = true;
+                                            errorText = "Instrument 0 is reserved and should not be used.";
+                                        }
+
+                                        const additionalClasses = `${isNoteEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}`;
+                                        const noteClass = `note-cell${additionalClasses}`;
+                                        const instClass = `instrument-cell${additionalClasses}`;
+                                        const cmdClass = `command-cell${additionalClasses}`;
+                                        const paramClass = `param-cell${additionalClasses}`;
                                         return (
                                             <React.Fragment key={channelIndex}>
                                                 <td
@@ -393,6 +425,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     data-column-index={noteCol}
                                                 >
                                                     {noteText}
+                                                    {errorInRow && (<Tooltip className="error-tooltip" content={errorText} children={<>!</>} />)}
                                                 </td>
                                                 <td
                                                     tabIndex={0}
