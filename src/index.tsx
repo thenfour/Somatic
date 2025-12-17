@@ -135,8 +135,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase();
             const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'button';
 
-            const isBracketLeft = e.code === 'BracketLeft';
-            const isBracketRight = e.code === 'BracketRight';
+            const isBracketLeft = e.key === '[';// .code === 'BracketLeft';
+            const isBracketRight = e.key === ']';// .code === 'BracketRight';
             const isDigit1 = e.code === 'Digit1';
             const hasMeta = e.metaKey || e.ctrlKey;
 
@@ -148,7 +148,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             if (e.metaKey) parts.push('Meta');
             parts.push(e.code);
             const combo = parts.join('+');
-            console.log(`Key combo pressed: ${combo}`);
+            console.log(`Key combo pressed: code:${combo} key:${e.key} repeat:${e.repeat}`);
 
             if (e.altKey && !hasMeta && isDigit1) {
                 e.preventDefault();
@@ -207,22 +207,22 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             if (e.repeat) return;
             if (hasMeta || e.altKey) return;
 
-            if (!e.shiftKey && isBracketLeft) {
+            if (e.key === '[') {
                 e.preventDefault();
                 updateEditorState((s) => s.setOctave(s.octave - 1));
                 return;
             }
-            if (!e.shiftKey && isBracketRight) {
+            if (e.key === ']') {
                 e.preventDefault();
                 updateEditorState((s) => s.setOctave(s.octave + 1));
                 return;
             }
-            if (e.shiftKey && isBracketLeft) {
+            if (e.key === '{') {
                 e.preventDefault();
                 updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument - 1));
                 return;
             }
-            if (e.shiftKey && isBracketRight) {
+            if (e.key === '}') {
                 e.preventDefault();
                 updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument + 1));
                 return;

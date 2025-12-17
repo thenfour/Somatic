@@ -715,7 +715,7 @@ option {
 }
 
 
-.pattern-grid td:focus {
+.pattern-grid-container--editMode .pattern-grid td:focus {
     outline: 1px solid var(--border-strong);
     background-color: var(--accent);
 }
