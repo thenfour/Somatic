@@ -98,6 +98,9 @@ export const InstrumentEnvelopeEditor: React.FC<{
                 scale={{ x: 16, y: 12 }}
                 classNamePrefix="instrument-envelope"
                 onChange={handleCanvasChange}
+                supportsLoop={true}
+                loopStart={loopStart}
+                loopLength={loopLength}
             />
         </div>
     );

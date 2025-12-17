@@ -11,6 +11,12 @@ export type WaveformCanvasProps = {
     classNamePrefix?: string;
     /** Called with a new values array whenever drawing mutates the waveform. */
     onChange: (nextValues: number[]) => void;
+    /** If true, draw loop markers. */
+    supportsLoop?: boolean;
+    /** Loop start index (inclusive) when supportsLoop is true. */
+    loopStart?: number;
+    /** Loop length when supportsLoop is true. */
+    loopLength?: number;
 };
 
 export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
@@ -19,6 +25,9 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     scale,
     classNamePrefix = "waveform-editor",
     onChange,
+    supportsLoop = false,
+    loopStart = 0,
+    loopLength = 0,
 }) => {
     const pointCount = values.length;
     const amplitudeRange = maxValue + 1;
@@ -244,6 +253,34 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         );
     }
 
+    const loopLines: JSX.Element[] = [];
+    if (supportsLoop && loopLength > 0) {
+        const start = clamp(loopStart, 0, pointCount - 1);
+        const end = clamp(loopStart + loopLength, 0, pointCount);
+        const startX = (start * width) / pointCount;
+        const endX = (end * width) / pointCount;
+        loopLines.push(
+            <line
+                key="loop-start"
+                x1={startX}
+                x2={startX}
+                y1={0}
+                y2={height}
+                className={`${classNamePrefix}__loop-line ${classNamePrefix}__loop-line--start`}
+            />,
+        );
+        loopLines.push(
+            <line
+                key="loop-end"
+                x1={endX}
+                x2={endX}
+                y1={0}
+                y2={height}
+                className={`${classNamePrefix}__loop-line ${classNamePrefix}__loop-line--end`}
+            />,
+        );
+    }
+
     const points: JSX.Element[] = [];
     for (let i = 0; i < pointCount; i += 1) {
         const value = clampValue(values[i] ?? 0);
@@ -309,6 +346,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
                         className={`${classNamePrefix}__background`}
                     />
                     {gridLines}
+                    {loopLines}
                     {points}
                     {hoverPreview}
                 </svg>

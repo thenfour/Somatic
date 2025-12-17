@@ -379,6 +379,12 @@ option {
     stroke-width: 1;
 }
 
+.instrument-envelope__loop-line {
+    stroke: var(--cell-command);
+    stroke-width: 2.5;
+    stroke-dasharray: 4 4;
+}
+
 .waveform-editor__point,
 .instrument-envelope__point {
     fill: var(--accent);
