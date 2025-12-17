@@ -19,7 +19,6 @@ export const ArrangementEditor: React.FC<{
     const maxPatterns = SomaticCaps.maxPatternCount;
     const maxPositions = SomaticCaps.maxSongLength;
 
-    const [showPatternNames, setShowPatternNames] = useState(false);
     const [editingPatternNameIndex, setEditingPatternNameIndex] = useState<number | null>(null);
     const [editingPatternNameValue, setEditingPatternNameValue] = useState("");
 
@@ -78,16 +77,17 @@ export const ArrangementEditor: React.FC<{
         deletePosition(positionIndex);
     };
 
-    // Find the first unused pattern index
-    const findUnusedPatternIndex = (s: Song): number => {
+    // Find multiple unused pattern indices
+    const findUnusedPatternIndices = (s: Song, count: number): number[] => {
         const usedPatterns = new Set(s.songOrder);
-        for (let i = 0; i < maxPatterns; i++) {
+        const result: number[] = [];
+        for (let i = 0; i < maxPatterns && result.length < count; i++) {
             if (!usedPatterns.has(i)) {
                 ensurePatternExists(s, i);
-                return i;
+                result.push(i);
             }
         }
-        return 0; // fallback
+        return result;
     };
 
     // Get the selection range (either selectedArrangementPositions or just the active position)
@@ -103,8 +103,10 @@ export const ArrangementEditor: React.FC<{
             if (s.songOrder.length >= maxPositions) return;
             const selection = getSelectionRange();
             const insertPos = selection[0];
-            const newPattern = findUnusedPatternIndex(s);
-            s.songOrder.splice(insertPos, 0, newPattern);
+            const newPatterns = findUnusedPatternIndices(s, 1);
+            if (newPatterns.length > 0) {
+                s.songOrder.splice(insertPos, 0, newPatterns[0]);
+            }
         });
         onEditorStateChange((state) => {
             state.setArrangementSelection([]);
@@ -116,8 +118,10 @@ export const ArrangementEditor: React.FC<{
             if (s.songOrder.length >= maxPositions) return;
             const selection = getSelectionRange();
             const insertPos = selection[selection.length - 1] + 1;
-            const newPattern = findUnusedPatternIndex(s);
-            s.songOrder.splice(insertPos, 0, newPattern);
+            const newPatterns = findUnusedPatternIndices(s, 1);
+            if (newPatterns.length > 0) {
+                s.songOrder.splice(insertPos, 0, newPatterns[0]);
+            }
         });
         onEditorStateChange((state) => {
             state.setArrangementSelection([]);
@@ -182,12 +186,16 @@ export const ArrangementEditor: React.FC<{
             // Check if we have room
             if (s.songOrder.length + patterns.length > maxPositions) return;
 
+            // Reserve all needed pattern indices upfront
+            const newPatternIndices = findUnusedPatternIndices(s, patterns.length);
+            if (newPatternIndices.length < patterns.length) return; // not enough unused patterns
+
             // Create new pattern copies
-            const duplicatedPatterns = patterns.map(patternIdx => {
-                const newPattern = findUnusedPatternIndex(s);
+            const duplicatedPatterns = patterns.map((patternIdx, i) => {
+                const newPatternIdx = newPatternIndices[i];
                 const sourcePattern = s.patterns[patternIdx];
-                s.patterns[newPattern] = sourcePattern.clone();
-                return newPattern;
+                s.patterns[newPatternIdx] = sourcePattern.clone();
+                return newPatternIdx;
             });
 
             const insertPos = selection[selection.length - 1] + 1;
@@ -295,15 +303,6 @@ export const ArrangementEditor: React.FC<{
     return (
         <div className="arrangement-editor">
             <div className="arrangement-editor__header">
-                <button
-                    type="button"
-                    className="arrangement-editor__toggle-names"
-                    onClick={() => setShowPatternNames((v) => !v)}
-                    aria-pressed={showPatternNames}
-                    title="Toggle pattern names"
-                >
-                    Names
-                </button>
             </div>
             <div className="arrangement-editor__content">
                 {song.songOrder.map((patternIndex, positionIndex) => {
@@ -312,10 +311,18 @@ export const ArrangementEditor: React.FC<{
                     const isInSelection = editorState.selectedArrangementPositions.includes(positionIndex);
                     const isPlaying = activeSongPosition === positionIndex;
                     const canDelete = song.songOrder.length > 1;
+
+                    // Determine if this is the first or last in selection
+                    const sortedSelection = [...editorState.selectedArrangementPositions].sort((a, b) => a - b);
+                    const isFirstInSelection = sortedSelection.length > 0 && positionIndex === sortedSelection[0];
+                    const isLastInSelection = sortedSelection.length > 0 && positionIndex === sortedSelection[sortedSelection.length - 1];
+
                     const rowClass = [
                         "arrangement-editor__row",
                         isSelected && "arrangement-editor__row--selected",
                         isInSelection && "arrangement-editor__row--in-selection",
+                        isFirstInSelection && "arrangement-editor__row--selection-first",
+                        isLastInSelection && "arrangement-editor__row--selection-last",
                         isPlaying && "arrangement-editor__row--playing",
                     ].filter(Boolean).join(" ");
                     return (
@@ -336,7 +343,10 @@ export const ArrangementEditor: React.FC<{
                             >
                                 🗑️
                             </button>
-                            <span className="arrangement-editor__position-id">{formattedIndex(positionIndex)}</span>
+                            <span className="arrangement-editor__position-id">
+                                <span style={{ visibility: isSelected ? "visible" : "hidden" }}>▶</span>
+                                {formattedIndex(positionIndex)}
+                            </span>
                             <button
                                 type="button"
                                 className="arrangement-editor__pattern"
@@ -371,122 +381,124 @@ export const ArrangementEditor: React.FC<{
                             >
                                 {">"}
                             </button>
-                            {showPatternNames && (
-                                <div
-                                    className="arrangement-editor__pattern-name-container"
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    {editingPatternNameIndex === clampedPattern ? (
-                                        <input
-                                            type="text"
-                                            className="arrangement-editor__pattern-name-input"
-                                            value={editingPatternNameValue}
-                                            autoFocus
-                                            onChange={(e) => setEditingPatternNameValue(e.target.value)}
-                                            onBlur={commitEditingPatternName}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                    e.preventDefault();
-                                                    commitEditingPatternName();
-                                                } else if (e.key === "Escape") {
-                                                    e.preventDefault();
-                                                    cancelEditingPatternName();
-                                                }
-                                            }}
-                                        />
-                                    ) : (
-                                        <span
-                                            className="arrangement-editor__pattern-name"
-                                            title={patternDisplayName(clampedPattern)}
-                                            onDoubleClick={() => startEditingPatternName(clampedPattern)}
-                                        >
-                                            {patternDisplayName(clampedPattern)}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
+                            <div
+                                className="arrangement-editor__pattern-name-container"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {editingPatternNameIndex === clampedPattern ? (
+                                    <input
+                                        type="text"
+                                        className="arrangement-editor__pattern-name-input"
+                                        value={editingPatternNameValue}
+                                        autoFocus
+                                        onChange={(e) => setEditingPatternNameValue(e.target.value)}
+                                        onBlur={commitEditingPatternName}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                commitEditingPatternName();
+                                            } else if (e.key === "Escape") {
+                                                e.preventDefault();
+                                                cancelEditingPatternName();
+                                            }
+                                        }}
+                                    />
+                                ) : (
+                                    <span
+                                        className="arrangement-editor__pattern-name"
+                                        title={patternDisplayName(clampedPattern)}
+                                        onDoubleClick={() => startEditingPatternName(clampedPattern)}
+                                    >
+                                        {patternDisplayName(clampedPattern)}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     );
                 })}
             </div>
             <div className="arrangement-editor__footer">
-                <Tooltip title="Insert new pattern above selection">
-                    <button
-                        type="button"
-                        className="arrangement-editor__command"
-                        onClick={handleInsertAbove}
-                        disabled={song.songOrder.length >= maxPositions}
-                        aria-label="Insert above"
-                    >
-                        +↑
-                    </button>
-                </Tooltip>
-                <Tooltip title="Insert new pattern below selection">
-                    <button
-                        type="button"
-                        className="arrangement-editor__command"
-                        onClick={handleInsertBelow}
-                        disabled={song.songOrder.length >= maxPositions}
-                        aria-label="Insert below"
-                    >
-                        +⬇
-                    </button>
-                </Tooltip>
-                <Tooltip title="Delete selected positions">
-                    <button
-                        type="button"
-                        className="arrangement-editor__command"
-                        onClick={handleDeleteSelected}
-                        disabled={getSelectionRange().length >= song.songOrder.length}
-                        aria-label="Delete selected"
-                    >
-                        ×
-                    </button>
-                </Tooltip>
-                <Tooltip title="Repeat selection (reuse same patterns)">
-                    <button
-                        type="button"
-                        className="arrangement-editor__command"
-                        onClick={handleRepeatSelection}
-                        disabled={song.songOrder.length >= maxPositions}
-                        aria-label="Repeat selection"
-                    >
-                        ↻
-                    </button>
-                </Tooltip>
-                <Tooltip title="Duplicate selection (copy patterns)">
-                    <button
-                        type="button"
-                        className="arrangement-editor__command"
-                        onClick={handleDuplicateSelection}
-                        disabled={song.songOrder.length >= maxPositions}
-                        aria-label="Duplicate selection"
-                    >
-                        ⧉
-                    </button>
-                </Tooltip>
-                <Tooltip title="Move selection up">
-                    <button
-                        type="button"
-                        className="arrangement-editor__command"
-                        onClick={handleMoveUp}
-                        disabled={getSelectionRange()[0] === 0}
-                        aria-label="Move up"
-                    >
-                        ⬆
-                    </button>
-                </Tooltip>
-                <Tooltip title="Move selection down">
-                    <button
-                        type="button"
-                        className="arrangement-editor__command"
-                        onClick={handleMoveDown}
-                        disabled={getSelectionRange()[getSelectionRange().length - 1] >= song.songOrder.length - 1}
-                        aria-label="Move down"
-                    >
-                        ⬇
-                    </button>
-                </Tooltip>
+                <div className="arrangement-editor__footer-row">
+                    <Tooltip title="Insert new pattern above selection">
+                        <button
+                            type="button"
+                            className="arrangement-editor__command"
+                            onClick={handleInsertAbove}
+                            disabled={song.songOrder.length >= maxPositions}
+                            aria-label="Insert above"
+                        >
+                            +↑
+                        </button>
+                    </Tooltip>
+                    <Tooltip title="Insert new pattern below selection">
+                        <button
+                            type="button"
+                            className="arrangement-editor__command"
+                            onClick={handleInsertBelow}
+                            disabled={song.songOrder.length >= maxPositions}
+                            aria-label="Insert below"
+                        >
+                            +⬇
+                        </button>
+                    </Tooltip>
+                    <Tooltip title="Repeat selection (reuse same patterns)">
+                        <button
+                            type="button"
+                            className="arrangement-editor__command"
+                            onClick={handleRepeatSelection}
+                            disabled={song.songOrder.length >= maxPositions}
+                            aria-label="Repeat selection"
+                        >
+                            ↻
+                        </button>
+                    </Tooltip>
+                    <Tooltip title="Duplicate selection (copy patterns)">
+                        <button
+                            type="button"
+                            className="arrangement-editor__command"
+                            onClick={handleDuplicateSelection}
+                            disabled={song.songOrder.length >= maxPositions}
+                            aria-label="Duplicate selection"
+                        >
+                            ⧉
+                        </button>
+                    </Tooltip>
+                </div>
+                <div className="arrangement-editor__footer-row">
+                    <Tooltip title="Delete selected positions">
+                        <button
+                            type="button"
+                            className="arrangement-editor__command"
+                            onClick={handleDeleteSelected}
+                            disabled={getSelectionRange().length >= song.songOrder.length}
+                            aria-label="Delete selected"
+                        >
+                            ×
+                        </button>
+                    </Tooltip>
+                    <Tooltip title="Move selection up">
+                        <button
+                            type="button"
+                            className="arrangement-editor__command"
+                            onClick={handleMoveUp}
+                            disabled={getSelectionRange()[0] === 0}
+                            aria-label="Move up"
+                        >
+                            ⬆
+                        </button>
+                    </Tooltip>
+                    <Tooltip title="Move selection down">
+                        <button
+                            type="button"
+                            className="arrangement-editor__command"
+                            onClick={handleMoveDown}
+                            disabled={getSelectionRange()[getSelectionRange().length - 1] >= song.songOrder.length - 1}
+                            aria-label="Move down"
+                        >
+                            ⬇
+                        </button>
+                    </Tooltip>
+                </div>
             </div>
         </div>
     );

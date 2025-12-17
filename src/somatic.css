@@ -1088,6 +1088,7 @@ option {
     display: flex;
     flex-direction: column;
     height: 100%;
+    border-right: 2px solid var(--border);
 }
 
 .arrangement-editor__header {
@@ -1102,15 +1103,21 @@ option {
     overflow-y: auto;
     overflow-x: hidden;
     min-height: 0;
+    padding-bottom: 20vh;
 }
 
 .arrangement-editor__footer {
     flex-shrink: 0;
-    padding: 4px;
+    padding: 0;
     border-top: 1px solid var(--border);
+}
+
+.arrangement-editor__footer-row {
+    gap: 6px;
     display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 4px 8px;
 }
 
 .arrangement-editor__command,
@@ -1119,10 +1126,11 @@ option {
     background: var(--panel);
     color: var(--text);
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 3px;
-    font-size: 14px;
-    min-width: 32px;
+    border-radius: 0;
+    font-size: 18px;
+    width: 28px;
+    display: flex;
+    align-items: center;
 }
 
 .arrangement-editor__command:hover:not(:disabled),
@@ -1156,7 +1164,9 @@ option {
 
 .arrangement-editor__row {
     display: flex;
-    border-left: 12px solid transparent;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    /* don't do border top & bottom because it leaves weird gaps*/
     color: var(--muted);
 }
 
@@ -1167,7 +1177,16 @@ option {
 
 .arrangement-editor__row--in-selection {
     /* background-color: var(--accent-strong); */
-    border-left: 12px solid var(--accent);
+    border-left: 8px solid var(--accent);
+    border-right: 8px solid var(--accent);
+}
+
+.arrangement-editor__row--selection-first {
+    border-top: 2px solid var(--accent);
+}
+
+.arrangement-editor__row--selection-last {
+    border-bottom: 2px solid var(--accent);
 }
 
 .arrangement-editor__row--playing {
