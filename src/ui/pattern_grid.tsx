@@ -203,15 +203,55 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const jumpSize = Math.max(song.highlightRowCount || 1, 1);
             if (key === 'ArrowUp') {
                 if (ctrlKey) {
-                    return [(row + rowCount - 4) % rowCount, col] as const;
+                    const targetRow = row - 4;
+                    if (targetRow < 0) {
+                        // Navigate to previous song order position
+                        if (currentPosition > 0) {
+                            onEditorStateChange((s) => s.setSelectedPosition(currentPosition - 1));
+                            return [rowCount + targetRow, col] as const;
+                        }
+                        // At the beginning of the song, clamp to top
+                        return [0, col] as const;
+                    }
+                    return [targetRow, col] as const;
                 }
-                return [(row + rowCount - 1) % rowCount, col] as const;
+                const targetRow = row - 1;
+                if (targetRow < 0) {
+                    // Navigate to previous song order position
+                    if (currentPosition > 0) {
+                        onEditorStateChange((s) => s.setSelectedPosition(currentPosition - 1));
+                        return [rowCount - 1, col] as const;
+                    }
+                    // At the beginning of the song, clamp to top
+                    return [0, col] as const;
+                }
+                return [targetRow, col] as const;
             }
             if (key === 'ArrowDown') {
                 if (ctrlKey) {
-                    return [(row + 4) % rowCount, col] as const;
+                    const targetRow = row + 4;
+                    if (targetRow >= rowCount) {
+                        // Navigate to next song order position
+                        if (currentPosition < song.songOrder.length - 1) {
+                            onEditorStateChange((s) => s.setSelectedPosition(currentPosition + 1));
+                            return [targetRow - rowCount, col] as const;
+                        }
+                        // At the end of the song, clamp to bottom
+                        return [rowCount - 1, col] as const;
+                    }
+                    return [targetRow, col] as const;
                 }
-                return [(row + 1) % rowCount, col] as const;
+                const targetRow = row + 1;
+                if (targetRow >= rowCount) {
+                    // Navigate to next song order position
+                    if (currentPosition < song.songOrder.length - 1) {
+                        onEditorStateChange((s) => s.setSelectedPosition(currentPosition + 1));
+                        return [0, col] as const;
+                    }
+                    // At the end of the song, clamp to bottom
+                    return [rowCount - 1, col] as const;
+                }
+                return [targetRow, col] as const;
             }
             if (key === 'ArrowLeft') {
                 if (ctrlKey) {
@@ -238,13 +278,34 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             if (key === 'PageUp') {
                 const currentBlock = Math.floor(row / jumpSize);
                 const targetBlock = currentBlock - 1;
-                const targetRow = (targetBlock * jumpSize + rowCount) % rowCount;
+                const targetRow = targetBlock * jumpSize;
+                if (targetRow < 0) {
+                    // Navigate to previous song order position
+                    if (currentPosition > 0) {
+                        onEditorStateChange((s) => s.setSelectedPosition(currentPosition - 1));
+                        const blocksInPattern = Math.ceil(rowCount / jumpSize);
+                        const newTargetRow = (blocksInPattern + targetBlock) * jumpSize;
+                        return [Math.max(0, newTargetRow), col] as const;
+                    }
+                    // At the beginning of the song, clamp to top
+                    return [0, col] as const;
+                }
                 return [targetRow, col] as const;
             }
             if (key === 'PageDown') {
                 const currentBlock = Math.floor(row / jumpSize);
                 const targetBlock = currentBlock + 1;
-                const targetRow = (targetBlock * jumpSize) % rowCount;
+                const targetRow = targetBlock * jumpSize;
+                if (targetRow >= rowCount) {
+                    // Navigate to next song order position
+                    if (currentPosition < song.songOrder.length - 1) {
+                        onEditorStateChange((s) => s.setSelectedPosition(currentPosition + 1));
+                        const overshoot = targetRow - rowCount;
+                        return [overshoot, col] as const;
+                    }
+                    // At the end of the song, clamp to bottom
+                    return [rowCount - 1, col] as const;
+                }
                 return [targetRow, col] as const;
             }
             if (key === 'Home') {
