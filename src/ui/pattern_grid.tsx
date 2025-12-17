@@ -364,9 +364,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const columnIndex = parseInt(target.dataset.columnIndex!, 10);
             //const col = channelIndex * 4 + colOffset;
 
-            const navTarget = handleArrowNav(rowIndex, columnIndex, e.key, e.ctrlKey);
+            const currentRowForNav = editorState.patternEditRow ?? rowIndex;
+            const navTarget = handleArrowNav(currentRowForNav, columnIndex, e.key, e.ctrlKey);
             if (navTarget) {
-                focusCell(navTarget[0], navTarget[1]);
+                const [targetRow, targetCol] = navTarget;
+                const targetChannel = ToTic80ChannelIndex(Math.floor(targetCol / 4));
+                onEditorStateChange((state) => state.setPatternEditTarget({ rowIndex: targetRow, channelIndex: targetChannel }));
+                selectionAnchorRef.current = { rowIndex: targetRow, channelIndex: targetChannel };
+                focusCell(targetRow, targetCol);
                 e.preventDefault();
                 return;
             }
