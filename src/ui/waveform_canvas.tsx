@@ -30,6 +30,8 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     const svgRef = useRef<SVGSVGElement | null>(null);
     const lastIndexRef = useRef<number | null>(null);
     const lastValueRef = useRef<number | null>(null);
+    const anchorIndexRef = useRef<number | null>(null);
+    const anchorValueRef = useRef<number | null>(null);
     const bufferRef = useRef<number[]>(values.map((v) => (Number.isFinite(v) ? v : 0)));
 
     const scaleX = typeof scale === "number" || scale == null ? (scale ?? 16) : scale.x;
@@ -81,7 +83,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         return { index, value };
     };
 
-    const handleDrawAtPosition = (clientX: number, clientY: number) => {
+    const handleDrawAtPosition = (clientX: number, clientY: number, shiftKey: boolean = false) => {
         const point = getPointFromClientPosition(clientX, clientY);
         if (!point) return;
 
@@ -89,11 +91,6 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
         setHoverIndex(index);
         setHoverValue(value);
-
-        const prevIndex = lastIndexRef.current;
-        const prevValue = lastValueRef.current;
-        const nextIndex = index;
-        const nextValue = value;
 
         const nextValues = bufferRef.current.slice();
         const len = nextValues.length;
@@ -103,21 +100,45 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
             nextValues[i] = clampValue(v);
         };
 
-        // Interpolate any skipped indices between the previous and current point
-        if (prevIndex != null && prevValue != null && prevIndex !== nextIndex) {
-            const step = nextIndex > prevIndex ? 1 : -1;
-            const dx = nextIndex - prevIndex;
-            for (let i = prevIndex + step; i !== nextIndex; i += step) {
-                const t = (i - prevIndex) / dx;
-                const interpValue = Math.round(prevValue + t * (nextValue - prevValue));
-                writePoint(i, interpValue);
+        // Shift-drag: draw a straight line from the anchor (mouse-down point) to current.
+        if (shiftKey && anchorIndexRef.current != null && anchorValueRef.current != null) {
+            const startIdx = anchorIndexRef.current;
+            const endIdx = index;
+            const startVal = anchorValueRef.current;
+            const endVal = value;
+            if (startIdx === endIdx) {
+                writePoint(endIdx, endVal);
+            } else {
+                const dx = endIdx - startIdx;
+                const step = dx > 0 ? 1 : -1;
+                for (let i = startIdx; i !== endIdx + step; i += step) {
+                    const t = (i - startIdx) / dx;
+                    const interpValue = Math.round(startVal + t * (endVal - startVal));
+                    writePoint(i, interpValue);
+                }
             }
+        } else {
+            const prevIndex = lastIndexRef.current;
+            const prevValue = lastValueRef.current;
+            const nextIndex = index;
+            const nextValue = value;
+
+            // Interpolate any skipped indices between the previous and current point
+            if (prevIndex != null && prevValue != null && prevIndex !== nextIndex) {
+                const step = nextIndex > prevIndex ? 1 : -1;
+                const dx = nextIndex - prevIndex;
+                for (let i = prevIndex + step; i !== nextIndex; i += step) {
+                    const t = (i - prevIndex) / dx;
+                    const interpValue = Math.round(prevValue + t * (nextValue - prevValue));
+                    writePoint(i, interpValue);
+                }
+            }
+
+            writePoint(nextIndex, nextValue);
+
+            lastIndexRef.current = nextIndex;
+            lastValueRef.current = nextValue;
         }
-
-        writePoint(nextIndex, nextValue);
-
-        lastIndexRef.current = nextIndex;
-        lastValueRef.current = nextValue;
 
         bufferRef.current = nextValues;
         onChange(nextValues);
@@ -127,8 +148,13 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         if (event.button !== 0) return;
         lastIndexRef.current = null;
         lastValueRef.current = null;
+        const startPoint = getPointFromClientPosition(event.clientX, event.clientY);
+        if (startPoint) {
+            anchorIndexRef.current = startPoint.index;
+            anchorValueRef.current = startPoint.value;
+        }
         setIsDrawing(true);
-        handleDrawAtPosition(event.clientX, event.clientY);
+        handleDrawAtPosition(event.clientX, event.clientY, event.shiftKey);
     };
 
     const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -142,7 +168,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         }
 
         if (!isDrawing) return;
-        handleDrawAtPosition(event.clientX, event.clientY);
+        handleDrawAtPosition(event.clientX, event.clientY, event.shiftKey);
     };
 
     const handleMouseUp = () => {
@@ -161,7 +187,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
             if (point) {
                 setHoverIndex(point.index);
                 setHoverValue(point.value);
-                handleDrawAtPosition(event.clientX, event.clientY);
+                handleDrawAtPosition(event.clientX, event.clientY, event.shiftKey);
             } else {
                 setHoverIndex(null);
                 setHoverValue(null);
@@ -172,6 +198,8 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
             setIsDrawing(false);
             lastIndexRef.current = null;
             lastValueRef.current = null;
+            anchorIndexRef.current = null;
+            anchorValueRef.current = null;
             setHoverIndex(null);
             setHoverValue(null);
         };
