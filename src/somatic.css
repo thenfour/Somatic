@@ -348,7 +348,7 @@ option {
     display: block;
 }
 
-.waveform-swatch__svg circle {
+.waveform-swatch__svg .waveform-swatch__point {
     fill: var(--accent);
 }
 

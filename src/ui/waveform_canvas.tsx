@@ -1,6 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { clamp } from "../utils/utils";
 
+export type WaveformCanvasHover = {
+    index: number;
+    value: number;
+    actualValue: number;
+};
+
 export type WaveformCanvasProps = {
     values: ReadonlyArray<number>;
     /** Inclusive max value for a sample, e.g. 15 for 0-15. */
@@ -17,6 +23,8 @@ export type WaveformCanvasProps = {
     loopStart?: number;
     /** Loop length when supportsLoop is true. */
     loopLength?: number;
+    /** Called when hover state changes (index and value, or null for no hover). */
+    onHoverChange?: (hover: WaveformCanvasHover | null) => void;
 };
 
 export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
@@ -28,6 +36,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     supportsLoop = false,
     loopStart = 0,
     loopLength = 0,
+    onHoverChange,
 }) => {
     const pointCount = values.length;
     const amplitudeRange = maxValue + 1;
@@ -171,9 +180,11 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         if (point) {
             setHoverIndex(point.index);
             setHoverValue(point.value);
+            onHoverChange?.({ index: point.index, value: point.value, actualValue: values[point.index] });
         } else {
             setHoverIndex(null);
             setHoverValue(null);
+            onHoverChange?.(null);
         }
 
         if (!isDrawing) return;
@@ -186,6 +197,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         lastValueRef.current = null;
         setHoverIndex(null);
         setHoverValue(null);
+        onHoverChange?.(null);
     };
 
     useEffect(() => {
@@ -196,10 +208,12 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
             if (point) {
                 setHoverIndex(point.index);
                 setHoverValue(point.value);
+                onHoverChange?.({ index: point.index, value: point.value, actualValue: values[point.index] });
                 handleDrawAtPosition(event.clientX, event.clientY, event.shiftKey);
             } else {
                 setHoverIndex(null);
                 setHoverValue(null);
+                onHoverChange?.(null);
             }
         };
 
@@ -211,6 +225,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
             anchorValueRef.current = null;
             setHoverIndex(null);
             setHoverValue(null);
+            onHoverChange?.(null);
         };
 
         window.addEventListener("mousemove", handleWindowMouseMove);
@@ -341,6 +356,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
                 onMouseLeave={() => {
                     setHoverIndex(null);
                     setHoverValue(null);
+                    onHoverChange?.(null);
                 }}
             >
                 <svg

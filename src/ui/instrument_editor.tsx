@@ -1,11 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AudioController } from '../audio/controller';
 import { Song } from '../models/song';
 import { Tic80Instrument, Tic80InstrumentDto } from '../models/instruments';
 import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { assert, clamp, TryParseInt } from '../utils/utils';
-import { WaveformCanvas } from './waveform_canvas';
+import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
 import { useClipboard } from '../hooks/useClipboard';
+import { WaveformSwatch } from './waveformEditor';
 
 /*
 
@@ -32,7 +33,8 @@ export const InstrumentEnvelopeEditor: React.FC<{
     minValue: number; // min value (inclusive) per frame
     maxValue: number; // max value (inclusive) per frame
     onChange: (frames: Int8Array, loopStart: number, loopLength: number) => void;
-}> = ({ title, className, frames, loopStart, loopLength, minValue, maxValue, onChange }) => {
+    onHoverChange?: (hover: WaveformCanvasHover | null) => void;
+}> = ({ title, className, frames, loopStart, loopLength, minValue, maxValue, onChange, onHoverChange }) => {
     const frameCount = frames.length;
     const valueRange = maxValue - minValue;
     const canvasMaxValue = valueRange <= 0 ? 0 : valueRange;
@@ -159,6 +161,7 @@ export const InstrumentEnvelopeEditor: React.FC<{
                     supportsLoop={true}
                     loopStart={loopStart}
                     loopLength={loopLength}
+                    onHoverChange={onHoverChange}
                 />
                 <div className="instrument-envelope-editor__controls">
                     <button onClick={handleRotateUp} title="Rotate up">↑</button>
@@ -185,6 +188,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
     const instrumentIndex = currentInstrument;
     const instrument = song.instruments[instrumentIndex];
     const clipboard = useClipboard();
+    const [hoveredWaveform, setHoveredWaveform] = useState<WaveformCanvasHover | null>(null);
 
     const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -356,7 +360,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                     maxValue={Tic80Caps.sfx.volumeMax}
                     onChange={handleVolumeEnvelopeChange}
                 />
-                <div style={{ display: "flex" }}>
+                <div style={{ display: "flex", gap: "8px" }}>
                     <InstrumentEnvelopeEditor
                         title="Waveforms"
                         frames={instrument.waveFrames}
@@ -365,7 +369,24 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                         minValue={0}
                         maxValue={Tic80Caps.waveform.count - 1}
                         onChange={handleWaveEnvelopeChange}
+                        onHoverChange={(hover) => setHoveredWaveform(hover)}
                     />
+                    <div className="waveform-swatch-previews">
+                        <div className="waveform-swatch-preview" style={{ visibility: (hoveredWaveform == null ? "hidden" : undefined) }}>
+                            <span>actual</span>
+                            <WaveformSwatch
+                                value={song.waveforms[hoveredWaveform?.actualValue || 0]}
+                                scale={4}
+                            />
+                        </div>
+                        <div className="waveform-swatch-preview" style={{ visibility: (hoveredWaveform == null ? "hidden" : undefined) }}>
+                            <span>hovered</span>
+                            <WaveformSwatch
+                                value={song.waveforms[hoveredWaveform?.value || 0]}
+                                scale={4}
+                            />
+                        </div>
+                    </div>
                 </div>
                 <InstrumentEnvelopeEditor
                     title="Arpeggio"

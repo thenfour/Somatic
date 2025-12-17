@@ -5,6 +5,7 @@ import { Song } from "../models/song";
 import { Tic80Caps } from "../models/tic80Capabilities";
 import { Tic80Waveform, Tic80WaveformDto } from "../models/waveform";
 import { WaveformCanvas } from "./waveform_canvas";
+import { clamp } from "../utils/utils";
 
 // keep tied in with Tic80Caps.
 
@@ -46,17 +47,20 @@ export const WaveformSwatch: React.FC<{
 
     const maxAmp = amplitudeRange - 1;
 
-    const circles: JSX.Element[] = [];
+    const points: JSX.Element[] = [];
     for (let i = 0; i < pointCount; i += 1) {
-        const amp = Math.max(0, Math.min(maxAmp, value.amplitudes[i] ?? 0));
-        const x = (i + 0.5) * (width / pointCount);
-        const y = height - ((amp + 0.5) * height) / amplitudeRange;
-        circles.push(
-            <circle
+        const amp = clamp(value.amplitudes[i] ?? 0, 0, maxAmp);
+
+        const x = (i) * (width / pointCount);
+        const y = height - ((amp + 1) * height) / amplitudeRange;
+        points.push(
+            <rect
                 key={i}
-                cx={x}
-                cy={y}
-                r={Math.max(1, scale * 0.4)}
+                className="waveform-swatch__point"
+                x={x}
+                y={y}
+                width={scale}
+                height={scale}
             />,
         );
     }
@@ -72,7 +76,7 @@ export const WaveformSwatch: React.FC<{
                 height={height}
                 aria-hidden="true"
             >
-                {circles}
+                {points}
             </svg>
         </button>
     );
