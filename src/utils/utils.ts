@@ -98,3 +98,11 @@ export function compareBuffers(bufA: Uint8Array, bufB: Uint8Array): CompareResul
       description: `Buffers match, length=${lengthA}`,
    };
 }
+
+
+export const CharMap = {
+   UpArrow: "▲",
+   DownArrow: "▼",
+   LeftArrow: "◀",
+   RightArrow: "▶",
+};

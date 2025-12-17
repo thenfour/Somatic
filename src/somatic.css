@@ -684,6 +684,54 @@ option {
     margin: 15px;
 }
 
+.pattern-grid-shell {
+    position: relative;
+    display: flex;
+    gap: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.pattern-advanced-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border: 0;
+    background: var(--panel);
+    color: var(--text);
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.pattern-advanced-handle:hover {
+    background: var(--panel-strong);
+}
+
+.pattern-advanced-handle--open {
+    background: var(--accent);
+    color: var(--tic-0);
+}
+
+.pattern-advanced-panel {
+    background: var(--panel);
+    color: var(--text);
+    width: 260px;
+    padding: 12px;
+}
+
+.pattern-advanced-panel__header {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.pattern-advanced-panel__body {
+    font-size: 13px;
+    color: var(--text);
+}
+
 .pattern-grid .channel {
     border-left: 1px double var(--border-strong);
 }

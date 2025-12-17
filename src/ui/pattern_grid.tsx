@@ -9,6 +9,9 @@ import { SomaticEffectCommand, SomaticCaps, Tic80Caps, Tic80ChannelIndex, ToTic8
 import { HelpTooltip } from './HelpTooltip';
 import { useClipboard } from '../hooks/useClipboard';
 import { useToasts } from './toast_provider';
+import { PatternAdvancedPanel } from './PatternAdvancedPanel';
+import { Tooltip } from './tooltip';
+import { CharMap } from '../utils/utils';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 
@@ -76,6 +79,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const selectionAnchorRef = useRef<{ rowIndex: number; channelIndex: Tic80ChannelIndex } | null>(null);
         const [isSelecting, setIsSelecting] = useState(false);
         const selectingRef = useRef(false);
+        const [advancedPanelOpen, setAdvancedPanelOpen] = useState(false);
         const clipboard = useClipboard();
         const { pushToast } = useToasts();
 
@@ -651,169 +655,187 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             : false;
 
         return (
-            <div className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}>
-                <table className="pattern-grid">
-                    <colgroup>
-                        <col />
-                    </colgroup>
-                    <thead>
-                        <tr>
-                            <th></th>
-                            {[0, 1, 2, 3].map((i) => {
-                                const headerClass = `channel-header${isChannelSelected(i) ? ' channel-header--selected' : ''}`;
+            <div className={`pattern-grid-shell${advancedPanelOpen ? ' pattern-grid-shell--advanced-open' : ''}`}>
+                {advancedPanelOpen &&
+                    <PatternAdvancedPanel
+                        open={advancedPanelOpen}
+                    />
+                }
+                <div className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}>
+                    <Tooltip title={advancedPanelOpen ? 'Hide advanced edit panel' : 'Show advanced edit panel'} >
+                        <button
+                            type="button"
+                            className={`pattern-advanced-handle${advancedPanelOpen ? ' pattern-advanced-handle--open' : ''}`}
+                            onClick={() => setAdvancedPanelOpen((open) => !open)}
+                            aria-expanded={advancedPanelOpen}
+                            aria-controls="pattern-advanced-panel"
+                        >
+                            {advancedPanelOpen ? CharMap.LeftArrow : CharMap.RightArrow}
+                        </button>
+                    </Tooltip>
+                    <table className="pattern-grid">
+                        <colgroup>
+                            <col />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                {[0, 1, 2, 3].map((i) => {
+                                    const headerClass = `channel-header${isChannelSelected(i) ? ' channel-header--selected' : ''}`;
+                                    return (
+                                        <th key={i} colSpan={4} className={headerClass}>{i + 1}</th>
+                                    );
+                                })}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {Array.from({ length: song.rowsPerPattern }, (_, rowIndex) => {
+                                const chunkSize = Math.max(song.highlightRowCount || 1, 1);
+                                const sectionIndex = Math.floor(rowIndex / chunkSize) % 2;
+                                const rowClass = `${sectionIndex === 0 ? 'row-section-a' : 'row-section-b'}${activeRow === rowIndex ? ' active-row' : ''}`;
+                                const isRowInSelection = selectionBounds ? rowIndex >= selectionBounds.rowStart && rowIndex <= selectionBounds.rowEnd : false;
+                                const rowNumberClass = `row-number${isRowInSelection ? ' row-number--selected' : ''}`;
                                 return (
-                                    <th key={i} colSpan={4} className={headerClass}>{i + 1}</th>
+                                    <tr key={rowIndex} className={rowClass}>
+                                        <td className={rowNumberClass}>{rowIndex}</td>
+                                        {pattern.channels.map((channel, channelIndexRaw) => {
+                                            const channelIndex = ToTic80ChannelIndex(channelIndexRaw);
+                                            const row = channel.rows[rowIndex];
+                                            const noteCut = isNoteCut(row);
+                                            const noteText = noteCut ? "^^^" : formatMidiNote(row.midiNote);
+                                            const instText = noteCut ? "" : formatInstrument(row.instrumentIndex);
+                                            const cmdText = formatCommand(row.effect);
+                                            const paramText = formatParam(row.effectX !== undefined && row.effectY !== undefined ? (row.effectX << 4) | row.effectY : undefined);
+                                            const noteCol = channelIndex * 4;
+                                            const instCol = channelIndex * 4 + 1;
+                                            const cmdCol = channelIndex * 4 + 2;
+                                            const paramCol = channelIndex * 4 + 3;
+                                            const isEmpty = !row.midiNote && row.effect === undefined && row.instrumentIndex == null && row.effectX === undefined && row.effectY === undefined;
+                                            const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
+                                            const channelSelected = isChannelSelected(channelIndex);
+                                            const isCellSelected = isRowInSelection && channelSelected;
+
+                                            const getSelectionClasses = (cellType: CellType) => {
+                                                if (!isCellSelected || !selectionBounds) return '';
+                                                let classes = ' pattern-cell--selected';
+                                                if (rowIndex === selectionBounds.rowStart) classes += ' pattern-cell--selection-top';
+                                                if (rowIndex === selectionBounds.rowEnd) classes += ' pattern-cell--selection-bottom';
+                                                if (channelIndex === selectionBounds.channelStart && cellType === 'note') classes += ' pattern-cell--selection-left';
+                                                if (channelIndex === selectionBounds.channelEnd && cellType === 'param') classes += ' pattern-cell--selection-right';
+                                                return classes;
+                                            };
+
+                                            let errorInRow = false;
+                                            let errorText = "";
+                                            // J command is an error (not compatible with playroutine)                                        
+                                            if (row.effect === SomaticEffectCommand.J) {
+                                                errorInRow = true;
+                                                errorText = "The 'J' command is not supported in Somatic patterns.";
+                                            }
+                                            // usage of instrument 0 is an error (reserved)
+                                            if (row.midiNote !== undefined && row.instrumentIndex === 0) {
+                                                errorInRow = true;
+                                                errorText = "Instrument 0 is reserved and should not be used.";
+                                            }
+                                            if (row.effect === undefined && (row.effectX !== undefined || row.effectY !== undefined)) {
+                                                errorInRow = true;
+                                                errorText = "Effect parameter set without an effect command.";
+                                            }
+                                            if (row.instrumentIndex !== undefined && row.midiNote === undefined) {
+                                                errorInRow = true;
+                                                errorText = "Instrument set without a note.";
+                                            }
+
+                                            const additionalClasses = `${isEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}`;
+                                            const noteSelectionClass = getSelectionClasses('note');
+                                            const instSelectionClass = getSelectionClasses('instrument');
+                                            const cmdSelectionClass = getSelectionClasses('command');
+                                            const paramSelectionClass = getSelectionClasses('param');
+
+                                            const noteClass = `note-cell${additionalClasses}${noteSelectionClass}`;
+                                            const instClass = `instrument-cell${additionalClasses}${instSelectionClass}`;
+                                            const cmdClass = `command-cell${additionalClasses}${cmdSelectionClass}`;
+                                            const paramClass = `param-cell${additionalClasses}${paramSelectionClass}`;
+                                            return (
+                                                <React.Fragment key={channelIndex}>
+                                                    <td
+                                                        tabIndex={0}
+                                                        ref={(el) => (cellRefs[rowIndex][noteCol] = el)}
+                                                        className={noteClass}
+                                                        onKeyDown={onCellKeyDown}
+                                                        onKeyUp={onCellKeyUp}
+                                                        onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
+                                                        onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
+                                                        onFocus={() => onCellFocus(rowIndex, channelIndex, noteCol)}
+                                                        //onBlur={onCellBlur}
+                                                        data-row-index={rowIndex}
+                                                        data-channel-index={channelIndex}
+                                                        data-cell-type="note"
+                                                        data-column-index={noteCol}
+                                                    >
+                                                        {noteText}
+                                                        {errorInRow && (<HelpTooltip className="error-tooltip" content={errorText} children={<>!</>} />)}
+                                                    </td>
+                                                    <td
+                                                        tabIndex={0}
+                                                        ref={(el) => (cellRefs[rowIndex][instCol] = el)}
+                                                        className={instClass}
+                                                        onKeyDown={onCellKeyDown}
+                                                        onKeyUp={onCellKeyUp}
+                                                        onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
+                                                        onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
+                                                        onFocus={() => onCellFocus(rowIndex, channelIndex, instCol)}
+                                                        //onBlur={onCellBlur}
+                                                        data-row-index={rowIndex}
+                                                        data-channel-index={channelIndex}
+                                                        data-cell-type="instrument"
+                                                        data-column-index={instCol}
+                                                    >
+                                                        {instText}
+                                                    </td>
+                                                    <td
+                                                        tabIndex={0}
+                                                        ref={(el) => (cellRefs[rowIndex][cmdCol] = el)}
+                                                        className={cmdClass}
+                                                        onKeyDown={onCellKeyDown}
+                                                        onKeyUp={onCellKeyUp}
+                                                        onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
+                                                        onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
+                                                        onFocus={() => onCellFocus(rowIndex, channelIndex, cmdCol)}
+                                                        //onBlur={onCellBlur}
+                                                        data-row-index={rowIndex}
+                                                        data-channel-index={channelIndex}
+                                                        data-cell-type="command"
+                                                        data-column-index={cmdCol}
+                                                    >
+                                                        {cmdText}
+                                                    </td>
+                                                    <td
+                                                        tabIndex={0}
+                                                        ref={(el) => (cellRefs[rowIndex][paramCol] = el)}
+                                                        className={paramClass}
+                                                        onKeyDown={onCellKeyDown}
+                                                        onKeyUp={onCellKeyUp}
+                                                        onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
+                                                        onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
+                                                        onFocus={() => onCellFocus(rowIndex, channelIndex, paramCol)}
+                                                        //onBlur={onCellBlur}
+                                                        data-row-index={rowIndex}
+                                                        data-channel-index={channelIndex}
+                                                        data-cell-type="param"
+                                                        data-column-index={paramCol}
+                                                    >
+                                                        {paramText}
+                                                    </td>
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </tr>
                                 );
                             })}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {Array.from({ length: song.rowsPerPattern }, (_, rowIndex) => {
-                            const chunkSize = Math.max(song.highlightRowCount || 1, 1);
-                            const sectionIndex = Math.floor(rowIndex / chunkSize) % 2;
-                            const rowClass = `${sectionIndex === 0 ? 'row-section-a' : 'row-section-b'}${activeRow === rowIndex ? ' active-row' : ''}`;
-                            const isRowInSelection = selectionBounds ? rowIndex >= selectionBounds.rowStart && rowIndex <= selectionBounds.rowEnd : false;
-                            const rowNumberClass = `row-number${isRowInSelection ? ' row-number--selected' : ''}`;
-                            return (
-                                <tr key={rowIndex} className={rowClass}>
-                                    <td className={rowNumberClass}>{rowIndex}</td>
-                                    {pattern.channels.map((channel, channelIndexRaw) => {
-                                        const channelIndex = ToTic80ChannelIndex(channelIndexRaw);
-                                        const row = channel.rows[rowIndex];
-                                        const noteCut = isNoteCut(row);
-                                        const noteText = noteCut ? "^^^" : formatMidiNote(row.midiNote);
-                                        const instText = noteCut ? "" : formatInstrument(row.instrumentIndex);
-                                        const cmdText = formatCommand(row.effect);
-                                        const paramText = formatParam(row.effectX !== undefined && row.effectY !== undefined ? (row.effectX << 4) | row.effectY : undefined);
-                                        const noteCol = channelIndex * 4;
-                                        const instCol = channelIndex * 4 + 1;
-                                        const cmdCol = channelIndex * 4 + 2;
-                                        const paramCol = channelIndex * 4 + 3;
-                                        const isEmpty = !row.midiNote && row.effect === undefined && row.instrumentIndex == null && row.effectX === undefined && row.effectY === undefined;
-                                        const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
-                                        const channelSelected = isChannelSelected(channelIndex);
-                                        const isCellSelected = isRowInSelection && channelSelected;
-
-                                        const getSelectionClasses = (cellType: CellType) => {
-                                            if (!isCellSelected || !selectionBounds) return '';
-                                            let classes = ' pattern-cell--selected';
-                                            if (rowIndex === selectionBounds.rowStart) classes += ' pattern-cell--selection-top';
-                                            if (rowIndex === selectionBounds.rowEnd) classes += ' pattern-cell--selection-bottom';
-                                            if (channelIndex === selectionBounds.channelStart && cellType === 'note') classes += ' pattern-cell--selection-left';
-                                            if (channelIndex === selectionBounds.channelEnd && cellType === 'param') classes += ' pattern-cell--selection-right';
-                                            return classes;
-                                        };
-
-                                        let errorInRow = false;
-                                        let errorText = "";
-                                        // J command is an error (not compatible with playroutine)                                        
-                                        if (row.effect === SomaticEffectCommand.J) {
-                                            errorInRow = true;
-                                            errorText = "The 'J' command is not supported in Somatic patterns.";
-                                        }
-                                        // usage of instrument 0 is an error (reserved)
-                                        if (row.midiNote !== undefined && row.instrumentIndex === 0) {
-                                            errorInRow = true;
-                                            errorText = "Instrument 0 is reserved and should not be used.";
-                                        }
-                                        if (row.effect === undefined && (row.effectX !== undefined || row.effectY !== undefined)) {
-                                            errorInRow = true;
-                                            errorText = "Effect parameter set without an effect command.";
-                                        }
-                                        if (row.instrumentIndex !== undefined && row.midiNote === undefined) {
-                                            errorInRow = true;
-                                            errorText = "Instrument set without a note.";
-                                        }
-
-                                        const additionalClasses = `${isEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}`;
-                                        const noteSelectionClass = getSelectionClasses('note');
-                                        const instSelectionClass = getSelectionClasses('instrument');
-                                        const cmdSelectionClass = getSelectionClasses('command');
-                                        const paramSelectionClass = getSelectionClasses('param');
-
-                                        const noteClass = `note-cell${additionalClasses}${noteSelectionClass}`;
-                                        const instClass = `instrument-cell${additionalClasses}${instSelectionClass}`;
-                                        const cmdClass = `command-cell${additionalClasses}${cmdSelectionClass}`;
-                                        const paramClass = `param-cell${additionalClasses}${paramSelectionClass}`;
-                                        return (
-                                            <React.Fragment key={channelIndex}>
-                                                <td
-                                                    tabIndex={0}
-                                                    ref={(el) => (cellRefs[rowIndex][noteCol] = el)}
-                                                    className={noteClass}
-                                                    onKeyDown={onCellKeyDown}
-                                                    onKeyUp={onCellKeyUp}
-                                                    onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
-                                                    onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
-                                                    onFocus={() => onCellFocus(rowIndex, channelIndex, noteCol)}
-                                                    //onBlur={onCellBlur}
-                                                    data-row-index={rowIndex}
-                                                    data-channel-index={channelIndex}
-                                                    data-cell-type="note"
-                                                    data-column-index={noteCol}
-                                                >
-                                                    {noteText}
-                                                    {errorInRow && (<HelpTooltip className="error-tooltip" content={errorText} children={<>!</>} />)}
-                                                </td>
-                                                <td
-                                                    tabIndex={0}
-                                                    ref={(el) => (cellRefs[rowIndex][instCol] = el)}
-                                                    className={instClass}
-                                                    onKeyDown={onCellKeyDown}
-                                                    onKeyUp={onCellKeyUp}
-                                                    onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
-                                                    onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
-                                                    onFocus={() => onCellFocus(rowIndex, channelIndex, instCol)}
-                                                    //onBlur={onCellBlur}
-                                                    data-row-index={rowIndex}
-                                                    data-channel-index={channelIndex}
-                                                    data-cell-type="instrument"
-                                                    data-column-index={instCol}
-                                                >
-                                                    {instText}
-                                                </td>
-                                                <td
-                                                    tabIndex={0}
-                                                    ref={(el) => (cellRefs[rowIndex][cmdCol] = el)}
-                                                    className={cmdClass}
-                                                    onKeyDown={onCellKeyDown}
-                                                    onKeyUp={onCellKeyUp}
-                                                    onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
-                                                    onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
-                                                    onFocus={() => onCellFocus(rowIndex, channelIndex, cmdCol)}
-                                                    //onBlur={onCellBlur}
-                                                    data-row-index={rowIndex}
-                                                    data-channel-index={channelIndex}
-                                                    data-cell-type="command"
-                                                    data-column-index={cmdCol}
-                                                >
-                                                    {cmdText}
-                                                </td>
-                                                <td
-                                                    tabIndex={0}
-                                                    ref={(el) => (cellRefs[rowIndex][paramCol] = el)}
-                                                    className={paramClass}
-                                                    onKeyDown={onCellKeyDown}
-                                                    onKeyUp={onCellKeyUp}
-                                                    onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
-                                                    onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
-                                                    onFocus={() => onCellFocus(rowIndex, channelIndex, paramCol)}
-                                                    //onBlur={onCellBlur}
-                                                    data-row-index={rowIndex}
-                                                    data-channel-index={channelIndex}
-                                                    data-cell-type="param"
-                                                    data-column-index={paramCol}
-                                                >
-                                                    {paramText}
-                                                </td>
-                                            </React.Fragment>
-                                        );
-                                    })}
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         );
     });
