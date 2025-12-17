@@ -27,7 +27,7 @@ import { WaveformEditorPanel } from './ui/waveformEditor';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
-type TransportState = 'stop' | 'play-pattern' | 'play-from-position' | 'play-all';
+//type TransportState = 'stop' | 'play-pattern' | 'play-from-position' | 'play-all';
 type Theme = 'light' | 'dark';
 
 const MusicStateDisplay: React.FC<{ musicState: MusicState }> = ({ musicState }) => {
@@ -67,7 +67,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [tic80PanelOpen, setTic80PanelOpen] = useState(true);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
-    const [transportState, setTransportState] = useState<TransportState>('stop');
+    //const [transportState, setTransportState] = useState<TransportState>('stop');
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
     const [musicState, setMusicState] = useState(() => audio.getMusicState());
@@ -164,13 +164,13 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         audio.setSong(song, "Song instance changed (from index.tsx)");
     }, [song]);
 
-    useEffect(() => {
-        const handleStop = () => setTransportState('stop');
-        const off = audio.onStop(handleStop);
-        return () => {
-            off();
-        };
-    }, [audio]);
+    // useEffect(() => {
+    //     const handleStop = () => setTransportState('stop');
+    //     const off = audio.onStop(handleStop);
+    //     return () => {
+    //         off();
+    //     };
+    // }, [audio]);
 
     const songRef = React.useRef(song);
     const editorRef = React.useRef(editorState);
@@ -358,12 +358,12 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     };
 
     const onStop = () => {
-        setTransportState('stop');
+        //setTransportState('stop');
         audio.stop();
     };
 
     const onPlayPattern = () => {
-        setTransportState('play-pattern');
+        //setTransportState('play-pattern');
         const currentPosition = Math.max(0, Math.min(song.songOrder.length - 1, editorState.selectedPosition || 0));
         const currentPatternIndex = song.songOrder[currentPosition] ?? 0;
         const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
@@ -371,17 +371,17 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     };
 
     const onPlayAll = () => {
-        setTransportState('play-all');
+        //setTransportState('play-all');
         audio.playSong(0);
     };
 
     const onPlayFromPosition = () => {
-        setTransportState('play-from-position');
+        //setTransportState('play-from-position');
         audio.playSong(editorState.selectedPosition, editorState.patternEditRow);
     };
 
     const onPanic = () => {
-        setTransportState('stop');
+        //setTransportState('stop');
         audio.panic();
     };
 
@@ -419,13 +419,13 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
                         <button onClick={onPanic} title="Stop all audio"><span className="icon" aria-hidden="true">‼</span>Panic</button>
-                        <button className={transportState === 'stop' ? 'active' : undefined} onClick={onStop}>
+                        <button className={undefined/*'active'*/} onClick={onStop}>
                             <span className="icon">⏹</span>
                             <span className="caption">Stop</span>
                         </button>
-                        <button className={transportState === 'play-all' ? 'active' : undefined} onClick={onPlayAll}><span className="icon" aria-hidden="true">▶</span>Song</button>
-                        <button className={transportState === 'play-pattern' ? 'active' : undefined} onClick={onPlayPattern}><span className="icon" aria-hidden="true">▶</span>Pat</button>
-                        <button className={transportState === 'play-from-position' ? 'active' : undefined} onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">⏩</span>From Position</button>
+                        <button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll}><span className="icon" aria-hidden="true">▶</span>Song</button>
+                        <button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern}><span className="icon" aria-hidden="true">▶</span>Pat</button>
+                        <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">⏩</span>From Position</button>
                     </div>
                     <div className="right-controls">
                         <button
