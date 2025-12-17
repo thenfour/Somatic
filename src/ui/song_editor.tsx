@@ -57,6 +57,12 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
         onSongChange((s) => s.setHighlightRowCount(val));
     };
 
+    const onEditStepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = TryParseInt(e.target.value);
+        if (val === null) return;
+        onEditorStateChange((state) => state.setPatternEditStep(val));
+    };
+
     return (
         <div className="section">
             {/* <PositionList
@@ -116,6 +122,16 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     max={64}
                     value={song.highlightRowCount}
                     onChange={onHighlightRowCountChange}
+                />
+            </label>
+            <label>
+                Edit step
+                <input
+                    type="number"
+                    min={0}
+                    max={32}
+                    value={editorState.patternEditStep}
+                    onChange={onEditStepChange}
                 />
             </label>
             <label>

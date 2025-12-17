@@ -425,7 +425,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         async function sendMailboxCommandRaw(bytes: number[], description: string): Promise<void> {
             assertReady();
             const token = (cmdTokenRef.current = (cmdTokenRef.current + 1) & 0xff);
-            console.log(`---------------- sendMailboxCommand: ${description} (token=${token})`, bytes);
+            //console.log(`---------------- sendMailboxCommand: ${description} (token=${token})`, bytes);
             writeMailboxBytes(bytes, token);
 
             const start = performance.now();
@@ -440,19 +440,19 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                         }
                         const seenToken = peekU8(TicMemoryMap.OUTBOX_TOKEN_ADDR);
                         if (seenToken === token) {
-                            console.log(`---------------- sendMailboxCommand: ${description} DONE`);
+                            //console.log(`---------------- sendMailboxCommand: ${description} DONE`);
                             resolve();
                             return;
                         }
                         if (performance.now() - start > timeoutMs) {
-                            console.log(`---------------- sendMailboxCommand: ${description} TIMEOUT`);
+                            //console.log(`---------------- sendMailboxCommand: ${description} TIMEOUT`);
                             //reject(new Error(`TIC-80 command timed out: ${description}`));
                             resolve();
                             return;
                         }
                         requestAnimationFrame(poll);
                     } catch (err) {
-                        console.log(`---------------- sendMailboxCommand: ${description} ERROR`, err);
+                        //console.log(`---------------- sendMailboxCommand: ${description} ERROR`, err);
                         reject(err as Error);
                     }
                 };

@@ -105,10 +105,6 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
             injectedRef.current = true;
         }, [frameDoc, frameWin]);
 
-        useEffect(() => {
-            console.log(`canvas ref changed...`);
-        }, [canvasRef.current]);
-
         const portalTarget = frameDoc?.getElementById(mountId) ?? null;
 
         return (

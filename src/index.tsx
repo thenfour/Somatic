@@ -272,6 +272,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         if (ed.editingEnabled !== false) {
             const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.activeSongPosition || 0));
             const currentPatternIndex = s.songOrder[currentPosition] ?? 0;
+            const rowsPerPattern = s.rowsPerPattern;
             setSong((prev) => {
                 const newSong = prev.clone();
                 const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, newSong.patterns.length - 1));
@@ -279,6 +280,11 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 const existingCell = pat.getCell(channel, ed.patternEditRow);
                 pat.setCell(channel, ed.patternEditRow, { ...existingCell, midiNote: note, instrumentIndex: ed.currentInstrument });
                 return newSong;
+            });
+            setEditorState((prev) => {
+                const next = prev.clone();
+                next.advancePatternEditRow(next.patternEditStep, rowsPerPattern);
+                return next;
             });
         }
     }, [audio, autoSave]);

@@ -446,8 +446,8 @@ function ch_serializePatterns(patterns: Uint8Array[]): Uint8Array {
       stats.push({checksum: runningTotal, length: pattern.length, firstBytes});
    }
 
-   console.log(`ch_serializePatterns: serialized ${patterns.length} patterns, total size ${totalSize} bytes`);
-   console.log(stats);
+   //console.log(`ch_serializePatterns: serialized ${patterns.length} patterns, total size ${totalSize} bytes`);
+   //console.log(stats);
 
    return output;
 }
