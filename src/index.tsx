@@ -77,6 +77,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
     const [midiEnabled, setMidiEnabled] = useState(true);
+    const [keyboardEnabled, setKeyboardEnabled] = useState(true);
     const [musicState, setMusicState] = useState(() => audio.getMusicState());
     const clipboard = useClipboard();
 
@@ -101,12 +102,21 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             ? `${midiIndicatorLabel}. Click to disable.`
             : `${midiIndicatorLabel}. Click to enable.`;
 
+    const keyboardIndicatorState = keyboardEnabled ? 'ok' : 'off';
+    const keyboardIndicatorLabel = keyboardEnabled ? 'Keyboard input on' : 'Keyboard input off';
+    const keyboardIndicatorTitle = keyboardEnabled ? 'Keyboard note input enabled. Click to disable.' : 'Keyboard note input disabled. Click to enable.';
+
     const toggleEditingEnabled = () => updateEditorState((s) => s.setEditingEnabled(!s.editingEnabled));
 
     const toggleMidiEnabled = () => {
         const newEnabled = !midiEnabled;
         setMidiEnabled(newEnabled);
         midiRef.current?.setEnabled(newEnabled);
+    };
+
+    const toggleKeyboardEnabled = () => {
+        const newEnabled = !keyboardEnabled;
+        setKeyboardEnabled(newEnabled);
         keyboardRef.current?.setEnabled(newEnabled);
     };
 
@@ -303,8 +313,11 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     // Keep sources enabled/disabled in sync.
     useEffect(() => {
         midiRef.current?.setEnabled(midiEnabled);
-        keyboardRef.current?.setEnabled(midiEnabled);
     }, [midiEnabled]);
+
+    useEffect(() => {
+        keyboardRef.current?.setEnabled(keyboardEnabled);
+    }, [keyboardEnabled]);
 
     useEffect(() => {
         const midi = midiRef.current;
@@ -557,6 +570,16 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                         >
                             <span className="midi-indicator__dot" aria-hidden="true" />
                             <span className="midi-indicator__label">{midiIndicatorLabel}</span>
+
+                        </button>
+                        <button
+                            className={`midi-indicator midi-indicator--${keyboardIndicatorState}`}
+                            title={keyboardIndicatorTitle}
+                            aria-label={keyboardIndicatorTitle}
+                            onClick={toggleKeyboardEnabled}
+                        >
+                            <span className="midi-indicator__dot" aria-hidden="true" />
+                            <span className="midi-indicator__label">{keyboardIndicatorLabel}</span>
 
                         </button>
                         <span className="autoSaveIndicator__label">sync:{autoSave.state.status}</span>
