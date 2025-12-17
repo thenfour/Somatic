@@ -2,7 +2,7 @@ import {NOTE_INFOS} from "../defs";
 import type {Tic80Instrument} from "../models/instruments";
 import {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
-import {ChromaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
+import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {assert, clamp} from "../utils/utils";
 import {base85Encode} from "./encoding";
 import playroutineTemplate from "../../bridge/playroutine-min.lua";
@@ -328,7 +328,7 @@ export interface Tic80SerializedSong {
    // length + order itself
    songOrderData: Uint8Array;
 
-   // each chromatic pattern is actually 4 patterns (channel A, B, C, D) in series. allows copying patterns in 1 go for all 4 channels.
+   // each somatic pattern is actually 4 patterns (channel A, B, C, D) in series. allows copying patterns in 1 go for all 4 channels.
    patternData: Uint8Array;
 }
 
@@ -373,9 +373,9 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
    }
 
    // serialize song order data
-   const songOrderData = new Uint8Array(1 + ChromaticCaps.maxSongLength);
-   songOrderData[0] = song.songOrder.length & 0xff;
-   for (let i = 0; i < ChromaticCaps.maxSongLength; i++) {
+   const songOrderData = new Uint8Array(1 + SomaticCaps.maxSongLength);
+   songOrderData[0] = song.songOrder.length;
+   for (let i = 0; i < SomaticCaps.maxSongLength; i++) {
       const patternIndex = song.songOrder[i] ?? 0;
       songOrderData[1 + i] = patternIndex & 0xff;
    }

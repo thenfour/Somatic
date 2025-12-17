@@ -54,7 +54,7 @@ module.exports = {
 
   plugins: [
     new HtmlWebpackPlugin({
-      title: 'Chromatic (tenfour edition)',
+      title: 'Somatic',
       template: 'index.html',
     }),
     new MiniCssExtractPlugin(),

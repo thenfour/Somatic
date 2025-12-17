@@ -3,7 +3,7 @@
 
 import {clamp} from "../utils/utils";
 
-export const ChromaticCaps = {
+export const SomaticCaps = {
    maxPatternCount: 256,
    maxSongLength: 256,
 } as const;
@@ -107,12 +107,12 @@ export const TicMemoryMap = {
    MUSIC_STATE_FRAME: 0x13ffd,
    MUSIC_STATE_ROW: 0x13ffe,
    MUSIC_STATE_FLAGS: 0x13fff,
-   MUSIC_STATE_CHROMATIC_SONG_POSITION: 0x14e40 /*REGISTERS_ADDR*/ + 0,
-   MUSIC_STATE_CHROMATIC_PATTERN_ID: 0x14e40 /*REGISTERS_ADDR*/ + 1,
+   MUSIC_STATE_SOMATIC_SONG_POSITION: 0x14e40 /*REGISTERS_ADDR*/ + 0,
+   MUSIC_STATE_SOMATIC_PATTERN_ID: 0x14e40 /*REGISTERS_ADDR*/ + 1,
 } as const;
 
 export const TicBridge = {
-   MARKER_TEXT: "CHROMATIC_TIC80_V1",
+   MARKER_TEXT: "SOMATIC_TIC80_V1",
 
    // outbox commands are from tic->host
    OUT_CMD_LOG: 1,

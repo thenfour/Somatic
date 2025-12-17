@@ -72,7 +72,7 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
 
     const handleDrop = (ev: React.DragEvent<HTMLButtonElement>, varName: string) => {
         ev.preventDefault();
-        const color = ev.dataTransfer.getData('application/x-chromatic-color') || ev.dataTransfer.getData('text/plain');
+        const color = ev.dataTransfer.getData('application/x-somatic-color') || ev.dataTransfer.getData('text/plain');
         if (!color) return;
         applyVar(varName, color);
     };

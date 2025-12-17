@@ -62,7 +62,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         );
         const editingEnabled = editorState.editingEnabled !== false;
 
-        const playbackSongPosition = musicState.chromaticSongPosition ?? -1;
+        const playbackSongPosition = musicState.somaticSongPosition ?? -1;
         const playbackRowIndexRaw = musicState.tic80RowIndex ?? -1;
         const playbackPatternIndex = playbackSongPosition >= 0 && song.songOrder.length > 0
             ? song.songOrder[Math.min(playbackSongPosition, song.songOrder.length - 1)] ?? null

@@ -4,22 +4,22 @@ import type {Song} from "../models/song";
 import {Tic80ChannelIndex} from "../models/tic80Capabilities";
 
 export type MusicState = {
-   chromaticPatternIndex: number; //
-   chromaticSongPosition: number; //
-   tic80TrackIndex: number;       //
-   tic80FrameIndex: number;       //
-   tic80RowIndex: number;         //
-   isLooping: boolean;            //
+   somaticPatternIndex: number; //
+   somaticSongPosition: number; //
+   tic80TrackIndex: number;     //
+   tic80FrameIndex: number;     //
+   tic80RowIndex: number;       //
+   isLooping: boolean;          //
 };
 
 export function MakeEmptyMusicState(): MusicState{
    return {
-      chromaticPatternIndex: 0,    //
-         chromaticSongPosition: 0, //
-         tic80TrackIndex: -1,      //
-         tic80FrameIndex: 0,       //
-         tic80RowIndex: 0,         //
-         isLooping: false,         //
+      somaticPatternIndex: 0,    //
+         somaticSongPosition: 0, //
+         tic80TrackIndex: -1,    //
+         tic80FrameIndex: 0,     //
+         tic80RowIndex: 0,       //
+         isLooping: false,       //
    }
 };
 

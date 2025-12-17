@@ -69,7 +69,7 @@ local OUTBOX = {
 	LOG_SIZE = 240, -- keep small & simple (fits in reserved region)
 }
 
-local MARKER = "CHROMATIC_TIC80_V1" -- 17 bytes; host scans for this at MARKER
+local MARKER = "SOMATIC_TIC80_V1" -- 17 bytes; host scans for this at MARKER
 
 -- =========================
 -- OUTBOX layout (cart -> host)

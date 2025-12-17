@@ -201,16 +201,16 @@ export class Tic80Backend implements AudioBackend {
       const frame = b.peekU8(TicMemoryMap.MUSIC_STATE_FRAME);
       const row = b.peekU8(TicMemoryMap.MUSIC_STATE_ROW);
       const flags = b.peekU8(TicMemoryMap.MUSIC_STATE_FLAGS);
-      const chromaticPatternIndex = b.peekU8(TicMemoryMap.MUSIC_STATE_CHROMATIC_PATTERN_ID);
-      const chromaticSongPosition = b.peekU8(TicMemoryMap.MUSIC_STATE_CHROMATIC_SONG_POSITION);
+      const somaticPatternIndex = b.peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_PATTERN_ID);
+      const somaticSongPosition = b.peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_SONG_POSITION);
 
       const isLooping = !!(flags & 0x1);
       this.lastKnownMusicState = {
          tic80RowIndex: row,
          tic80FrameIndex: frame,
          tic80TrackIndex: track,
-         chromaticPatternIndex,
-         chromaticSongPosition: chromaticSongPosition === 255 ? -1 : chromaticSongPosition,
+         somaticPatternIndex,
+         somaticSongPosition: somaticSongPosition === 255 ? -1 : somaticSongPosition,
          isLooping,
       };
       return this.lastKnownMusicState;

@@ -1,5 +1,5 @@
 {
-  "name": "chromatic",
+  "name": "somatic",
   "version": "1.0.0",
   "description": "a playground for creating samples for TIC-80 music",
   "main": "src/index.tsx",

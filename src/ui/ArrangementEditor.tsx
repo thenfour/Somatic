@@ -119,7 +119,7 @@ export const ArrangementEditor: React.FC<{
         setEditingPatternNameIndex(null);
     };
 
-    const activeSongPosition = musicState.chromaticSongPosition ?? -1;
+    const activeSongPosition = musicState.somaticSongPosition ?? -1;
 
     return (
         <div className="arrangement-editor">

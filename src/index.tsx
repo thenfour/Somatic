@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { saveSync } from 'save-file';
 
-import './chromatic.css';
+import './somatic.css';
 
 import { AudioController } from './audio/controller';
 import type { MusicState } from './audio/backend';
@@ -34,7 +34,7 @@ type Theme = 'light' | 'dark';
 const MusicStateDisplay: React.FC<{ musicState: MusicState }> = ({ musicState }) => {
     return <div className='musicState-panel'>
         <div className='flags'>
-            <div className='key'>c_pos</div><div className='value'>{musicState.chromaticSongPosition}</div>
+            <div className='key'>s_pos</div><div className='value'>{musicState.somaticSongPosition}</div>
             <div className='key'>t_trk</div><div className='value'>{musicState.tic80TrackIndex}</div>
             <div className='key'>t_frm</div><div className='value'>{musicState.tic80FrameIndex}</div>
             <div className='key'>t_row</div><div className='value'>{musicState.tic80RowIndex}</div>
@@ -52,7 +52,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const { confirm } = useConfirmDialog();
     const [song, setSong] = useState(() => {
         try {
-            const saved = localStorage.getItem('chromatic-song');
+            const saved = localStorage.getItem('somatic-song');
             if (saved) {
                 return Song.fromJSON(saved);
             }
@@ -263,7 +263,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     // Save song to localStorage whenever it changes
     useEffect(() => {
         try {
-            localStorage.setItem('chromatic-song', song.toJSON());
+            localStorage.setItem('somatic-song', song.toJSON());
         } catch (err) {
             console.error('Failed to save song to localStorage', err);
         }
@@ -313,7 +313,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     };
 
     const saveSongFile = () => {
-        saveSync(song.toJSON(), 'song.chromatic');
+        saveSync(song.toJSON(), 'song.somatic');
     };
 
     const exportCart = () => {
@@ -558,7 +558,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 // just a splash which requires user gesture to continue (so the audio context etc are allowed to start)
 const SplashScreen: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
     <div className="splash-screen" onClick={onContinue} onKeyDown={onContinue}>
-        <h1>Chromatic</h1>
+        <h1>Somatic</h1>
         <p>A tracker for TIC-80</p>
         <button style={{ pointerEvents: 'none' }}>Click to Continue</button>
     </div>
@@ -567,7 +567,7 @@ const SplashScreen: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
 // just wrapps <App /> to gate on user gesture via splash screen
 const AppWrapper: React.FC = () => {
     const [hasContinued, setHasContinued] = useState(false);
-    const [theme, setTheme] = useLocalStorage<Theme>('chromatic-theme', 'light');
+    const [theme, setTheme] = useLocalStorage<Theme>('somatic-theme', 'light');
 
     useEffect(() => {
         const el = document.documentElement;
