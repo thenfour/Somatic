@@ -1168,6 +1168,13 @@ option {
     border-right: 8px solid transparent;
     /* don't do border top & bottom because it leaves weird gaps*/
     color: var(--muted);
+    outline: none;
+    cursor: pointer;
+}
+
+.arrangement-editor__row:focus {
+    outline: 2px solid var(--accent-strong);
+    outline-offset: -2px;
 }
 
 .arrangement-editor__row--selected {

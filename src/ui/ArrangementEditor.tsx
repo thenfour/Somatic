@@ -253,9 +253,9 @@ export const ArrangementEditor: React.FC<{
         });
     };
 
-    const handleSelectPosition = (positionIndex: number, _patternIndex: number, event?: React.MouseEvent) => {
+    const handleSelectPosition = (positionIndex: number, shiftKey: boolean) => {
         onEditorStateChange((state) => {
-            if (event?.shiftKey && state.activeSongPosition !== positionIndex) {
+            if (shiftKey && state.activeSongPosition !== positionIndex) {
                 // Shift+click: select range from active position to clicked position
                 const start = Math.min(state.activeSongPosition, positionIndex);
                 const end = Math.max(state.activeSongPosition, positionIndex);
@@ -298,6 +298,37 @@ export const ArrangementEditor: React.FC<{
         setEditingPatternNameIndex(null);
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent, positionIndex: number) => {
+        switch (e.key) {
+            case 'ArrowUp':
+                e.preventDefault();
+                if (positionIndex > 0) {
+                    handleSelectPosition(positionIndex - 1, e.shiftKey);
+                }
+                break;
+            case 'ArrowDown':
+                e.preventDefault();
+                if (positionIndex < song.songOrder.length - 1) {
+                    handleSelectPosition(positionIndex + 1, e.shiftKey);
+                }
+                break;
+            case 'Delete':
+            case 'Backspace':
+                e.preventDefault();
+                if (e.shiftKey || e.ctrlKey) {
+                    handleDeleteSelected();
+                } else {
+                    handleDeletePosition(positionIndex);
+                }
+                break;
+            case 'Enter':
+            case ' ':
+                e.preventDefault();
+                handleSelectPosition(positionIndex, e.shiftKey);
+                break;
+        }
+    };
+
     const activeSongPosition = musicState.somaticSongPosition ?? -1;
 
     return (
@@ -329,7 +360,9 @@ export const ArrangementEditor: React.FC<{
                         <div
                             key={positionIndex}
                             className={rowClass}
-                            onClick={(e) => handleSelectPosition(positionIndex, clampedPattern, e)}
+                            tabIndex={0}
+                            onClick={(e) => handleSelectPosition(positionIndex, e.shiftKey)}
+                            onKeyDown={(e) => handleKeyDown(e, positionIndex)}
                         >
                             <button
                                 type="button"
@@ -352,7 +385,7 @@ export const ArrangementEditor: React.FC<{
                                 className="arrangement-editor__pattern"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    handleSelectPosition(positionIndex, clampedPattern, e);
+                                    handleSelectPosition(positionIndex, e.shiftKey);
                                 }}
                             >
                                 {formattedIndex(clampedPattern)}
