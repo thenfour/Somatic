@@ -4,41 +4,19 @@ import {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {ChromaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {assert, clamp} from "../utils/utils";
+import {base85Encode} from "./encoding";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
 const CHUNK = {
+   CODE: 5,
    SFX: 9,
    WAVEFORMS: 10,
    MUSIC_TRACKS: 14,
    MUSIC_PATTERNS: 15,
 } as const;
 
-//const SONG_TRACK_STEPS = 16; // TIC-80 stores 16 pattern slots per track
-//const PATTERN_ROWS = 16; // patterns chunk stores 16 rows per channel (192 bytes)
-//const CHANNEL_COUNT = 4;
-//const SFX_TICKS = 30;
 const SFX_BYTES_PER_SAMPLE = 66;
-
-// /** Trim trailing zero bytes (spec allows chunk truncation). */
-// function trimTrailingZeros(data: Uint8Array): Uint8Array {
-//    let last = data.length - 1;
-//    while (last >= 0 && data[last] === 0)
-//       last--;
-//    return data.slice(0, last + 1);
-// }
-
-// function writeChunk(type: number, payload: Uint8Array, bank = 0): Uint8Array {
-//    //const data = trimTrailingZeros(payload);
-//    const data = payload;
-//    const header = new Uint8Array(4 + data.length);
-//    header[0] = ((bank & 0x07) << 5) | (type & 0x1f);
-//    header[1] = data.length & 0xff;
-//    header[2] = (data.length >> 8) & 0xff;
-//    header[3] = 0; // reserved
-//    header.set(data, 4);
-//    return header;
-// }
 
 function encodePatternNote(midiNoteValue: number|undefined): {noteNibble: number; octave: number} {
    if (midiNoteValue === undefined) {
@@ -107,6 +85,20 @@ export function encodePattern(pattern: Pattern): [Uint8Array, Uint8Array, Uint8A
    return [encoded0, encoded1, encoded2, encoded3];
 };
 
+export function encodePatternCombined(pattern: Pattern): Uint8Array {
+   const [encoded0, encoded1, encoded2, encoded3] = encodePattern(pattern);
+   const combined = new Uint8Array(encoded0.length + encoded1.length + encoded2.length + encoded3.length);
+   let offset = 0;
+   combined.set(encoded0, offset);
+   offset += encoded0.length;
+   combined.set(encoded1, offset);
+   offset += encoded1.length;
+   combined.set(encoded2, offset);
+   offset += encoded2.length;
+   combined.set(encoded3, offset);
+   return combined;
+};
+
 // each of OUR internal patterns is actually 4 tic80 patterns (channel A, B, C, D) in series.
 // so for double-buffering, the front buffer for the 4 channels is [0,1,2,3], and the back buffer is [4,5,6,7], etc.
 // we output as a 4-channel pattern quad in order so it can just be copied directly to TIC-80 memory.
@@ -114,32 +106,15 @@ function encodeRealPatterns(song: Song): Uint8Array[] {
    const ret: Uint8Array[] = [];
    for (let p = 0; p < song.patterns.length; p++) {
       const pattern = song.patterns[p]!;
-      const [encoded0, encoded1, encoded2, encoded3] = encodePattern(pattern);
-      // join 4 channel patterns into one buffer, push that buffer.
-      const combined = new Uint8Array(encoded0.length + encoded1.length + encoded2.length + encoded3.length);
-      let offset = 0;
-      combined.set(encoded0, offset);
-      offset += encoded0.length;
-      combined.set(encoded1, offset);
-      offset += encoded1.length;
-      combined.set(encoded2, offset);
-      offset += encoded2.length;
-      combined.set(encoded3, offset);
+      const combined = encodePatternCombined(pattern);
       ret.push(combined);
    }
    return ret;
-   //return writeChunk(CHUNK.MUSIC_PATTERNS, patterns);
 }
 
 function encodeNullPatterns(): Uint8Array {
    const patterns = new Uint8Array(Tic80Caps.pattern.count * Tic80Caps.pattern.maxRows * 3);
-   //    for (let p = 0; p < Tic80Caps.pattern.count; p++) {
-   //       const pattern = new Pattern();
-   //       const encoded = encodePattern(pattern);
-   //       patterns.set(encoded, p * encoded.length);
-   //    }
    return patterns;
-   //return writeChunk(CHUNK.MUSIC_PATTERNS, patterns);
 }
 
 // Decode raw byte S from the CHUNK_MUSIC track into "display speed" (1..31)
@@ -337,40 +312,6 @@ function encodeSfx(song: Song): Uint8Array {
    return buf;
 }
 
-// export function serializeSongToCart(song: Song): Uint8Array {
-//    const parts: Uint8Array[] = [];
-
-//    // should follow this:
-//    // | 0FFE4 | WAVEFORMS            | 256   |
-//    // | 100E4 | SFX                  | 4224  |
-//    // | 11164 | MUSIC PATTERNS       | 11520 |
-//    // | 13E64 | MUSIC TRACKS         | 408   | <-- for the 8 tracks. but we only need 1, so size=51
-
-//    const waveformData = encodeWaveforms(song);
-//    const sfxData = encodeSfx(song);
-//    const patternData = encodePatterns(song);
-//    const trackData = encodeTrack(song);
-
-//    assert(waveformData.length == 256, `Unexpected waveform chunk size: ${waveformData.length}`);
-//    assert(sfxData.length == 4224, `Unexpected SFX chunk size: ${sfxData.length}`);
-//    assert(patternData.length == 11520, `Unexpected patterns chunk size: ${patternData.length}`);
-//    assert(trackData.length == 408, `Unexpected track chunk size: ${trackData.length}`);
-
-//    parts.push(waveformData);
-//    parts.push(sfxData);
-//    parts.push(patternData);
-//    parts.push(trackData);
-
-//    const total = parts.reduce((sum, p) => sum + p.length, 0);
-//    const out = new Uint8Array(total);
-//    let offset = 0;
-//    for (const p of parts) {
-//       out.set(p, offset);
-//       offset += p.length;
-//    }
-//    return out;
-// }
-
 // upon sending to the tic80, we send a payload which includes all the song data in a single chunk.
 // that chunk is meant to be copied to RAM at 0x0FFE4, and includes the following data:
 // | 0FFE4 | WAVEFORMS            | 256   |
@@ -380,7 +321,6 @@ function encodeSfx(song: Song): Uint8Array {
 //
 // but we also pass a separate pattern data chunk which is used for playback because we
 // copy pattern data ourselves to work around tic80 length limitations.
-export interface Tic80SerializedPattern {}
 export interface Tic80SerializedSong {
    memory_0FFE4: Uint8Array;
 
@@ -390,7 +330,6 @@ export interface Tic80SerializedSong {
    // each chromatic pattern is actually 4 patterns (channel A, B, C, D) in series. allows copying patterns in 1 go for all 4 channels.
    patternData: Uint8Array;
 }
-
 
 export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
    const parts: Uint8Array[] = [];
@@ -497,218 +436,122 @@ function ch_serializePatterns(patterns: Uint8Array[]): Uint8Array {
    return output;
 }
 
-// Run-length encode the input data; return shortened output.
-export function RLEncode(input: Uint8Array): Uint8Array {
-   const output: number[] = [];
-   let i = 0;
 
-   while (i < input.length) {
-      const value = input[i];
-      let runLength = 1;
+function createChunk(type: number, payload: Uint8Array, bank = 0): Uint8Array {
+   const chunk = new Uint8Array(4 + payload.length);
+   chunk[0] = ((bank & 0x07) << 5) | (type & 0x1f);
+   chunk[1] = payload.length & 0xff;
+   chunk[2] = (payload.length >> 8) & 0xff;
+   chunk[3] = 0; // reserved
+   chunk.set(payload, 4);
+   return chunk;
+};
 
-      // Count consecutive identical bytes (max run length 255)
-      while (i + runLength < input.length && input[i + runLength] === value && runLength < 255) {
-         runLength++;
-      }
-
-      // Emit run: [length, value]
-      output.push(runLength);
-      output.push(value);
-
-      i += runLength;
+function stringToAsciiPayload(str: string): Uint8Array {
+   const codeBytes = new Uint8Array(str.length);
+   for (let i = 0; i < str.length; i++) {
+      codeBytes[i] = str.charCodeAt(i) & 0x7F; // ensure ASCII
    }
+   return codeBytes;
+};
 
-   return new Uint8Array(output);
+// takes string contents, returns Lua string literal with quotes and escapes.
+function toLuaStringLiteral(str: string): string {
+   const escaped = str.replace(/\\/g, "\\\\").replace(/"/g, "\\\"").replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+   return `"${escaped}"`;
+};
+
+function getCode(song: Song): string {
+   /*
+   local MUSIC_DATA = {
+      songOrder = {
+         0,1,
+      }, -- pattern indices (0-based)
+      patterns = { -- base85 encoded pattern data
+         "",
+         "",
+      },
+   }
+   */
+
+   // "0,1,2"
+   const songOrder = song.songOrder.map(idx => idx.toString()).join(",");
+
+   const patternStringContents = song.patterns.map((pattern, patternIndex) => {
+      // encode pattern to base85 string
+      const encodedPattern = encodePatternCombined(pattern);
+      let patternStr = base85Encode(encodedPattern);
+      return patternStr;
+   });
+   const patternArray = patternStringContents.map(p => toLuaStringLiteral(p)).join(",\n      ");
+
+   return `
+local MUSIC_DATA = {
+   songOrder = {${songOrder}},
+   patterns = {
+      ${patternArray}
+   },
+}
+function TIC()
+   cls(0)
+   print("Hello from Chromatic!", 84, 68, 12)
+end
+`;
 }
 
-export function RLEDecode(input: Uint8Array): Uint8Array {
-   const output: number[] = [];
-   let i = 0;
+export function serializeSongToCart(song: Song): Uint8Array {
+   // TODO: optimize song.
+   // e.g., remove unused instruments, waveforms, patterns, shift to pack etc.
 
-   while (i < input.length - 1) {
-      const runLength = input[i];
-      const value = input[i + 1];
+   // cartridges are a simple concatenation of chunks.
+   // each chunk has a 4-byte header, followed by payload.
+   // the header is:
+   // byte 0: bank (3 bits) + chunk type (5 bits)
+   // byte 1-2: payload length (u16 little-endian)
+   // byte 3: reserved (0)
 
-      // Emit 'runLength' copies of 'value'
-      for (let j = 0; j < runLength; j++) {
-         output.push(value);
-      }
+   const waveformChunk = createChunk(CHUNK.WAVEFORMS, encodeWaveforms(song));
+   const sfxChunk = createChunk(CHUNK.SFX, encodeSfx(song));
+   const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, encodeNullPatterns());
+   const trackChunk = createChunk(CHUNK.MUSIC_TRACKS, encodeTrack(song));
+   const codePayload = stringToAsciiPayload(getCode(song));
+   const codeChunk = createChunk(CHUNK.CODE, codePayload, 0);
 
-      i += 2;
+   const chunks: Uint8Array[] = [
+      codeChunk,
+      waveformChunk,
+      sfxChunk,
+      patternChunk,
+      trackChunk,
+   ];
+
+   const totalSize = chunks.reduce((sum, p) => sum + p.length, 0);
+   const cartridge = new Uint8Array(totalSize);
+   let offset = 0;
+   for (const p of chunks) {
+      cartridge.set(p, offset);
+      offset += p.length;
    }
 
-   return new Uint8Array(output);
-}
+   // // serialize song order data
+   // const songOrderData = new Uint8Array(1 + ChromaticCaps.maxSongLength);
+   // songOrderData[0] = song.songOrder.length & 0xff;
+   // for (let i = 0; i < ChromaticCaps.maxSongLength; i++) {
+   //    const patternIndex = song.songOrder[i] ?? 0;
+   //    songOrderData[1 + i] = patternIndex & 0xff;
+   // }
 
-// Run-length encode 3-byte cells: [b0,b1,b2] repeated.
-// Input length MUST be a multiple of 3.
-export function RLEncodeTriplets(input: Uint8Array): Uint8Array {
-   if (input.length % 3 !== 0) {
-      throw new Error(`RLEncodeTriplets: input length ${input.length} not multiple of 3`);
-   }
+   // const realPatternData = encodeRealPatterns(song); // separate pattern data for playback use
 
-   const output: number[] = [];
-   const n = input.length;
-   let i = 0;
-
-   while (i < n) {
-      const b0 = input[i];
-      const b1 = input[i + 1];
-      const b2 = input[i + 2];
-
-      let runLength = 1;
-
-      // Count how many times this triplet repeats (max 255)
-      while (i + runLength * 3 < n && runLength < 255 && input[i + runLength * 3] === b0 &&
-             input[i + runLength * 3 + 1] === b1 && input[i + runLength * 3 + 2] === b2) {
-         runLength++;
-      }
-
-      // Emit run: [runLength, b0, b1, b2]
-      output.push(runLength & 0xff, b0 & 0xff, b1 & 0xff, b2 & 0xff);
-
-      i += runLength * 3;
-   }
-
-   return new Uint8Array(output);
-}
+   // return {
+   //    memory_0FFE4: out,
+   //    songOrderData,
+   //    patternData: ch_serializePatterns(realPatternData),
+   // };
 
 
-// Decode 3-byte-cell RLE into a fixed number of cells.
-export function RLEDecodeTriplets(
-   input: Uint8Array,
-   expectedLength: number,
-   ): Uint8Array {
-   const output = new Uint8Array(expectedLength);
-   const n = input.length;
 
-   if (n % 4 !== 0) {
-      throw new Error(`RLEDecodeTriplets: input length ${n} not multiple of 4`);
-   }
+   // // for this example just make a cart with code only.
 
-   let i = 0;   // index in encoded stream
-   let out = 0; // index in output bytes
-
-   while (i < n) {
-      const runLength = input[i]; // 0..255
-      const b0 = input[i + 1];
-      const b1 = input[i + 2];
-      const b2 = input[i + 3];
-      i += 4;
-
-      if (runLength === 0) {
-         throw new Error("RLEDecodeTriplets: zero-length run");
-      }
-
-      for (let r = 0; r < runLength; r++) {
-         if (out + 3 > output.length) {
-            throw new Error(
-               `RLEDecodeTriplets: decoded too much data (out=${out}, len=${output.length})`,
-            );
-         }
-         output[out++] = b0;
-         output[out++] = b1;
-         output[out++] = b2;
-      }
-   }
-
-   if (out !== output.length) {
-      throw new Error(
-         `RLEDecodeTriplets: decoded length ${out} != expected ${output.length}`,
-      );
-   }
-
-   return output;
-}
-
-export function toBase64(data: Uint8Array): string {
-   let binary = "";
-   for (let i = 0; i < data.length; i++) {
-      binary += String.fromCharCode(data[i]);
-   }
-   return btoa(binary);
-}
-
-export function fromBase64(base64: string): Uint8Array {
-   const binary = atob(base64);
-   const len = binary.length;
-   const bytes = new Uint8Array(len);
-   for (let i = 0; i < len; i++) {
-      bytes[i] = binary.charCodeAt(i);
-   }
-   return bytes;
-}
-
-
-// Custom ASCII85-style base85: digits 0..84 map to chars 33..117 ('!'..'u')
-const BASE85_RADIX = 85;
-const BASE85_OFFSET = 33; // '!' in ASCII
-
-export function base85Encode(data: Uint8Array): string {
-   let out = "";
-   const n = data.length;
-
-   for (let i = 0; i < n; i += 4) {
-      const b0 = data[i] ?? 0;
-      const b1 = data[i + 1] ?? 0;
-      const b2 = data[i + 2] ?? 0;
-      const b3 = data[i + 3] ?? 0;
-
-      // Pack 4 bytes into one 32-bit unsigned value
-      let v = ((b0 << 24) >>> 0) | ((b1 << 16) >>> 0) | ((b2 << 8) >>> 0) | (b3 >>> 0);
-
-      // Convert to 5 base85 digits (most significant first)
-      const digits = new Array<number>(5);
-      for (let d = 4; d >= 0; d--) {
-         digits[d] = v % BASE85_RADIX;
-         v = Math.floor(v / BASE85_RADIX);
-      }
-
-      // Map digits to ASCII chars
-      for (let d = 0; d < 5; d++) {
-         out += String.fromCharCode(BASE85_OFFSET + digits[d]);
-      }
-   }
-
-   return out;
-}
-
-export function base85Decode(str: string, expectedLength: number): Uint8Array {
-   if (str.length % 5 !== 0) {
-      throw new Error(`base85Decode: input length ${str.length} is not a multiple of 5`);
-   }
-
-   const tmp: number[] = [];
-   const groups = str.length / 5;
-   let idx = 0;
-
-   for (let g = 0; g < groups; g++) {
-      let v = 0;
-
-      for (let d = 0; d < 5; d++) {
-         const code = str.charCodeAt(idx++);
-         const digit = code - BASE85_OFFSET;
-         if (digit < 0 || digit >= BASE85_RADIX) {
-            throw new Error(`base85Decode: invalid base85 char '${str[d]}' at index ${idx - 1}`);
-         }
-         v = v * BASE85_RADIX + digit;
-      }
-
-      // Unpack 32-bit value into 4 bytes
-      const b0 = (v >>> 24) & 0xff;
-      const b1 = (v >>> 16) & 0xff;
-      const b2 = (v >>> 8) & 0xff;
-      const b3 = v & 0xff;
-
-      tmp.push(b0, b1, b2, b3);
-   }
-
-   // Trim padding to the expected raw byte length
-   if (expectedLength > tmp.length) {
-      throw new Error(
-         `base85Decode: expectedLength ${expectedLength} > decoded length ${tmp.length}`,
-      );
-   }
-
-   return new Uint8Array(tmp.slice(0, expectedLength));
+   return cartridge;
 }

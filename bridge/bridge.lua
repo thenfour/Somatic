@@ -494,7 +494,7 @@ end
 -- =========================
 -- demo-specific playroutine support
 
--- local TF_MUSIC_DATA = {
+-- local MUSIC_DATA = {
 -- 	songOrder = {
 -- 		0,1,
 -- 	}, -- pattern indices (0-based)
@@ -569,13 +569,13 @@ end
 -- end
 
 -- local function getSongOrderCount() {
--- 	return #TF_MUSIC_DATA.songOrder
+-- 	return #MUSIC_DATA.songOrder
 -- }
 
 -- demo version:
 -- local function swapInPlayorder(songPosition0b, destPointer) {
---   patternIndex0b = TF_MUSIC_DATA.songOrder[songPosition0b + 1]
---   patternString = TF_MUSIC_DATA.patterns[patternIndex0b + 1]
+--   patternIndex0b = MUSIC_DATA.songOrder[songPosition0b + 1]
+--   patternString = MUSIC_DATA.patterns[patternIndex0b + 1]
 --   local patternLengthBytes = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
 --   patternBytes = base85_decode_to_bytes(patternString, patternLengthBytes)
 --   for i = 0, patternLengthBytes - 1 do

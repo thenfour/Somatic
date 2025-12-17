@@ -24,6 +24,7 @@ import { ThemeEditorPanel } from './ui/theme_editor_panel';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { ToastProvider, useToasts } from './ui/toast_provider';
 import { WaveformEditorPanel } from './ui/waveformEditor';
+import { serializeSongToCart } from './audio/tic80_cart_serializer';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -312,11 +313,30 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     };
 
     const saveSongFile = () => {
-        saveSync(song.toJSON(), 'song.cmt');
+        saveSync(song.toJSON(), 'song.chromatic');
     };
 
-    const exportLua = () => {
-        saveSync("todo", 'song.lua');
+    const exportCart = () => {
+        const cartData = serializeSongToCart(song);
+
+        // Create a Blob from the Uint8Array
+        const blob = new Blob([cartData as any /* workaround for Blob constructor typing */], { type: 'application/octet-stream' });
+
+        // Create a temporary download link
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'song.tic';
+
+        // Trigger the download
+        document.body.appendChild(link);
+        link.click();
+
+        // Clean up
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        //pushToast({ message: 'TIC-80 cartridge exported.', variant: 'success' });
     };
 
     const copyNative = async () => {
@@ -331,16 +351,16 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         }
     };
 
-    const copyTic = async () => {
-        const text = "todo";
-        try {
-            await navigator.clipboard.writeText(text);
-            pushToast({ message: 'TIC-80 export copied to clipboard.', variant: 'success' });
-        } catch (err) {
-            console.error('Copy failed', err);
-            pushToast({ message: 'Failed to copy TIC-80 export to clipboard.', variant: 'error' });
-        }
-    };
+    // const copyTic = async () => {
+    //     const text = "todo";
+    //     try {
+    //         await navigator.clipboard.writeText(text);
+    //         pushToast({ message: 'TIC-80 export copied to clipboard.', variant: 'success' });
+    //     } catch (err) {
+    //         console.error('Copy failed', err);
+    //         pushToast({ message: 'Failed to copy TIC-80 export to clipboard.', variant: 'error' });
+    //     }
+    // };
 
     const pasteSong = async () => {
         try {
@@ -398,12 +418,12 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                         <button onClick={createNewSong}><span className="icon" aria-hidden="true">📄</span>New</button>
                         <button onClick={openSongFile}><span className="icon" aria-hidden="true">📂</span>Open</button>
                         <button onClick={saveSongFile}><span className="icon" aria-hidden="true">💾</span>Save</button>
-                        <button onClick={exportLua}><span className="icon" aria-hidden="true">📤</span>Export</button>
+                        <button onClick={exportCart}><span className="icon" aria-hidden="true">📤</span>Export</button>
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
                     <div className="menu-group">
                         <button onClick={copyNative}><span className="icon" aria-hidden="true">📋</span>Copy Native</button>
-                        <button onClick={copyTic}><span className="icon" aria-hidden="true">🧾</span>Copy Tic-80</button>
+                        {/* <button onClick={copyTic}><span className="icon" aria-hidden="true">🧾</span>Copy Tic-80</button> */}
                         <button onClick={pasteSong}><span className="icon" aria-hidden="true">📥</span>Paste</button>
                     </div>
                     <span className="menu-separator" aria-hidden="true">|</span>
