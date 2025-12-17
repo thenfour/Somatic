@@ -187,13 +187,13 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             if (e.altKey && !hasMeta && e.code === 'Digit9') {
                 e.preventDefault();
                 autoSave.flush();
-                audio.playSong(editorState.selectedPosition, editorState.patternEditRow);
+                audio.playSong(editorState.activeSongPosition, editorState.patternEditRow);
             }
             // alt+8 = play from pattern
             if (e.altKey && !hasMeta && e.code === 'Digit8') {
                 e.preventDefault();
                 autoSave.flush();
-                audio.playSong(editorState.selectedPosition, 0);
+                audio.playSong(editorState.activeSongPosition, 0);
             }
             if (e.code === 'Escape') {
                 e.preventDefault();
@@ -270,7 +270,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         audio.sfxNoteOn(ed.currentInstrument, note);
 
         if (ed.editingEnabled !== false) {
-            const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.selectedPosition || 0));
+            const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.activeSongPosition || 0));
             const currentPatternIndex = s.songOrder[currentPosition] ?? 0;
             setSong((prev) => {
                 const newSong = prev.clone();
@@ -365,15 +365,6 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         });
     };
 
-    // // Save song to localStorage whenever it changes
-    // useEffect(() => {
-    //     try {
-    //         localStorage.setItem('somatic-song', song.toJSON());
-    //     } catch (err) {
-    //         console.error('Failed to save song to localStorage', err);
-    //     }
-    // }, [song]);
-
     const updateEditorState = (mutator: EditorStateMutator) => {
         setEditorState((prev) => {
             const next = prev.clone();
@@ -399,7 +390,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 
         setSong(new Song());
         updateEditorState((s) => {
-            s.setSelectedPosition(0);
+            s.setActiveSongPosition(0);
         });
         pushToast({ message: 'New song created.', variant: 'success' });
     };
@@ -413,7 +404,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         const loaded = Song.fromJSON(text);
         setSong(loaded);
         updateEditorState((s) => {
-            s.setSelectedPosition(0);
+            s.setActiveSongPosition(0);
         });
     };
 
@@ -465,7 +456,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             const loaded = Song.fromJSON(text);
             setSong(loaded);
             updateEditorState((s) => {
-                s.setSelectedPosition(0);
+                s.setActiveSongPosition(0);
             });
         } catch (err) {
             console.error('Paste failed', err);
@@ -479,13 +470,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     };
 
     const onPlayPattern = () => {
-        //setTransportState('play-pattern');
-        // const currentPosition = Math.max(0, Math.min(song.songOrder.length - 1, editorState.selectedPosition || 0));
-        // const currentPatternIndex = song.songOrder[currentPosition] ?? 0;
-        // const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
-        // audio.playPattern(song.patterns[safePatternIndex]);
         autoSave.flush();
-        audio.playSong(editorState.selectedPosition, 0);
+        audio.playSong(editorState.activeSongPosition, 0);
     };
 
     const onPlayAll = () => {
@@ -497,7 +483,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const onPlayFromPosition = () => {
         //setTransportState('play-from-position');
         autoSave.flush();
-        audio.playSong(editorState.selectedPosition, editorState.patternEditRow);
+        audio.playSong(editorState.activeSongPosition, editorState.patternEditRow);
     };
 
     const onPanic = () => {

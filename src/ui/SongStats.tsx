@@ -6,7 +6,7 @@ import { fromBase64, RLEDecode, RLEDecodeTriplets, RLEncode, RLEncodeTriplets, t
 
 
 export const SongStats: React.FC<{ song: Song, editorState: EditorState }> = ({ song, editorState }) => {
-    const patternId = song.songOrder[editorState.selectedPosition]!;
+    const patternId = song.songOrder[editorState.activeSongPosition]!;
     const pattern = song.patterns[patternId]!;
 
     const [serilaizedPattern, setSerializedPattern] = React.useState<Uint8Array>(new Uint8Array());

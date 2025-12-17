@@ -51,7 +51,7 @@ export type PatternGridHandle = {
 
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
     ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange }, ref) => {
-        const currentPosition = Math.max(0, Math.min(song.songOrder.length - 1, editorState.selectedPosition || 0));
+        const currentPosition = Math.max(0, Math.min(song.songOrder.length - 1, editorState.activeSongPosition || 0));
         const currentPatternIndex = song.songOrder[currentPosition] ?? 0;
         const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
         const pattern: Pattern = song.patterns[safePatternIndex];
@@ -180,7 +180,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     if (targetRow < 0) {
                         // Navigate to previous song order position
                         if (currentPosition > 0) {
-                            onEditorStateChange((s) => s.setSelectedPosition(currentPosition - 1));
+                            onEditorStateChange((s) => s.setActiveSongPosition(currentPosition - 1));
                             return [rowCount + targetRow, col] as const;
                         }
                         // At the beginning of the song, clamp to top
@@ -192,7 +192,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 if (targetRow < 0) {
                     // Navigate to previous song order position
                     if (currentPosition > 0) {
-                        onEditorStateChange((s) => s.setSelectedPosition(currentPosition - 1));
+                        onEditorStateChange((s) => s.setActiveSongPosition(currentPosition - 1));
                         return [rowCount - 1, col] as const;
                     }
                     // At the beginning of the song, clamp to top
@@ -206,7 +206,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     if (targetRow >= rowCount) {
                         // Navigate to next song order position
                         if (currentPosition < song.songOrder.length - 1) {
-                            onEditorStateChange((s) => s.setSelectedPosition(currentPosition + 1));
+                            onEditorStateChange((s) => s.setActiveSongPosition(currentPosition + 1));
                             return [targetRow - rowCount, col] as const;
                         }
                         // At the end of the song, clamp to bottom
@@ -218,7 +218,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 if (targetRow >= rowCount) {
                     // Navigate to next song order position
                     if (currentPosition < song.songOrder.length - 1) {
-                        onEditorStateChange((s) => s.setSelectedPosition(currentPosition + 1));
+                        onEditorStateChange((s) => s.setActiveSongPosition(currentPosition + 1));
                         return [0, col] as const;
                     }
                     // At the end of the song, clamp to bottom
@@ -255,7 +255,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 if (targetRow < 0) {
                     // Navigate to previous song order position
                     if (currentPosition > 0) {
-                        onEditorStateChange((s) => s.setSelectedPosition(currentPosition - 1));
+                        onEditorStateChange((s) => s.setActiveSongPosition(currentPosition - 1));
                         const blocksInPattern = Math.ceil(rowCount / jumpSize);
                         const newTargetRow = (blocksInPattern + targetBlock) * jumpSize;
                         return [Math.max(0, newTargetRow), col] as const;
@@ -272,7 +272,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 if (targetRow >= rowCount) {
                     // Navigate to next song order position
                     if (currentPosition < song.songOrder.length - 1) {
-                        onEditorStateChange((s) => s.setSelectedPosition(currentPosition + 1));
+                        onEditorStateChange((s) => s.setActiveSongPosition(currentPosition + 1));
                         const overshoot = targetRow - rowCount;
                         return [overshoot, col] as const;
                     }

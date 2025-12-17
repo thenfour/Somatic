@@ -18,7 +18,7 @@ type SongEditorProps = {
 
 export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSongChange, onEditorStateChange, audio }) => {
     const effectiveBpm = Math.round(((song.tempo * 6) / song.speed) * 10) / 10; // TIC BPM approximation
-    const patternId = song.songOrder[editorState.selectedPosition]!;
+    const patternId = song.songOrder[editorState.activeSongPosition]!;
     const pattern = song.patterns[patternId]!;
 
     const onSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -42,7 +42,7 @@ export const ArrangementEditor: React.FC<{
             s.songOrder[positionIndex] = next;
         });
         onEditorStateChange((state) => {
-            state.setSelectedPosition(positionIndex);
+            state.setActiveSongPosition(positionIndex);
         });
     };
 
@@ -53,8 +53,8 @@ export const ArrangementEditor: React.FC<{
             s.songOrder.splice(positionIndex, 1);
         });
         onEditorStateChange((state) => {
-            if (state.selectedPosition >= positionIndex && state.selectedPosition > 0) {
-                state.setSelectedPosition(state.selectedPosition - 1);
+            if (state.activeSongPosition >= positionIndex && state.activeSongPosition > 0) {
+                state.setActiveSongPosition(state.activeSongPosition - 1);
             }
         });
     };
@@ -89,7 +89,7 @@ export const ArrangementEditor: React.FC<{
 
     const handleSelectPosition = (positionIndex: number, _patternIndex: number) => {
         onEditorStateChange((state) => {
-            state.setSelectedPosition(positionIndex);
+            state.setActiveSongPosition(positionIndex);
         });
     };
 
@@ -136,7 +136,7 @@ export const ArrangementEditor: React.FC<{
             </div>
             {song.songOrder.map((patternIndex, positionIndex) => {
                 const clampedPattern = clamp(patternIndex ?? 0, 0, maxPatterns - 1);
-                const isSelected = editorState.selectedPosition === positionIndex;
+                const isSelected = editorState.activeSongPosition === positionIndex;
                 const isPlaying = activeSongPosition === positionIndex;
                 const canDelete = song.songOrder.length > 1;
                 const rowClass = [
