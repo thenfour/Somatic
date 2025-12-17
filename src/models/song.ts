@@ -21,6 +21,7 @@ export type SongDto = {
 
    name: string;
    highlightRowCount: number;
+   patternEditStep: number;
 };
 
 const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {
@@ -99,6 +100,7 @@ export class Song {
    // editor-specific
    name: string;
    highlightRowCount: number;
+   patternEditStep: number;
 
    constructor(data: Partial<SongDto> = {}) {
       this.instruments = makeInstrumentList(data.instruments || []);
@@ -110,6 +112,7 @@ export class Song {
       this.speed = clamp(data.speed ?? 6, 1, 31);
       this.name = data.name ?? "New song";
       this.highlightRowCount = data.highlightRowCount ?? 4;
+      this.patternEditStep = clamp(data.patternEditStep ?? 1, 0, 32);
    }
 
    setTempo(value: number) {
@@ -122,6 +125,10 @@ export class Song {
 
    setHighlightRowCount(value: number) {
       this.highlightRowCount = clamp(value, 1, 64);
+   }
+
+   setPatternEditStep(value: number) {
+      this.patternEditStep = clamp(value, 0, 32);
    }
 
    setRowsPerPattern(value: number) {
@@ -139,6 +146,7 @@ export class Song {
          rowsPerPattern: this.rowsPerPattern,
          name: this.name,
          highlightRowCount: this.highlightRowCount,
+         patternEditStep: this.patternEditStep,
       };
    }
 

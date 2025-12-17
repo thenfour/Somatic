@@ -60,7 +60,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
     const onEditStepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = TryParseInt(e.target.value);
         if (val === null) return;
-        onEditorStateChange((state) => state.setPatternEditStep(val));
+        onSongChange((s) => s.setPatternEditStep(val));
     };
 
     return (
@@ -130,7 +130,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     type="number"
                     min={0}
                     max={32}
-                    value={editorState.patternEditStep}
+                    value={song.patternEditStep}
                     onChange={onEditStepChange}
                 />
             </label>

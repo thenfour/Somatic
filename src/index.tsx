@@ -273,6 +273,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.activeSongPosition || 0));
             const currentPatternIndex = s.songOrder[currentPosition] ?? 0;
             const rowsPerPattern = s.rowsPerPattern;
+            const patternEditStep = s.patternEditStep;
             setSong((prev) => {
                 const newSong = prev.clone();
                 const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, newSong.patterns.length - 1));
@@ -283,7 +284,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             });
             setEditorState((prev) => {
                 const next = prev.clone();
-                next.advancePatternEditRow(next.patternEditStep, rowsPerPattern);
+                next.advancePatternEditRow(patternEditStep, rowsPerPattern);
                 return next;
             });
         }

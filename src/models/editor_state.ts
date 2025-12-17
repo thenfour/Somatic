@@ -9,7 +9,6 @@ export class EditorState {
    patternEditRow: number;
    patternEditChannel: Tic80ChannelIndex;
    selectedArrangementPositions: number[];
-   patternEditStep: number;
 
    constructor({
       octave = Math.floor(Tic80Caps.pattern.octaveCount / 2),
@@ -19,7 +18,6 @@ export class EditorState {
       patternEditRow = 0,
       patternEditChannel = 0,
       selectedArrangementPositions = [],
-      patternEditStep = 1,
    }: Partial<EditorState> = {}) {
       this.octave = clamp(octave, 1, Tic80Caps.pattern.octaveCount);
       this.activeSongPosition = clamp(activeSongPosition, 0, 255);
@@ -28,7 +26,6 @@ export class EditorState {
       this.patternEditRow = clamp(patternEditRow, 0, 63);
       this.patternEditChannel = ToTic80ChannelIndex(patternEditChannel);
       this.selectedArrangementPositions = [...selectedArrangementPositions];
-      this.patternEditStep = clamp(patternEditStep, 0, 32);
    }
 
    setOctave(nextOctave: number) {
@@ -56,10 +53,6 @@ export class EditorState {
       this.selectedArrangementPositions = [...positions];
    }
 
-   setPatternEditStep(step: number) {
-      this.patternEditStep = clamp(step, 0, 32);
-   }
-
    advancePatternEditRow(step: number, rowsPerPattern: number = Tic80Caps.pattern.maxRows) {
       const maxRow = clamp(rowsPerPattern - 1, 0, Tic80Caps.pattern.maxRows - 1);
       const safeStep = clamp(step, -Tic80Caps.pattern.maxRows, Tic80Caps.pattern.maxRows);
@@ -75,7 +68,6 @@ export class EditorState {
          patternEditRow: this.patternEditRow,
          patternEditChannel: this.patternEditChannel,
          selectedArrangementPositions: [...this.selectedArrangementPositions],
-         patternEditStep: this.patternEditStep,
       };
    }
 
