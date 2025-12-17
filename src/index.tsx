@@ -5,8 +5,10 @@ import { saveSync } from 'save-file';
 
 import './somatic.css';
 
-import { AudioController } from './audio/controller';
 import type { MusicState } from './audio/backend';
+import { AudioController } from './audio/controller';
+import { serializeSongToCart } from './audio/tic80_cart_serializer';
+import { ClipboardProvider, useClipboard } from './hooks/useClipboard';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { EditorState } from './models/editor_state';
@@ -24,9 +26,7 @@ import { ThemeEditorPanel } from './ui/theme_editor_panel';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { ToastProvider, useToasts } from './ui/toast_provider';
 import { WaveformEditorPanel } from './ui/waveformEditor';
-import { serializeSongToCart } from './audio/tic80_cart_serializer';
-import { Tooltip } from './ui/tooltip';
-import { ClipboardProvider, useClipboard } from './hooks/useClipboard';
+import { useWriteBehindEffect } from './hooks/useWriteBehindEffect';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -162,6 +162,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             // alt+0 = play / stop
             if (e.altKey && !hasMeta && e.code === 'Digit0') {
                 e.preventDefault();
+                autoSave.flush();
                 if (audio.getMusicState().somaticSongPosition >= 0) {
                     audio.stop();
                 } else {
@@ -171,11 +172,13 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             // alt+9 = play from position
             if (e.altKey && !hasMeta && e.code === 'Digit9') {
                 e.preventDefault();
+                autoSave.flush();
                 audio.playSong(editorState.selectedPosition, editorState.patternEditRow);
             }
             // alt+8 = play from pattern
             if (e.altKey && !hasMeta && e.code === 'Digit8') {
                 e.preventDefault();
+                autoSave.flush();
                 audio.playSong(editorState.selectedPosition, 0);
             }
             if (e.code === 'Escape') {
@@ -216,21 +219,28 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         return () => window.removeEventListener('keydown', handler);
     }, []);
 
+    // auto-save to backend + localStorage
+    const autoSave = useWriteBehindEffect<Song>(async (doc, { signal }) => {
+        audio.setSong(doc, "Auto-save");
+        localStorage.setItem('somatic-song', doc.toJSON());
+    }, {
+        debounceMs: 1000,//
+        maxWaitMs: 2500,//
+        // onSuccess: () => {
+        //     pushToast({
+        //         message: 'Song auto-saved.', variant: 'info', durationMs: 1000
+        //     });
+        // }
+    });
+
     useEffect(() => {
-        audio.setSong(song, "Audio object changed");
+        autoSave.enqueue(song);
+        autoSave.flush();
     }, [audio]);
 
     useEffect(() => {
-        audio.setSong(song, "Song instance changed (from index.tsx)");
+        autoSave.enqueue(song);
     }, [song]);
-
-    // useEffect(() => {
-    //     const handleStop = () => setTransportState('stop');
-    //     const off = audio.onStop(handleStop);
-    //     return () => {
-    //         off();
-    //     };
-    // }, [audio]);
 
     const songRef = React.useRef(song);
     const editorRef = React.useRef(editorState);
@@ -262,6 +272,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 //const instrument = s.instruments[instIdx];
                 const channel = ToTic80ChannelIndex(ed.patternEditChannel);
                 //if (instrument) {
+                autoSave.flush();
                 audio.sfxNoteOn(ed.currentInstrument, evt.note);
                 //}
 
@@ -285,6 +296,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             });
 
             offNoteOff = midi.onNoteOff((evt) => {
+                autoSave.flush();
                 audio.sfxNoteOff(evt.note);
             });
         });
@@ -298,16 +310,18 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 
     // handlers for clicking the keyboard view note on / off
     const handleNoteOn = (midiNote: number) => {
-        const s = song;
+        //const s = song;
         //const instIdx = clamp(editorState.currentInstrument, 0, s.instruments.length - 1);
         //const instrument = s.instruments[instIdx];
         //const channel = Math.max(0, Math.min(3, editorState.patternEditChannel || 0));
+        autoSave.flush();
         //if (instrument) {
         audio.sfxNoteOn(editorState.currentInstrument, midiNote);
         //}
     };
 
     const handleNoteOff = (midiNote: number) => {
+        autoSave.flush();
         audio.sfxNoteOff(midiNote);
     };
 
@@ -319,14 +333,14 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         });
     };
 
-    // Save song to localStorage whenever it changes
-    useEffect(() => {
-        try {
-            localStorage.setItem('somatic-song', song.toJSON());
-        } catch (err) {
-            console.error('Failed to save song to localStorage', err);
-        }
-    }, [song]);
+    // // Save song to localStorage whenever it changes
+    // useEffect(() => {
+    //     try {
+    //         localStorage.setItem('somatic-song', song.toJSON());
+    //     } catch (err) {
+    //         console.error('Failed to save song to localStorage', err);
+    //     }
+    // }, [song]);
 
     const updateEditorState = (mutator: EditorStateMutator) => {
         setEditorState((prev) => {
@@ -427,16 +441,19 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         // const currentPatternIndex = song.songOrder[currentPosition] ?? 0;
         // const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
         // audio.playPattern(song.patterns[safePatternIndex]);
+        autoSave.flush();
         audio.playSong(editorState.selectedPosition, 0);
     };
 
     const onPlayAll = () => {
         //setTransportState('play-all');
+        autoSave.flush();
         audio.playSong(0);
     };
 
     const onPlayFromPosition = () => {
         //setTransportState('play-from-position');
+        autoSave.flush();
         audio.playSong(editorState.selectedPosition, editorState.patternEditRow);
     };
 
@@ -446,8 +463,10 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     };
 
     const handleBridgeReady = React.useCallback((handle: Tic80BridgeHandle) => {
-        console.log('[App] Bridge ready, uploading current song');
-        audio.setSong(song, "Bridge ready; initial upload");
+        //console.log('[App] Bridge ready, uploading current song');
+        //audio.setSong(song, "Bridge ready; initial upload");
+        autoSave.enqueue(song);
+        autoSave.flush();
     }, [audio, song]);
 
     return (
