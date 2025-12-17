@@ -1,4 +1,5 @@
-local MUSIC_DATA = {
+-- BEGIN_SOMATIC_MUSIC_DATA
+SOMATIC_MUSIC_DATA = {
 	songOrder = { 0, 3, 2 },
 	patterns = {
 		"#lnB?!'pSb!!!!!!!!!!!!!!!!!!!!#lm6k!!!!!!!`Ki!!!!!!!!!!!!`Ki!!!!!!!!!!!!`Ki!!!!(!'pSb!!`Ki!!!!!!!!6(5l^lb!!!!(!'pSb!!!!!#67$i!!!6(5l^lb!!!!!!!!6(5l^lb!!!!(!'pSb!!!!!#67$i!!!!!!!`Ki!!!!!!!!6(5l^lb!!!!!!!!!!!!`Ki!!!!!!!!!!!!`Ki#67$i!!!!!!!`Ki!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\"9;j1!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\"9>+q!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
@@ -106,15 +107,15 @@ function base85_decode_to_bytes(s, expectedLen)
 end
 
 local function getSongOrderCount()
-	local count = #MUSIC_DATA.songOrder
+	local count = #SOMATIC_MUSIC_DATA.songOrder
 	log("getSongOrderCount: " .. tostring(count))
 	return count
 end
 
 -- demo version:
 local function swapInPlayorder(songPosition0b, destPointer)
-	patternIndex0b = MUSIC_DATA.songOrder[songPosition0b + 1]
-	patternString = MUSIC_DATA.patterns[patternIndex0b + 1]
+	patternIndex0b = SOMATIC_MUSIC_DATA.songOrder[songPosition0b + 1]
+	patternString = SOMATIC_MUSIC_DATA.patterns[patternIndex0b + 1]
 	local patternLengthBytes = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
 	log(string.format("swapIn: pos=%d pat=%d len=%d", songPosition0b, patternIndex0b, #patternString))
 	patternBytes = base85_decode_to_bytes(patternString, patternLengthBytes)

@@ -492,7 +492,7 @@ function getPlayroutineCode(variant: "debug"|"release"): string {
 };
 
 function getCode(song: Song, variant: "debug"|"release"): string {
-   // Generate the MUSIC_DATA section
+   // Generate the SOMATIC_MUSIC_DATA section
    const songOrder = song.songOrder.map(idx => idx.toString()).join(",");
 
    const patternStringContents = song.patterns.map((pattern, patternIndex) => {
@@ -515,7 +515,8 @@ function getCode(song: Song, variant: "debug"|"release"): string {
    });
    const patternArray = patternStringContents.map(p => toLuaStringLiteral(p)).join(",\n\t\t");
 
-   const musicDataSection = `local MUSIC_DATA = {
+   const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
+SOMATIC_MUSIC_DATA = {
 \tsongOrder = { ${songOrder} },
 \tpatterns = {
 \t\t${patternArray}
@@ -523,16 +524,16 @@ function getCode(song: Song, variant: "debug"|"release"): string {
 }
 -- END_SOMATIC_MUSIC_DATA`;
 
-   // Replace the MUSIC_DATA section in the template
+   // Replace the SOMATIC_MUSIC_DATA section in the template
    const playroutineTemplate = getPlayroutineCode(variant);
    const markerIndex = playroutineTemplate.indexOf("-- END_SOMATIC_MUSIC_DATA");
    if (markerIndex === -1) {
       throw new Error("Template marker \"-- END_SOMATIC_MUSIC_DATA\" not found in playroutine-min.lua");
    }
 
-   const musicDataStart = playroutineTemplate.indexOf("local MUSIC_DATA");
+   const musicDataStart = playroutineTemplate.indexOf("-- BEGIN_SOMATIC_MUSIC_DATA");
    if (musicDataStart === -1) {
-      throw new Error("Could not find \"local MUSIC_DATA\" in template");
+      throw new Error("Could not find \"BEGIN_SOMATIC_MUSIC_DATA\" in template");
    }
 
    // Replace from musicDataStart to end of marker line
