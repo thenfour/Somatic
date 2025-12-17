@@ -387,7 +387,7 @@ export const ArrangementEditor: React.FC<{
                                 disabled={!canDelete}
                                 aria-label="Delete position"
                             >
-                                🗑️
+                                ×
                             </button>
                             <span className="arrangement-editor__position-id">
                                 <span style={{ visibility: isSelected ? "visible" : "hidden" }}>▶</span>

@@ -453,6 +453,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
             : null;
 
+        const isChannelSelected = (channelIndex: number) => selectionBounds
+            ? channelIndex >= selectionBounds.channelStart && channelIndex <= selectionBounds.channelEnd
+            : false;
+
         return (
             <div className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}>
                 <table className="pattern-grid">
@@ -462,9 +466,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     <thead>
                         <tr>
                             <th></th>
-                            {[0, 1, 2, 3].map((i) => (
-                                <th key={i} colSpan={4}>{i + 1}</th>
-                            ))}
+                            {[0, 1, 2, 3].map((i) => {
+                                const headerClass = `channel-header${isChannelSelected(i) ? ' channel-header--selected' : ''}`;
+                                return (
+                                    <th key={i} colSpan={4} className={headerClass}>{i + 1}</th>
+                                );
+                            })}
                         </tr>
                     </thead>
                     <tbody>
@@ -491,8 +498,18 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         const paramCol = channelIndex * 4 + 3;
                                         const isEmpty = !row.midiNote && row.effect === undefined && row.instrumentIndex == null && row.effectX === undefined && row.effectY === undefined;
                                         const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
-                                        const isChannelInSelection = selectionBounds ? channelIndex >= selectionBounds.channelStart && channelIndex <= selectionBounds.channelEnd : false;
-                                        const isCellSelected = isRowInSelection && isChannelInSelection;
+                                        const channelSelected = isChannelSelected(channelIndex);
+                                        const isCellSelected = isRowInSelection && channelSelected;
+
+                                        const getSelectionClasses = (cellType: CellType) => {
+                                            if (!isCellSelected || !selectionBounds) return '';
+                                            let classes = ' pattern-cell--selected';
+                                            if (rowIndex === selectionBounds.rowStart) classes += ' pattern-cell--selection-top';
+                                            if (rowIndex === selectionBounds.rowEnd) classes += ' pattern-cell--selection-bottom';
+                                            if (channelIndex === selectionBounds.channelStart && cellType === 'note') classes += ' pattern-cell--selection-left';
+                                            if (channelIndex === selectionBounds.channelEnd && cellType === 'param') classes += ' pattern-cell--selection-right';
+                                            return classes;
+                                        };
 
                                         let errorInRow = false;
                                         let errorText = "";
@@ -516,11 +533,15 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         }
 
                                         const additionalClasses = `${isEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}`;
-                                        const selectionClass = isCellSelected ? ' pattern-cell--selected' : '';
-                                        const noteClass = `note-cell${additionalClasses}${selectionClass}`;
-                                        const instClass = `instrument-cell${additionalClasses}${selectionClass}`;
-                                        const cmdClass = `command-cell${additionalClasses}${selectionClass}`;
-                                        const paramClass = `param-cell${additionalClasses}${selectionClass}`;
+                                        const noteSelectionClass = getSelectionClasses('note');
+                                        const instSelectionClass = getSelectionClasses('instrument');
+                                        const cmdSelectionClass = getSelectionClasses('command');
+                                        const paramSelectionClass = getSelectionClasses('param');
+
+                                        const noteClass = `note-cell${additionalClasses}${noteSelectionClass}`;
+                                        const instClass = `instrument-cell${additionalClasses}${instSelectionClass}`;
+                                        const cmdClass = `command-cell${additionalClasses}${cmdSelectionClass}`;
+                                        const paramClass = `param-cell${additionalClasses}${paramSelectionClass}`;
                                         return (
                                             <React.Fragment key={channelIndex}>
                                                 <td

@@ -725,6 +725,33 @@ option {
     pointer-events: none;
 }
 
+.pattern-grid td.pattern-cell--selection-top::before {
+    border-top: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.pattern-grid td.pattern-cell--selection-bottom::before {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.pattern-grid td.pattern-cell--selection-left::before {
+    border-left: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.pattern-grid td.pattern-cell--selection-right::before {
+    border-right: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.pattern-grid th.channel-header {
+    background-color: var(--bg);
+    color: var(--muted);
+    user-select: none;
+}
+
+.pattern-grid th.channel-header.channel-header--selected {
+    background-color: rgba(255, 255, 255, 0.3);
+    color: var(--text);
+}
+
 .pattern-grid td.note-cell {
     color: var(--cell-note);
     border-left: 18px solid transparent;
