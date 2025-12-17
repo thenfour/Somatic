@@ -25,6 +25,10 @@ module.exports = {
         use: [MiniCssExtractPlugin.loader, "css-loader"],
       },
       {
+        test: /\.lua$/,
+        use: 'raw-loader',
+      },
+      {
         test: /\.([jt])sx?$/,
         exclude: /node_modules/,
         use: {

@@ -5,6 +5,7 @@ import type {Song} from "../models/song";
 import {ChromaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {assert, clamp} from "../utils/utils";
 import {base85Encode} from "./encoding";
+import playroutineTemplate from "../../bridge/playroutine-min.lua";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -462,41 +463,50 @@ function toLuaStringLiteral(str: string): string {
 };
 
 function getCode(song: Song): string {
-   /*
-   local MUSIC_DATA = {
-      songOrder = {
-         0,1,
-      }, -- pattern indices (0-based)
-      patterns = { -- base85 encoded pattern data
-         "",
-         "",
-      },
-   }
-   */
-
-   // "0,1,2"
+   // Generate the MUSIC_DATA section
    const songOrder = song.songOrder.map(idx => idx.toString()).join(",");
 
    const patternStringContents = song.patterns.map((pattern, patternIndex) => {
       // encode pattern to base85 string
       const encodedPattern = encodePatternCombined(pattern);
+
+      // Calculate checksum for debugging
+      let checksum = 0;
+      for (let i = 0; i < encodedPattern.length; i++) {
+         checksum += encodedPattern[i];
+      }
+      console.log(`Pattern ${patternIndex} checksum: ${checksum} (bytes: ${encodedPattern.length})`);
+
       let patternStr = base85Encode(encodedPattern);
       return patternStr;
    });
-   const patternArray = patternStringContents.map(p => toLuaStringLiteral(p)).join(",\n      ");
+   const patternArray = patternStringContents.map(p => toLuaStringLiteral(p)).join(",\n\t\t");
 
-   return `
-local MUSIC_DATA = {
-   songOrder = {${songOrder}},
-   patterns = {
-      ${patternArray}
-   },
+   const musicDataSection = `local MUSIC_DATA = {
+\tsongOrder = { ${songOrder} },
+\tpatterns = {
+\t\t${patternArray}
+\t},
 }
-function TIC()
-   cls(0)
-   print("Hello from Chromatic!", 84, 68, 12)
-end
-`;
+-- END_SOMATIC_MUSIC_DATA`;
+
+   // Replace the MUSIC_DATA section in the template
+   const markerIndex = playroutineTemplate.indexOf("-- END_SOMATIC_MUSIC_DATA");
+   if (markerIndex === -1) {
+      throw new Error("Template marker \"-- END_SOMATIC_MUSIC_DATA\" not found in playroutine-min.lua");
+   }
+
+   const musicDataStart = playroutineTemplate.indexOf("local MUSIC_DATA");
+   if (musicDataStart === -1) {
+      throw new Error("Could not find \"local MUSIC_DATA\" in template");
+   }
+
+   // Replace from musicDataStart to end of marker line
+   const markerLineEnd = playroutineTemplate.indexOf("\n", markerIndex);
+   const beforeMusicData = playroutineTemplate.substring(0, musicDataStart);
+   const afterMarker = playroutineTemplate.substring(markerLineEnd + 1);
+
+   return beforeMusicData + musicDataSection + "\n" + afterMarker;
 }
 
 export function serializeSongToCart(song: Song): Uint8Array {
@@ -532,26 +542,6 @@ export function serializeSongToCart(song: Song): Uint8Array {
       cartridge.set(p, offset);
       offset += p.length;
    }
-
-   // // serialize song order data
-   // const songOrderData = new Uint8Array(1 + ChromaticCaps.maxSongLength);
-   // songOrderData[0] = song.songOrder.length & 0xff;
-   // for (let i = 0; i < ChromaticCaps.maxSongLength; i++) {
-   //    const patternIndex = song.songOrder[i] ?? 0;
-   //    songOrderData[1 + i] = patternIndex & 0xff;
-   // }
-
-   // const realPatternData = encodeRealPatterns(song); // separate pattern data for playback use
-
-   // return {
-   //    memory_0FFE4: out,
-   //    songOrderData,
-   //    patternData: ch_serializePatterns(realPatternData),
-   // };
-
-
-
-   // // for this example just make a cart with code only.
 
    return cartridge;
 }

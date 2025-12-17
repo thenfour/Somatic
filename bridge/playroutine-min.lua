@@ -8,6 +8,7 @@ local MUSIC_DATA = {
 		"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
 	},
 }
+-- END_SOMATIC_MUSIC_DATA
 
 -- Debug logging
 local LOG_LINES = 15
@@ -117,10 +118,25 @@ local function swapInPlayorder(songPosition0b, destPointer)
 	local patternLengthBytes = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
 	log(string.format("swapIn: pos=%d pat=%d len=%d", songPosition0b, patternIndex0b, #patternString))
 	patternBytes = base85_decode_to_bytes(patternString, patternLengthBytes)
+
+	-- Calculate checksum for debugging
+	local checksum = 0
+	for i = 1, #patternBytes do
+		checksum = checksum + patternBytes[i]
+	end
+	log(string.format("Pattern checksum: %d (bytes: %d)", checksum, #patternBytes))
+
+	-- Log first few bytes of pattern data
+	local sampleBytes = {}
+	for i = 1, math.min(12, #patternBytes) do
+		sampleBytes[i] = string.format("%02X", patternBytes[i])
+	end
+	log(string.format("First bytes: %s", table.concat(sampleBytes, " ")))
+
 	for i = 0, patternLengthBytes - 1 do
 		poke(destPointer + i, patternBytes[i + 1])
 	end
-	-- sync(24, 0, true)
+	sync(24, 0, true)
 end
 
 -- =========================
@@ -158,6 +174,17 @@ tf_music_init = function(songPosition, startRow)
 
 	log(string.format("tf_music_init: pos=%d row=%d", songPosition, startRow))
 
+	-- Initialize audio system - set master volume and enable all channels
+	-- Master volume is at 0x14000 (range 0-15)
+	poke(0x14000, 15)
+	log("Set master volume to 15")
+
+	-- Channel volumes at 0x14001-0x14004 (range 0-15 each)
+	for ch = 0, 3 do
+		poke(0x14001 + ch, 15)
+	end
+	log("Set all channel volumes to 15")
+
 	-- seed state
 	currentSongOrder = songPosition
 	backBufferIsA = true -- act like we came from buffer B so tick() will set it correctly on first pass.
@@ -176,6 +203,13 @@ tf_music_init = function(songPosition, startRow)
 		true -- sustain
 	)
 	log("tf_music_init: music() called")
+
+	-- Verify what's actually in memory at pattern 0
+	local verifyBytes = {}
+	for i = 0, 11 do
+		verifyBytes[i + 1] = string.format("%02X", peek(bufferALocation + i))
+	end
+	log(string.format("Memory verify: %s", table.concat(verifyBytes, " ")))
 end
 
 local function get_music_pos()
