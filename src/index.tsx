@@ -278,39 +278,33 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         audio.sfxNoteOff(note);
     }, [audio, autoSave]);
 
-    // Register all note input sources (MIDI + keyboard) and route into shared handlers.
+    // Register note handlers once for each source (MIDI + keyboard).
     useEffect(() => {
-        // lazily create keyboard source with live octave getter
         if (!keyboardRef.current) {
             keyboardRef.current = new KeyboardNoteInput({ getOctave: () => editorRef.current.octave });
+            keyboardRef.current.init();
         }
 
-        const sources: NoteInputSource[] = [];
-        if (midiRef.current) sources.push(midiRef.current);
-        if (keyboardRef.current) sources.push(keyboardRef.current);
-
         const cleanups: Array<() => void> = [];
-
-        const init = async () => {
-            for (const src of sources) {
-                await src.init();
-                src.setEnabled(midiEnabled);
-                cleanups.push(src.onNoteOn((evt) => handleIncomingNoteOn(evt.note)));
-                cleanups.push(src.onNoteOff((evt) => handleIncomingNoteOff(evt.note)));
-            }
-        };
-
-        init();
+        if (midiRef.current) {
+            cleanups.push(midiRef.current.onNoteOn((evt) => handleIncomingNoteOn(evt.note)));
+            cleanups.push(midiRef.current.onNoteOff((evt) => handleIncomingNoteOff(evt.note)));
+        }
+        if (keyboardRef.current) {
+            cleanups.push(keyboardRef.current.onNoteOn((evt) => handleIncomingNoteOn(evt.note)));
+            cleanups.push(keyboardRef.current.onNoteOff((evt) => handleIncomingNoteOff(evt.note)));
+        }
 
         return () => {
             cleanups.forEach((fn) => fn());
-            sources.forEach((src: any) => {
-                if (typeof src.dispose === 'function') {
-                    src.dispose();
-                }
-            });
         };
-    }, [handleIncomingNoteOff, handleIncomingNoteOn, midiEnabled]);
+    }, [handleIncomingNoteOff, handleIncomingNoteOn]);
+
+    // Keep sources enabled/disabled in sync.
+    useEffect(() => {
+        midiRef.current?.setEnabled(midiEnabled);
+        keyboardRef.current?.setEnabled(midiEnabled);
+    }, [midiEnabled]);
 
     useEffect(() => {
         const midi = midiRef.current;
