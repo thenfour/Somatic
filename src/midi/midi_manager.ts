@@ -1,4 +1,6 @@
 
+import {NoteEvent, NoteInputSource} from "./note_input";
+
 export type MidiDevice = {
    id: string;            //
    name: string;          //
@@ -6,19 +8,14 @@ export type MidiDevice = {
    state: string;         //
 };
 
-export type MidiNoteEvent = {
-   note: number;     //
-   velocity: number; //
-   channel: number;  //
-   deviceId: string; //
-};
+export type MidiNoteEvent = NoteEvent;
 
 type Listener<T> = (payload: T) => void;
 
 export type MidiStatus = "unsupported"|"pending"|"ready"|"denied"|"error";
 
 /** Simple WebMIDI manager: listens to all inputs and dispatches note on/off */
-export class MidiManager {
+export class MidiManager implements NoteInputSource {
    private status: MidiStatus = "pending";
    private devices: MidiDevice[] = [];
    private noteOnListeners = new Set<Listener<MidiNoteEvent>>();

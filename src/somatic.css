@@ -945,6 +945,23 @@ option {
     justify-content: center;
     align-items: center;
     cursor: pointer;
+
+    gap: 12px;
+}
+
+.splash-screen h1 {
+    font-size: 96px;
+    margin: 0;
+}
+
+.splash-screen .subtitle {
+    font-size: 24px;
+}
+
+.splash-screen .clickToContinueButton {
+    font-size: 24px;
+    font-family: var(--ff-tic);
+    padding: 8px 16px;
 }
 
 .modal-backdrop {

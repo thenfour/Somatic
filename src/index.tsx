@@ -1,5 +1,5 @@
 import fileDialog from 'file-dialog';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { saveSync } from 'save-file';
 
@@ -11,6 +11,8 @@ import { serializeSongToCart } from './audio/tic80_cart_serializer';
 import { ClipboardProvider, useClipboard } from './hooks/useClipboard';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
+import { KeyboardNoteInput } from './midi/keyboard_input';
+import { NoteInputSource } from './midi/note_input';
 import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
 import { ToTic80ChannelIndex } from './models/tic80Capabilities';
@@ -48,6 +50,7 @@ const MusicStateDisplay: React.FC<{ musicState: MusicState }> = ({ musicState })
 const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
     const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
     const midiRef = React.useRef<MidiManager | null>(new MidiManager());
+    const keyboardRef = React.useRef<KeyboardNoteInput | null>(null);
     const patternGridRef = React.useRef<PatternGridHandle | null>(null);
     const audio = useMemo(() => new AudioController({ bridgeGetter: () => bridgeRef.current }), []);
     const { pushToast } = useToasts();
@@ -104,6 +107,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         const newEnabled = !midiEnabled;
         setMidiEnabled(newEnabled);
         midiRef.current?.setEnabled(newEnabled);
+        keyboardRef.current?.setEnabled(newEnabled);
     };
 
     useEffect(() => {
@@ -248,13 +252,71 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     useEffect(() => { songRef.current = song; }, [song]);
     useEffect(() => { editorRef.current = editorState; }, [editorState]);
 
+    const handleIncomingNoteOn = useCallback((note: number) => {
+        const s = songRef.current;
+        const ed = editorRef.current;
+        const channel = ToTic80ChannelIndex(ed.patternEditChannel);
+        autoSave.flush();
+        audio.sfxNoteOn(ed.currentInstrument, note);
+
+        if (ed.editingEnabled !== false) {
+            const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.selectedPosition || 0));
+            const currentPatternIndex = s.songOrder[currentPosition] ?? 0;
+            setSong((prev) => {
+                const newSong = prev.clone();
+                const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, newSong.patterns.length - 1));
+                const pat = newSong.patterns[safePatternIndex];
+                const existingCell = pat.getCell(channel, ed.patternEditRow);
+                pat.setCell(channel, ed.patternEditRow, { ...existingCell, midiNote: note, instrumentIndex: ed.currentInstrument });
+                return newSong;
+            });
+        }
+    }, [audio, autoSave]);
+
+    const handleIncomingNoteOff = useCallback((note: number) => {
+        autoSave.flush();
+        audio.sfxNoteOff(note);
+    }, [audio, autoSave]);
+
+    // Register all note input sources (MIDI + keyboard) and route into shared handlers.
+    useEffect(() => {
+        // lazily create keyboard source with live octave getter
+        if (!keyboardRef.current) {
+            keyboardRef.current = new KeyboardNoteInput({ getOctave: () => editorRef.current.octave });
+        }
+
+        const sources: NoteInputSource[] = [];
+        if (midiRef.current) sources.push(midiRef.current);
+        if (keyboardRef.current) sources.push(keyboardRef.current);
+
+        const cleanups: Array<() => void> = [];
+
+        const init = async () => {
+            for (const src of sources) {
+                await src.init();
+                src.setEnabled(midiEnabled);
+                cleanups.push(src.onNoteOn((evt) => handleIncomingNoteOn(evt.note)));
+                cleanups.push(src.onNoteOff((evt) => handleIncomingNoteOff(evt.note)));
+            }
+        };
+
+        init();
+
+        return () => {
+            cleanups.forEach((fn) => fn());
+            sources.forEach((src: any) => {
+                if (typeof src.dispose === 'function') {
+                    src.dispose();
+                }
+            });
+        };
+    }, [handleIncomingNoteOff, handleIncomingNoteOn, midiEnabled]);
+
     useEffect(() => {
         const midi = midiRef.current;
         if (!midi) return;
 
         let offDevices: (() => void) | null = null;
-        let offNoteOn: (() => void) | null = null;
-        let offNoteOff: (() => void) | null = null;
 
         midi.init().then(() => {
             setMidiStatus(midi.getStatus());
@@ -264,47 +326,10 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 setMidiDevices(list);
                 setMidiStatus(midi.getStatus());
             });
-
-            offNoteOn = midi.onNoteOn((evt) => {
-                const s = songRef.current;
-                const ed = editorRef.current;
-                //const instIdx = clamp(ed.currentInstrument, 0, s.instruments.length - 1);
-                //const instrument = s.instruments[instIdx];
-                const channel = ToTic80ChannelIndex(ed.patternEditChannel);
-                //if (instrument) {
-                autoSave.flush();
-                audio.sfxNoteOn(ed.currentInstrument, evt.note);
-                //}
-
-                if (ed.editingEnabled !== false) {
-                    const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.selectedPosition || 0));
-                    const currentPatternIndex = s.songOrder[currentPosition] ?? 0;
-                    setSong((prev) => {
-                        const newSong = prev.clone();
-                        const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, newSong.patterns.length - 1));
-                        const pat = newSong.patterns[safePatternIndex];
-                        //const ch = pat.channels[ed.patternEditChannel];
-                        //const rowIndex = clamp(ed.patternEditRow, 0, song.row - 1);
-                        //const existingRow = ch.getRow(rowIndex);
-                        //ch.setRow(row, 'note', evt.note);
-                        //ch.setRow(row, 'instrument', instIdx);
-                        const existingCell = pat.getCell(channel, ed.patternEditRow);
-                        pat.setCell(channel, ed.patternEditRow, { ...existingCell, midiNote: evt.note, instrumentIndex: ed.currentInstrument });
-                        return newSong;
-                    });
-                }
-            });
-
-            offNoteOff = midi.onNoteOff((evt) => {
-                autoSave.flush();
-                audio.sfxNoteOff(evt.note);
-            });
         });
 
         return () => {
             offDevices?.();
-            offNoteOn?.();
-            offNoteOff?.();
         };
     }, [audio]);
 
@@ -624,9 +649,9 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 const SplashScreen: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
     <div className="splash-screen" onClick={onContinue} onKeyDown={onContinue}>
         <h1>Somatic</h1>
-        <div>By tenfour</div>
-        <p>A tracker for TIC-80</p>
-        <button style={{ pointerEvents: 'none' }}>Click to Continue</button>
+        <div className='subtitle subtitle1'>A tracker for TIC-80</div>
+        <div className='subtitle subtitle2'>By tenfour</div>
+        <button className='clickToContinueButton' style={{ pointerEvents: 'none' }}>Click to Continue</button>
     </div>
 );
 

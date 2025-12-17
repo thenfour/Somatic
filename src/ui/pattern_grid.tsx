@@ -11,7 +11,6 @@ import { Tooltip } from './tooltip';
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 
 
-const noteKeyMap = '-zsxdcvgbhnjmq2w3er5t6y7ui'.split('');
 const instrumentKeyMap = '0123456789abcdef'.split('');
 const commandKeyMap = 'mcjspvd'.split('');
 const paramKeyMap = instrumentKeyMap;
@@ -85,8 +84,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         };
 
         const handleNoteKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, e: KeyboardEvent<HTMLTableCellElement>) => {
-
-            // shift+backspace = note cut
+            // shift+backspace = note cut (still handled locally)
             if (e.shiftKey && e.key === 'Backspace') {
                 onSongChange((s) => {
                     const pat = s.patterns[safePatternIndex];
@@ -97,33 +95,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         instrumentIndex: SomaticCaps.noteCutInstrumentIndex,
                     });
                 });
-                return;
             }
-
-            if (!noteKeyMap.includes(e.key)) {
-                return;
-            }
-
-            const idx = noteKeyMap.indexOf(e.key);
-            if (idx === -1) return;
-            const midiNoteValue = idx + (editorState.octave - 1) * 12;
-            //if (midiNoteValue > MAX_NOTE_NUM) return;
-
-            onSongChange((s) => {
-                const pat = s.patterns[safePatternIndex];
-                const oldCell = pat.getCell(channelIndex, rowIndex);
-                pat.setCell(channelIndex, rowIndex, {
-                    ...oldCell,
-                    midiNote: midiNoteValue,
-                    instrumentIndex: editorState.currentInstrument,
-                });
-            });
-
-            //setRowValue(channelIndex, rowIndex, 'note', midiNoteValue);
-            //setRowValue(channelIndex, rowIndex, 'instrument', editorState.currentInstrument);
-            if (!audio.isPlaying) {
-                playRow(rowIndex);
-            }
+            // note entry is now handled via global note input sources (MIDI/keyboard), so other keys are ignored here.
         };
 
         const handleInstrumentKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string) => {
