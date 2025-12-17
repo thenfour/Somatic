@@ -273,6 +273,52 @@ export const WaveformEditorPanel: React.FC<{
         });
     };
 
+    const handleLowpass = () => {
+        const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
+        const maxAmp = amplitudeRange - 1;
+        onSongChange((s) => {
+            const wf = s.waveforms[editingWaveformId];
+            if (!wf) return;
+
+            // Simple 3-point moving average lowpass filter
+            const original = new Uint8Array(wf.amplitudes);
+            const len = original.length;
+
+            for (let i = 0; i < len; i += 1) {
+                const prev = original[(i - 1 + len) % len];
+                const curr = original[i];
+                const next = original[(i + 1) % len];
+                // Weighted average: 25% prev + 50% current + 25% next
+                const filtered = (prev * 0.25 + curr * 0.5 + next * 0.25);
+                wf.amplitudes[i] = Math.round(Math.max(0, Math.min(maxAmp, filtered)));
+            }
+        });
+    };
+
+    const handleLowpass1Pole = () => {
+        const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
+        const maxAmp = amplitudeRange - 1;
+        onSongChange((s) => {
+            const wf = s.waveforms[editingWaveformId];
+            if (!wf) return;
+
+            // 1-pole IIR lowpass filter: y[n] = y[n-1] + α * (x[n] - y[n-1])
+            // α = 0.3 gives a moderate smoothing effect
+            const alpha = 0.5;
+            const original = new Uint8Array(wf.amplitudes);
+            const len = original.length;
+
+            // Initialize with the first sample
+            let y = original[0];
+
+            for (let i = 0; i < len; i += 1) {
+                const x = original[i];
+                y = y + alpha * (x - y);
+                wf.amplitudes[i] = Math.round(Math.max(0, Math.min(maxAmp, y)));
+            }
+        });
+    };
+
     const handleCopy = async () => {
         const waveform = song.waveforms[editingWaveformId];
         await clipboard.copyObjectToClipboard(waveform.toData());
@@ -344,6 +390,8 @@ export const WaveformEditorPanel: React.FC<{
                     <button type="button" onClick={() => handleShift(1)}>Up</button>
                     <button type="button" onClick={() => handleShift(-1)}>Down</button>
                     <button type="button" onClick={handleNormalize}>Normalize</button>
+                    <button type="button" onClick={handleLowpass}>Lowpass</button>
+                    <button type="button" onClick={handleLowpass1Pole}>LP 1-pole</button>
                 </div>
             </div>
         </div>);

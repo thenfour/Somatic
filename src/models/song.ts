@@ -24,13 +24,30 @@ export type SongDto = {
 };
 
 const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {
-   return Array.from({length: Tic80Caps.waveform.count}, (_, i) => {
+   const ret = Array.from({length: Tic80Caps.waveform.count}, (_, i) => {
       const waveData = data[i];
       const ret = new Tic80Waveform(waveData);
       if (IsNullOrWhitespace(ret.name))
          ret.name = `WAVE ${i}`;
       return ret;
    });
+
+   if (data.length === 0) {
+      // new song; populate waveforms. the waveforms exist and amplitude arrays exist but are zero'd.
+      // populate with triangle waves.
+      for (let i = 0; i < Tic80Caps.waveform.count; i++) {
+         const wave = ret[i]!;
+         for (let p = 0; p < Tic80Caps.waveform.pointCount; p++) {
+            const amp = Math.floor(
+               (Tic80Caps.waveform.amplitudeRange - 1) *
+               (p < Tic80Caps.waveform.pointCount / 2 ?
+                   (p / (Tic80Caps.waveform.pointCount / 2)) :
+                   (1 - (p - Tic80Caps.waveform.pointCount / 2) / (Tic80Caps.waveform.pointCount / 2))));
+            wave.amplitudes[p] = amp;
+         }
+      }
+   }
+   return ret;
 };
 
 const makeInstrumentList = (data: Tic80InstrumentDto[]): Tic80Instrument[] => {
