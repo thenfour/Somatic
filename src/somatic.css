@@ -1108,6 +1108,33 @@ option {
     flex-shrink: 0;
     padding: 4px;
     border-top: 1px solid var(--border);
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.arrangement-editor__command,
+.arrangement-editor__add {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 14px;
+    min-width: 32px;
+}
+
+.arrangement-editor__command:hover:not(:disabled),
+.arrangement-editor__add:hover:not(:disabled) {
+    background: var(--panel-strong);
+    border-color: var(--accent);
+}
+
+.arrangement-editor__command:disabled,
+.arrangement-editor__add:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .arrangement-editor__toggle-names {

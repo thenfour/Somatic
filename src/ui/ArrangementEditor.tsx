@@ -78,13 +78,170 @@ export const ArrangementEditor: React.FC<{
         deletePosition(positionIndex);
     };
 
-    const handleAddPosition = () => {
+    // Find the first unused pattern index
+    const findUnusedPatternIndex = (s: Song): number => {
+        const usedPatterns = new Set(s.songOrder);
+        for (let i = 0; i < maxPatterns; i++) {
+            if (!usedPatterns.has(i)) {
+                ensurePatternExists(s, i);
+                return i;
+            }
+        }
+        return 0; // fallback
+    };
+
+    // Get the selection range (either selectedArrangementPositions or just the active position)
+    const getSelectionRange = (): number[] => {
+        if (editorState.selectedArrangementPositions.length > 0) {
+            return [...editorState.selectedArrangementPositions].sort((a, b) => a - b);
+        }
+        return [editorState.activeSongPosition];
+    };
+
+    const handleInsertAbove = () => {
         onSongChange((s) => {
             if (s.songOrder.length >= maxPositions) return;
-            const last = s.songOrder[s.songOrder.length - 1] ?? 0;
-            let next = clamp(last, 0, maxPatterns - 1);
-            next = ensurePatternExists(s, next);
-            s.songOrder.push(next);
+            const selection = getSelectionRange();
+            const insertPos = selection[0];
+            const newPattern = findUnusedPatternIndex(s);
+            s.songOrder.splice(insertPos, 0, newPattern);
+        });
+        onEditorStateChange((state) => {
+            state.setArrangementSelection([]);
+        });
+    };
+
+    const handleInsertBelow = () => {
+        onSongChange((s) => {
+            if (s.songOrder.length >= maxPositions) return;
+            const selection = getSelectionRange();
+            const insertPos = selection[selection.length - 1] + 1;
+            const newPattern = findUnusedPatternIndex(s);
+            s.songOrder.splice(insertPos, 0, newPattern);
+        });
+        onEditorStateChange((state) => {
+            state.setArrangementSelection([]);
+        });
+    };
+
+    const handleDeleteSelected = async () => {
+        const selection = getSelectionRange();
+        if (selection.length >= song.songOrder.length) return; // can't delete everything
+
+        const confirmed = await confirm({
+            content: (
+                <div>
+                    <p>
+                        Are you sure you want to delete {selection.length} position{selection.length > 1 ? 's' : ''} from the arrangement?
+                    </p>
+                </div>
+            ),
+            defaultAction: 'yes',
+            yesLabel: 'Delete',
+            noLabel: 'Cancel',
+        });
+
+        if (!confirmed) return;
+
+        onSongChange((s) => {
+            // Delete in reverse order to maintain indices
+            for (let i = selection.length - 1; i >= 0; i--) {
+                s.songOrder.splice(selection[i], 1);
+            }
+        });
+        onEditorStateChange((state) => {
+            const newActive = Math.min(selection[0], song.songOrder.length - selection.length - 1);
+            state.setActiveSongPosition(Math.max(0, newActive));
+            state.setArrangementSelection([]);
+        });
+    };
+
+    const handleRepeatSelection = () => {
+        onSongChange((s) => {
+            if (s.songOrder.length >= maxPositions) return;
+            const selection = getSelectionRange();
+            const patterns = selection.map(idx => s.songOrder[idx]);
+            const insertPos = selection[selection.length - 1] + 1;
+
+            // Check if we have room
+            if (s.songOrder.length + patterns.length > maxPositions) return;
+
+            s.songOrder.splice(insertPos, 0, ...patterns);
+        });
+        onEditorStateChange((state) => {
+            state.setArrangementSelection([]);
+        });
+    };
+
+    const handleDuplicateSelection = () => {
+        onSongChange((s) => {
+            if (s.songOrder.length >= maxPositions) return;
+            const selection = getSelectionRange();
+            const patterns = selection.map(idx => s.songOrder[idx]);
+
+            // Check if we have room
+            if (s.songOrder.length + patterns.length > maxPositions) return;
+
+            // Create new pattern copies
+            const duplicatedPatterns = patterns.map(patternIdx => {
+                const newPattern = findUnusedPatternIndex(s);
+                const sourcePattern = s.patterns[patternIdx];
+                s.patterns[newPattern] = sourcePattern.clone();
+                return newPattern;
+            });
+
+            const insertPos = selection[selection.length - 1] + 1;
+            s.songOrder.splice(insertPos, 0, ...duplicatedPatterns);
+        });
+        onEditorStateChange((state) => {
+            state.setArrangementSelection([]);
+        });
+    };
+
+    const handleMoveUp = () => {
+        const selection = getSelectionRange();
+        if (selection[0] === 0) return; // already at top
+
+        onSongChange((s) => {
+            // Move each selected position up by one
+            for (const idx of selection) {
+                const temp = s.songOrder[idx];
+                s.songOrder[idx] = s.songOrder[idx - 1];
+                s.songOrder[idx - 1] = temp;
+            }
+        });
+        onEditorStateChange((state) => {
+            // Update selection to follow the moved items
+            state.setActiveSongPosition(state.activeSongPosition - 1);
+            if (state.selectedArrangementPositions.length > 0) {
+                state.setArrangementSelection(
+                    state.selectedArrangementPositions.map(idx => idx - 1)
+                );
+            }
+        });
+    };
+
+    const handleMoveDown = () => {
+        const selection = getSelectionRange();
+        if (selection[selection.length - 1] >= song.songOrder.length - 1) return; // already at bottom
+
+        onSongChange((s) => {
+            // Move in reverse order to avoid conflicts
+            for (let i = selection.length - 1; i >= 0; i--) {
+                const idx = selection[i];
+                const temp = s.songOrder[idx];
+                s.songOrder[idx] = s.songOrder[idx + 1];
+                s.songOrder[idx + 1] = temp;
+            }
+        });
+        onEditorStateChange((state) => {
+            // Update selection to follow the moved items
+            state.setActiveSongPosition(state.activeSongPosition + 1);
+            if (state.selectedArrangementPositions.length > 0) {
+                state.setArrangementSelection(
+                    state.selectedArrangementPositions.map(idx => idx + 1)
+                );
+            }
         });
     };
 
@@ -253,15 +410,81 @@ export const ArrangementEditor: React.FC<{
                 })}
             </div>
             <div className="arrangement-editor__footer">
-                <Tooltip title={`Add position at the end of the list`}>
+                <Tooltip title="Insert new pattern above selection">
                     <button
                         type="button"
-                        className="arrangement-editor__add"
-                        onClick={handleAddPosition}
+                        className="arrangement-editor__command"
+                        onClick={handleInsertAbove}
                         disabled={song.songOrder.length >= maxPositions}
-                        aria-label="Add position"
+                        aria-label="Insert above"
                     >
-                        +
+                        +↑
+                    </button>
+                </Tooltip>
+                <Tooltip title="Insert new pattern below selection">
+                    <button
+                        type="button"
+                        className="arrangement-editor__command"
+                        onClick={handleInsertBelow}
+                        disabled={song.songOrder.length >= maxPositions}
+                        aria-label="Insert below"
+                    >
+                        +⬇
+                    </button>
+                </Tooltip>
+                <Tooltip title="Delete selected positions">
+                    <button
+                        type="button"
+                        className="arrangement-editor__command"
+                        onClick={handleDeleteSelected}
+                        disabled={getSelectionRange().length >= song.songOrder.length}
+                        aria-label="Delete selected"
+                    >
+                        ×
+                    </button>
+                </Tooltip>
+                <Tooltip title="Repeat selection (reuse same patterns)">
+                    <button
+                        type="button"
+                        className="arrangement-editor__command"
+                        onClick={handleRepeatSelection}
+                        disabled={song.songOrder.length >= maxPositions}
+                        aria-label="Repeat selection"
+                    >
+                        ↻
+                    </button>
+                </Tooltip>
+                <Tooltip title="Duplicate selection (copy patterns)">
+                    <button
+                        type="button"
+                        className="arrangement-editor__command"
+                        onClick={handleDuplicateSelection}
+                        disabled={song.songOrder.length >= maxPositions}
+                        aria-label="Duplicate selection"
+                    >
+                        ⧉
+                    </button>
+                </Tooltip>
+                <Tooltip title="Move selection up">
+                    <button
+                        type="button"
+                        className="arrangement-editor__command"
+                        onClick={handleMoveUp}
+                        disabled={getSelectionRange()[0] === 0}
+                        aria-label="Move up"
+                    >
+                        ⬆
+                    </button>
+                </Tooltip>
+                <Tooltip title="Move selection down">
+                    <button
+                        type="button"
+                        className="arrangement-editor__command"
+                        onClick={handleMoveDown}
+                        disabled={getSelectionRange()[getSelectionRange().length - 1] >= song.songOrder.length - 1}
+                        aria-label="Move down"
+                    >
+                        ⬇
                     </button>
                 </Tooltip>
             </div>
