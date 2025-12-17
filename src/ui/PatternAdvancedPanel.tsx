@@ -6,6 +6,7 @@ export type PatternAdvancedPanelProps = {
     onTranspose: (amount: number, scope: ScopeValue) => void;
     onSetInstrument: (instrument: number, scope: ScopeValue) => void;
     onChangeInstrument: (fromInstrument: number, toInstrument: number, scope: ScopeValue) => void;
+    onInterpolate: (target: InterpolateTarget, scope: ScopeValue) => void;
 };
 
 const scopeOptions = [
@@ -17,15 +18,21 @@ const scopeOptions = [
 ] as const;
 
 export type ScopeValue = (typeof scopeOptions)[number]['value'];
-type InterpolateTarget = 'Notes' | 'Param X' | 'Param Y';
+const interpolateOptions = [
+    { value: 'notes', label: 'Notes' },
+    { value: 'paramX', label: 'Param X' },
+    { value: 'paramY', label: 'Param Y' },
+] as const;
 
-export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enabled = true, onTranspose, onSetInstrument, onChangeInstrument }) => {
+export type InterpolateTarget = (typeof interpolateOptions)[number]['value'];
+
+export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enabled = true, onTranspose, onSetInstrument, onChangeInstrument, onInterpolate }) => {
     const scopeGroupId = useId();
     const [scope, setScope] = useState<ScopeValue>('selection');
     const [setInstrumentValue, setSetInstrumentValue] = useState<number>(2);
     const [changeInstrumentFrom, setChangeInstrumentFrom] = useState<number>(2);
     const [changeInstrumentTo, setChangeInstrumentTo] = useState<number>(3);
-    const [interpolateTarget, setInterpolateTarget] = useState<InterpolateTarget>('Param X');
+    const [interpolateTarget, setInterpolateTarget] = useState<InterpolateTarget>('notes');
 
     return (
         <aside
@@ -122,20 +129,25 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enab
 
                 <section className="pattern-advanced-panel__section">
                     <div className="pattern-advanced-panel__toggleRow">
-                        {(['Notes', 'Param X', 'Param Y'] as InterpolateTarget[]).map((axis) => (
-                            <label key={axis} className="pattern-advanced-panel__chip">
+                        {interpolateOptions.map((option) => (
+                            <label key={option.value} className="pattern-advanced-panel__chip">
                                 <input
                                     type="radio"
                                     name={`${scopeGroupId}-interp`}
-                                    value={axis}
-                                    checked={interpolateTarget === axis}
-                                    onChange={() => setInterpolateTarget(axis)}
+                                    value={option.value}
+                                    checked={interpolateTarget === option.value}
+                                    onChange={() => setInterpolateTarget(option.value)}
                                 />
-                                <span>{axis.toUpperCase()}</span>
+                                <span>{option.label.toUpperCase()}</span>
                             </label>
                         ))}
                     </div>
-                    <button type="button" className="pattern-advanced-panel__button pattern-advanced-panel__button--primary">
+                    <button
+                        type="button"
+                        className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
+                        onClick={() => onInterpolate(interpolateTarget, scope)}
+                        disabled={!enabled}
+                    >
                         Interpolate
                     </button>
                 </section>

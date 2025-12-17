@@ -9,7 +9,7 @@ import { SomaticEffectCommand, SomaticCaps, Tic80Caps, Tic80ChannelIndex, ToTic8
 import { HelpTooltip } from './HelpTooltip';
 import { useClipboard } from '../hooks/useClipboard';
 import { useToasts } from './toast_provider';
-import { PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
+import { PatternAdvancedPanel, ScopeValue, InterpolateTarget } from './PatternAdvancedPanel';
 import { Tooltip } from './tooltip';
 import { CharMap, clamp } from '../utils/utils';
 
@@ -36,9 +36,15 @@ const formatCommand = (val: number | undefined | null) => {
     return `${commandKeyMap[val].toUpperCase()}` || '?';
 };
 
-const formatParam = (val: number | undefined | null) => {
-    if (val === null || val === undefined) return '--';
-    return val.toString(16).toUpperCase().padStart(2, '0');
+const formatParams = (valX: number | undefined | null, valY: number | undefined | null) => {
+    // if (valX === null || valX === undefined || valY === null || valY === undefined) return '--';
+    // return `${valX.toString(16).toUpperCase().padStart(1, '0')}${valY.toString(16).toUpperCase().padStart(1, '0')}`;
+
+    // if BOTH are undefined/null, return '--'
+    if (valX == null && valY == null) return '--';
+    const paramXStr = (valX == null) ? '-' : valX.toString(16).toUpperCase();
+    const paramYStr = (valY == null) ? '-' : valY.toString(16).toUpperCase();
+    return `${paramXStr}${paramYStr}`;
 };
 
 type PatternGridProps = {
@@ -86,6 +92,10 @@ const inclusiveRange = (start: number, end: number): number[] => {
     const upper = Math.max(start, end);
     const length = Math.max(upper - lower + 1, 0);
     return Array.from({ length }, (_, idx) => lower + idx);
+};
+
+const debugAdvanced = (...args: unknown[]) => {
+    //console.debug('[AdvancedEdit]', ...args);
 };
 
 const mutatePatternCells = (
@@ -166,6 +176,134 @@ const changeInstrumentInPattern = (
         if (fromInstrument === toInstrument) return null;
         return { ...cell, instrumentIndex: toInstrument };
     });
+
+type CellValueAccessor = {
+    min: number;
+    max: number;
+    read: (cell: PatternCell) => number | undefined;
+    write: (cell: PatternCell, value: number) => PatternCell | null;
+};
+
+const interpolationAccessors: Record<InterpolateTarget, CellValueAccessor> = {
+    notes: {
+        min: MIN_PATTERN_MIDI,
+        max: MAX_PATTERN_MIDI,
+        read: (cell) => {
+            if (cell.midiNote === undefined) return undefined;
+            if (isNoteCut(cell)) return undefined;
+            return cell.midiNote;
+        },
+        write: (cell, value) => {
+            if (isNoteCut(cell)) return null;
+            const clamped = clamp(Math.round(value), MIN_PATTERN_MIDI, MAX_PATTERN_MIDI);
+            if (cell.midiNote === clamped) return null;
+            return { ...cell, midiNote: clamped };
+        },
+    },
+    paramX: {
+        min: 0,
+        max: 0x0f,
+        read: (cell) => {
+            if (cell.effectX === undefined) return undefined;
+            return cell.effectX;
+        },
+        write: (cell, value) => {
+            const clamped = clamp(Math.round(value), 0, 0x0f);
+            if (cell.effectX === clamped) return null;
+            return { ...cell, effectX: clamped };
+        },
+    },
+    paramY: {
+        min: 0,
+        max: 0x0f,
+        read: (cell) => {
+            if (cell.effectY === undefined) return undefined;
+            return cell.effectY;
+        },
+        write: (cell, value) => {
+            const clamped = clamp(Math.round(value), 0, 0x0f);
+            if (cell.effectY === clamped) return null;
+            return { ...cell, effectY: clamped };
+        },
+    },
+};
+
+type InterpolationResult = {
+    mutated: boolean;
+    anchorPairs: number;
+};
+
+const interpolatePatternValues = (
+    pattern: Pattern,
+    channels: number[],
+    rowRange: RowRange,
+    rowsPerPattern: number,
+    target: InterpolateTarget,
+): InterpolationResult => {
+    const accessor = interpolationAccessors[target];
+    const maxRow = clamp(rowsPerPattern - 1, 0, Tic80Caps.pattern.maxRows - 1);
+    if (maxRow < 0) return { mutated: false, anchorPairs: 0 };
+    const rowStart = clamp(Math.min(rowRange.start, rowRange.end), 0, maxRow);
+    const rowEnd = clamp(Math.max(rowRange.start, rowRange.end), 0, maxRow);
+
+    const channelMax = Tic80Caps.song.audioChannels - 1;
+    let mutated = false;
+    let anchorPairs = 0;
+
+    for (const channel of channels) {
+        if (!Number.isFinite(channel)) continue;
+        const safeChannel = clamp(Math.floor(channel), 0, channelMax);
+        const channelIndex = ToTic80ChannelIndex(safeChannel);
+
+        let startRow = -1;
+        let startValue: number | null = null;
+        for (let row = rowStart; row <= rowEnd; row++) {
+            const value = accessor.read(pattern.getCell(channelIndex, row));
+            if (value === undefined) continue;
+            startRow = row;
+            startValue = value;
+            break;
+        }
+
+        if (startRow === -1 || startValue === null) continue;
+
+        let endRow = -1;
+        let endValue: number | null = null;
+        for (let row = rowEnd; row >= rowStart; row--) {
+            const value = accessor.read(pattern.getCell(channelIndex, row));
+            if (value === undefined) continue;
+            endRow = row;
+            endValue = value;
+            break;
+        }
+
+        if (endRow === -1 || endValue === null) continue;
+        if (endRow <= startRow) continue;
+        anchorPairs++;
+        debugAdvanced('Interpolating channel', {
+            target,
+            channelIndex,
+            startRow,
+            startValue,
+            endRow,
+            endValue,
+        });
+
+        const span = endRow - startRow;
+        for (let row = startRow + 1; row < endRow; row++) {
+            const t = (row - startRow) / span;
+            const interpolated = startValue + (endValue - startValue) * t;
+            const clampedValue = clamp(Math.round(interpolated), accessor.min, accessor.max);
+            const cell = pattern.getCell(channelIndex, row);
+            const updated = accessor.write(cell, clampedValue);
+            if (!updated) continue;
+            pattern.setCell(channelIndex, row, updated);
+            mutated = true;
+        }
+    }
+
+    return { mutated, anchorPairs };
+};
 
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
     ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange }, ref) => {
@@ -271,36 +409,46 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         pushToast({ message: 'Select a block before using Selection scope.', variant: 'error' });
                         return null;
                     }
-                    return {
+                    const targets = {
                         patternIndices: [safePatternIndex],
                         channels: inclusiveRange(selectionBounds.channelStart, selectionBounds.channelEnd),
                         rowRange: { start: selectionBounds.rowStart, end: selectionBounds.rowEnd },
                     };
+                    debugAdvanced('Scope resolved', scope, targets);
+                    return targets;
                 }
                 case 'channel-pattern':
-                    return {
+                    const channelPatternTargets = {
                         patternIndices: [safePatternIndex],
                         channels: [editorState.patternEditChannel],
                         rowRange: fullRowRange,
                     };
+                    debugAdvanced('Scope resolved', scope, channelPatternTargets);
+                    return channelPatternTargets;
                 case 'channel-song':
-                    return {
+                    const channelSongTargets = {
                         patternIndices: allPatternIndices,
                         channels: [editorState.patternEditChannel],
                         rowRange: fullRowRange,
                     };
+                    debugAdvanced('Scope resolved', scope, channelSongTargets);
+                    return channelSongTargets;
                 case 'pattern':
-                    return {
+                    const patternTargets = {
                         patternIndices: [safePatternIndex],
                         channels: allChannels,
                         rowRange: fullRowRange,
                     };
+                    debugAdvanced('Scope resolved', scope, patternTargets);
+                    return patternTargets;
                 case 'song':
-                    return {
+                    const songTargets = {
                         patternIndices: allPatternIndices,
                         channels: allChannels,
                         rowRange: fullRowRange,
                     };
+                    debugAdvanced('Scope resolved', scope, songTargets);
+                    return songTargets;
                 default:
                     return null;
             }
@@ -391,6 +539,37 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     pushToast({ message: 'No matching instruments were found to change.', variant: 'info' });
                 }
             });
+        }, [onSongChange, pushToast, resolveScopeTargets]);
+
+        const handleInterpolate = useCallback((target: InterpolateTarget, scope: ScopeValue) => {
+            const targets = resolveScopeTargets(scope);
+            if (!targets) return;
+            const { patternIndices, channels, rowRange } = targets;
+            debugAdvanced('Interpolate request', { target, scope, patternIndices, channels, rowRange });
+            if (patternIndices.length === 0 || channels.length === 0) {
+                pushToast({ message: 'Nothing to interpolate in that scope.', variant: 'error' });
+                return;
+            }
+            let totalMutated = false;
+            let totalAnchorPairs = 0;
+            onSongChange((nextSong) => {
+                for (const patternIndex of patternIndices) {
+                    const targetPattern = nextSong.patterns[patternIndex];
+                    if (!targetPattern) continue;
+                    const result = interpolatePatternValues(targetPattern, channels, rowRange, nextSong.rowsPerPattern, target);
+                    debugAdvanced('Interpolate result', { patternIndex, result });
+                    if (result.mutated) totalMutated = true;
+                    totalAnchorPairs += result.anchorPairs;
+                }
+            });
+            debugAdvanced('Interpolate summary', { totalMutated, totalAnchorPairs });
+            if (!totalMutated) {
+                if (totalAnchorPairs === 0) {
+                    pushToast({ message: 'Need at least two anchors with values to interpolate.', variant: 'info' });
+                } else {
+                    pushToast({ message: 'No eligible rows between anchors to update.', variant: 'info' });
+                }
+            }
         }, [onSongChange, pushToast, resolveScopeTargets]);
 
         const createClipboardPayload = (): PatternClipboardPayload | null => {
@@ -900,6 +1079,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         onTranspose={handleTranspose}
                         onSetInstrument={handleSetInstrument}
                         onChangeInstrument={handleChangeInstrument}
+                        onInterpolate={handleInterpolate}
                     />
                 )}
                 <div className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}>
@@ -946,7 +1126,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const noteText = noteCut ? "^^^" : formatMidiNote(row.midiNote);
                                             const instText = noteCut ? "" : formatInstrument(row.instrumentIndex);
                                             const cmdText = formatCommand(row.effect);
-                                            const paramText = formatParam(row.effectX !== undefined && row.effectY !== undefined ? (row.effectX << 4) | row.effectY : undefined);
+                                            const paramText = formatParams(row.effectX, row.effectY);
                                             const noteCol = channelIndex * 4;
                                             const instCol = channelIndex * 4 + 1;
                                             const cmdCol = channelIndex * 4 + 2;
@@ -1013,9 +1193,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-channel-index={channelIndex}
                                                         data-cell-type="note"
                                                         data-column-index={noteCol}
+                                                        data-cell-value={`[${JSON.stringify(row.midiNote)}]`}
                                                     >
-                                                        {noteText}
-                                                        {errorInRow && (<HelpTooltip className="error-tooltip" content={errorText} children={<>!</>} />)}
+                                                        <Tooltip title={errorText} disabled={!errorInRow}>
+                                                            <div>{noteText}</div>
+                                                        </Tooltip>
+                                                        {/* {errorInRow && (<HelpTooltip className="error-tooltip" content={errorText} children={<>!</>} />)} */}
                                                     </td>
                                                     <td
                                                         tabIndex={0}
@@ -1031,6 +1214,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-channel-index={channelIndex}
                                                         data-cell-type="instrument"
                                                         data-column-index={instCol}
+                                                        data-cell-value={`[${JSON.stringify(row.instrumentIndex)}]`}
                                                     >
                                                         {instText}
                                                     </td>
@@ -1048,6 +1232,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-channel-index={channelIndex}
                                                         data-cell-type="command"
                                                         data-column-index={cmdCol}
+                                                        data-cell-value={`[${JSON.stringify(row.effect)}]`}
                                                     >
                                                         {cmdText}
                                                     </td>
@@ -1065,6 +1250,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-channel-index={channelIndex}
                                                         data-cell-type="param"
                                                         data-column-index={paramCol}
+                                                        data-cell-value={`[X=${JSON.stringify(row.effectX)},Y=${JSON.stringify(row.effectY)}]`}
                                                     >
                                                         {paramText}
                                                     </td>

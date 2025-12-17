@@ -966,7 +966,11 @@ option {
 
 .pattern-grid td.note-cell {
     color: var(--cell-note);
-    border-left: 18px solid transparent;
+    /* border-left: 18px solid transparent; */
+}
+
+.pattern-grid td.note-cell>div {
+    margin-left: 19px;
 }
 
 .pattern-grid td.instrument-cell {
