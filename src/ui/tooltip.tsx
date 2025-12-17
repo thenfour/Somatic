@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 
-type TooltipProps = {
+type HelpTooltipProps = {
     content: React.ReactNode;
     children: React.ReactNode;
     /** Optional aria-label override for the trigger wrapper. */
@@ -9,7 +9,7 @@ type TooltipProps = {
     className?: string;
 };
 
-export const Tooltip: React.FC<TooltipProps> = ({ content, children, label, className }) => {
+export const HelpTooltip: React.FC<HelpTooltipProps> = ({ content, children, label, className }) => {
     const triggerRef = React.useRef<HTMLSpanElement | null>(null);
     const [open, setOpen] = React.useState(false);
     const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null);

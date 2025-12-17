@@ -6,7 +6,7 @@ import { EditorState } from '../models/editor_state';
 import { isNoteCut, Pattern } from '../models/pattern';
 import { Song } from '../models/song';
 import { SomaticEffectCommand, SomaticCaps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
-import { Tooltip } from './tooltip';
+import { HelpTooltip } from './tooltip';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 
@@ -467,7 +467,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     data-column-index={noteCol}
                                                 >
                                                     {noteText}
-                                                    {errorInRow && (<Tooltip className="error-tooltip" content={errorText} children={<>!</>} />)}
+                                                    {errorInRow && (<HelpTooltip className="error-tooltip" content={errorText} children={<>!</>} />)}
                                                 </td>
                                                 <td
                                                     tabIndex={0}
