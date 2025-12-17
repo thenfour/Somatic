@@ -272,26 +272,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                         R
                     </label>
                 </div>
-                <div className="field-row">
-                    <label>
-                        <input
-                            type="checkbox"
-                            checked={instrument.arpeggioDown}
-                            onChange={handleArpeggioReverseChange}
-                        />
-                        Arpeggio reverse
-                    </label>
-                </div>
-                <div className="field-row">
-                    <label>
-                        <input
-                            type="checkbox"
-                            checked={instrument.pitch16x}
-                            onChange={handlePitch16xChange}
-                        />
-                        Pitch 16x
-                    </label>
-                </div>
                 <InstrumentEnvelopeEditor
                     title="Volume Envelope"
                     frames={instrument.volumeFrames}
@@ -319,6 +299,16 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                     maxValue={Tic80Caps.sfx.arpeggioMax}
                     onChange={handleArpeggioEnvelopeChange}
                 />
+                <div className="field-row">
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={instrument.arpeggioDown}
+                            onChange={handleArpeggioReverseChange}
+                        />
+                        Arpeggio reverse
+                    </label>
+                </div>
                 <InstrumentEnvelopeEditor
                     title="Pitch Envelope"
                     frames={instrument.pitchFrames}
@@ -328,6 +318,16 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                     maxValue={Tic80Caps.sfx.pitchMax}
                     onChange={handlePitchEnvelopeChange}
                 />
+                <div className="field-row">
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={instrument.pitch16x}
+                            onChange={handlePitch16xChange}
+                        />
+                        Pitch 16x
+                    </label>
+                </div>
             </div>
         </div>
     );

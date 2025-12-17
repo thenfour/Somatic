@@ -571,13 +571,15 @@ option {
 
 #keyboard .key {
     position: absolute;
-    font-size: var(--ff-size-1x);
+    font-size: 12px;
 }
 
 #keyboard button.key {
     align-items: flex-end;
     justify-content: center;
     border: 1px solid var(--border-strong);
+    /* push text up a bit*/
+    padding-bottom: 8px;
 }
 
 #keyboard .key.white {
@@ -1020,11 +1022,13 @@ option {
     box-shadow: 0 0 0 2px var(--tic-0) inset, 0 0 0 4px var(--row-active) inset;
 }
 
-.arrangement-editor__step {
+.arrangement-editor__step,
+.arrangement-editor__delete {
     opacity: 0;
 }
 
-.arrangement-editor__row:hover .arrangement-editor__step {
+.arrangement-editor__row:hover .arrangement-editor__step,
+.arrangement-editor__row:hover .arrangement-editor__delete {
     opacity: 1;
 }
 
