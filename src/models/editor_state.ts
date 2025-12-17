@@ -8,6 +8,7 @@ export class EditorState {
    editingEnabled: boolean;
    patternEditRow: number;
    patternEditChannel: Tic80ChannelIndex;
+   selectedArrangementPositions: number[];
 
    constructor({
       octave = Math.floor(Tic80Caps.pattern.octaveCount / 2),
@@ -15,7 +16,8 @@ export class EditorState {
       currentInstrument = 2, // 0 = reserved, 1 = off
       editingEnabled = false,
       patternEditRow = 0,
-      patternEditChannel = 0
+      patternEditChannel = 0,
+      selectedArrangementPositions = []
    }: Partial<EditorState> = {}) {
       this.octave = clamp(octave, 1, Tic80Caps.pattern.octaveCount);
       this.activeSongPosition = clamp(activeSongPosition, 0, 255);
@@ -23,6 +25,7 @@ export class EditorState {
       this.editingEnabled = CoalesceBoolean(editingEnabled, true);
       this.patternEditRow = clamp(patternEditRow, 0, 63);
       this.patternEditChannel = ToTic80ChannelIndex(patternEditChannel);
+      this.selectedArrangementPositions = [...selectedArrangementPositions];
    }
 
    setOctave(nextOctave: number) {
@@ -46,6 +49,10 @@ export class EditorState {
       this.patternEditChannel = channelIndex;
    }
 
+   setArrangementSelection(positions: number[]) {
+      this.selectedArrangementPositions = [...positions];
+   }
+
    toData() {
       return {
          octave: this.octave,
@@ -54,6 +61,7 @@ export class EditorState {
          editingEnabled: this.editingEnabled,
          patternEditRow: this.patternEditRow,
          patternEditChannel: this.patternEditChannel,
+         selectedArrangementPositions: [...this.selectedArrangementPositions],
       };
    }
 

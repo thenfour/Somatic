@@ -1080,11 +1080,18 @@ option {
 
 .arrangement-editor__row {
     display: flex;
+    border-left: 12px solid transparent;
+    color: var(--muted);
 }
 
 .arrangement-editor__row--selected {
     background-color: var(--accent);
     color: var(--tic-0);
+}
+
+.arrangement-editor__row--in-selection {
+    /* background-color: var(--accent-strong); */
+    border-left: 12px solid var(--accent);
 }
 
 .arrangement-editor__row--playing {
@@ -1108,7 +1115,7 @@ option {
 
 .arrangement-editor button.arrangement-editor__pattern {
     color: var(--text);
-    background-color: var(--row-a);
+    /* background-color: var(--row-a); */
 }
 
 .arrangement-editor__pattern-name-container {

@@ -87,9 +87,22 @@ export const ArrangementEditor: React.FC<{
         });
     };
 
-    const handleSelectPosition = (positionIndex: number, _patternIndex: number) => {
+    const handleSelectPosition = (positionIndex: number, _patternIndex: number, event?: React.MouseEvent) => {
         onEditorStateChange((state) => {
-            state.setActiveSongPosition(positionIndex);
+            if (event?.shiftKey && state.activeSongPosition !== positionIndex) {
+                // Shift+click: select range from active position to clicked position
+                const start = Math.min(state.activeSongPosition, positionIndex);
+                const end = Math.max(state.activeSongPosition, positionIndex);
+                const selection: number[] = [];
+                for (let i = start; i <= end; i++) {
+                    selection.push(i);
+                }
+                state.setArrangementSelection(selection);
+            } else {
+                // Normal click: clear selection and set active position
+                state.setActiveSongPosition(positionIndex);
+                state.setArrangementSelection([]);
+            }
         });
     };
 
@@ -137,18 +150,20 @@ export const ArrangementEditor: React.FC<{
             {song.songOrder.map((patternIndex, positionIndex) => {
                 const clampedPattern = clamp(patternIndex ?? 0, 0, maxPatterns - 1);
                 const isSelected = editorState.activeSongPosition === positionIndex;
+                const isInSelection = editorState.selectedArrangementPositions.includes(positionIndex);
                 const isPlaying = activeSongPosition === positionIndex;
                 const canDelete = song.songOrder.length > 1;
                 const rowClass = [
                     "arrangement-editor__row",
                     isSelected && "arrangement-editor__row--selected",
+                    isInSelection && "arrangement-editor__row--in-selection",
                     isPlaying && "arrangement-editor__row--playing",
                 ].filter(Boolean).join(" ");
                 return (
                     <div
                         key={positionIndex}
                         className={rowClass}
-                        onClick={() => handleSelectPosition(positionIndex, clampedPattern)}
+                        onClick={(e) => handleSelectPosition(positionIndex, clampedPattern, e)}
                     >
                         <button
                             type="button"
@@ -168,7 +183,7 @@ export const ArrangementEditor: React.FC<{
                             className="arrangement-editor__pattern"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                handleSelectPosition(positionIndex, clampedPattern);
+                                handleSelectPosition(positionIndex, clampedPattern, e);
                             }}
                         >
                             {formattedIndex(clampedPattern)}
