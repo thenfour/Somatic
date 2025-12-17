@@ -699,9 +699,10 @@ option {
     border: 0;
     background: var(--panel);
     color: var(--text);
-    padding: 4px 8px;
+    padding: 12px 6px;
     cursor: pointer;
     font-size: 14px;
+    z-index: 100;
 }
 
 .pattern-advanced-handle:hover {
@@ -717,7 +718,7 @@ option {
     background: var(--panel);
     color: var(--text);
     width: 260px;
-    padding: 12px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
     overflow: auto;
@@ -884,9 +885,8 @@ option {
 }
 
 .pattern-advanced-panel__chip input:checked+span {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--tic-0);
+    background: var(--panel-strong);
+    /* color: var(--tic-0); */
 }
 
 .pattern-advanced-panel__hint {
@@ -1095,7 +1095,8 @@ option {
 
 .tic80-frame {
     width: 512px;
-    height: 288px;
+    height: 300px;
+    flex-shrink: 0;
     background: var(--panel-strong);
     border: 1px solid var(--border);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);

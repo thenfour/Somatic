@@ -9,9 +9,9 @@ import { SomaticEffectCommand, SomaticCaps, Tic80Caps, Tic80ChannelIndex, ToTic8
 import { HelpTooltip } from './HelpTooltip';
 import { useClipboard } from '../hooks/useClipboard';
 import { useToasts } from './toast_provider';
-import { PatternAdvancedPanel } from './PatternAdvancedPanel';
+import { PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
 import { Tooltip } from './tooltip';
-import { CharMap } from '../utils/utils';
+import { CharMap, clamp } from '../utils/utils';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 
@@ -62,6 +62,55 @@ type PatternClipboardPayload = {
     rows: number;
     channels: number;
     cells: PatternCell[][]; // row-major order
+};
+
+type RowRange = { start: number; end: number };
+
+// Matches defs.ts MIDI_FOR_TIC_NOTE0 mapping (C0) and TIC-80's 8 octaves of pattern range.
+const TIC_NOTE_MIDI_BASE = 12;
+const MIN_PATTERN_MIDI = TIC_NOTE_MIDI_BASE;
+const MAX_PATTERN_MIDI = TIC_NOTE_MIDI_BASE + Tic80Caps.pattern.octaveCount * 12 - 1;
+
+const inclusiveRange = (start: number, end: number): number[] => {
+    const lower = Math.min(start, end);
+    const upper = Math.max(start, end);
+    const length = Math.max(upper - lower + 1, 0);
+    return Array.from({ length }, (_, idx) => lower + idx);
+};
+
+const transposeCellsInPattern = (
+    pattern: Pattern,
+    channels: number[],
+    rowRange: RowRange,
+    rowsPerPattern: number,
+    amount: number,
+): boolean => {
+    const maxRow = clamp(rowsPerPattern - 1, 0, Tic80Caps.pattern.maxRows - 1);
+    if (maxRow < 0) return false;
+    const rowStart = clamp(Math.min(rowRange.start, rowRange.end), 0, maxRow);
+    const rowEnd = clamp(Math.max(rowRange.start, rowRange.end), 0, maxRow);
+    if (rowStart > rowEnd) return false;
+
+    const channelMax = Tic80Caps.song.audioChannels - 1;
+    let mutated = false;
+
+    for (let row = rowStart; row <= rowEnd; row++) {
+        for (const channel of channels) {
+            if (!Number.isFinite(channel)) continue;
+            const safeChannel = clamp(Math.floor(channel), 0, channelMax);
+            const channelIndex = ToTic80ChannelIndex(safeChannel);
+            const cell = pattern.getCell(channelIndex, row);
+            if (cell.midiNote === undefined) continue;
+            if (isNoteCut(cell)) continue;
+            const nextNote = cell.midiNote + amount;
+            if (nextNote < MIN_PATTERN_MIDI || nextNote > MAX_PATTERN_MIDI) continue;
+            //if (nextNote === cell.midiNote) continue;
+            pattern.setCell(channelIndex, row, { ...cell, midiNote: nextNote });
+            mutated = true;
+        }
+    }
+
+    return mutated;
 };
 
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
@@ -154,6 +203,71 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
             return selectionBounds;
         };
+
+        const handleTranspose = useCallback((amount: number, scope: ScopeValue) => {
+            if (!amount) {
+                return;
+            }
+
+            const lastRow = Math.max(song.rowsPerPattern - 1, 0);
+            const fullRowRange: RowRange = { start: 0, end: lastRow };
+            const patternCount = song.patterns.length;
+            const allPatternIndices = Array.from({ length: patternCount }, (_, idx) => idx);
+            const allChannels = inclusiveRange(0, Tic80Caps.song.audioChannels - 1);
+
+            const applyTranspose = (patterns: number[], channels: number[], rows: RowRange) => {
+                if (patterns.length === 0 || channels.length === 0) {
+                    pushToast({ message: 'Nothing to transpose in that scope.', variant: 'error' });
+                    return;
+                }
+                let mutated = false;
+                onSongChange((nextSong) => {
+                    for (const patternIndex of patterns) {
+                        const targetPattern = nextSong.patterns[patternIndex];
+                        if (!targetPattern) continue;
+                        if (transposeCellsInPattern(targetPattern, channels, rows, nextSong.rowsPerPattern, amount)) {
+                            mutated = true;
+                        }
+                    }
+                });
+                if (!mutated) {
+                    pushToast({ message: 'No notes found to transpose in that scope.', variant: 'info' });
+                }
+            };
+
+            switch (scope) {
+                case 'selection': {
+                    if (!selectionBounds) {
+                        pushToast({ message: 'Select a block before transposing.', variant: 'error' });
+                        return;
+                    }
+                    const selectionChannels = inclusiveRange(selectionBounds.channelStart, selectionBounds.channelEnd);
+                    applyTranspose([safePatternIndex], selectionChannels, {
+                        start: selectionBounds.rowStart,
+                        end: selectionBounds.rowEnd,
+                    });
+                    break;
+                }
+                case 'channel-pattern': {
+                    applyTranspose([safePatternIndex], [editorState.patternEditChannel], fullRowRange);
+                    break;
+                }
+                case 'channel-song': {
+                    applyTranspose(allPatternIndices, [editorState.patternEditChannel], fullRowRange);
+                    break;
+                }
+                case 'pattern': {
+                    applyTranspose([safePatternIndex], allChannels, fullRowRange);
+                    break;
+                }
+                case 'song': {
+                    applyTranspose(allPatternIndices, allChannels, fullRowRange);
+                    break;
+                }
+                default:
+                    break;
+            }
+        }, [editingEnabled, selectionBounds, editorState.patternEditChannel, song.patterns.length, song.rowsPerPattern, onSongChange, pushToast, safePatternIndex]);
 
         const createClipboardPayload = (): PatternClipboardPayload | null => {
             const bounds = getSelectionBounds();
@@ -656,7 +770,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         return (
             <div className={`pattern-grid-shell${advancedPanelOpen ? ' pattern-grid-shell--advanced-open' : ''}`}>
-                {advancedPanelOpen && <PatternAdvancedPanel />}
+                {advancedPanelOpen && (
+                    <PatternAdvancedPanel
+                        //disabled={!editingEnabled}
+                        onTranspose={handleTranspose}
+                    />
+                )}
                 <div className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}>
                     <Tooltip title={advancedPanelOpen ? 'Hide advanced edit panel' : 'Show advanced edit panel'} >
                         <button

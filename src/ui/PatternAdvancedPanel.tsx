@@ -1,26 +1,29 @@
 import React, { useId, useState } from 'react';
+import { CharMap } from '../utils/utils';
 
 export type PatternAdvancedPanelProps = {
+    enabled?: boolean;
+    onTranspose: (amount: number, scope: ScopeValue) => void;
 };
 
 const scopeOptions = [
     { value: 'selection', label: 'Selection' },
-    { value: 'channel-pattern', label: 'Channel column · pattern' },
-    { value: 'channel-song', label: 'Channel column · song' },
+    { value: 'channel-pattern', label: 'Column in pattern' },
+    { value: 'channel-song', label: 'Column in song' },
     { value: 'pattern', label: 'Whole pattern' },
     { value: 'song', label: 'Whole song' },
 ] as const;
 
-type ScopeValue = (typeof scopeOptions)[number]['value'];
-type InterpolateTarget = 'x' | 'y';
+export type ScopeValue = (typeof scopeOptions)[number]['value'];
+type InterpolateTarget = 'Notes' | 'Param X' | 'Param Y';
 
-export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ }) => {
+export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enabled = true, onTranspose }) => {
     const scopeGroupId = useId();
     const [scope, setScope] = useState<ScopeValue>('selection');
     const [setInstrumentValue, setSetInstrumentValue] = useState<number>(2);
     const [changeInstrumentFrom, setChangeInstrumentFrom] = useState<number>(2);
     const [changeInstrumentTo, setChangeInstrumentTo] = useState<number>(3);
-    const [interpolateTarget, setInterpolateTarget] = useState<InterpolateTarget>('x');
+    const [interpolateTarget, setInterpolateTarget] = useState<InterpolateTarget>('Param X');
 
     return (
         <aside
@@ -51,7 +54,13 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ }) =
                     <div className="pattern-advanced-panel__sectionTitle">Transpose</div>
                     <div className="pattern-advanced-panel__buttonRow">
                         {[-12, -1, 1, 12].map((step) => (
-                            <button key={step} type="button" className="pattern-advanced-panel__button">
+                            <button
+                                key={step}
+                                type="button"
+                                className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
+                                onClick={() => onTranspose(step, scope)}
+                                disabled={!enabled}
+                            >
                                 {step > 0 ? `+${step}` : step}
                             </button>
                         ))}
@@ -61,7 +70,6 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ }) =
                 <section className="pattern-advanced-panel__section">
                     <div className="pattern-advanced-panel__sectionTitle">Instrument Ops</div>
                     <label className="pattern-advanced-panel__stacked">
-                        <span>Set instrument</span>
                         <div className="pattern-advanced-panel__inputRow">
                             <input
                                 type="number"
@@ -74,7 +82,6 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ }) =
                         </div>
                     </label>
                     <label className="pattern-advanced-panel__stacked">
-                        <span>Change instrument</span>
                         <div className="pattern-advanced-panel__inputRow">
                             <input
                                 type="number"
@@ -84,7 +91,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ }) =
                                 onChange={(e) => setChangeInstrumentFrom(Number(e.target.value))}
                                 aria-label="Change instrument: from"
                             />
-                            <span className="pattern-advanced-panel__arrow">→</span>
+                            <span className="pattern-advanced-panel__arrow">{CharMap.RightArrow}</span>
                             <input
                                 type="number"
                                 min={0}
@@ -93,7 +100,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ }) =
                                 onChange={(e) => setChangeInstrumentTo(Number(e.target.value))}
                                 aria-label="Change instrument: to"
                             />
-                            <button type="button" className="pattern-advanced-panel__button">Change Inst</button>
+                            <button type="button" className="pattern-advanced-panel__button pattern-advanced-panel__button--primary">Change Inst</button>
                         </div>
                     </label>
                 </section>
@@ -101,7 +108,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ }) =
                 <section className="pattern-advanced-panel__section">
                     <div className="pattern-advanced-panel__sectionTitle">Interpolate</div>
                     <div className="pattern-advanced-panel__toggleRow">
-                        {(['x', 'y'] as InterpolateTarget[]).map((axis) => (
+                        {(['Notes', 'Param X', 'Param Y'] as InterpolateTarget[]).map((axis) => (
                             <label key={axis} className="pattern-advanced-panel__chip">
                                 <input
                                     type="radio"
@@ -110,7 +117,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ }) =
                                     checked={interpolateTarget === axis}
                                     onChange={() => setInterpolateTarget(axis)}
                                 />
-                                <span>Param {axis.toUpperCase()}</span>
+                                <span>{axis.toUpperCase()}</span>
                             </label>
                         ))}
                     </div>
@@ -122,8 +129,8 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ }) =
                 <section className="pattern-advanced-panel__section">
                     <div className="pattern-advanced-panel__sectionTitle">Time Tools</div>
                     <div className="pattern-advanced-panel__buttonRow">
-                        <button type="button" className="pattern-advanced-panel__button">Expand 2×</button>
-                        <button type="button" className="pattern-advanced-panel__button">Shrink ½</button>
+                        <button type="button" className="pattern-advanced-panel__button pattern-advanced-panel__button--primary">Expand 2×</button>
+                        <button type="button" className="pattern-advanced-panel__button pattern-advanced-panel__button--primary">Shrink ½</button>
                     </div>
                 </section>
             </div>
