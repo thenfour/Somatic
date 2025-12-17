@@ -71,13 +71,13 @@
     --panel: #94b0c2;
     --panel-strong: #73eff7;
     --text: #1a1c2c;
-    --muted: #1a1c2c;
+    --muted: #3b5dc9;
     --border: #333c57;
     --border-strong: #333c57;
     --accent: #a7f070;
     --accent-strong: #3b5dc9;
-    --row-a: #94b0c2;
-    --row-b: #41a6f6;
+    --row-a: #41a6f6;
+    --row-b: #73eff7;
     --row-active: #38b764;
     --tooltip-bg: #1a1c2c;
     --tooltip-text: #f4f4f4;
@@ -86,6 +86,14 @@
     --error-surface-bg: #b13e53;
     --error-surface-text: #ffcd75;
     --error-surface-border: #ef7d57;
+    --cell-note: #1a1c2c;
+    --cell-instrument: #257179;
+    --cell-command: #5d275d;
+    --cell-param: #257179;
+    --keyboard-white-key: #f4f4f4;
+    --keyboard-black-key: #333c57;
+    --keyboard-white-text: #1a1c2c;
+    --keyboard-black-text: #a7f070;
 }
 
 .theme-dark {
@@ -108,6 +116,14 @@
     --error-surface-bg: #b13e53;
     --error-surface-text: #ffcd75;
     --error-surface-border: #ef7d57;
+    --cell-note: #a7f070;
+    --cell-instrument: #38b764;
+    --cell-command: #ffcd75;
+    --cell-param: #ef7d57;
+    --keyboard-white-key: #94b0c2;
+    --keyboard-black-key: #1a1c2c;
+    --keyboard-white-text: #1a1c2c;
+    --keyboard-black-text: #94b0c2;
 }
 
 html,
@@ -586,16 +602,16 @@ option {
     height: 100px;
     width: 32px;
     z-index: 0;
-    background-color: var(--panel);
-    color: var(--text);
+    background-color: var(--keyboard-white-key);
+    color: var(--keyboard-white-text);
 }
 
 #keyboard .key.black {
     height: 50px;
     width: 28px;
     z-index: 1;
-    background-color: var(--border-strong);
-    color: var(--accent);
+    background-color: var(--keyboard-black-key);
+    color: var(--keyboard-black-text);
 }
 
 #keyboard .key.active {
@@ -654,17 +670,22 @@ option {
     padding: 1px 6px;
 }
 
-.pattern-grid td.note-cell,
-.pattern-grid td.instrument-cell,
-.pattern-grid td.command-cell,
-.pattern-grid td.param-cell {}
-
-
 .pattern-grid td.note-cell {
-    /* margin-left: 18px; */
+    color: var(--cell-note);
     border-left: 18px solid transparent;
 }
 
+.pattern-grid td.instrument-cell {
+    color: var(--cell-instrument);
+}
+
+.pattern-grid td.command-cell {
+    color: var(--cell-command);
+}
+
+.pattern-grid td.param-cell {
+    color: var(--cell-param);
+}
 
 .pattern-grid td.empty-cell {
     color: var(--muted);

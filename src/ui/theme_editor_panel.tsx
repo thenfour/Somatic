@@ -24,6 +24,14 @@ const THEME_VARS = [
     '--error-surface-bg',
     '--error-surface-text',
     '--error-surface-border',
+    '--cell-note',
+    '--cell-instrument',
+    '--cell-command',
+    '--cell-param',
+    '--keyboard-white-key',
+    '--keyboard-black-key',
+    '--keyboard-white-text',
+    '--keyboard-black-text',
 ];
 
 function readCssVar(name: string, target: HTMLElement = document.documentElement): string {
