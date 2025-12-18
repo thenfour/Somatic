@@ -596,9 +596,9 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                         <DesktopMenu.Root>
                             <DesktopMenu.Trigger caret={false}>File</DesktopMenu.Trigger>
                             <DesktopMenu.Content>
-                                <DesktopMenu.Item onSelect={() => { void createNewSong(); }} shortcut="Ctrl+N">New Song…</DesktopMenu.Item>
-                                <DesktopMenu.Item onSelect={() => { void openSongFile(); }} shortcut="Ctrl+O">Open Song…</DesktopMenu.Item>
-                                <DesktopMenu.Item onSelect={saveSongFile} shortcut="Ctrl+S">Save Song</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={() => { void createNewSong(); }}>New Song…</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={() => { void openSongFile(); }}>Open Song…</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={saveSongFile}>Save Song</DesktopMenu.Item>
                                 <DesktopMenu.Divider />
                                 <DesktopMenu.Sub>
                                     <DesktopMenu.SubTrigger>Export Cart</DesktopMenu.SubTrigger>
@@ -617,8 +617,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                                 <DesktopMenu.Item onSelect={handleUndo} shortcut="Ctrl+Z">Undo</DesktopMenu.Item>
                                 <DesktopMenu.Item onSelect={handleRedo} shortcut="Ctrl+Shift+Z / Ctrl+Y">Redo</DesktopMenu.Item>
                                 <DesktopMenu.Divider />
-                                <DesktopMenu.Item onSelect={() => { void copyNative(); }} shortcut="Ctrl+Shift+C">Copy Song JSON</DesktopMenu.Item>
-                                <DesktopMenu.Item onSelect={() => { void pasteSong(); }} shortcut="Ctrl+Shift+V">Paste Song JSON</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={() => { void copyNative(); }}>Copy Song JSON</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={() => { void pasteSong(); }}>Paste Song JSON</DesktopMenu.Item>
                             </DesktopMenu.Content>
                         </DesktopMenu.Root>
                         <DesktopMenu.Root>
@@ -628,6 +628,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                                     checked={waveformEditorPanelOpen}
                                     closeOnSelect={false}
                                     onSelect={() => setWaveformEditorPanelOpen((open) => !open)}
+                                    shortcut="Alt+2"
                                 >
                                     Waveform Editor
                                 </DesktopMenu.Item>
@@ -635,6 +636,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                                     checked={instrumentPanelOpen}
                                     closeOnSelect={false}
                                     onSelect={() => setInstrumentPanelOpen((open) => !open)}
+                                    shortcut="Alt+3"
                                 >
                                     Instrument Panel
                                 </DesktopMenu.Item>
@@ -656,6 +658,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                                     checked={tic80PanelOpen}
                                     closeOnSelect={false}
                                     onSelect={() => setTic80PanelOpen((open) => !open)}
+                                    shortcut="Alt+4"
                                 >
                                     TIC-80 Bridge
                                 </DesktopMenu.Item>
@@ -664,6 +667,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                                     checked={editorState.editingEnabled}
                                     closeOnSelect={false}
                                     onSelect={toggleEditingEnabled}
+                                    shortcut="Esc"
                                 >
                                     Editing Mode Enabled
                                 </DesktopMenu.Item>
