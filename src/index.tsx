@@ -111,8 +111,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         : 'off';
     const midiIndicatorLabel = midiStatus === 'ready'
         ? (midiEnabled
-            ? (connectedMidiInputs > 0 ? `MIDI listening (${connectedMidiInputs})` : 'MIDI ready (no devices)')
-            : 'MIDI disabled')
+            ? (connectedMidiInputs > 0 ? `MIDI (${connectedMidiInputs})` : 'MIDI ready (no devices)')
+            : 'MIDI off')
         : midiStatus === 'pending'
             ? 'MIDI initializing'
             : midiStatus === 'unsupported'
@@ -127,7 +127,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             : `${midiIndicatorLabel}. Click to enable.`;
 
     const keyboardIndicatorState = keyboardEnabled ? 'ok' : 'off';
-    const keyboardIndicatorLabel = keyboardEnabled ? 'Keyboard input on' : 'Keyboard input off';
+    const keyboardIndicatorLabel = keyboardEnabled ? 'Keyb note inp' : 'Keyb off';
     const keyboardIndicatorTitle = keyboardEnabled ? 'Keyboard note input enabled. Click to disable.' : 'Keyboard note input disabled. Click to enable.';
 
     const toggleEditingEnabled = () => updateEditorState((s) => s.setEditingEnabled(!s.editingEnabled));
@@ -594,7 +594,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 <div className="menu">
                     <nav className="desktop-menu-bar">
                         <DesktopMenu.Root>
-                            <DesktopMenu.Trigger>File</DesktopMenu.Trigger>
+                            <DesktopMenu.Trigger caret={false}>File</DesktopMenu.Trigger>
                             <DesktopMenu.Content>
                                 <DesktopMenu.Item onSelect={() => { void createNewSong(); }} shortcut="Ctrl+N">New Song…</DesktopMenu.Item>
                                 <DesktopMenu.Item onSelect={() => { void openSongFile(); }} shortcut="Ctrl+O">Open Song…</DesktopMenu.Item>
@@ -612,7 +612,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                             </DesktopMenu.Content>
                         </DesktopMenu.Root>
                         <DesktopMenu.Root>
-                            <DesktopMenu.Trigger>Edit</DesktopMenu.Trigger>
+                            <DesktopMenu.Trigger caret={false}>Edit</DesktopMenu.Trigger>
                             <DesktopMenu.Content>
                                 <DesktopMenu.Item onSelect={handleUndo} shortcut="Ctrl+Z">Undo</DesktopMenu.Item>
                                 <DesktopMenu.Item onSelect={handleRedo} shortcut="Ctrl+Shift+Z / Ctrl+Y">Redo</DesktopMenu.Item>
@@ -622,7 +622,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                             </DesktopMenu.Content>
                         </DesktopMenu.Root>
                         <DesktopMenu.Root>
-                            <DesktopMenu.Trigger>View</DesktopMenu.Trigger>
+                            <DesktopMenu.Trigger caret={false}>View</DesktopMenu.Trigger>
                             <DesktopMenu.Content>
                                 <DesktopMenu.Item
                                     checked={waveformEditorPanelOpen}
@@ -677,7 +677,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                             </DesktopMenu.Content>
                         </DesktopMenu.Root>
                         <DesktopMenu.Root>
-                            <DesktopMenu.Trigger>Help</DesktopMenu.Trigger>
+                            <DesktopMenu.Trigger caret={false}>Help</DesktopMenu.Trigger>
                             <DesktopMenu.Content>
                                 <DesktopMenu.Item onSelect={() => setHelpPanelOpen(true)}>Keyboard Shortcuts…</DesktopMenu.Item>
                                 <DesktopMenu.Divider />
@@ -686,14 +686,14 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                         </DesktopMenu.Root>
                     </nav>
                     <div className="menu-transport">
-                        <button onClick={onPanic} title="Stop all audio"><span className="icon" aria-hidden="true">‼</span>Panic</button>
+                        <button onClick={onPanic} title="Stop all audio"><span className="icon" aria-hidden="true"></span>Panic</button>
                         <button className={undefined/*'active'*/} onClick={onStop}>
                             <span className="icon">⏹</span>
                             <span className="caption">Stop</span>
                         </button>
                         <button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll}><span className="icon" aria-hidden="true">▶</span>Song</button>
                         <button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern}><span className="icon" aria-hidden="true">▶</span>Pat</button>
-                        <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">⏩</span>From Position</button>
+                        <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">▶</span>From Position</button>
                     </div>
                     <div className="right-controls">
                         <button
@@ -703,7 +703,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                             aria-label={editorState.editingEnabled ? 'Disable editing in pattern editor' : 'Enable editing in pattern editor'}
                         >
                             <span className="edit-toggle__dot" aria-hidden="true" />
-                            <span className="edit-toggle__label">{editorState.editingEnabled ? 'Edit mode: On' : 'Edit mode: Off'}</span>
+                            <span className={`edit-toggle__label`}>Edit</span>
                         </button>
                         <button
                             className={`midi-indicator midi-indicator--${midiIndicatorState}`}

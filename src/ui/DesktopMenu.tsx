@@ -12,6 +12,7 @@ import React, {
     type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { CharMap } from '../utils/utils';
 
 const MENU_PORTAL_ID = 'desktop-menu-root';
 
@@ -227,7 +228,7 @@ const MenuTrigger = React.forwardRef<HTMLButtonElement, MenuTriggerProps>(({ car
             onKeyDown={handleKeyDown}
         >
             <span className="desktop-menu-trigger__label">{children}</span>
-            {caret && <span className="desktop-menu-trigger__caret">▾</span>}
+            {caret && <span className="desktop-menu-trigger__caret">{CharMap.DownArrow}</span>}
         </button>
     );
 });
@@ -434,7 +435,7 @@ const MenuSubTrigger = React.forwardRef<HTMLDivElement, MenuSubTriggerProps>(({ 
             data-menu-item="true"
         >
             <span className="desktop-menu-item__label">{children}</span>
-            <span className="desktop-menu-item__shortcut">▸</span>
+            <span className="desktop-menu-item__shortcut">{CharMap.RightArrow}</span>
         </div>
     );
 });
