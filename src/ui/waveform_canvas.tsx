@@ -14,7 +14,7 @@ export type WaveformCanvasProps = {
     /** Pixel scale factor; controls overall size (number or {x,y}). */
     scale?: number | { x: number; y: number };
     /** Optional CSS class name prefix; defaults to "waveform-editor". */
-    classNamePrefix?: string;
+    className?: string;
     /** Called with a new values array whenever drawing mutates the waveform. */
     onChange: (nextValues: number[]) => void;
     /** If true, draw loop markers. */
@@ -31,7 +31,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     values,
     maxValue,
     scale,
-    classNamePrefix = "waveform-editor",
+    className,
     onChange,
     supportsLoop = false,
     loopStart = 0,
@@ -51,6 +51,8 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     const anchorIndexRef = useRef<number | null>(null);
     const anchorValueRef = useRef<number | null>(null);
     const bufferRef = useRef<number[]>(values.map((v) => (Number.isFinite(v) ? v : 0)));
+
+    const classNamePrefix = "waveform-editor";
 
     const scaleX = typeof scale === "number" || scale == null ? (scale ?? 16) : scale.x;
     const scaleY = typeof scale === "number" || scale == null ? (scale ?? 16) : scale.y;
@@ -345,7 +347,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     }
 
     return (
-        <div className={classNamePrefix}>
+        <div className={`${classNamePrefix} ${className ?? ""}`}>
             <div
                 className={`${classNamePrefix}__canvas`}
                 style={{ width, height }}

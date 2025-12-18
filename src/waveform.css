@@ -1,0 +1,112 @@
+.waveform-swatch {
+    padding: 0;
+    margin: 0;
+    border: 1px solid transparent;
+    background: var(--waveform-swatch-normal-background);
+    cursor: pointer;
+}
+
+.waveform-swatch.interactable:hover {
+    border-color: var(--waveform-swatch-highlighted-border);
+}
+
+.waveform-swatch--selected {
+    border-color: var(--waveform-swatch-highlighted-border);
+    background: var(--waveform-swatch-highlighted-background);
+}
+
+.waveform-swatch--muted {
+    background: var(--waveform-swatch-muted-background);
+}
+
+.waveform-swatch__svg {
+    display: block;
+}
+
+.waveform-swatch__svg .waveform-swatch__point {
+    fill: var(--waveform-swatch-normal-point);
+}
+
+.waveform-swatch--selected .waveform-swatch__svg .waveform-swatch__point {
+    fill: var(--waveform-swatch-highlighted-point);
+}
+
+.waveform-swatch--muted .waveform-swatch__svg .waveform-swatch__point {
+    fill: var(--waveform-swatch-muted-point);
+}
+
+/* waveform select grid */
+
+.waveform-select {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(40px, 1fr));
+    gap: 4px;
+}
+
+/* waveform editor */
+
+.waveform-editor {
+    margin-top: 8px;
+}
+
+.waveform-editor__canvas,
+.instrument-envelope__canvas {
+    /* border: 1px solid var(--waveform-edit-); */
+    background: var(--panel-strong);
+    cursor: crosshair;
+}
+
+.waveform-editor__svg,
+.instrument-envelope__svg {
+    display: block;
+}
+
+.waveform-editor__background,
+.instrument-envelope__background {
+    fill: var(--waveform-edit-background);
+}
+
+.waveform-editor__grid-line,
+.instrument-envelope__grid-line {
+    stroke: var(--waveform-edit-grid-line);
+    stroke-width: 1;
+}
+
+.instrument-envelope__loop-line {
+    stroke: var(--waveform-edit-loop-line);
+    stroke-width: 2.5;
+    stroke-dasharray: 4 4;
+}
+
+.waveform-editor__coordinates {
+    fill: var(--waveform-edit-coordinate-text);
+    font-size: 16px;
+    font-family: monospace;
+    pointer-events: none;
+    /* add an outset stroke */
+    text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 0 0 2px var(--bg);
+}
+
+.instrument-envelope-editor__controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.waveform-editor__point,
+.instrument-envelope__point {
+    fill: var(--waveform-edit-point);
+}
+
+.waveform-editor__point--hovered,
+.instrument-envelope__point--hovered {
+    fill: var(--waveform-edit-highlight);
+}
+
+.waveform-editor__point-preview,
+.instrument-envelope__point-preview {
+    fill: none;
+    stroke: var(--waveform-edit-highlight);
+    stroke-width: 2px;
+    pointer-events: none;
+}

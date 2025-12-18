@@ -95,6 +95,19 @@
     --keyboard-black-key: #333c57;
     --keyboard-white-text: #1a1c2c;
     --keyboard-black-text: #94b0c2;
+    --waveform-edit-background: #3b5dc9;
+    --waveform-edit-grid-line: #29366f;
+    --waveform-edit-loop-line: #ffcd75;
+    --waveform-edit-point: #a7f070;
+    --waveform-edit-coordinate-text: #f4f4f4;
+    --waveform-edit-highlight: #73eff7;
+    --waveform-swatch-normal-background: #257179;
+    --waveform-swatch-normal-point: #41a6f6;
+    --waveform-swatch-muted-background: #333c57;
+    --waveform-swatch-muted-point: #566c86;
+    --waveform-swatch-highlighted-background: #3b5dc9;
+    --waveform-swatch-highlighted-point: #a7f070;
+    --waveform-swatch-highlighted-border: #73eff7;
 }
 
 .theme-dark {
@@ -126,6 +139,19 @@
     --keyboard-black-key: #1a1c2c;
     --keyboard-white-text: #1a1c2c;
     --keyboard-black-text: #94b0c2;
+    --waveform-edit-background: #3b5dc9;
+    --waveform-edit-grid-line: #29366f;
+    --waveform-edit-loop-line: #ffcd75;
+    --waveform-edit-point: #a7f070;
+    --waveform-edit-coordinate-text: #f4f4f4;
+    --waveform-edit-highlight: #73eff7;
+    --waveform-swatch-normal-background: #257179;
+    --waveform-swatch-normal-point: #41a6f6;
+    --waveform-swatch-muted-background: #333c57;
+    --waveform-swatch-muted-point: #566c86;
+    --waveform-swatch-highlighted-background: #3b5dc9;
+    --waveform-swatch-highlighted-point: #a7f070;
+    --waveform-swatch-highlighted-border: #73eff7;
 }
 
 html,
@@ -458,99 +484,6 @@ option {
     overflow: auto;
     /* for comfort */
     padding-bottom: 25vh;
-}
-
-.waveform-select {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(40px, 1fr));
-    gap: 4px;
-}
-
-.waveform-swatch {
-    padding: 0;
-    margin: 0;
-    border: 1px solid var(--border);
-    background: var(--panel-strong);
-    cursor: pointer;
-}
-
-.waveform-swatch--selected {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
-}
-
-.waveform-swatch__svg {
-    display: block;
-}
-
-.waveform-swatch__svg .waveform-swatch__point {
-    fill: var(--accent);
-}
-
-.waveform-editor {
-    margin-top: 8px;
-}
-
-.waveform-editor__canvas,
-.instrument-envelope__canvas {
-    border: 1px solid var(--border);
-    background: var(--panel-strong);
-    cursor: crosshair;
-}
-
-.waveform-editor__svg,
-.instrument-envelope__svg {
-    display: block;
-}
-
-.waveform-editor__background,
-.instrument-envelope__background {
-    fill: var(--panel-strong);
-}
-
-.waveform-editor__grid-line,
-.instrument-envelope__grid-line {
-    stroke: var(--border);
-    stroke-width: 1;
-}
-
-.instrument-envelope__loop-line {
-    stroke: var(--cell-command);
-    stroke-width: 2.5;
-    stroke-dasharray: 4 4;
-}
-
-.instrument-envelope__coordinates {
-    fill: var(--text);
-    font-size: 16px;
-    font-family: monospace;
-    pointer-events: none;
-    /* add an outset stroke */
-    text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 0 0 2px var(--bg), 0 0 2px var(--bg);
-}
-
-.instrument-envelope-editor__controls {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-}
-
-.waveform-editor__point,
-.instrument-envelope__point {
-    fill: var(--accent);
-}
-
-.waveform-editor__point--hovered,
-.instrument-envelope__point--hovered {
-    fill: var(--accent-strong);
-}
-
-.waveform-editor__point-preview,
-.instrument-envelope__point-preview {
-    fill: none;
-    stroke: var(--accent-strong);
-    stroke-width: 2px;
-    pointer-events: none;
 }
 
 .instrument-envelope-editor {

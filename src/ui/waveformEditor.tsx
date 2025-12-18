@@ -6,6 +6,7 @@ import { Tic80Caps } from "../models/tic80Capabilities";
 import { Tic80Waveform, Tic80WaveformDto } from "../models/waveform";
 import { WaveformCanvas } from "./waveform_canvas";
 import { clamp } from "../utils/utils";
+import '/src/waveform.css';
 
 // keep tied in with Tic80Caps.
 
@@ -34,12 +35,15 @@ typedef struct
 
 */
 
+export type WaveformSwatchDisplayStyle = "normal" | "selected" | "muted";
+
 export const WaveformSwatch: React.FC<{
     value: Tic80Waveform;
     scale: number;
-    isSelected?: boolean;
+    //isSelected?: boolean;
+    displayStyle: WaveformSwatchDisplayStyle;
     onClick?: () => void;
-}> = ({ value, scale, isSelected, onClick }) => {
+}> = ({ value, scale, displayStyle, onClick }) => {
     const pointCount = Tic80Caps.waveform.pointCount;
     const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
     const width = scale * pointCount;
@@ -65,7 +69,7 @@ export const WaveformSwatch: React.FC<{
         );
     }
 
-    const className = `waveform-swatch${isSelected ? " waveform-swatch--selected" : ""}`;
+    const className = `interactable waveform-swatch waveform-swatch--${displayStyle}`;
 
     return (
         <button type="button" className={className} onClick={onClick} style={{ width, height }}>
@@ -82,12 +86,12 @@ export const WaveformSwatch: React.FC<{
     );
 };
 
-
 export const WaveformSelect: React.FC<{
-    selectedWaveformId: number;
+    //selectedWaveformId: number;
     song: Song;
     onClickWaveform: (waveformId: number) => void;
-}> = ({ selectedWaveformId, song, onClickWaveform }) => {
+    getWaveformDisplayStyle: (waveformId: number) => WaveformSwatchDisplayStyle;
+}> = ({ getWaveformDisplayStyle, song, onClickWaveform }) => {
     const waveformCount = Math.min(song.waveforms.length, Tic80Caps.waveform.count);
     const scale = 3;
 
@@ -100,7 +104,8 @@ export const WaveformSelect: React.FC<{
                         key={index}
                         value={waveform}
                         scale={scale}
-                        isSelected={index === selectedWaveformId}
+                        //isSelected={index === selectedWaveformId}
+                        displayStyle={getWaveformDisplayStyle(index)}
                         onClick={() => onClickWaveform(index)}
                     />
                 );
@@ -146,7 +151,6 @@ export const WaveformEditor: React.FC<{
             values={Array.from(waveform.amplitudes)}
             maxValue={maxAmp}
             scale={16}
-            classNamePrefix="waveform-editor"
             onChange={handleCanvasChange}
         />
     );
@@ -341,7 +345,11 @@ export const WaveformEditorPanel: React.FC<{
             <h3>Waveform Editor</h3>
             <WaveformSelect
                 onClickWaveform={setEditingWaveformId}
-                selectedWaveformId={editingWaveformId}
+                //selectedWaveformId={editingWaveformId}
+                getWaveformDisplayStyle={(waveformId) => {
+                    //if (waveformId === 1) return "muted"; // testing
+                    return waveformId === editingWaveformId ? "selected" : "normal";
+                }}
                 song={song}
             />
 

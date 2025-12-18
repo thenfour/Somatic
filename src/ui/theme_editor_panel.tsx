@@ -33,6 +33,20 @@ const THEME_VARS = [
     '--keyboard-black-key',
     '--keyboard-white-text',
     '--keyboard-black-text',
+    '--waveform-edit-background',
+    '--waveform-edit-grid-line',
+    '--waveform-edit-loop-line',
+    '--waveform-edit-point',
+    '--waveform-edit-coordinate-text',
+    '--waveform-edit-highlight',
+    '--waveform-swatch-normal-background',
+    '--waveform-swatch-normal-point',
+    '--waveform-swatch-muted-background',
+    '--waveform-swatch-muted-point',
+    '--waveform-swatch-highlighted-background',
+    '--waveform-swatch-highlighted-point',
+    '--waveform-swatch-highlighted-border',
+
 ];
 
 function readCssVar(name: string, target: HTMLElement = document.documentElement): string {

@@ -54,6 +54,8 @@ type PatternGridProps = {
     editorState: EditorState;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
     onSongChange: (mutator: (song: Song) => void) => void;
+    advancedEditPanelOpen: boolean;
+    onSetAdvancedEditPanelOpen: (open: boolean) => void;
 };
 
 export type PatternGridHandle = {
@@ -306,7 +308,7 @@ const interpolatePatternValues = (
 };
 
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
-    ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange }, ref) => {
+    ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange, advancedEditPanelOpen, onSetAdvancedEditPanelOpen }, ref) => {
         const currentPosition = Math.max(0, Math.min(song.songOrder.length - 1, editorState.activeSongPosition || 0));
         const currentPatternIndex = song.songOrder[currentPosition] ?? 0;
         const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
@@ -320,7 +322,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const selectionAnchorRef = useRef<{ rowIndex: number; channelIndex: Tic80ChannelIndex } | null>(null);
         const [isSelecting, setIsSelecting] = useState(false);
         const selectingRef = useRef(false);
-        const [advancedPanelOpen, setAdvancedPanelOpen] = useState(false);
+        //const [advancedPanelOpen, setAdvancedPanelOpen] = useState(false);
         const clipboard = useClipboard();
         const { pushToast } = useToasts();
 
@@ -1093,8 +1095,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             : false;
 
         return (
-            <div className={`pattern-grid-shell${advancedPanelOpen ? ' pattern-grid-shell--advanced-open' : ''}`}>
-                {advancedPanelOpen && (
+            <div className={`pattern-grid-shell${advancedEditPanelOpen ? ' pattern-grid-shell--advanced-open' : ''}`}>
+                {advancedEditPanelOpen && (
                     <PatternAdvancedPanel
                         // enabled={editingEnabled} // allow advanced edits even in non-edit mode
                         onTranspose={handleTranspose}
@@ -1104,15 +1106,15 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     />
                 )}
                 <div className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}>
-                    <Tooltip title={advancedPanelOpen ? 'Hide advanced edit panel' : 'Show advanced edit panel'} >
+                    <Tooltip title={advancedEditPanelOpen ? 'Hide advanced edit panel' : 'Show advanced edit panel (\\)'} >
                         <button
                             type="button"
-                            className={`pattern-advanced-handle${advancedPanelOpen ? ' pattern-advanced-handle--open' : ''}`}
-                            onClick={() => setAdvancedPanelOpen((open) => !open)}
-                            aria-expanded={advancedPanelOpen}
+                            className={`pattern-advanced-handle${advancedEditPanelOpen ? ' pattern-advanced-handle--open' : ''}`}
+                            onClick={() => onSetAdvancedEditPanelOpen(!advancedEditPanelOpen)}
+                            aria-expanded={advancedEditPanelOpen}
                             aria-controls="pattern-advanced-panel"
                         >
-                            {advancedPanelOpen ? CharMap.LeftArrow : CharMap.RightArrow}
+                            {advancedEditPanelOpen ? CharMap.LeftArrow : CharMap.RightArrow}
                         </button>
                     </Tooltip>
                     <table className="pattern-grid">

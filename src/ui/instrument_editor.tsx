@@ -6,7 +6,7 @@ import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { assert, clamp, TryParseInt } from '../utils/utils';
 import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
 import { useClipboard } from '../hooks/useClipboard';
-import { WaveformSwatch } from './waveformEditor';
+import { WaveformSelect, WaveformSwatch } from './waveformEditor';
 
 /*
 
@@ -156,7 +156,7 @@ export const InstrumentEnvelopeEditor: React.FC<{
                     maxValue={canvasMaxValue}
                     // Envelopes tend to be more compact than full waveforms.
                     scale={{ x: 16, y: 12 }}
-                    classNamePrefix="instrument-envelope"
+                    className="instrument-envelope"
                     onChange={handleCanvasChange}
                     supportsLoop={true}
                     loopStart={loopStart}
@@ -372,7 +372,32 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                         onHoverChange={(hover) => setHoveredWaveform(hover)}
                     />
                     <div className="waveform-swatch-previews">
-                        <div className="waveform-swatch-preview" style={{ visibility: (hoveredWaveform == null ? "hidden" : undefined) }}>
+                        <WaveformSelect
+                            onClickWaveform={(waveformId) => {
+                                // set whole env to this waveform
+                                onSongChange((s) => {
+                                    const inst = s.instruments[instrumentIndex];
+                                    inst.waveFrames = new Int8Array(inst.waveFrames.length).fill(waveformId);
+                                });
+                            }}
+                            song={song}
+                            getWaveformDisplayStyle={(waveformId) => {
+                                if (hoveredWaveform && waveformId === hoveredWaveform.value) {
+                                    return "normal";
+                                }
+                                // interesting but introduces a 4th display styl...
+                                // if (instrument.waveFrames.includes(waveformId)) {
+                                //     return "normal";
+                                // }
+
+                                if (waveformId === hoveredWaveform?.actualValue) {
+                                    return "selected";
+                                }
+
+                                return "muted";
+                            }}
+                        />
+                        {/* <div className="waveform-swatch-preview" style={{ visibility: (hoveredWaveform == null ? "hidden" : undefined) }}>
                             <span>actual</span>
                             <WaveformSwatch
                                 value={song.waveforms[hoveredWaveform?.actualValue || 0]}
@@ -385,7 +410,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                                 value={song.waveforms[hoveredWaveform?.value || 0]}
                                 scale={4}
                             />
-                        </div>
+                        </div> */}
                     </div>
                 </div>
                 <InstrumentEnvelopeEditor

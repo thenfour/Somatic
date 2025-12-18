@@ -50,6 +50,10 @@ const shortcuts: Array<{ key: string; action: string }> = [
         key: 'Alt+4',
         action: 'Toggle TIC-80 bridge panel.',
     },
+    {
+        key: 'Alt+5',
+        action: 'Toggle on-screen keyboard.',
+    },
 
     // Pattern grid navigation
     {

@@ -88,11 +88,16 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         return new Song();
     });
     const [editorState, setEditorState] = useState(() => new EditorState());
-    const [instrumentPanelOpen, setInstrumentPanelOpen] = useState(false);
-    const [waveformEditorPanelOpen, setWaveformEditorPanelOpen] = useState(false);
+
+    const [instrumentPanelOpen, setInstrumentPanelOpen] = useLocalStorage("somatic-instrumentPanelOpen", false);
+    const [waveformEditorPanelOpen, setWaveformEditorPanelOpen] = useLocalStorage("somatic-waveformEditorPanelOpen", false);
+    const [tic80PanelOpen, setTic80PanelOpen] = useLocalStorage("somatic-tic80PanelOpen", true);
+    const [showingOnScreenKeyboard, setShowingOnScreenKeyboard] = useLocalStorage("somatic-showOnScreenKeyboard", true);
+    const [showingArrangementEditor, setShowingArrangementEditor] = useLocalStorage("somatic-showArrangementEditor", true);
+    const [advancedEditPanelOpen, setAdvancedEditPanelOpen] = useLocalStorage("somatic-advancedEditPanelOpen", false);
+
     const [helpPanelOpen, setHelpPanelOpen] = useState(false);
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
-    const [tic80PanelOpen, setTic80PanelOpen] = useState(true);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
     //const [transportState, setTransportState] = useState<TransportState>('stop');
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
@@ -272,19 +277,38 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
             if (e.altKey && !hasMeta && e.code === 'Digit2') {
                 e.preventDefault();
                 // toggle waveform editor
-                setWaveformEditorPanelOpen((open) => !open);
+                setWaveformEditorPanelOpen(open => !open);
                 return;
             }
             // alt+3 = toggle instrument panel
             if (e.altKey && !hasMeta && e.code === 'Digit3') {
                 e.preventDefault();
-                setInstrumentPanelOpen((open) => !open);
+                setInstrumentPanelOpen(open => !open);
                 return;
             }
             // alt+4 = toggle tic80 panel
             if (e.altKey && !hasMeta && e.code === 'Digit4') {
                 e.preventDefault();
-                setTic80PanelOpen((open) => !open);
+                setTic80PanelOpen(open => !open);
+                return;
+            }
+            // alt+5 = toggle on screen keyboard
+            if (e.altKey && !hasMeta && e.code === 'Digit5') {
+                e.preventDefault();
+                //console.log('setting on screen keyboard to', !showingOnScreenKeyboard);
+                setShowingOnScreenKeyboard(open => !open);
+                return;
+            }
+            //alt+6 = toggle arrangement editor
+            if (e.altKey && !hasMeta && e.code === 'Digit6') {
+                e.preventDefault();
+                setShowingArrangementEditor(open => !open);
+                return;
+            }
+            // backslash = toggle advanced edit panel
+            if (e.code === 'Backslash') {
+                e.preventDefault();
+                setAdvancedEditPanelOpen(open => !open);
                 return;
             }
             // alt+0 = play / stop
@@ -632,7 +656,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                                 <DesktopMenu.Item
                                     checked={waveformEditorPanelOpen}
                                     closeOnSelect={false}
-                                    onSelect={() => setWaveformEditorPanelOpen((open) => !open)}
+                                    onSelect={() => setWaveformEditorPanelOpen(open => !open)}
                                     shortcut="Alt+2"
                                 >
                                     Waveform Editor
@@ -640,10 +664,34 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                                 <DesktopMenu.Item
                                     checked={instrumentPanelOpen}
                                     closeOnSelect={false}
-                                    onSelect={() => setInstrumentPanelOpen((open) => !open)}
+                                    onSelect={() => setInstrumentPanelOpen(open => !open)}
                                     shortcut="Alt+3"
                                 >
                                     Instrument Panel
+                                </DesktopMenu.Item>
+                                <DesktopMenu.Item
+                                    checked={showingOnScreenKeyboard}
+                                    closeOnSelect={false}
+                                    onSelect={() => setShowingOnScreenKeyboard(open => !open)}
+                                    shortcut="Alt+5"
+                                >
+                                    On-Screen Keyboard
+                                </DesktopMenu.Item>
+                                <DesktopMenu.Item
+                                    checked={showingArrangementEditor}
+                                    closeOnSelect={false}
+                                    onSelect={() => setShowingArrangementEditor(open => !open)}
+                                    shortcut="Alt+6"
+                                >
+                                    Arrangement Editor
+                                </DesktopMenu.Item>
+                                <DesktopMenu.Item
+                                    checked={advancedEditPanelOpen}
+                                    closeOnSelect={false}
+                                    onSelect={() => setAdvancedEditPanelOpen(open => !open)}
+                                    shortcut="\\"
+                                >
+                                    Advanced Edit Panel
                                 </DesktopMenu.Item>
                                 <DesktopMenu.Item
                                     checked={preferencesPanelOpen}
@@ -662,7 +710,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                                 <DesktopMenu.Item
                                     checked={tic80PanelOpen}
                                     closeOnSelect={false}
-                                    onSelect={() => setTic80PanelOpen((open) => !open)}
+                                    onSelect={() => setTic80PanelOpen(open => !open)}
                                     shortcut="Alt+4"
                                 >
                                     TIC-80 Bridge
@@ -753,13 +801,13 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 />
             </div>
             <div className="main-editor-area  appRow">
-                <ArrangementEditor
+                {showingArrangementEditor && <ArrangementEditor
                     song={song}
                     editorState={editorState}
                     musicState={musicState}
                     onEditorStateChange={updateEditorState}
                     onSongChange={updateSong}
-                />
+                />}
                 <PatternGrid
                     ref={patternGridRef}
                     song={song}
@@ -768,6 +816,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     editorState={editorState}
                     onEditorStateChange={updateEditorState}
                     onSongChange={updateSong}
+                    advancedEditPanelOpen={advancedEditPanelOpen}
+                    onSetAdvancedEditPanelOpen={open => setAdvancedEditPanelOpen(open)}
                 />
                 {waveformEditorPanelOpen && (
                     <WaveformEditorPanel
@@ -806,10 +856,10 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 </div>
             </div>
             <div className="footer appRow">
-                <Keyboard
+                {showingOnScreenKeyboard && <Keyboard
                     onNoteOn={handleNoteOn}
                     onNoteOff={handleNoteOff}
-                />
+                />}
             </div>
         </div>
     );
