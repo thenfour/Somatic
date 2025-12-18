@@ -1,13 +1,12 @@
 // Tic80Iframe.tsx
 "use client";
 
-import React, {
+import {
     forwardRef,
     useEffect,
-    useMemo,
     useImperativeHandle,
     useRef,
-    useState,
+    useState
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -99,7 +98,7 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
             };
             const script = frameDoc.createElement("script");
             script.type = "text/javascript";
-            script.src = "/tic80.js";
+            script.src = "./tic80.js";
             frameDoc.head.appendChild(script);
 
             injectedRef.current = true;

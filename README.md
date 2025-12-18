@@ -14,8 +14,18 @@ So a custom playroutine is important still, though i will attempt to keep using
 `music()` for its effect support and simplicity.
 
 ```
+dev stuff:
+
 npm install
 npm start
 npm run typecheck
+
+build stuff:
+
+npm run build
+npx webpack --mode production
+
+
+
 ```
 
