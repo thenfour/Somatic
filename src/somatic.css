@@ -1099,15 +1099,18 @@ option {
 
 .pattern-grid td.note-cell {
     color: var(--cell-note);
+    white-space: nowrap;
     /* border-left: 18px solid transparent; */
 }
 
 .pattern-grid td.note-cell>div {
     margin-left: 19px;
+    white-space: nowrap;
 }
 
 .pattern-grid td.instrument-cell {
     color: var(--cell-instrument);
+    white-space: nowrap;
 }
 
 .pattern-grid td.command-cell {
@@ -1116,6 +1119,7 @@ option {
 
 .pattern-grid td.param-cell {
     color: var(--cell-param);
+    white-space: nowrap;
 }
 
 .pattern-grid td.empty-cell {
