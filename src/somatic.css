@@ -1609,3 +1609,16 @@ option {
     font-size: 12px;
     width: 80px;
 }
+
+.songStatsPanel {
+    border: 2px solid var(--border-strong);
+    padding: 8px;
+    background: var(--panel-strong);
+}
+
+
+.songStatsPanel.error {
+    border-color: var(--error-surface-border);
+    background: var(--error-surface-bg);
+    color: var(--error-surface-text);
+}

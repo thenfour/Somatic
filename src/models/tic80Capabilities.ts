@@ -7,6 +7,7 @@ export const SomaticCaps = {
    maxPatternCount: 256,
    maxSongLength: 256,
    noteCutInstrumentIndex: 1, // 0 = reserved
+   maxPatternLengthToBridge: 40000,
 } as const;
 
 export enum SomaticEffectCommand {
@@ -90,9 +91,11 @@ export const TicMemoryMap = {
    LOG_BASE: 0x14ec0 + 16,
    LOG_SIZE: 240,
 
-   MAP_BASE: 0x8000,
-   TF_ORDER_LIST: 0x8000,   // MAP_BASE: 1 length byte + 256 entries.
-   TF_PATTERN_DATA: 0x8101, //theoretically you can support the whole map area for pattern data (32640 bytes).
+   // NB: IF THIS CHANGES YOU HAVE TO UPDATE maxPatternLengthToBridge IN SomaticCaps
+   TILE_BASE: 0x4000,
+   TF_ORDER_LIST: 0x4000, // TILE_BASE: 1 length byte + 256 entries.
+   TF_PATTERN_DATA:
+      0x4101, //theoretically you can support the whole tile+sprite+map area for pattern data (8192+8192+32640 bytes = 49024).
 
    // TIC cartridge chunk IDs (subset)
    // CHUNK_WAVEFORMS: 10,

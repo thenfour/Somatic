@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Song } from "../models/song";
 import { useWriteBehindEffect } from "../hooks/useWriteBehindEffect";
-import { serializeSongToCart, serializeSongToCartDetailed, SongCartDetails } from "../audio/tic80_cart_serializer";
+import { serializeSongForTic80Bridge, serializeSongToCart, serializeSongToCartDetailed, SongCartDetails, Tic80SerializedSong } from "../audio/tic80_cart_serializer";
 import { Tooltip } from "./tooltip";
-import { formatBytes } from "../utils/utils";
+import { compareBuffers, formatBytes } from "../utils/utils";
 import { useClipboard } from "../hooks/useClipboard";
-
-
+import { base85Encode, lzCompress, lzDecompress } from "../audio/encoding";
+import { OptimizeSong } from "../utils/SongOptimizer";
+import { SomaticCaps } from "../models/tic80Capabilities";
 
 type ChunkInfo = {
     name: string; //
@@ -14,64 +15,43 @@ type ChunkInfo = {
     color: string;
 };
 
-// type SongStatsData = {
-//     cartSize: number;
-//     breakdown: ChunkInfo[];
-// };
+type Stats = {
+    chunks: ChunkInfo[];
+    patternUncompressedSize: number;
+    patternCompressedSize: number;
+    patternCompressionRatio: number;
+    roundTripStatus: string;
+};
 
-// const CHUNK_NAMES: Record<number, string> = {
-//     5: 'Code',
-//     9: 'SFX',
-//     10: 'Waveforms',
-//     14: 'Music Tracks',
-//     15: 'Music Patterns',
-// };
-
-// const CHUNK_COLORS: Record<number, string> = {
-//     5: '#6c5ce7',
-//     9: '#00b894',
-//     10: '#0984e3',
-//     14: '#fdcb6e',
-//     15: '#d63031',
-// };
-
-// function parseCartridge(cart: Uint8Array): ChunkInfo[] {
-//     const chunks: ChunkInfo[] = [];
-//     let pos = 0;
-//     while (pos + 4 <= cart.length) {
-//         const header0 = cart[pos++];
-//         const type = header0 & 0x1f;
-//         const lenLo = cart[pos++];
-//         const lenHi = cart[pos++];
-//         const len = (lenHi << 8) | lenLo;
-//         // reserved
-//         pos++;
-//         // ensure we don't read past end
-//         const payloadLen = Math.min(len, Math.max(0, cart.length - pos));
-//         chunks.push({ type, name: CHUNK_NAMES[type] ?? `Chunk ${type}`, size: payloadLen });
-//         pos += payloadLen;
-//     }
-//     return chunks;
-// }
+type SongSerialized = {
+    cartridge: SongCartDetails;
+    bridge: Tic80SerializedSong;
+};
 
 export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
-    const [cartDetails, setCartDetails] = useState<SongCartDetails | null>(null);
+    const [input, setInput] = useState<SongSerialized | null>(null);
+    const [windowSize, setWindowSize] = useState<number>(16);
+    const [minMatchLength, setMinMatchLength] = useState<number>(4);
+    const [maxMatchLength, setMaxMatchLength] = useState<number>(30);
+    const [useRLE, setUseRLE] = useState<boolean>(false);
 
     const clipboard = useClipboard();
     //const [data, setData] = useState<SongStatsData>({ cartSize: 0, breakdown: [] });
 
-    const cartWriter = useWriteBehindEffect<Song, SongCartDetails>(async (doc) => {
+    const cartWriter = useWriteBehindEffect<Song, SongSerialized>(async (doc) => {
         const cartDetails = serializeSongToCartDetailed(doc, true, 'release');
-        return cartDetails;
+
+        const optimizedDoc = OptimizeSong(doc).optimizedSong;
+        const bridge = serializeSongForTic80Bridge(optimizedDoc);
+        return { cartridge: cartDetails, bridge };
     }, {
         debounceMs: 1200,
         maxWaitMs: 5000,
-        onSuccess: (cartDetails) => {
-            setCartDetails(cartDetails);
+        onSuccess: (input) => {
+            setInput(input);
         },
         onError: () => {
-            setCartDetails(null);
-            //setData({ cartSize: 0, breakdown: [] });
+            setInput(null);
         },
     });
 
@@ -79,37 +59,86 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
         cartWriter.enqueue(song);
     }, [song]);
 
-    //const totalSize = Math.max(1, data.breakdown.reduce((s, c) => s + c.size, 0) || data.cartSize || 0);
+    // refresh when compression settings change
+    // useEffect(() => {
+    //     cartWriter.enqueue(song);
+    //     cartWriter.flush();
+    // }, [minMatchLength, maxMatchLength, windowSize, useRLE]);
 
-    const breakdown = useMemo<ChunkInfo[]>(() => {
-        if (!cartDetails) return [];
+    const breakdown = useMemo<Stats>(() => {
+        if (!input) return {
+            chunks: [],
+            patternCompressedSize: 0,
+            patternUncompressedSize: 0,
+            patternCompressionRatio: 1,
+            roundTripStatus: "no data",
+        };
         const result: ChunkInfo[] = [];
-        result.push({ name: 'Code (playroutine)', size: cartDetails.codeChunk.length - cartDetails.generatedCode.length, color: 'var(--tic-1)' });
-        result.push({ name: 'Code (songdata)', size: cartDetails.generatedCode.length, color: 'var(--tic-2)' });
-        result.push({ name: 'Waveforms', size: cartDetails.waveformChunk.length, color: 'var(--tic-3)' });
-        result.push({ name: 'SFX', size: cartDetails.sfxChunk.length, color: 'var(--tic-4)' });
-        result.push({ name: 'Patterns', size: cartDetails.patternChunk.length, color: 'var(--tic-5)' });
-        result.push({ name: 'Tracks', size: cartDetails.trackChunk.length, color: 'var(--tic-6)' });
-        return result;
-    }, [cartDetails]);
+        result.push({ name: 'Code (playroutine)', size: input.cartridge.codeChunk.length - input.cartridge.generatedCode.length, color: 'var(--tic-1)' });
+        result.push({ name: 'Code (songdata)', size: input.cartridge.generatedCode.length, color: 'var(--tic-2)' });
+        result.push({ name: 'Waveforms', size: input.cartridge.waveformChunk.length, color: 'var(--tic-3)' });
+        result.push({ name: 'SFX', size: input.cartridge.sfxChunk.length, color: 'var(--tic-4)' });
+        result.push({ name: 'Patterns', size: input.cartridge.patternChunk.length, color: 'var(--tic-5)' });
+        result.push({ name: 'Tracks', size: input.cartridge.trackChunk.length, color: 'var(--tic-6)' });
 
-    const totalSize = Math.max(1, cartDetails?.cartridge.length || 0);
+        let patternCompressedSize = 0;
+        let patternUncompressedSize = 0;
+        let status = "ok";
+        try {
+            for (const patternData of input.cartridge.realPatternChunks) {
+                // to truly compare pattern compression,
+                // for each pattern, compress it, base85 encode, and sum the sizes.
+                const patternCompressed = lzCompress(patternData, {
+                    minMatchLength,
+                    maxMatchLength,
+                    windowSize,
+                    useRLE,
+                });
+
+                const decompressed = lzDecompress(patternCompressed); // sanity check
+                const compareResult = compareBuffers(patternData, decompressed);
+
+                if (!compareResult.match) {
+                    console.error("Decompressed pattern does not match original!", { patternData, decompressed });
+                    status = `Roundtrip error: ${compareResult.description}`;
+                }
+
+                patternCompressedSize += base85Encode(patternCompressed).length;
+                patternUncompressedSize += base85Encode(patternData).length;
+            }
+        } catch (e) {
+            console.error("Error calculating pattern compression stats:", e);
+            status = `Exception thrown`;
+        }
+
+        const patternCompressionRatio = patternUncompressedSize > 0 ? (patternCompressedSize / patternUncompressedSize) : 1;
+
+        return {
+            chunks: result,
+            patternCompressedSize,
+            patternUncompressedSize,
+            patternCompressionRatio,
+            roundTripStatus: status,
+        };
+    }, [input]);
+
+    const totalSize = Math.max(1, input?.cartridge.cartridge.length || 0);
 
     const handleClickGeneratedCode = async () => {
-        console.log(cartDetails?.generatedCode);
-        await clipboard.copyTextToClipboard(cartDetails?.generatedCode || "");
+        console.log(input?.cartridge.generatedCode);
+        await clipboard.copyTextToClipboard(input?.cartridge.generatedCode || "");
     };
 
-    const tooltipContent = !cartDetails ? (<>No data</>) : (
+    const tooltipContent = !input ? (<>No data</>) : (
         <div style={{ minWidth: 320 }}>
-            <div style={{ marginBottom: 8, fontWeight: 600 }}>Cart size: {formatBytes(cartDetails.cartridge.length)}</div>
+            <div style={{ marginBottom: 8, fontWeight: 600 }}>Cart size: {formatBytes(input.cartridge.cartridge.length)}</div>
             <div style={{ height: 12, display: 'flex', width: '100%', background: '#0ff', borderRadius: 4, overflow: 'hidden', marginBottom: 8 }}>
-                {breakdown.length > 0 ? breakdown.map((c, idx) => (
+                {breakdown.chunks.length > 0 ? breakdown.chunks.map((c, idx) => (
                     <div key={idx} title={`${c.name}: ${c.size} bytes`} style={{ flex: c.size || 1, background: c.color }} />
                 )) : <div style={{ flex: 1, background: '#444' }} />}
             </div>
             <div>
-                {breakdown.map((c, idx) => (
+                {breakdown.chunks.map((c, idx) => (
                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                         <div style={{ width: 12, height: 12, background: c.color, borderRadius: 2 }} />
                         <div style={{ flex: 1 }}>{c.name}</div>
@@ -120,17 +149,40 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
                 Click to Copy generated code
 
                 {/* display more fields */}
-                <div>Patterns: {cartDetails.optimizeResult.usedPatternCount}</div>
-                <div>SFX: {cartDetails.optimizeResult.usedSfxCount}</div>
-                <div>Waveforms: {cartDetails.optimizeResult.usedWaveformCount}</div>
+                <div>Serialization took: {input.cartridge.elapsedMillis} ms</div>
+                <div>Patterns: {input.cartridge.optimizeResult.usedPatternCount}</div>
+                <div>SFX: {input.cartridge.optimizeResult.usedSfxCount}</div>
+                <div>Waveforms: {input.cartridge.optimizeResult.usedWaveformCount}</div>
+                <div>Pattern uncompressed size: {formatBytes(breakdown.patternUncompressedSize)}</div>
+                <div>Pattern compressed size  : {formatBytes(breakdown.patternCompressedSize)}</div>
+                <div>Pattern compression ratio: {(breakdown.patternCompressionRatio * 100).toFixed(1)}%</div>
+                <div>status: {breakdown.roundTripStatus}</div>
+                <div>---</div>
+                <div>Bridge:</div>
+                <div>  Waveforms: {input.bridge.optimizeResult.usedWaveformCount} ({input.bridge.waveformData.length} bytes)</div>
+                <div>  SFX: {input.bridge.optimizeResult.usedSfxCount} ({input.bridge.sfxData.length} bytes)</div>
+                <div>  Patterns: {input.bridge.optimizeResult.usedPatternCount} ({input.bridge.patternData.length} bytes)</div>
+                <div>  Tracks: {input.bridge.trackData.length} bytes</div>
+                <div>  Song order: {input.bridge.songOrderData.length} bytes</div>
+
             </div>
         </div>
     );
 
-    return (<div>
+    const error = (input?.bridge.patternData.length || 0) > SomaticCaps.maxPatternLengthToBridge;
+
+    return (<div className={`songStatsPanel ${error ? 'error' : ''}`}>
         <Tooltip title={tooltipContent} placement="bottom">
-            <div className="cartSize__label" style={{ cursor: 'default' }} onClick={() => handleClickGeneratedCode()}>
-                cart: {formatBytes(totalSize)}
+            <div>
+                {/* <input type="number" value={windowSize} min={1} onChange={e => setWindowSize(parseInt(e.target.value) || 16)} style={{ width: 60, marginLeft: 8 }} /> window size
+                <input type="number" value={minMatchLength} min={2} onChange={e => setMinMatchLength(parseInt(e.target.value) || 3)} style={{ width: 60 }} /> min match length
+                <input type="number" value={maxMatchLength} onChange={e => setMaxMatchLength(parseInt(e.target.value) || 18)} style={{ width: 60, marginLeft: 8 }} /> max match length
+                <label style={{ marginLeft: 8 }}>
+                    <input type="checkbox" checked={useRLE} onChange={e => setUseRLE(e.target.checked)} /> use RLE
+                </label> */}
+                <div className="cartSize__label" style={{ cursor: 'default' }} onClick={() => handleClickGeneratedCode()}>
+                    cart: {formatBytes(totalSize)}
+                </div>
             </div>
         </Tooltip>
     </div>

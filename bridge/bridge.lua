@@ -9,9 +9,9 @@ local ADDR = {
 	INBOX = 0x14E80, -- 0x40 bytes for incoming args
 	OUTBOX = 0x14EC0, -- for strings, this is bigger than inbox (~256 bytes)
 
-	TF_ORDER_LIST_COUNT = 0x8000, --   // MAP_BASE + 0
-	TF_ORDER_LIST_ENTRIES = 0x8001, -- // MAP_BASE + 1 -- max 256 entries
-	TF_PATTERN_DATA = 0x8101, --       // MAP_BASE + 256 // theoretically you can support the whole map area for pattern data (32640 bytes).
+	TF_ORDER_LIST_COUNT = 0x4000, --   // TILE_BASE + 0
+	TF_ORDER_LIST_ENTRIES = 0x4001, -- // TILE_BASE + 1 -- max 256 entries
+	TF_PATTERN_DATA = 0x4101, --       // TILE_BASE + 256 // theoretically you can support the whole tile+sprite+map area for pattern data (8192+8192+32640 bytes = 49024).
 }
 
 local CMD_PLAY = 1
@@ -381,7 +381,7 @@ end
 
 local function draw_status()
 	local y = 2
-	print("BRIDGE", 40, y, 12)
+	print("Somatic", 40, y, 12)
 	y = y + 8
 	print("fps:" .. tostring(fps), 40, y, 13)
 	y = y + 8
@@ -412,7 +412,123 @@ local function getSongOrderCount()
 	return peek(ADDR.TF_ORDER_LIST_COUNT)
 end
 
-local function readPattern(patternIndex0b)
+-- Read unsigned LEB128 varint from memory.
+-- base:   start address of encoded stream
+-- si:     current offset (0-based) into the stream
+-- srcLen: total length of the encoded stream (in bytes)
+-- Returns: value, next_si
+local function read_varint_mem(base, si, srcLen)
+	local x = 0
+	local factor = 1
+
+	while true do
+		if si >= srcLen then
+			-- Truncated varint; in your use-case this should never happen.
+			return 0, si
+		end
+
+		local b = peek(base + si)
+		si = si + 1
+
+		local low7 = b % 0x80 -- b & 0x7f
+		x = x + low7 * factor
+		factor = factor * 0x80 -- *= 128
+
+		if b < 0x80 then
+			break
+		end
+	end
+
+	return x, si
+end
+
+-- Decompress from [src .. src+srcLen-1] into [dst ..).
+-- Returns number of decompressed bytes written.
+function lzdec_mem(src, srcLen, dst)
+	local si = 0 -- source offset (0..srcLen-1)
+	local di = 0 -- dest offset   (bytes written)
+
+	while si < srcLen do
+		local tag = peek(src + si)
+		si = si + 1
+
+		if tag == 0x00 then
+			-- Literal run: 00 <varint len> <len bytes>
+			local len
+			len, si = read_varint_mem(src, si, srcLen)
+
+			for j = 1, len do
+				local b = peek(src + si)
+				si = si + 1
+				poke(dst + di, b)
+				di = di + 1
+			end
+		elseif tag == 0x80 then
+			-- LZ match: 80 <varint len> <varint dist>
+			local len, dist
+			len, si = read_varint_mem(src, si, srcLen)
+			dist, si = read_varint_mem(src, si, srcLen)
+
+			-- Overlapping copy (LZ-style)
+			for j = 1, len do
+				local b = peek(dst + di - dist)
+				poke(dst + di, b)
+				di = di + 1
+			end
+		elseif tag == 0x81 then
+			-- RLE: 81 <varint len> <byte value>
+			-- we shouldn't need this.
+			local len
+			len, si = read_varint_mem(src, si, srcLen)
+			local v = peek(src + si)
+			si = si + 1
+
+			for j = 1, len do
+				poke(dst + di, v)
+				di = di + 1
+			end
+		else
+			-- Unknown tag; in your data this should never happen.
+			-- You can error() here if you want hard failure.
+			-- error(string.format("unknown LZ tag 0x%02x at src+%d", tag, si-1))
+			break
+		end
+	end
+
+	return di
+end
+
+-- Computes a simple checksum and first-bytes hex preview for a memory region.
+-- addr:      start address in memory
+-- total_len: number of bytes to include in the checksum
+-- preview_len: how many bytes to show in the "firstBytes" preview (default 16)
+local function print_buffer_fingerprint(addr, total_len, preview_len)
+	preview_len = preview_len or 16
+
+	-- checksum over the whole buffer (like the TS version)
+	local checksum = 0
+	for i = 0, total_len - 1 do
+		checksum = checksum + peek(addr + i)
+	end
+
+	-- hex representation of the first N bytes
+	local hex = {}
+	local count = math.min(preview_len, total_len)
+	for i = 0, count - 1 do
+		local b = peek(addr + i)
+		hex[#hex + 1] = string.format("%02x", b)
+	end
+
+	local firstBytes = table.concat(hex, " ")
+	if total_len > preview_len then
+		firstBytes = firstBytes .. " ..."
+	end
+
+	log(" checksum: " .. checksum)
+	log(" firstBytes: [" .. firstBytes .. "]")
+end
+
+local function blitPattern(patternIndex0b, destPointer)
 	-- ADDR.TF_PATTERN_DATA contains patterns in sequence.
 	-- each pattern is serialized as
 	-- * 16-bit little-endian pattern blob size
@@ -437,58 +553,24 @@ local function readPattern(patternIndex0b)
 	local patternSize = len_lo + (len_hi * 256)
 	readPos = readPos + 2 -- skip past length header
 
-	-- Read pattern data into table
-	local patternData = {}
-	for i = 0, patternSize - 1 do
-		patternData[i + 1] = peek(readPos + i)
-	end
+	-- Decompress directly into destination buffer
+	local decompressedSize = lzdec_mem(readPos, patternSize, destPointer)
 
-	return patternData
+	-- -- check payload.
+	-- log("pattern " .. tostring(patternIndex0b) .. " blitted")
+	-- log("COMPRESSED")
+	-- log(" size " .. tostring(patternSize))
+	-- print_buffer_fingerprint(readPos, patternSize)
+
+	-- log("UNCOMPRESSED")
+	-- -- log size compressed & decompressed
+	-- log(" size " .. tostring(decompressedSize))
+	-- print_buffer_fingerprint(destPointer, decompressedSize)
 end
 
 local function swapInPlayorder(songPosition, destPointer)
 	local patternIndex0b = peek(ADDR.TF_ORDER_LIST_ENTRIES + songPosition)
-	local patternData = readPattern(patternIndex0b)
-
-	log("swapInPlayorder: Swapping in song position " .. tostring(songPosition))
-	log("                   : pattern index " .. tostring(patternIndex0b))
-	--log("                   : pattern data length " .. tostring(#patternData) .. " bytes")
-	--log("                   : writing to destPointer " .. string.format("0x%04X", destPointer))
-	-- similar to ch_serializePatterns, calculate checksum and log checksum, length, first 8 bytes.
-	-- local runningTotal = 0
-	-- for i = 1, #patternData do
-	-- 	runningTotal = runningTotal + patternData[i]
-	-- end
-	-- local firstBytes = {}
-	-- for i = 1, math.min(8, #patternData) do
-	-- 	firstBytes[i] = string.format("%02X", patternData[i])
-	-- end
-	-- log(
-	-- 	string.format(
-	-- 		"               : checksum=%d length=%d firstBytes=%s",
-	-- 		runningTotal,
-	-- 		#patternData,
-	-- 		table.concat(firstBytes, " ")
-	-- 	)
-	-- )
-
-	-- deduce which buffer that corresponds to and log it.
-	if destPointer == 0x11164 then
-		log("                   : -> (buffer A)")
-	elseif destPointer == 0x11464 then
-		log("                   : -> (buffer B)")
-	end
-
-	-- copy the patternData to destPointer.
-	-- the patternData is expected to be exactly 192*4 = 768 bytes.
-	-- but we require length if we decide to compress pattern data later.
-	for i = 0, #patternData - 1 do
-		poke(destPointer + i, patternData[i + 1])
-	end
-
-	-- sync(24, 0, true)
-
-	return patternIndex0b
+	blitPattern(patternIndex0b, destPointer)
 end
 
 -- =========================
@@ -532,7 +614,7 @@ tf_music_init = function(songPosition, startRow)
 
 	log("tf_music_init: Starting playback from position " .. tostring(songPosition) .. " row " .. tostring(startRow))
 
-	local patternIndex = swapInPlayorder(currentSongOrder, bufferALocation)
+	swapInPlayorder(currentSongOrder, bufferALocation)
 
 	ch_set_playroutine_regs(currentSongOrder)
 
@@ -584,7 +666,7 @@ function tf_music_tick()
 		return
 	end
 
-	local patternIndex = swapInPlayorder(currentSongOrder, destPointer)
+	swapInPlayorder(currentSongOrder, destPointer)
 end
 
 -- =========================

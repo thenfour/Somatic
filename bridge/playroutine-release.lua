@@ -1,6 +1,9 @@
 -- BEGIN_SOMATIC_MUSIC_DATA
 SOMATIC_MUSIC_DATA = {
 	songOrder = { 0, 3, 2 },
+	patternLengths = {
+		-- (pattern lengths here ...)
+	},
 	patterns = {
 		-- (base85 encoded patterns here ...)
 	},
@@ -17,30 +20,78 @@ do
 	local bufferALocation = 0x11164
 	local bufferBLocation = bufferALocation + PATTERN_BUFFER_BYTES
 
-	function base85_decode_to_bytes(s, expectedLen)
-		local RADIX, OFFSET = 85, 33
-		local bytes, outCount = {}, 0
-		local n, i = #s, 1
-
-		while i <= n and outCount < expectedLen do
+	local function base85_decode_to_mem(s, expectedLen, dst)
+		local o, i = 0, 1
+		while o < expectedLen do
 			local v = 0
-			for _ = 1, 5 do
-				local c = s:byte(i)
+			for j = 1, 5 do
+				v = v * 85 + s:byte(i) - 33
 				i = i + 1
-				local d = c - OFFSET
-				v = v * RADIX + d
 			end
-
-			for shift = 3, 0, -1 do
-				if outCount >= expectedLen then
-					break
-				end
-				bytes[#bytes + 1] = math.floor(v / (256 ^ shift)) % 256
-				outCount = outCount + 1
+			local b0 = v // 16777216 % 256
+			local b1 = v // 65536 % 256
+			local b2 = v // 256 % 256
+			local b3 = v % 256
+			if o < expectedLen then
+				poke(dst + o, b0)
+				o = o + 1
+			end
+			if o < expectedLen then
+				poke(dst + o, b1)
+				o = o + 1
+			end
+			if o < expectedLen then
+				poke(dst + o, b2)
+				o = o + 1
+			end
+			if o < expectedLen then
+				poke(dst + o, b3)
+				o = o + 1
 			end
 		end
+		return o
+	end
 
-		return bytes
+	-- varint from memory (unsigned LEB128)
+	local function read_varint_mem(base, si, srcLen)
+		local x, f = 0, 1
+		while true do
+			local b = peek(base + si)
+			si = si + 1
+			x = x + (b % 0x80) * f
+			if b < 0x80 then
+				return x, si
+			end
+			f = f * 0x80
+		end
+	end
+
+	-- Decompress from [src .. src+srcLen-1] into [dst ..), return bytes written.
+	-- assume compressed using gSomaticLZDefaultConfig settings
+	local function lzdec_mem(src, srcLen, dst)
+		local si, di = 0, 0
+		while si < srcLen do
+			local t = peek(src + si)
+			si = si + 1
+			if t == 0 then
+				local l
+				l, si = read_varint_mem(src, si, srcLen)
+				for j = 1, l do
+					poke(dst + di, peek(src + si))
+					si = si + 1
+					di = di + 1
+				end
+			else
+				local l, d
+				l, si = read_varint_mem(src, si, srcLen)
+				d, si = read_varint_mem(src, si, srcLen)
+				for j = 1, l do
+					poke(dst + di, peek(dst + di - d))
+					di = di + 1
+				end
+			end
+		end
+		return di
 	end
 
 	local function getSongOrderCount()
@@ -50,12 +101,11 @@ do
 	local function swapInPlayorder(songPosition0b, destPointer)
 		local patternIndex0b = SOMATIC_MUSIC_DATA.songOrder[songPosition0b + 1]
 		local patternString = SOMATIC_MUSIC_DATA.patterns[patternIndex0b + 1]
-		local patternLengthBytes = 192 * 4
-		local patternBytes = base85_decode_to_bytes(patternString, patternLengthBytes)
-		for i = 0, patternLengthBytes - 1 do
-			poke(destPointer + i, patternBytes[i + 1])
-		end
-		sync(24, 0, true)
+		local patternLengthBytes = SOMATIC_MUSIC_DATA.patternLengths[patternIndex0b + 1]
+
+		local TEMP_DECODE_BUFFER = 0x13B60 -- put temp buffer towards end of the pattern memory
+		local decodedLen = base85_decode_to_mem(patternString, patternLengthBytes, TEMP_DECODE_BUFFER)
+		local decompressedLen = lzdec_mem(TEMP_DECODE_BUFFER, decodedLen, destPointer)
 	end
 
 	local function getBufferPointer()

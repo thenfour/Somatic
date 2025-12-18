@@ -6,8 +6,8 @@ import {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {getMaxPatternUsedIndex, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong} from "../utils/SongOptimizer";
-import {assert, clamp, toLuaStringLiteral} from "../utils/utils";
-import {base85Encode} from "./encoding";
+import {assert, clamp, getBufferFingerprint, toLuaStringLiteral} from "../utils/utils";
+import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -107,10 +107,21 @@ export function encodePatternCombined(pattern: Pattern): Uint8Array {
 // we output as a 4-channel pattern quad in order so it can just be copied directly to TIC-80 memory.
 function encodeRealPatterns(song: Song): Uint8Array[] {
    const ret: Uint8Array[] = [];
-   for (let p = 0; p < song.patterns.length; p++) {
+   const patternCount = getMaxPatternUsedIndex(song) + 1;
+   for (let p = 0; p < patternCount; p++) {
       const pattern = song.patterns[p]!;
       const combined = encodePatternCombined(pattern);
-      ret.push(combined);
+
+      // compress
+      const compressed = lzCompress(combined, gSomaticLZDefaultConfig);
+
+      //const fingerprintUncompressed = getBufferFingerprint(combined);
+      //console.log(`Pattern ${p} fingerprint uncompressed:`, fingerprintUncompressed);
+
+      // const fingerprintCompressed = getBufferFingerprint(compressed);
+      // console.log(`Pattern ${p} fingerprint compressed:`, fingerprintCompressed);
+
+      ret.push(compressed);
    }
    return ret;
 }
@@ -223,7 +234,7 @@ function encodeTrack(song: Song): Uint8Array {
    return buf;
 }
 
-function encodeWaveforms(song: Song): Uint8Array {
+function encodeWaveforms(song: Song, count: number): Uint8Array {
    // refer to https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#waveforms
    // for a text description of the format.
 
@@ -233,22 +244,22 @@ function encodeWaveforms(song: Song): Uint8Array {
    const bytesPerWave = Tic80Caps.waveform.pointCount / 2; // 32 samples, 4 bits each, packed 2 per byte
    const buf = new Uint8Array(Tic80Caps.waveform.count * bytesPerWave);
 
-   const usedWaveformCount = getMaxWaveformUsedIndex(song) + 1;
+   //const usedWaveformCount = getMaxWaveformUsedIndex(song) + 1;
 
-   for (let w = 0; w < usedWaveformCount; w++) {
+   for (let w = 0; w < count; w++) {
       const waveform = song.waveforms[w];
       // serialize 32 samples (4 bits each, packed 2 per byte)
       for (let i = 0; i < 16; i++) {
          const sampleA = clamp(waveform.amplitudes[i * 2] ?? 0, 0, 15);
          const sampleB = clamp(waveform.amplitudes[i * 2 + 1] ?? 0, 0, 15);
-         buf[w * bytesPerWave + i] = (sampleA << 4) | sampleB;
+         buf[w * bytesPerWave + i] = (sampleB << 4) | sampleA;
       }
    }
    return buf;
    //return writeChunk(CHUNK.WAVEFORMS, buf);
 }
 
-function encodeSfx(song: Song): Uint8Array {
+function encodeSfx(song: Song, count: number): Uint8Array {
    const packLoop = (start: number, length: number): number => {
       const loopStart = clamp(start, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       const loopSize = clamp(
@@ -306,10 +317,10 @@ function encodeSfx(song: Song): Uint8Array {
    };
 
    // 66 bytes per SFX (up to 64 entries in RAM). We only fill instruments (1..INSTRUMENT_COUNT).
-   const sfxCount = getMaxSfxUsedIndex(song);
-   const buf = new Uint8Array(sfxCount * SFX_BYTES_PER_SAMPLE);
+   //const sfxCount = getMaxSfxUsedIndex(song);
+   const buf = new Uint8Array(count * SFX_BYTES_PER_SAMPLE);
 
-   for (let i = 1; i < sfxCount; i++) {
+   for (let i = 1; i < count; i++) {
       const encoded = encodeInstrument(song.instruments?.[i]);
       buf.set(encoded, i * SFX_BYTES_PER_SAMPLE);
    }
@@ -327,6 +338,7 @@ function encodeSfx(song: Song): Uint8Array {
 // but we also pass a separate pattern data chunk which is used for playback because we
 // copy pattern data ourselves to work around tic80 length limitations.
 export interface Tic80SerializedSong {
+   optimizeResult: OptimizeResult;
    //memory_0FFE4: Uint8Array;
    waveformData: Uint8Array;
    sfxData: Uint8Array;
@@ -340,7 +352,13 @@ export interface Tic80SerializedSong {
 }
 
 export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
-   const parts: Uint8Array[] = [];
+   //const parts: Uint8Array[] = [];
+
+   // NB: do not optimize the song because
+   // it changes indices that the editor is using.
+
+   //const optimizeResult = OptimizeSong(song);
+   //song = optimizeResult.optimizedSong;
 
    // should follow this:
    // | 0FFE4 | WAVEFORMS            | 256   |
@@ -349,8 +367,8 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
    // | 13E64 | MUSIC TRACKS         | 408   | <-- for the 8 tracks. but we only need 1, so size=51
    // total of 16408 bytes of music data.
 
-   const waveformData = encodeWaveforms(song);
-   const sfxData = encodeSfx(song);
+   const waveformData = encodeWaveforms(song, song.waveforms.length); // always send all waveforms even if unused
+   const sfxData = encodeSfx(song, song.instruments.length);
    //const nullPatternData = encodeNullPatterns();
    const trackData = encodeTrack(song);
 
@@ -396,6 +414,12 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
 
    return {
       //memory_0FFE4: out,
+      optimizeResult: {
+         ...MakeOptimizeResultEmpty(song),
+         usedPatternCount: getMaxPatternUsedIndex(song) + 1,
+         usedSfxCount: getMaxSfxUsedIndex(song) + 1,
+         usedWaveformCount: getMaxWaveformUsedIndex(song) + 1,
+      },
       waveformData,
       sfxData,
       trackData,
@@ -415,9 +439,9 @@ function ch_serializePatterns(patterns: Uint8Array[]): Uint8Array {
       totalSize += 2 + pattern.length; // 2 bytes for length + pattern data
    }
 
-   assert(
-      patterns[0].length === 768,
-      `ch_serializePatterns: unexpected pattern length ${patterns[0].length}, expected 768`);
+   // assert(
+   //    patterns[0].length === 768,
+   //    `ch_serializePatterns: unexpected pattern length ${patterns[0].length}, expected 768`);
 
    const output = new Uint8Array(totalSize);
    let writePos = 0;
@@ -491,21 +515,28 @@ function getPlayroutineCode(variant: "debug"|"release"): string {
    return variant === "debug" ? playroutineDebug : playroutineRelease;
 };
 
-function getCode(song: Song, variant: "debug"|"release"): {code: string, generatedCode: string} {
+function getCode(
+   song: Song, variant: "debug"|"release"): {code: string, generatedCode: string, patternChunks: Uint8Array[]} {
    // Generate the SOMATIC_MUSIC_DATA section
    const songOrder = song.songOrder.map(idx => idx.toString()).join(",");
 
    const maxPattern = getMaxPatternUsedIndex(song);
+   const patternChunks: Uint8Array[] = [];
+   const patternLengths: number[] = []; // size of the base85-decoded (still compressed) pattern data
 
    const patternStringContents = song.patterns.slice(0, maxPattern + 1).map((pattern, patternIndex) => {
       const encodedPattern = encodePatternCombined(pattern);
+      patternChunks.push(encodedPattern);
 
-      //const fingerprint = getBufferFingerprint(encodedPattern);
-      //console.log(`Pattern ${patternIndex} fingerprint:`, fingerprint);
+      const fingerprint = getBufferFingerprint(encodedPattern);
+      console.log(`Pattern ${patternIndex} fingerprint:`, fingerprint);
 
       // { TestBase85Encoding("04 00 42 00 00 00 0d 00 81"); }
 
-      const patternStr = base85Encode(encodedPattern);
+      const compressed = lzCompress(encodedPattern, gSomaticLZDefaultConfig);
+      patternLengths.push(compressed.length);
+
+      const patternStr = base85Encode(compressed);
       // const decodedPattern = base85Decode(patternStr, encodedPattern.length);
 
       // console.log(`  -> b85:`, patternStr);
@@ -520,6 +551,7 @@ function getCode(song: Song, variant: "debug"|"release"): {code: string, generat
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
 SOMATIC_MUSIC_DATA = {
 \tsongOrder = { ${songOrder} },
+\tpatternLengths = { ${patternLengths.join(", ")} },
 \tpatterns = {
 \t\t${patternArray}
 \t},
@@ -546,14 +578,18 @@ SOMATIC_MUSIC_DATA = {
    return {
       code: beforeMusicData + musicDataSection + "\n" + afterMarker,
       generatedCode: musicDataSection,
+      patternChunks,
    };
 }
 
 export type SongCartDetails = {
+   elapsedMillis: number;     //
    waveformChunk: Uint8Array; //
    sfxChunk: Uint8Array;      //
    patternChunk: Uint8Array;  //
    trackChunk: Uint8Array;    //
+
+   realPatternChunks: Uint8Array[]; // before turning into literals
 
    // how much of the code chunk is generated code.
    generatedCode: string;
@@ -567,6 +603,7 @@ export type SongCartDetails = {
 export function serializeSongToCartDetailed(song: Song, optimize: boolean, variant: "debug"|"release"):
    SongCartDetails //
 {
+   const startTime = performance.now();
    let optimizeResult: OptimizeResult = MakeOptimizeResultEmpty(song);
    if (optimize) {
       const result = OptimizeSong(song);
@@ -583,11 +620,11 @@ export function serializeSongToCartDetailed(song: Song, optimize: boolean, varia
    // byte 1-2: payload length (u16 little-endian)
    // byte 3: reserved (0)
 
-   const waveformChunk = createChunk(CHUNK.WAVEFORMS, encodeWaveforms(song), true);
-   const sfxChunk = createChunk(CHUNK.SFX, encodeSfx(song), true);
+   const waveformChunk = createChunk(CHUNK.WAVEFORMS, encodeWaveforms(song, getMaxWaveformUsedIndex(song) + 1), true);
+   const sfxChunk = createChunk(CHUNK.SFX, encodeSfx(song, getMaxSfxUsedIndex(song) + 1), true);
    const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, new Uint8Array(1), true); // all zeros
    const trackChunk = createChunk(CHUNK.MUSIC_TRACKS, encodeTrack(song), true);
-   const {code, generatedCode} = getCode(song, variant);
+   const {code, generatedCode, patternChunks} = getCode(song, variant);
    const codePayload = stringToAsciiPayload(code);
    const codeChunk = createChunk(CHUNK.CODE, codePayload, false, 0);
 
@@ -607,15 +644,19 @@ export function serializeSongToCartDetailed(song: Song, optimize: boolean, varia
       offset += p.length;
    }
 
+   const elapsedMillis = performance.now() - startTime;
+
    return {
       waveformChunk,
       sfxChunk,
       patternChunk,
+      realPatternChunks: patternChunks,
       trackChunk,
       codeChunk,
       generatedCode,
       optimizeResult,
       cartridge,
+      elapsedMillis,
    };
 }
 

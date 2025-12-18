@@ -301,6 +301,35 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
+    // get a list of waveformIDs used in order, removing adjascent dupes
+    const usedWaveformIDs: { waveformId: number, isHovered: boolean, minIndex: number, len: number }[] = [];
+    let lastWaveformID = null;
+    for (let i = 0; i < instrument.waveFrames.length; i++) {
+        const waveformId = instrument.waveFrames[i];
+        if (waveformId !== lastWaveformID) {
+            usedWaveformIDs.push({
+                waveformId,
+                isHovered: false, // to fill in later
+                minIndex: i,
+                len: 1,
+            });
+            lastWaveformID = waveformId;
+        }
+        else {
+            // increment length of last entry
+            usedWaveformIDs[usedWaveformIDs.length - 1].len++;
+        }
+    }
+    // mark hovered waveform if any
+    if (hoveredWaveform) {
+        for (let entry of usedWaveformIDs) {
+            if (hoveredWaveform.index >= entry.minIndex && hoveredWaveform.index < entry.minIndex + entry.len) {
+                entry.isHovered = true;
+                break;
+            }
+        }
+    }
+
     return (
         <div className="instrument-panel">
             <div className="toolbar">
@@ -371,7 +400,8 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                         onChange={handleWaveEnvelopeChange}
                         onHoverChange={(hover) => setHoveredWaveform(hover)}
                     />
-                    <div className="waveform-swatch-previews">
+
+                    <div className="waveform-swatch-previews" style={{ marginTop: 75 /* crude alignment with editor */ }}>
                         <WaveformSelect
                             onClickWaveform={(waveformId) => {
                                 // set whole env to this waveform
@@ -411,6 +441,19 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                                 scale={4}
                             />
                         </div> */}
+                    </div>
+                </div>
+                <div className='waveformSequence'>
+                    <strong>Waveform sequence:</strong>
+                    <div className='waveformSequence__list' style={{ display: "flex", gap: "3px", maxWidth: 600, flexWrap: "wrap" }}>
+                        {usedWaveformIDs.map((waveformId, index) => (
+                            <WaveformSwatch
+                                key={index}
+                                value={song.waveforms[waveformId.waveformId]}
+                                displayStyle={waveformId.isHovered ? "normal" : "muted"}
+                                scale={2}
+                            />
+                        ))}
                     </div>
                 </div>
                 <InstrumentEnvelopeEditor
