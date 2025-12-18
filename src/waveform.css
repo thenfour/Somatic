@@ -49,30 +49,26 @@
     margin-top: 8px;
 }
 
-.waveform-editor__canvas,
-.instrument-envelope__canvas {
+.waveform-editor__canvas {
     /* border: 1px solid var(--waveform-edit-); */
     background: var(--panel-strong);
     cursor: crosshair;
 }
 
-.waveform-editor__svg,
-.instrument-envelope__svg {
+.waveform-editor__svg {
     display: block;
 }
 
-.waveform-editor__background,
-.instrument-envelope__background {
+.waveform-editor__background {
     fill: var(--waveform-edit-background);
 }
 
-.waveform-editor__grid-line,
-.instrument-envelope__grid-line {
+.waveform-editor__grid-line {
     stroke: var(--waveform-edit-grid-line);
     stroke-width: 1;
 }
 
-.instrument-envelope__loop-line {
+.waveform-editor__loop-line {
     stroke: var(--waveform-edit-loop-line);
     stroke-width: 2.5;
     stroke-dasharray: 4 4;
@@ -93,18 +89,15 @@
     margin-top: 8px;
 }
 
-.waveform-editor__point,
-.instrument-envelope__point {
+.waveform-editor__point {
     fill: var(--waveform-edit-point);
 }
 
-.waveform-editor__point--hovered,
-.instrument-envelope__point--hovered {
+.waveform-editor__point--hovered {
     fill: var(--waveform-edit-highlight);
 }
 
-.waveform-editor__point-preview,
-.instrument-envelope__point-preview {
+.waveform-editor__point-preview {
     fill: none;
     stroke: var(--waveform-edit-highlight);
     stroke-width: 2px;
