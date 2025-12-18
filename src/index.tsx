@@ -29,6 +29,7 @@ import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { ToastProvider, useToasts } from './ui/toast_provider';
 import { WaveformEditorPanel } from './ui/waveformEditor';
 import { useWriteBehindEffect } from './hooks/useWriteBehindEffect';
+import { SongStats } from './ui/SongStats';
 import { OptimizeSong } from './utils/SongOptimizer';
 import { UndoStack } from './utils/UndoStack';
 import type { UndoSnapshot } from './utils/UndoStack';
@@ -173,6 +174,9 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         //     });
         // }
     });
+
+
+
 
     const applyUndoSnapshot = useCallback((snapshot: UndoSnapshot) => {
         autoSave.flush();
@@ -351,6 +355,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     useEffect(() => {
         autoSave.enqueue(song);
     }, [song]);
+
 
     const songRef = React.useRef(song);
     const editorRef = React.useRef(editorState);
@@ -730,6 +735,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 
                         </button>
                         <span className="autoSaveIndicator__label">sync:{autoSave.state.status}</span>
+                        <SongStats song={song} />
                         <MusicStateDisplay musicState={musicState} />
 
                     </div>

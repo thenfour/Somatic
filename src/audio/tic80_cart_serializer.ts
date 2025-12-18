@@ -1,13 +1,13 @@
+import playroutineDebug from "../../bridge/playroutine-debug.lua";
+import playroutineRelease from "../../bridge/playroutine-release.lua";
 import {NOTE_INFOS} from "../defs";
 import type {Tic80Instrument} from "../models/instruments";
 import {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
-import {assert, clamp, compareBuffers, getBufferFingerprint, toLuaStringLiteral} from "../utils/utils";
-import {base85Decode, base85Encode} from "./encoding";
-import playroutineDebug from "../../bridge/playroutine-debug.lua";
-import playroutineRelease from "../../bridge/playroutine-release.lua";
-import {calculateSongUsage, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, OptimizeSong} from "../utils/SongOptimizer";
+import {getMaxPatternUsedIndex, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong} from "../utils/SongOptimizer";
+import {assert, clamp, toLuaStringLiteral} from "../utils/utils";
+import {base85Encode} from "./encoding";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -491,11 +491,13 @@ function getPlayroutineCode(variant: "debug"|"release"): string {
    return variant === "debug" ? playroutineDebug : playroutineRelease;
 };
 
-function getCode(song: Song, variant: "debug"|"release"): string {
+function getCode(song: Song, variant: "debug"|"release"): {code: string, generatedCode: string} {
    // Generate the SOMATIC_MUSIC_DATA section
    const songOrder = song.songOrder.map(idx => idx.toString()).join(",");
 
-   const patternStringContents = song.patterns.map((pattern, patternIndex) => {
+   const maxPattern = getMaxPatternUsedIndex(song);
+
+   const patternStringContents = song.patterns.slice(0, maxPattern + 1).map((pattern, patternIndex) => {
       const encodedPattern = encodePatternCombined(pattern);
 
       //const fingerprint = getBufferFingerprint(encodedPattern);
@@ -541,12 +543,35 @@ SOMATIC_MUSIC_DATA = {
    const beforeMusicData = playroutineTemplate.substring(0, musicDataStart);
    const afterMarker = playroutineTemplate.substring(markerLineEnd + 1);
 
-   return beforeMusicData + musicDataSection + "\n" + afterMarker;
+   return {
+      code: beforeMusicData + musicDataSection + "\n" + afterMarker,
+      generatedCode: musicDataSection,
+   };
 }
 
-export function serializeSongToCart(song: Song, optimize: boolean, variant: "debug"|"release"): Uint8Array {
+export type SongCartDetails = {
+   waveformChunk: Uint8Array; //
+   sfxChunk: Uint8Array;      //
+   patternChunk: Uint8Array;  //
+   trackChunk: Uint8Array;    //
+
+   // how much of the code chunk is generated code.
+   generatedCode: string;
+   codeChunk: Uint8Array; //
+
+   optimizeResult: OptimizeResult;
+
+   cartridge: Uint8Array;
+}
+
+export function serializeSongToCartDetailed(song: Song, optimize: boolean, variant: "debug"|"release"):
+   SongCartDetails //
+{
+   let optimizeResult: OptimizeResult = MakeOptimizeResultEmpty(song);
    if (optimize) {
-      song = OptimizeSong(song).optimizedSong;
+      const result = OptimizeSong(song);
+      song = result.optimizedSong;
+      optimizeResult = result;
    }
 
    // e.g., remove unused instruments, waveforms, patterns, shift to pack etc.
@@ -562,7 +587,8 @@ export function serializeSongToCart(song: Song, optimize: boolean, variant: "deb
    const sfxChunk = createChunk(CHUNK.SFX, encodeSfx(song), true);
    const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, new Uint8Array(1), true); // all zeros
    const trackChunk = createChunk(CHUNK.MUSIC_TRACKS, encodeTrack(song), true);
-   const codePayload = stringToAsciiPayload(getCode(song, variant));
+   const {code, generatedCode} = getCode(song, variant);
+   const codePayload = stringToAsciiPayload(code);
    const codeChunk = createChunk(CHUNK.CODE, codePayload, false, 0);
 
    const chunks: Uint8Array[] = [
@@ -581,5 +607,20 @@ export function serializeSongToCart(song: Song, optimize: boolean, variant: "deb
       offset += p.length;
    }
 
-   return cartridge;
+   return {
+      waveformChunk,
+      sfxChunk,
+      patternChunk,
+      trackChunk,
+      codeChunk,
+      generatedCode,
+      optimizeResult,
+      cartridge,
+   };
+}
+
+
+export function serializeSongToCart(song: Song, optimize: boolean, variant: "debug"|"release"): Uint8Array {
+   const details = serializeSongToCartDetailed(song, optimize, variant);
+   return details.cartridge;
 }

@@ -77,7 +77,7 @@ export function getMaxPatternUsedIndex(song: Song): number {
 }
 
 
-interface OptimizeResult {
+export interface OptimizeResult {
    optimizedSong: Song;
    usedPatternCount: number;
    usedWaveformCount: number;
@@ -87,6 +87,24 @@ interface OptimizeResult {
    // hold explanations of what changed (moving patterns, deduping etc)
    changeLog: string[];
    resultingStats: SongUsage;
+}
+
+export function MakeOptimizeResultEmpty(song: Song): OptimizeResult {
+   return {
+      optimizedSong: song,
+      usedPatternCount: 0,
+      usedWaveformCount: 0,
+      usedSfxCount: 0,
+      changeLog: [],
+      resultingStats: {
+         usedPatterns: new Set(),
+         usedInstruments: new Set(),
+         usedWaveforms: new Set(),
+         maxPattern: 0,
+         maxInstrument: 0,
+         maxWaveform: 0,
+      },
+   };
 }
 
 export function OptimizeSong(song: Song): OptimizeResult {
