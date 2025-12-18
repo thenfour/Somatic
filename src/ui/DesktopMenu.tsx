@@ -1,0 +1,459 @@
+import React, {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useId,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+    type CSSProperties,
+    type ReactNode,
+} from 'react';
+import { createPortal } from 'react-dom';
+
+const MENU_PORTAL_ID = 'desktop-menu-root';
+
+type MenuPlacement = 'bottom-start' | 'right-start';
+
+type MenuStateProps = {
+    open?: boolean;
+    defaultOpen?: boolean;
+    onOpenChange?: (open: boolean) => void;
+};
+
+type InternalMenuProviderProps = MenuStateProps & {
+    children: ReactNode;
+    placement: MenuPlacement;
+    parentCloseTree?: () => void;
+    level?: number;
+    rootId?: string;
+};
+
+type MenuContextValue = {
+    isOpen: boolean;
+    open: () => void;
+    close: () => void;
+    toggle: () => void;
+    closeTree: () => void;
+    triggerRef: React.MutableRefObject<HTMLElement | null>;
+    contentRef: React.MutableRefObject<HTMLDivElement | null>;
+    placement: MenuPlacement;
+    level: number;
+    rootId: string;
+};
+
+const MenuContext = createContext<MenuContextValue | null>(null);
+
+const useMenuContext = (component: string): MenuContextValue => {
+    const ctx = useContext(MenuContext);
+    if (!ctx) {
+        throw new Error(`${component} must be used within <DesktopMenu.Root> or <DesktopMenu.Sub>.`);
+    }
+    return ctx;
+};
+
+const InternalMenuProvider: React.FC<InternalMenuProviderProps> = ({
+    children,
+    placement,
+    parentCloseTree,
+    level = 0,
+    open,
+    defaultOpen,
+    onOpenChange,
+    rootId,
+}) => {
+    const generatedRootId = useId();
+    const resolvedRootId = level === 0 ? (rootId ?? generatedRootId) : (rootId ?? generatedRootId);
+
+    const [internalOpen, setInternalOpen] = useState(defaultOpen ?? false);
+    const isControlled = typeof open === 'boolean';
+    const actualOpen = isControlled ? open : internalOpen;
+
+    const updateOpen = useCallback((next: boolean) => {
+        if (!isControlled) {
+            setInternalOpen(next);
+        }
+        onOpenChange?.(next);
+    }, [isControlled, onOpenChange]);
+
+    const triggerRef = useRef<HTMLElement | null>(null);
+    const contentRef = useRef<HTMLDivElement | null>(null);
+
+    const openMenu = useCallback(() => updateOpen(true), [updateOpen]);
+    const closeMenu = useCallback(() => updateOpen(false), [updateOpen]);
+    const toggleMenu = useCallback(() => updateOpen(!actualOpen), [actualOpen, updateOpen]);
+    const closeTree = useCallback(() => {
+        closeMenu();
+        parentCloseTree?.();
+    }, [closeMenu, parentCloseTree]);
+
+    const value = useMemo<MenuContextValue>(() => ({
+        isOpen: actualOpen,
+        open: openMenu,
+        close: closeMenu,
+        toggle: toggleMenu,
+        closeTree,
+        triggerRef,
+        contentRef,
+        placement,
+        level,
+        rootId: resolvedRootId,
+    }), [actualOpen, closeMenu, closeTree, level, openMenu, placement, resolvedRootId, toggleMenu]);
+
+    return (
+        <MenuContext.Provider value={value}>
+            {children}
+        </MenuContext.Provider>
+    );
+};
+
+const ensurePortalHost = () => {
+    let portal = document.getElementById(MENU_PORTAL_ID);
+    if (!portal) {
+        portal = document.createElement('div');
+        portal.id = MENU_PORTAL_ID;
+        document.body.appendChild(portal);
+    }
+    return portal;
+};
+
+const composeRefs = <T,>(...refs: Array<React.Ref<T> | undefined>) => (node: T | null) => {
+    refs.forEach((ref) => {
+        if (!ref) return;
+        if (typeof ref === 'function') {
+            ref(node);
+        } else {
+            (ref as React.MutableRefObject<T | null>).current = node;
+        }
+    });
+};
+
+const isFocusableItem = (node: Element | null) => {
+    if (!node) return false;
+    return node.getAttribute('role') === 'menuitem' && node.getAttribute('aria-disabled') !== 'true';
+};
+
+const focusFirstItem = (container: HTMLElement | null) => {
+    if (!container) return;
+    const candidate = container.querySelector('[data-menu-item="true"]') as HTMLElement | null;
+    if (candidate && isFocusableItem(candidate)) {
+        candidate.focus();
+    }
+};
+
+const getMenuPosition = (placement: MenuPlacement, trigger: HTMLElement | null) => {
+    if (!trigger) return { top: 0, left: 0, minWidth: undefined as number | undefined };
+    const rect = trigger.getBoundingClientRect();
+    if (placement === 'right-start') {
+        return {
+            top: rect.top,
+            left: rect.right,
+            minWidth: undefined,
+        };
+    }
+    return {
+        top: rect.bottom,
+        left: rect.left,
+        minWidth: rect.width,
+    };
+};
+
+type MenuRootProps = MenuStateProps & {
+    children: ReactNode;
+};
+
+const MenuRoot: React.FC<MenuRootProps> = ({ children, ...stateProps }) => (
+    <InternalMenuProvider placement="bottom-start" {...stateProps}>
+        {children}
+    </InternalMenuProvider>
+);
+
+type MenuSubProps = MenuStateProps & {
+    children: ReactNode;
+};
+
+const MenuSub: React.FC<MenuSubProps> = ({ children, ...stateProps }) => {
+    const parentCtx = useMenuContext('DesktopMenu.Sub');
+    return (
+        <InternalMenuProvider
+            placement="right-start"
+            parentCloseTree={parentCtx.closeTree}
+            level={parentCtx.level + 1}
+            rootId={parentCtx.rootId}
+            {...stateProps}
+        >
+            {children}
+        </InternalMenuProvider>
+    );
+};
+
+type MenuTriggerProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    caret?: boolean;
+};
+
+const MenuTrigger = React.forwardRef<HTMLButtonElement, MenuTriggerProps>(({ caret = true, className = '', children, onClick, onKeyDown, ...rest }, forwardedRef) => {
+    const ctx = useMenuContext('DesktopMenu.Trigger');
+    const combinedRef = composeRefs<HTMLButtonElement>(forwardedRef, (node) => { ctx.triggerRef.current = node; });
+
+    const handleClick: React.MouseEventHandler<HTMLButtonElement> = (event) => {
+        onClick?.(event);
+        if (event.defaultPrevented) return;
+        ctx.toggle();
+    };
+
+    const handleKeyDown: React.KeyboardEventHandler<HTMLButtonElement> = (event) => {
+        onKeyDown?.(event);
+        if (event.defaultPrevented) return;
+        if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            ctx.open();
+        }
+    };
+
+    const classes = ['desktop-menu-trigger'];
+    if (ctx.isOpen) classes.push('desktop-menu-trigger--open');
+    if (className) classes.push(className);
+
+    return (
+        <button
+            {...rest}
+            ref={combinedRef}
+            className={classes.join(' ')}
+            aria-haspopup="menu"
+            aria-expanded={ctx.isOpen}
+            onClick={handleClick}
+            onKeyDown={handleKeyDown}
+        >
+            <span className="desktop-menu-trigger__label">{children}</span>
+            {caret && <span className="desktop-menu-trigger__caret">▾</span>}
+        </button>
+    );
+});
+MenuTrigger.displayName = 'DesktopMenuTrigger';
+
+type MenuContentProps = {
+    children: ReactNode;
+    className?: string;
+    minWidth?: number | string;
+    style?: CSSProperties;
+    autoFocus?: boolean;
+};
+
+const MenuContent = React.forwardRef<HTMLDivElement, MenuContentProps>(({ children, className = '', minWidth, style, autoFocus = true }, forwardedRef) => {
+    const ctx = useMenuContext('DesktopMenu.Content');
+    const [position, setPosition] = useState(() => getMenuPosition(ctx.placement, ctx.triggerRef.current));
+    const combinedRef = composeRefs<HTMLDivElement>(forwardedRef, (node) => { ctx.contentRef.current = node; });
+
+    useLayoutEffect(() => {
+        if (!ctx.isOpen) return;
+        const update = () => setPosition(getMenuPosition(ctx.placement, ctx.triggerRef.current));
+        update();
+        window.addEventListener('resize', update);
+        window.addEventListener('scroll', update, true);
+        return () => {
+            window.removeEventListener('resize', update);
+            window.removeEventListener('scroll', update, true);
+        };
+    }, [ctx.isOpen, ctx.placement, ctx.triggerRef]);
+
+    useEffect(() => {
+        if (!ctx.isOpen) return;
+        const handlePointerDown = (event: MouseEvent | PointerEvent) => {
+            const target = event.target as HTMLElement;
+            const withinTrigger = ctx.triggerRef.current?.contains(target);
+            const withinMenuTree = target.closest(`[data-menu-root="${ctx.rootId}"]`);
+            if (withinTrigger || withinMenuTree) return;
+            ctx.closeTree();
+        };
+        const handleKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                ctx.closeTree();
+                ctx.triggerRef.current?.focus();
+            }
+        };
+        document.addEventListener('pointerdown', handlePointerDown);
+        document.addEventListener('contextmenu', handlePointerDown);
+        window.addEventListener('keydown', handleKey);
+        return () => {
+            document.removeEventListener('pointerdown', handlePointerDown);
+            document.removeEventListener('contextmenu', handlePointerDown);
+            window.removeEventListener('keydown', handleKey);
+        };
+    }, [ctx]);
+
+    useEffect(() => {
+        if (!ctx.isOpen || !autoFocus) return;
+        focusFirstItem(ctx.contentRef.current);
+    }, [autoFocus, ctx.isOpen]);
+
+    if (!ctx.isOpen) return null;
+
+    const portalHost = typeof document !== 'undefined' ? ensurePortalHost() : null;
+    if (!portalHost) return null;
+
+    const contentStyle: CSSProperties = {
+        top: position.top,
+        left: position.left,
+        minWidth: minWidth ?? position.minWidth,
+        ...style,
+    };
+
+    const classes = ['desktop-menu-popover', `desktop-menu-popover--level-${ctx.level}`];
+    if (className) classes.push(className);
+
+    return createPortal(
+        <div
+            role="menu"
+            className={classes.join(' ')}
+            style={contentStyle}
+            ref={combinedRef}
+            data-menu-root={ctx.rootId}
+        >
+            {children}
+        </div>,
+        portalHost,
+    );
+});
+MenuContent.displayName = 'DesktopMenuContent';
+
+type MenuItemProps = {
+    children: ReactNode;
+    disabled?: boolean;
+    onSelect?: (event: React.MouseEvent | React.KeyboardEvent) => void;
+    shortcut?: string;
+    icon?: ReactNode;
+    checked?: boolean;
+    closeOnSelect?: boolean;
+    inset?: boolean;
+};
+
+const MenuItem = React.forwardRef<HTMLDivElement, MenuItemProps>(({ children, disabled, onSelect, shortcut, icon, checked, closeOnSelect = true, inset }, forwardedRef) => {
+    const ctx = useMenuContext('DesktopMenu.Item');
+    const combinedRef = composeRefs<HTMLDivElement>(forwardedRef);
+
+    const handleActivate = (event: React.MouseEvent | React.KeyboardEvent) => {
+        if (disabled) {
+            event.preventDefault();
+            return;
+        }
+        onSelect?.(event);
+        if (closeOnSelect) ctx.closeTree();
+    };
+
+    const handleClick: React.MouseEventHandler<HTMLDivElement> = (event) => {
+        event.stopPropagation();
+        handleActivate(event);
+    };
+
+    const handleKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleActivate(event);
+        }
+    };
+
+    const classes = ['desktop-menu-item'];
+    if (disabled) classes.push('desktop-menu-item--disabled');
+    if (inset) classes.push('desktop-menu-item--inset');
+
+    const leading = checked ? '✓' : icon;
+
+    return (
+        <div
+            role="menuitem"
+            tabIndex={-1}
+            aria-disabled={disabled || undefined}
+            className={classes.join(' ')}
+            onClick={handleClick}
+            onKeyDown={handleKeyDown}
+            ref={combinedRef}
+            data-menu-item="true"
+        >
+            <span className="desktop-menu-item__leading">{leading}</span>
+            <span className="desktop-menu-item__label">{children}</span>
+            {shortcut && <span className="desktop-menu-item__shortcut">{shortcut}</span>}
+        </div>
+    );
+});
+MenuItem.displayName = 'DesktopMenuItem';
+
+type MenuDividerProps = {
+    inset?: boolean;
+};
+
+const MenuDivider: React.FC<MenuDividerProps> = ({ inset }) => (
+    <div
+        role="separator"
+        className={`desktop-menu-divider${inset ? ' desktop-menu-divider--inset' : ''}`}
+    />
+);
+
+type MenuLabelProps = {
+    children: ReactNode;
+};
+
+const MenuLabel: React.FC<MenuLabelProps> = ({ children }) => (
+    <div className="desktop-menu-label">{children}</div>
+);
+
+type MenuSubTriggerProps = {
+    children: ReactNode;
+    disabled?: boolean;
+};
+
+const MenuSubTrigger = React.forwardRef<HTMLDivElement, MenuSubTriggerProps>(({ children, disabled }, forwardedRef) => {
+    const ctx = useMenuContext('DesktopMenu.SubTrigger');
+    const combinedRef = composeRefs<HTMLDivElement>(forwardedRef, (node) => { ctx.triggerRef.current = node; });
+
+    const handleClick: React.MouseEventHandler<HTMLDivElement> = (event) => {
+        event.preventDefault();
+        if (disabled) return;
+        ctx.toggle();
+    };
+
+    const handlePointerEnter = () => {
+        if (!disabled) ctx.open();
+    };
+
+    const classes = ['desktop-menu-item', 'desktop-menu-item--submenu'];
+    if (disabled) classes.push('desktop-menu-item--disabled');
+
+    return (
+        <div
+            role="menuitem"
+            aria-haspopup="menu"
+            aria-expanded={ctx.isOpen}
+            tabIndex={-1}
+            className={classes.join(' ')}
+            onClick={handleClick}
+            onPointerEnter={handlePointerEnter}
+            ref={combinedRef}
+            data-menu-item="true"
+        >
+            <span className="desktop-menu-item__label">{children}</span>
+            <span className="desktop-menu-item__shortcut">▸</span>
+        </div>
+    );
+});
+MenuSubTrigger.displayName = 'DesktopMenuSubTrigger';
+
+const MenuSubContent = MenuContent;
+
+export const DesktopMenu = {
+    Root: MenuRoot,
+    Trigger: MenuTrigger,
+    Content: MenuContent,
+    Item: MenuItem,
+    Divider: MenuDivider,
+    Label: MenuLabel,
+    Sub: MenuSub,
+    SubTrigger: MenuSubTrigger,
+    SubContent: MenuSubContent,
+};
+
+type MenuFactory = typeof DesktopMenu;
+
+export type DesktopMenuType = MenuFactory;
