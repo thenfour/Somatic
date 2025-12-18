@@ -32,6 +32,7 @@ import { useWriteBehindEffect } from './hooks/useWriteBehindEffect';
 import { OptimizeSong } from './utils/SongOptimizer';
 import { UndoStack } from './utils/UndoStack';
 import type { UndoSnapshot } from './utils/UndoStack';
+import { DesktopMenu } from './ui/DesktopMenu';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -591,34 +592,100 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         <div className="app">
             <div className="stickyHeader appRow">
                 <div className="menu">
-                    <div className="menu-group">
-                        <button onClick={createNewSong}><span className="icon" aria-hidden="true">📄</span>New</button>
-                        <button onClick={openSongFile}><span className="icon" aria-hidden="true">📂</span>Open</button>
-                        <button onClick={saveSongFile}><span className="icon" aria-hidden="true">💾</span>Save</button>
-                        <button onClick={() => exportCart("debug")}><span className="icon" aria-hidden="true">📤</span>Export Cart (Debug)</button>
-                        <button onClick={() => exportCart("release")}><span className="icon" aria-hidden="true">📤</span>Export Cart (Release)</button>
-                        <button onClick={optimizeSong}><span className="icon" aria-hidden="true">🧹</span>Optimize</button>
-                    </div>
-                    <span className="menu-separator" aria-hidden="true">|</span>
-                    <div className="menu-group">
-                        <button onClick={copyNative}><span className="icon" aria-hidden="true">📋</span>Copy Song</button>
-                        {/* <button onClick={copyTic}><span className="icon" aria-hidden="true">🧾</span>Copy Tic-80</button> */}
-                        <button onClick={pasteSong}><span className="icon" aria-hidden="true">📥</span>Paste</button>
-                    </div>
-                    <span className="menu-separator" aria-hidden="true">|</span>
-                    <div className="menu-group">
-                        <button className={waveformEditorPanelOpen ? "active" : ""} onClick={() => setWaveformEditorPanelOpen(!waveformEditorPanelOpen)}>
-                            <span className="icon" aria-hidden="true">♒</span>Wav
-                        </button>
-                        <button className={instrumentPanelOpen ? "active" : ""} onClick={() => setInstrumentPanelOpen(!instrumentPanelOpen)}><span className="icon" aria-hidden="true">🎛️</span>Ins</button>
-                        <button className={preferencesPanelOpen ? "active" : ""} onClick={() => setPreferencesPanelOpen(!preferencesPanelOpen)}><span className="icon" aria-hidden="true">⚙️</span></button>
-                        <button className={themePanelOpen ? "active" : ""} onClick={() => setThemePanelOpen(!themePanelOpen)}><span className="icon" aria-hidden="true">🎨</span></button>
-                        <button className={helpPanelOpen ? "active" : ""} onClick={() => setHelpPanelOpen(!helpPanelOpen)}><span className="icon" aria-hidden="true">❔</span></button>
-                        <button className={tic80PanelOpen ? "active" : ""} onClick={() => setTic80PanelOpen(!tic80PanelOpen)}><span className="icon" aria-hidden="true">👾</span>Tic-80</button>
-                        <button onClick={onToggleTheme}><span className="icon" aria-hidden="true">🌗</span>{theme === 'dark' ? 'Light' : 'Dark'}</button>
-                    </div>
-                    <span className="menu-separator" aria-hidden="true">|</span>
-                    <div className="menu-group">
+                    <nav className="desktop-menu-bar">
+                        <DesktopMenu.Root>
+                            <DesktopMenu.Trigger>File</DesktopMenu.Trigger>
+                            <DesktopMenu.Content>
+                                <DesktopMenu.Item onSelect={() => { void createNewSong(); }} shortcut="Ctrl+N">New Song…</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={() => { void openSongFile(); }} shortcut="Ctrl+O">Open Song…</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={saveSongFile} shortcut="Ctrl+S">Save Song</DesktopMenu.Item>
+                                <DesktopMenu.Divider />
+                                <DesktopMenu.Sub>
+                                    <DesktopMenu.SubTrigger>Export Cart</DesktopMenu.SubTrigger>
+                                    <DesktopMenu.SubContent>
+                                        <DesktopMenu.Item onSelect={() => exportCart('debug')}>Debug Build</DesktopMenu.Item>
+                                        <DesktopMenu.Item onSelect={() => exportCart('release')}>Release Build</DesktopMenu.Item>
+                                    </DesktopMenu.SubContent>
+                                </DesktopMenu.Sub>
+                                <DesktopMenu.Divider />
+                                <DesktopMenu.Item onSelect={() => { void optimizeSong(); }}>Optimize Song…</DesktopMenu.Item>
+                            </DesktopMenu.Content>
+                        </DesktopMenu.Root>
+                        <DesktopMenu.Root>
+                            <DesktopMenu.Trigger>Edit</DesktopMenu.Trigger>
+                            <DesktopMenu.Content>
+                                <DesktopMenu.Item onSelect={handleUndo} shortcut="Ctrl+Z">Undo</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={handleRedo} shortcut="Ctrl+Shift+Z / Ctrl+Y">Redo</DesktopMenu.Item>
+                                <DesktopMenu.Divider />
+                                <DesktopMenu.Item onSelect={() => { void copyNative(); }} shortcut="Ctrl+Shift+C">Copy Song JSON</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={() => { void pasteSong(); }} shortcut="Ctrl+Shift+V">Paste Song JSON</DesktopMenu.Item>
+                            </DesktopMenu.Content>
+                        </DesktopMenu.Root>
+                        <DesktopMenu.Root>
+                            <DesktopMenu.Trigger>View</DesktopMenu.Trigger>
+                            <DesktopMenu.Content>
+                                <DesktopMenu.Item
+                                    checked={waveformEditorPanelOpen}
+                                    closeOnSelect={false}
+                                    onSelect={() => setWaveformEditorPanelOpen((open) => !open)}
+                                >
+                                    Waveform Editor
+                                </DesktopMenu.Item>
+                                <DesktopMenu.Item
+                                    checked={instrumentPanelOpen}
+                                    closeOnSelect={false}
+                                    onSelect={() => setInstrumentPanelOpen((open) => !open)}
+                                >
+                                    Instrument Panel
+                                </DesktopMenu.Item>
+                                <DesktopMenu.Item
+                                    checked={preferencesPanelOpen}
+                                    closeOnSelect={false}
+                                    onSelect={() => setPreferencesPanelOpen((open) => !open)}
+                                >
+                                    Preferences Panel
+                                </DesktopMenu.Item>
+                                <DesktopMenu.Item
+                                    checked={themePanelOpen}
+                                    closeOnSelect={false}
+                                    onSelect={() => setThemePanelOpen((open) => !open)}
+                                >
+                                    Theme Editor
+                                </DesktopMenu.Item>
+                                <DesktopMenu.Item
+                                    checked={tic80PanelOpen}
+                                    closeOnSelect={false}
+                                    onSelect={() => setTic80PanelOpen((open) => !open)}
+                                >
+                                    TIC-80 Bridge
+                                </DesktopMenu.Item>
+                                <DesktopMenu.Divider />
+                                <DesktopMenu.Item
+                                    checked={editorState.editingEnabled}
+                                    closeOnSelect={false}
+                                    onSelect={toggleEditingEnabled}
+                                >
+                                    Editing Mode Enabled
+                                </DesktopMenu.Item>
+                                <DesktopMenu.Item
+                                    checked={theme === 'dark'}
+                                    closeOnSelect={false}
+                                    onSelect={onToggleTheme}
+                                >
+                                    Dark Theme
+                                </DesktopMenu.Item>
+                            </DesktopMenu.Content>
+                        </DesktopMenu.Root>
+                        <DesktopMenu.Root>
+                            <DesktopMenu.Trigger>Help</DesktopMenu.Trigger>
+                            <DesktopMenu.Content>
+                                <DesktopMenu.Item onSelect={() => setHelpPanelOpen(true)}>Keyboard Shortcuts…</DesktopMenu.Item>
+                                <DesktopMenu.Divider />
+                                <DesktopMenu.Item onSelect={() => window.open('https://github.com/thenfour/chromatic', '_blank', 'noopener')}>Visit Project on GitHub</DesktopMenu.Item>
+                            </DesktopMenu.Content>
+                        </DesktopMenu.Root>
+                    </nav>
+                    <div className="menu-transport">
                         <button onClick={onPanic} title="Stop all audio"><span className="icon" aria-hidden="true">‼</span>Panic</button>
                         <button className={undefined/*'active'*/} onClick={onStop}>
                             <span className="icon">⏹</span>

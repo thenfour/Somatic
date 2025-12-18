@@ -207,7 +207,7 @@ option {
     padding: 0 4px;
 }
 
-.menu button {
+.menu button:not(.desktop-menu-trigger) {
     display: inline-flex;
     align-items: baseline;
     padding: 3px 6px;
@@ -218,7 +218,7 @@ option {
     font-size: var(--ff-size-1x);
 }
 
-.menu button:hover {
+.menu button:not(.desktop-menu-trigger):hover {
     background: var(--panel-strong);
 }
 
@@ -235,6 +235,30 @@ option {
 
 .menu .icon {
     display: inline-block;
+}
+
+.desktop-menu-bar {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.desktop-menu-bar>*+* {
+    margin-left: 4px;
+}
+
+.menu-transport {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 16px;
+    flex-shrink: 0;
+}
+
+.menu-transport .caption {
+    font-size: 0.85em;
+    margin-left: 4px;
 }
 
 .desktop-menu-trigger {
