@@ -1,4 +1,6 @@
 import {clamp, CoalesceBoolean} from "../utils/utils";
+import {Pattern, PatternCell} from "./pattern";
+import {Song} from "./song";
 import {Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex} from "./tic80Capabilities";
 
 export type PatternSelection = {
@@ -72,6 +74,17 @@ export class EditorState {
       const maxRow = clamp(rowsPerPattern - 1, 0, Tic80Caps.pattern.maxRows - 1);
       const safeStep = clamp(step, -Tic80Caps.pattern.maxRows, Tic80Caps.pattern.maxRows);
       this.patternEditRow = clamp(this.patternEditRow + safeStep, 0, maxRow);
+   }
+
+   getEditingPattern(song: Song): Pattern {
+      const patternId = song.songOrder[this.activeSongPosition]!;
+      return song.patterns[patternId]!;
+   }
+
+   getEditingCell(song: Song): PatternCell {
+      const pattern = this.getEditingPattern(song);
+      const currentRow = pattern.getCell(this.patternEditChannel, this.patternEditRow);
+      return currentRow;
    }
 
    private normalizePatternSelection(selection: PatternSelection): PatternSelection {

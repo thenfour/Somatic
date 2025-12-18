@@ -25,9 +25,20 @@ const formatMidiNote = (midiNote: number | undefined | null) => {
     return !midiNote ? '---' : midiToName(midiNote);
 };
 
-const formatInstrument = (val: number | undefined | null) => {
+const formatInstrumentLabel = (val: number | undefined | null): string => {
     if (val === null || val === undefined) return '--';
     return val.toString(16).toUpperCase();
+};
+
+const formatInstrumentTooltip = (instId: number | undefined | null, song: Song): string | null => {
+    if (instId === null || instId === undefined) return null;
+    const inst = song.getInstrument(instId);
+    if (!inst) return null;
+    return `${instId}: ${inst.name}`;
+};
+
+const formatInstrument = (val: number | undefined | null, song: Song): [string, string | null] => {
+    return [formatInstrumentLabel(val), formatInstrumentTooltip(val, song)];
 };
 
 const formatCommand = (val: number | undefined | null) => {
@@ -1147,7 +1158,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const row = channel.rows[rowIndex];
                                             const noteCut = isNoteCut(row);
                                             const noteText = noteCut ? "^^^" : formatMidiNote(row.midiNote);
-                                            const instText = noteCut ? "" : formatInstrument(row.instrumentIndex);
+                                            const [instText, instTooltip] = noteCut ? ["", null] : formatInstrument(row.instrumentIndex, song);
                                             const cmdText = formatCommand(row.effect);
                                             const paramText = formatParams(row.effectX, row.effectY);
                                             const noteCol = channelIndex * 4;
@@ -1239,7 +1250,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-column-index={instCol}
                                                         data-cell-value={`[${JSON.stringify(row.instrumentIndex)}]`}
                                                     >
-                                                        {instText}
+                                                        <Tooltip title={instTooltip} disabled={!instTooltip}>
+                                                            <span>
+                                                                {instText}
+                                                            </span>
+                                                        </Tooltip>
                                                     </td>
                                                     <td
                                                         tabIndex={0}

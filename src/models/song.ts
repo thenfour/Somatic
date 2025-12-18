@@ -135,6 +135,12 @@ export class Song {
       this.rowsPerPattern = clamp(value, 1, Tic80Caps.pattern.maxRows);
    }
 
+   getInstrument(index: number): Tic80Instrument|null {
+      if (index < 0 || index >= this.instruments.length)
+         return null;
+      return this.instruments[index]!;
+   }
+
    toData(): Required<SongDto> {
       return {
          instruments: this.instruments.map((inst) => inst.toData()),

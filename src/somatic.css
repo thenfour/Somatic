@@ -1622,3 +1622,8 @@ option {
     background: var(--error-surface-bg);
     color: var(--error-surface-text);
 }
+
+.menu-transport {
+    background-color: var(--bg);
+    ;
+}

@@ -1,0 +1,11 @@
+.app-status-bar {
+    display: flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 8px;
+    background-color: var(--panel);
+    color: var(--text);
+    font-size: 12px;
+}
+
+.app-status-bar>.app-status-bar-group {}

@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { saveSync } from 'save-file';
 
 import './somatic.css';
+import './AppStatusBar.css';
 
 import type { MusicState } from './audio/backend';
 import { AudioController } from './audio/controller';
@@ -34,6 +35,8 @@ import { OptimizeSong } from './utils/SongOptimizer';
 import { UndoStack } from './utils/UndoStack';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { DesktopMenu } from './ui/DesktopMenu';
+import { AppStatusBar } from './ui/AppStatusBar';
+import { Tooltip } from './ui/tooltip';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -57,14 +60,17 @@ const isEditingCommandOrParamCell = () => {
 };
 
 const MusicStateDisplay: React.FC<{ musicState: MusicState }> = ({ musicState }) => {
-    return <div className='musicState-panel'>
-        <div className='flags'>
-            {musicState.isPlaying ? <>
-                <div className='key'>Order:</div><div className='value'>{musicState.somaticSongPosition}</div>
-                <div className='key'>Row:</div><div className='value'>{musicState.tic80RowIndex}</div>
-            </> : <>Stopped</>}
+    return <Tooltip title="TIC-80 playback status">
+
+        <div className='musicState-panel'>
+            <div className='flags'>
+                {musicState.isPlaying ? <>
+                    <div className='key'>Order:</div><div className='value'>{musicState.somaticSongPosition}</div>
+                    <div className='key'>Row:</div><div className='value'>{musicState.tic80RowIndex}</div>
+                </> : <>Stopped</>}
+            </div>
         </div>
-    </div>;
+    </Tooltip>;
 };
 
 const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
@@ -739,6 +745,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                                 <DesktopMenu.Item onSelect={() => setHelpPanelOpen(true)}>Keyboard Shortcuts…</DesktopMenu.Item>
                                 <DesktopMenu.Divider />
                                 <DesktopMenu.Item onSelect={() => window.open('https://github.com/thenfour/chromatic', '_blank', 'noopener')}>Visit Project on GitHub</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={() => window.open('https://reverietracker.github.io/chromatic/', '_blank', 'noopener')}>This project was based on Chromatic by Gasman</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={() => window.open('https://github.com/nesbox/TIC-80/wiki/Music-Editor', '_blank', 'noopener')}>TIC-80 Music Editor</DesktopMenu.Item>
                             </DesktopMenu.Content>
                         </DesktopMenu.Root>
                     </nav>
@@ -749,8 +757,8 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                             <span className="caption">Stop</span>
                         </button>
                         <button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll}><span className="icon" aria-hidden="true">▶</span>Song</button>
-                        <button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern}><span className="icon" aria-hidden="true">▶</span>Pat</button>
-                        <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">▶</span>From Position</button>
+                        <button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern}><span className="icon" aria-hidden="true">▷</span>Pat</button>
+                        <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">▷</span>Pos</button>
                     </div>
                     <div className="right-controls">
                         <button
@@ -782,7 +790,10 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                             <span className="midi-indicator__label">{keyboardIndicatorLabel}</span>
 
                         </button>
-                        <span className="autoSaveIndicator__label">sync:{autoSave.state.status}</span>
+
+                        <Tooltip title="Sync status with TIC-80 (auto-save)">
+                            <span className="autoSaveIndicator__label">sync:{autoSave.state.status}</span>
+                        </Tooltip>
                         <SongStats song={song} />
                         <MusicStateDisplay musicState={musicState} />
 
@@ -860,6 +871,12 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                     onNoteOn={handleNoteOn}
                     onNoteOff={handleNoteOff}
                 />}
+                <AppStatusBar
+                    song={song}
+                    editorState={editorState}
+                    onSongChange={updateSong}
+                    onEditorStateChange={updateEditorState}
+                />
             </div>
         </div>
     );

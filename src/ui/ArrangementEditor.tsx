@@ -392,20 +392,6 @@ export const ArrangementEditor: React.FC<{
                                 >
                                     ×
                                 </button>
-                                <span className="arrangement-editor__position-id">
-                                    <span style={{ visibility: isSelected ? "visible" : "hidden" }}>▶</span>
-                                    {formattedIndex(positionIndex)}
-                                </span>
-                                <button
-                                    type="button"
-                                    className="arrangement-editor__pattern"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleSelectPosition(positionIndex, e.shiftKey);
-                                    }}
-                                >
-                                    {formattedIndex(clampedPattern)}
-                                </button>
                                 <button
                                     type="button"
                                     className="arrangement-editor__step"
@@ -429,6 +415,20 @@ export const ArrangementEditor: React.FC<{
                                     aria-label="Next pattern"
                                 >
                                     {">"}
+                                </button>
+                                <span className="arrangement-editor__position-id">
+                                    <span style={{ visibility: isSelected ? "visible" : "hidden" }}>▶</span>
+                                    {formattedIndex(positionIndex)}
+                                </span>
+                                <button
+                                    type="button"
+                                    className="arrangement-editor__pattern"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSelectPosition(positionIndex, e.shiftKey);
+                                    }}
+                                >
+                                    {formattedIndex(clampedPattern)}
                                 </button>
                             </div>
                             <div
