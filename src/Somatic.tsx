@@ -59,15 +59,22 @@ const isEditingCommandOrParamCell = () => {
     return cellType === 'command' || cellType === 'param';
 };
 
-const MusicStateDisplay: React.FC<{ musicState: MusicState }> = ({ musicState }) => {
-    return <Tooltip title="TIC-80 playback status">
+const MusicStateDisplay: React.FC<{ musicState: MusicState; bridgeReady: boolean }> = ({ musicState, bridgeReady }) => {
+    if (!bridgeReady) {
+        return <Tooltip title="TIC-80 bridge is initializing... should take ~5 seconds">
+            <div className='musicState-panel musicState-panel--booting'>
+                <div className='loading-spinner'></div>
+            </div>
+        </Tooltip>;
+    }
 
+    return <Tooltip title="TIC-80 playback status">
         <div className='musicState-panel'>
             <div className='flags'>
                 {musicState.isPlaying ? <>
                     <div className='key'>Order:</div><div className='value'>{musicState.somaticSongPosition}</div>
                     <div className='key'>Row:</div><div className='value'>{musicState.tic80RowIndex}</div>
-                </> : <>Stopped</>}
+                </> : <>Ready</>}
             </div>
         </div>
     </Tooltip>;
@@ -110,6 +117,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [midiEnabled, setMidiEnabled] = useState(true);
     const [keyboardEnabled, setKeyboardEnabled] = useState(true);
     const [musicState, setMusicState] = useState(() => audio.getMusicState());
+    const [bridgeReady, setBridgeReady] = useState(false);
     const clipboard = useClipboard();
 
     if (!undoStackRef.current) {
@@ -534,6 +542,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const handleBridgeReady = React.useCallback((handle: Tic80BridgeHandle) => {
         //console.log('[App] Bridge ready, uploading current song');
         //audio.setSong(song, "Bridge ready; initial upload");
+        setBridgeReady(true);
         autoSave.enqueue(song);
         autoSave.flush();
     }, [audio, song]);
@@ -674,7 +683,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             </DesktopMenu.Content>
                         </DesktopMenu.Root>
                     </nav>
-                    <div className="menu-transport">
+                    <div className={`menu-transport ${bridgeReady ? 'menu-transport--ready' : 'menu-transport--not-ready'}`}>
                         <Tooltip title={keyboardShortcutMgr.getActionBindingLabel("Panic")}>
                             <button className={undefined/*'active'*/} onClick={onPanic}>
                                 <span className="icon">⏹</span>
@@ -738,7 +747,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             <span className="autoSaveIndicator__label">sync:{autoSave.state.status}</span>
                         </Tooltip>
                         <SongStats song={song} />
-                        <MusicStateDisplay musicState={musicState} />
+                        <MusicStateDisplay musicState={musicState} bridgeReady={bridgeReady} />
 
                     </div>
                 </div>

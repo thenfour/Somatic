@@ -298,6 +298,10 @@ option {
     flex-shrink: 0;
 }
 
+.menu-transport--not-ready {
+    opacity: 0.1;
+}
+
 .menu-transport .caption {
     font-size: 0.85em;
     margin-left: 4px;
@@ -1667,6 +1671,34 @@ option {
 .musicState-panel div.flags {
     display: flex;
     /* background-color: var(--panel); */
+}
+
+.musicState-panel--booting {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 80px;
+    padding: 4px;
+    background-color: var(--tic-4);
+}
+
+.loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 8px solid transparent;
+    border-top-color: var(--tic-2);
+    border-radius: 50%;
+    animation: spinner-rotate 0.8s linear infinite;
+}
+
+@keyframes spinner-rotate {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 .musicState-panel div.flags div.key {
