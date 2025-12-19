@@ -12,16 +12,6 @@ export const gActionRegistry: ActionRegistry = {
       ],
    },
 
-   "PlayPause": {
-      id: "PlayPause",
-      title: "play/pause",
-      description: "toggle playback.",
-      category: "Transport",
-      defaultBindings: [
-         {kind: "character", key: "p", shift: true},
-      ],
-   },
-
    "Undo": {
       id: "Undo",
       title: "undo",
@@ -150,6 +140,16 @@ export const gActionRegistry: ActionRegistry = {
       category: "Transport",
       defaultBindings: [
          {kind: "character", key: "8", alt: true},
+      ],
+   },
+
+   "PlayStop": {
+      id: "PlayStop",
+      title: "play or stop playback",
+      description: "stops playback if playing, otherwise starts playback from the current position.",
+      category: "Transport",
+      defaultBindings: [
+         {kind: "physical", code: "Space"},
       ],
    },
 

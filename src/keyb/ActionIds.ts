@@ -1,6 +1,5 @@
 // a list of all keyboard shortcuts.
 export const Actions = {
-   PlayPause: "PlayPause",
    Panic: "Panic",
    Undo: "Undo",
    Redo: "Redo",
@@ -15,11 +14,24 @@ export const Actions = {
    PlayFromPosition: "PlayFromPosition",
    PlayPattern: "PlayPattern",
    PlaySong: "PlaySong",
+   PlayStop: "PlayStop",
    ToggleEditMode: "ToggleEditMode",
    DecreaseOctave: "DecreaseOctave",
    IncreaseOctave: "IncreaseOctave",
    DecreaseInstrument: "DecreaseInstrument",
    IncreaseInstrument: "IncreaseInstrument",
+
+   IncreaseEditStep: "IncreaseEditStep",
+   DecreaseEditStep: "DecreaseEditStep",
+   IncreaseTempo: "IncreaseTempo",
+   DecreaseTempo: "DecreaseTempo",
+   IncreaseSpeed: "IncreaseSpeed",
+   DecreaseSpeed: "DecreaseSpeed",
+   NextSongOrder: "NextSongOrder",
+   PreviousSongOrder: "PreviousSongOrder",
+   ToggleKeyboardNoteInput: "ToggleKeyboardNoteInput",
+   ToggleMidiNoteInput: "ToggleMidiNoteInput",
+
    Copy: "Copy",
    Paste: "Paste",
    Cut: "Cut",

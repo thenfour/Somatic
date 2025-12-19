@@ -105,7 +105,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
-    //const [transportState, setTransportState] = useState<TransportState>('stop');
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
     const [midiEnabled, setMidiEnabled] = useState(true);
@@ -251,7 +250,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("PlaySong", () => {
         autoSave.flush();
         if (audio.getMusicState().somaticSongPosition >= 0) {
-            audio.stop();
+            audio.panic();
         } else {
             audio.playSong(0, 0);
         }
@@ -490,9 +489,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         }
     };
 
-    const onStop = () => {
+    const onPanic = () => {
         //setTransportState('stop');
-        audio.stop();
+        audio.panic();
     };
 
     const onPlayPattern = () => {
@@ -512,17 +511,21 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         audio.playSong(editorState.activeSongPosition, editorState.patternEditRow);
     };
 
-    const onPanic = () => {
-        //setTransportState('stop');
-        audio.panic();
-    };
-
     const handleBridgeReady = React.useCallback((handle: Tic80BridgeHandle) => {
         //console.log('[App] Bridge ready, uploading current song');
         //audio.setSong(song, "Bridge ready; initial upload");
         autoSave.enqueue(song);
         autoSave.flush();
     }, [audio, song]);
+
+    useActionHandler("Panic", onPanic);
+    useActionHandler("PlayStop", () => {
+        if (audio.getMusicState().isPlaying) {
+            onPanic();
+        } else {
+            onPlayFromPosition();
+        }
+    });
 
     return (
         <div className="app">
@@ -652,20 +655,29 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         </DesktopMenu.Root>
                     </nav>
                     <div className="menu-transport">
-                        <button onClick={onPanic} title={`Stop all audio (${keyboardShortcutMgr.getActionBindingLabel("Panic")})`}><span className="icon" aria-hidden="true"></span>Panic</button>
-                        <button className={undefined/*'active'*/} onClick={onStop}>
-                            <span className="icon">⏹</span>
-                            <span className="caption">Stop</span>
-                        </button>
-                        <button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll} title={keyboardShortcutMgr.getActionBindingLabel("PlaySong")}><span className="icon" aria-hidden="true">
-                            {CharMap.RightTriangle}
-                        </span>Song</button>
-                        <button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern} title={keyboardShortcutMgr.getActionBindingLabel("PlayPattern")}><span className="icon" aria-hidden="true">
-                            {CharMap.RightTriangleOutlined}
-                        </span>Pat</button>
-                        <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition} title={keyboardShortcutMgr.getActionBindingLabel("PlayFromPosition")}><span className="icon" aria-hidden="true">
-                            {CharMap.RightTriangleOutlined}
-                        </span>Pos</button>
+                        <Tooltip title={keyboardShortcutMgr.getActionBindingLabel("Panic")}>
+                            <button className={undefined/*'active'*/} onClick={onPanic}>
+                                <span className="icon">⏹</span>
+                                <span className="caption">Stop</span>
+                            </button>
+                        </Tooltip>
+                        <Tooltip title={keyboardShortcutMgr.getActionBindingLabel("PlaySong")}>
+                            <button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll} title={keyboardShortcutMgr.getActionBindingLabel("PlaySong")}><span className="icon" aria-hidden="true">
+                                {CharMap.RightTriangle}
+                            </span>
+                                Song
+                            </button>
+                        </Tooltip>
+                        <Tooltip title={keyboardShortcutMgr.getActionBindingLabel("PlayPattern")}>
+                            <button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern} title={keyboardShortcutMgr.getActionBindingLabel("PlayPattern")}><span className="icon" aria-hidden="true">
+                                {CharMap.RightTriangleOutlined}
+                            </span>Pat</button>
+                        </Tooltip>
+                        <Tooltip title={keyboardShortcutMgr.getActionBindingLabel("PlayFromPosition")}>
+                            <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition} title={keyboardShortcutMgr.getActionBindingLabel("PlayFromPosition")}><span className="icon" aria-hidden="true">
+                                {CharMap.RightTriangleOutlined}
+                            </span>Pos</button>
+                        </Tooltip>
                     </div>
                     <div className="right-controls">
                         <button
