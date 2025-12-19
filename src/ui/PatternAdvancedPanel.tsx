@@ -20,8 +20,9 @@ const scopeOptions = [
 export type ScopeValue = (typeof scopeOptions)[number]['value'];
 const interpolateOptions = [
     { value: 'notes', label: 'Notes' },
-    { value: 'paramX', label: 'Param X' },
-    { value: 'paramY', label: 'Param Y' },
+    { value: 'paramX', label: 'X' },
+    { value: 'paramY', label: 'Y' },
+    { value: 'paramXY', label: 'XY' },
 ] as const;
 
 export type InterpolateTarget = (typeof interpolateOptions)[number]['value'];

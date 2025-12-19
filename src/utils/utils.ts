@@ -129,3 +129,12 @@ export const formatBytes = (n: number|null) => {
       return `${(n / 1024).toFixed(1)} KB`;
    return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 };
+
+
+
+export const inclusiveRange = (start: number, end: number): number[] => {
+   const lower = Math.min(start, end);
+   const upper = Math.max(start, end);
+   const length = Math.max(upper - lower + 1, 0);
+   return Array.from({length}, (_, idx) => lower + idx);
+};

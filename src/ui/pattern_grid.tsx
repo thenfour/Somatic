@@ -8,13 +8,17 @@ import { EditorState } from '../models/editor_state';
 import { isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { Song } from '../models/song';
 import { gChannelsArray, SomaticCaps, SomaticEffectCommand, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
-import { CharMap, clamp } from '../utils/utils';
+import { CharMap, clamp, inclusiveRange } from '../utils/utils';
 import { InterpolateTarget, PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
 import { useToasts } from './toast_provider';
 import { Tooltip } from './tooltip';
+import { useRectSelection2D } from '../hooks/useRectSelection2D';
+import { changeInstrumentInPattern, interpolatePatternValues, RowRange, setInstrumentInPattern, transposeCellsInPattern } from '../utils/advancedPatternEdit';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 
+const CELLS_PER_CHANNEL = 4;
+const CTRL_ARROW_JUMP_SIZE = 4;
 
 const instrumentKeyMap = '0123456789abcdef'.split('');
 const commandKeyMap = 'mcjspvd'.split('');
@@ -83,228 +87,18 @@ type PatternClipboardPayload = {
     cells: PatternCell[][]; // row-major order
 };
 
-type RowRange = { start: number; end: number };
+
 type ScopeTargets = {
     patternIndices: number[];
     channels: number[];
     rowRange: RowRange;
 };
 
-// Matches defs.ts MIDI_FOR_TIC_NOTE0 mapping (C0) and TIC-80's 8 octaves of pattern range.
-const TIC_NOTE_MIDI_BASE = 12;
-const MIN_PATTERN_MIDI = TIC_NOTE_MIDI_BASE;
-const MAX_PATTERN_MIDI = TIC_NOTE_MIDI_BASE + Tic80Caps.pattern.octaveCount * 12 - 1;
-
 const normalizeInstrumentValue = (value: number): number => {
     if (!Number.isFinite(value)) return 0;
     return clamp(Math.floor(value), 0, Tic80Caps.sfx.count - 1);
 };
 
-const inclusiveRange = (start: number, end: number): number[] => {
-    const lower = Math.min(start, end);
-    const upper = Math.max(start, end);
-    const length = Math.max(upper - lower + 1, 0);
-    return Array.from({ length }, (_, idx) => lower + idx);
-};
-
-const mutatePatternCells = (
-    pattern: Pattern,
-    channels: number[],
-    rowRange: RowRange,
-    rowsPerPattern: number,
-    mutator: (cell: PatternCell, channelIndex: Tic80ChannelIndex, rowIndex: number) => PatternCell | null,
-): boolean => {
-    const maxRow = clamp(rowsPerPattern - 1, 0, Tic80Caps.pattern.maxRows - 1);
-    if (maxRow < 0) return false;
-    const rowStart = clamp(Math.min(rowRange.start, rowRange.end), 0, maxRow);
-    const rowEnd = clamp(Math.max(rowRange.start, rowRange.end), 0, maxRow);
-    if (rowStart > rowEnd) return false;
-
-    const channelMax = Tic80Caps.song.audioChannels - 1;
-    let mutated = false;
-
-    for (let row = rowStart; row <= rowEnd; row++) {
-        for (const channel of channels) {
-            if (!Number.isFinite(channel)) continue;
-            const safeChannel = clamp(Math.floor(channel), 0, channelMax);
-            const channelIndex = ToTic80ChannelIndex(safeChannel);
-            const cell = pattern.getCell(channelIndex, row);
-            const updatedCell = mutator(cell, channelIndex, row);
-            if (updatedCell) {
-                pattern.setCell(channelIndex, row, updatedCell);
-                mutated = true;
-            }
-        }
-    }
-
-    return mutated;
-};
-
-const transposeCellsInPattern = (
-    pattern: Pattern,
-    channels: number[],
-    rowRange: RowRange,
-    rowsPerPattern: number,
-    amount: number,
-): boolean =>
-    mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, (cell) => {
-        if (cell.midiNote === undefined) return null;
-        if (isNoteCut(cell)) return null;
-        const nextNote = cell.midiNote + amount;
-        if (nextNote < MIN_PATTERN_MIDI || nextNote > MAX_PATTERN_MIDI) return null;
-        if (nextNote === cell.midiNote) return null;
-        return { ...cell, midiNote: nextNote };
-    });
-
-const setInstrumentInPattern = (
-    pattern: Pattern,
-    channels: number[],
-    rowRange: RowRange,
-    rowsPerPattern: number,
-    instrumentValue: number,
-): boolean =>
-    mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, (cell) => {
-        if (cell.instrumentIndex === undefined) return null;
-        if (cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex) return null;
-        if (cell.instrumentIndex === instrumentValue) return null;
-        return { ...cell, instrumentIndex: instrumentValue };
-    });
-
-const changeInstrumentInPattern = (
-    pattern: Pattern,
-    channels: number[],
-    rowRange: RowRange,
-    rowsPerPattern: number,
-    fromInstrument: number,
-    toInstrument: number,
-): boolean =>
-    mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, (cell) => {
-        if (cell.instrumentIndex === undefined) return null;
-        if (cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex) return null;
-        if (cell.instrumentIndex !== fromInstrument) return null;
-        if (fromInstrument === toInstrument) return null;
-        return { ...cell, instrumentIndex: toInstrument };
-    });
-
-type CellValueAccessor = {
-    min: number;
-    max: number;
-    read: (cell: PatternCell) => number | undefined;
-    write: (cell: PatternCell, value: number) => PatternCell | null;
-};
-
-const interpolationAccessors: Record<InterpolateTarget, CellValueAccessor> = {
-    notes: {
-        min: MIN_PATTERN_MIDI,
-        max: MAX_PATTERN_MIDI,
-        read: (cell) => {
-            if (cell.midiNote === undefined) return undefined;
-            if (isNoteCut(cell)) return undefined;
-            return cell.midiNote;
-        },
-        write: (cell, value) => {
-            if (isNoteCut(cell)) return null;
-            const clamped = clamp(Math.round(value), MIN_PATTERN_MIDI, MAX_PATTERN_MIDI);
-            if (cell.midiNote === clamped) return null;
-            return { ...cell, midiNote: clamped };
-        },
-    },
-    paramX: {
-        min: 0,
-        max: 0x0f,
-        read: (cell) => {
-            if (cell.effectX === undefined) return undefined;
-            return cell.effectX;
-        },
-        write: (cell, value) => {
-            const clamped = clamp(Math.round(value), 0, 0x0f);
-            if (cell.effectX === clamped) return null;
-            return { ...cell, effectX: clamped };
-        },
-    },
-    paramY: {
-        min: 0,
-        max: 0x0f,
-        read: (cell) => {
-            if (cell.effectY === undefined) return undefined;
-            return cell.effectY;
-        },
-        write: (cell, value) => {
-            const clamped = clamp(Math.round(value), 0, 0x0f);
-            if (cell.effectY === clamped) return null;
-            return { ...cell, effectY: clamped };
-        },
-    },
-};
-
-type InterpolationResult = {
-    mutated: boolean;
-    anchorPairs: number;
-};
-
-const interpolatePatternValues = (
-    pattern: Pattern,
-    channels: number[],
-    rowRange: RowRange,
-    rowsPerPattern: number,
-    target: InterpolateTarget,
-): InterpolationResult => {
-    const accessor = interpolationAccessors[target];
-    const maxRow = clamp(rowsPerPattern - 1, 0, Tic80Caps.pattern.maxRows - 1);
-    if (maxRow < 0) return { mutated: false, anchorPairs: 0 };
-    const rowStart = clamp(Math.min(rowRange.start, rowRange.end), 0, maxRow);
-    const rowEnd = clamp(Math.max(rowRange.start, rowRange.end), 0, maxRow);
-
-    const channelMax = Tic80Caps.song.audioChannels - 1;
-    let mutated = false;
-    let anchorPairs = 0;
-
-    for (const channel of channels) {
-        if (!Number.isFinite(channel)) continue;
-        const safeChannel = clamp(Math.floor(channel), 0, channelMax);
-        const channelIndex = ToTic80ChannelIndex(safeChannel);
-
-        let startRow = -1;
-        let startValue: number | null = null;
-        for (let row = rowStart; row <= rowEnd; row++) {
-            const value = accessor.read(pattern.getCell(channelIndex, row));
-            if (value === undefined) continue;
-            startRow = row;
-            startValue = value;
-            break;
-        }
-
-        if (startRow === -1 || startValue === null) continue;
-
-        let endRow = -1;
-        let endValue: number | null = null;
-        for (let row = rowEnd; row >= rowStart; row--) {
-            const value = accessor.read(pattern.getCell(channelIndex, row));
-            if (value === undefined) continue;
-            endRow = row;
-            endValue = value;
-            break;
-        }
-
-        if (endRow === -1 || endValue === null) continue;
-        if (endRow <= startRow) continue;
-        anchorPairs++;
-
-        const span = endRow - startRow;
-        for (let row = startRow + 1; row < endRow; row++) {
-            const t = (row - startRow) / span;
-            const interpolated = startValue + (endValue - startValue) * t;
-            const clampedValue = clamp(Math.round(interpolated), accessor.min, accessor.max);
-            const cell = pattern.getCell(channelIndex, row);
-            const updated = accessor.write(cell, clampedValue);
-            if (!updated) continue;
-            pattern.setCell(channelIndex, row, updated);
-            mutated = true;
-        }
-    }
-
-    return { mutated, anchorPairs };
-};
 
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
     ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange, advancedEditPanelOpen, onSetAdvancedEditPanelOpen }, ref) => {
@@ -312,90 +106,30 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const currentPatternIndex = song.songOrder[currentPosition] ?? 0;
         const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
         const pattern: Pattern = song.patterns[safePatternIndex];
-        //const [focusedCell, setFocusedCell] = useState<{ row: number; channel: number } | null>(null);
         const cellRefs = useMemo(
             () => Array.from({ length: 64 }, () => Array(16).fill(null) as (HTMLTableCellElement | null)[]),
             [],
         );
         const editingEnabled = editorState.editingEnabled !== false;
-        const selectionAnchorRef = useRef<{ rowIndex: number; channelIndex: Tic80ChannelIndex } | null>(null);
-        const [isSelecting, setIsSelecting] = useState(false);
-        const selectingRef = useRef(false);
-        //const [advancedPanelOpen, setAdvancedPanelOpen] = useState(false);
         const clipboard = useClipboard();
         const { pushToast } = useToasts();
 
-        const selectionBounds = editorState.patternSelection
-            ? {
-                rowStart: Math.min(editorState.patternSelection.startRow, editorState.patternSelection.endRow),
-                rowEnd: Math.max(editorState.patternSelection.startRow, editorState.patternSelection.endRow),
-                channelStart: Math.min(editorState.patternSelection.startChannel, editorState.patternSelection.endChannel),
-                channelEnd: Math.max(editorState.patternSelection.startChannel, editorState.patternSelection.endChannel),
-            }
-            : null;
-
-        const setSelecting = useCallback((value: boolean) => {
-            selectingRef.current = value;
-            setIsSelecting(value);
-        }, []);
-
-        const updateSelectionBounds = useCallback((anchor: { rowIndex: number; channelIndex: Tic80ChannelIndex }, target: { rowIndex: number; channelIndex: Tic80ChannelIndex }) => {
-            onEditorStateChange((state) => {
-                state.setPatternSelection({
-                    startRow: anchor.rowIndex,
-                    endRow: target.rowIndex,
-                    startChannel: anchor.channelIndex,
-                    endChannel: target.channelIndex,
-                });
-            });
-        }, [onEditorStateChange]);
-
-        useEffect(() => {
-            if (!isSelecting) return;
-            const handleMouseUp = () => setSelecting(false);
-            window.addEventListener('mouseup', handleMouseUp);
-            return () => window.removeEventListener('mouseup', handleMouseUp);
-        }, [isSelecting, setSelecting]);
-
-        const resolveSelectionAnchor = (useExistingAnchor: boolean, rowIndex: number, channelIndex: Tic80ChannelIndex) => {
-            if (useExistingAnchor) {
-                if (selectionAnchorRef.current) {
-                    return selectionAnchorRef.current;
+        const selection2d = useRectSelection2D({
+            selection: editorState.patternSelection
+                ? {
+                    startRow: editorState.patternSelection.startRow,
+                    endRow: editorState.patternSelection.endRow,
+                    startCol: editorState.patternSelection.startChannel,
+                    endCol: editorState.patternSelection.endChannel,
                 }
-                if (editorState.patternSelection) {
-                    const anchor = {
-                        rowIndex: editorState.patternSelection.startRow,
-                        channelIndex: ToTic80ChannelIndex(editorState.patternSelection.startChannel),
-                    };
-                    selectionAnchorRef.current = anchor;
-                    return anchor;
-                }
-            }
-            const anchor = { rowIndex, channelIndex };
-            selectionAnchorRef.current = anchor;
-            return anchor;
-        };
-
-        const handleCellMouseDown = (e: React.MouseEvent<HTMLTableCellElement>, rowIndex: number, channelIndex: Tic80ChannelIndex) => {
-            if (e.button !== 0) return;
-            const anchor = resolveSelectionAnchor(e.shiftKey, rowIndex, channelIndex);
-            setSelecting(true);
-            updateSelectionBounds(anchor, { rowIndex, channelIndex });
-        };
-
-        const handleCellMouseEnter = (rowIndex: number, channelIndex: Tic80ChannelIndex) => {
-            if (!selectingRef.current) return;
-            const anchor = selectionAnchorRef.current;
-            if (!anchor) return;
-            updateSelectionBounds(anchor, { rowIndex, channelIndex });
-        };
-
-        const getSelectionBounds = (notify = true) => {
-            if (!selectionBounds && notify) {
-                pushToast({ message: 'Select a block in the pattern first.', variant: 'error' });
-            }
-            return selectionBounds;
-        };
+                : null,
+            onChange: (r) => onEditorStateChange((s) => s.setPatternSelection({
+                startRow: r.startRow,
+                endRow: r.endRow,
+                startChannel: r.startCol,
+                endChannel: r.endCol,
+            })),
+        });
 
         const resolveScopeTargets = useCallback((scope: ScopeValue): ScopeTargets | null => {
             const lastRow = Math.max(song.rowsPerPattern - 1, 0);
@@ -406,14 +140,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
             switch (scope) {
                 case 'selection': {
-                    if (!selectionBounds) {
+                    if (!editorState.patternSelection) {
                         pushToast({ message: 'Select a block before using Selection scope.', variant: 'error' });
                         return null;
                     }
                     const targets = {
                         patternIndices: [safePatternIndex],
-                        channels: inclusiveRange(selectionBounds.channelStart, selectionBounds.channelEnd),
-                        rowRange: { start: selectionBounds.rowStart, end: selectionBounds.rowEnd },
+                        channels: inclusiveRange(editorState.patternSelection.startChannel, editorState.patternSelection.endChannel),
+                        rowRange: { start: editorState.patternSelection.startRow, end: editorState.patternSelection.endRow },
                     };
                     return targets;
                 }
@@ -448,7 +182,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 default:
                     return null;
             }
-        }, [editorState.patternEditChannel, pushToast, safePatternIndex, selectionBounds, song.patterns.length, song.rowsPerPattern]);
+        }, [editorState.patternEditChannel, pushToast, safePatternIndex, editorState.patternSelection, song.patterns.length, song.rowsPerPattern]);
 
         const handleTranspose = useCallback((amount: number, scope: ScopeValue) => {
             if (!amount) {
@@ -566,14 +300,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         }, [onSongChange, pushToast, resolveScopeTargets]);
 
         const createClipboardPayload = (): PatternClipboardPayload | null => {
-            const bounds = getSelectionBounds();
+            const bounds = editorState.patternSelection;
             if (!bounds) return null;
-            const maxRow = Math.max(0, song.rowsPerPattern - 1);
-            const maxChannel = Tic80Caps.song.audioChannels - 1;
-            const rowStart = Math.max(0, Math.min(bounds.rowStart, maxRow));
-            const rowEnd = Math.max(0, Math.min(bounds.rowEnd, maxRow));
-            const channelStart = Math.max(0, Math.min(bounds.channelStart, maxChannel));
-            const channelEnd = Math.max(0, Math.min(bounds.channelEnd, maxChannel));
+            //const maxRow = Math.max(0, song.rowsPerPattern - 1);
+            //const maxChannel = Tic80Caps.song.audioChannels - 1;
+            const rowStart = bounds.startRow;
+            const rowEnd = bounds.endRow;
+            const channelStart = bounds.startChannel;
+            const channelEnd = bounds.endChannel;
             const rows = rowEnd - rowStart + 1;
             const channels = channelEnd - channelStart + 1;
             const cells = Array.from({ length: rows }, (_, rowOffset) => {
@@ -605,14 +339,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         };
 
         const clearSelectionCells = () => {
-            const bounds = getSelectionBounds(false);
+            const bounds = editorState.patternSelection;
             if (!bounds) return;
             onSongChange((s) => {
                 const pat = s.patterns[safePatternIndex];
                 const maxRow = Math.max(0, s.rowsPerPattern - 1);
                 const maxChannel = Tic80Caps.song.audioChannels - 1;
-                for (let row = bounds.rowStart; row <= bounds.rowEnd && row <= maxRow; row++) {
-                    for (let channel = bounds.channelStart; channel <= bounds.channelEnd && channel <= maxChannel; channel++) {
+                for (let row = bounds.startRow; row <= bounds.endRow && row <= maxRow; row++) {
+                    for (let channel = bounds.startChannel; channel <= bounds.endChannel && channel <= maxChannel; channel++) {
                         pat.setCell(ToTic80ChannelIndex(channel), row, {});
                     }
                 }
@@ -679,8 +413,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 });
                 state.setPatternEditTarget({ rowIndex: selectionEndRow, channelIndex: ToTic80ChannelIndex(selectionEndChannel) });
             });
-            selectionAnchorRef.current = { rowIndex: startRow, channelIndex: ToTic80ChannelIndex(startChannel) };
-            focusCell(startRow, startChannel * 4);
+            selection2d.setAnchor({ row: startRow, col: startChannel });
+            focusCell(startRow, startChannel * CELLS_PER_CHANNEL);
         };
 
         const handlePasteSelection = async () => {
@@ -711,13 +445,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const activeRow = isViewingActivePattern && playbackRowIndexRaw >= 0
             ? Math.max(0, Math.min(song.rowsPerPattern - 1, playbackRowIndexRaw))
             : null;
-
-        // const setRowValue = (channelIndex: number, rowIndex: number, field: 'note' | 'instrument', value: number) => {
-        //     onSongChange((s) => {
-
-        //         //s.patterns[editorState.patternIndex].channels[channelIndex].setRow(rowIndex, field, value);
-        //     });
-        // };
 
         const playRow = (rowIndex: number) => {
             audio.playRow(song, pattern, rowIndex);
@@ -813,7 +540,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         useImperativeHandle(ref, () => ({
             focusPattern() {
                 const row = editorState.patternEditRow || 0;
-                const col = (editorState.patternEditChannel || 0) * 4;
+                const col = (editorState.patternEditChannel || 0) * CELLS_PER_CHANNEL;
                 focusCell(row, col);
             },
         }), [editorState.patternEditChannel, editorState.patternEditRow, focusCell]);
@@ -823,13 +550,18 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             onEditorStateChange((s) => s.setPatternEditTarget({ rowIndex, channelIndex }));
         };
 
+        const ColToChannel = (col: number): Tic80ChannelIndex => {
+            const channelIndex = Math.floor(col / CELLS_PER_CHANNEL);
+            return ToTic80ChannelIndex(channelIndex);
+        }
+
         const handleArrowNav = (row: number, col: number, key: string, ctrlKey: boolean): readonly [number, number] | null => {
             const rowCount = song.rowsPerPattern;
             const colCount = 16;
             const jumpSize = Math.max(song.highlightRowCount || 1, 1);
             if (key === 'ArrowUp') {
                 if (ctrlKey) {
-                    const targetRow = row - 4;
+                    const targetRow = row - CTRL_ARROW_JUMP_SIZE;
                     if (targetRow < 0) {
                         // Navigate to previous song order position
                         if (currentPosition > 0) {
@@ -855,7 +587,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
             if (key === 'ArrowDown') {
                 if (ctrlKey) {
-                    const targetRow = row + 4;
+                    const targetRow = row + CTRL_ARROW_JUMP_SIZE;
                     if (targetRow >= rowCount) {
                         // Navigate to next song order position
                         if (currentPosition < song.songOrder.length - 1) {
@@ -882,10 +614,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             if (key === 'ArrowLeft') {
                 if (ctrlKey) {
                     // Move to previous channel (keep same cell type within channel)
-                    const currentChannel = Math.floor(col / 4);
-                    const cellTypeOffset = col % 4;
-                    const targetChannel = (currentChannel + 4 - 1) % 4;
-                    const targetCol = targetChannel * 4 + cellTypeOffset;
+                    const channelCount = Tic80Caps.song.audioChannels;
+                    const currentChannel = Math.floor(col / CELLS_PER_CHANNEL);
+                    const cellTypeOffset = col % CELLS_PER_CHANNEL;
+                    const targetChannel = (currentChannel + channelCount - 1) % channelCount;
+                    const targetCol = targetChannel * CELLS_PER_CHANNEL + cellTypeOffset;
                     return [row, targetCol] as const;
                 }
                 return [row, (col + colCount - 1) % colCount] as const;
@@ -893,10 +626,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             if (key === 'ArrowRight') {
                 if (ctrlKey) {
                     // Move to next channel (keep same cell type within channel)
-                    const currentChannel = Math.floor(col / 4);
-                    const cellTypeOffset = col % 4;
-                    const targetChannel = (currentChannel + 1) % 4;
-                    const targetCol = targetChannel * 4 + cellTypeOffset;
+                    const currentChannel = Math.floor(col / CELLS_PER_CHANNEL);
+                    const cellTypeOffset = col % CELLS_PER_CHANNEL;
+                    const targetChannel = (currentChannel + 1) % Tic80Caps.song.audioChannels;
+                    const targetCol = targetChannel * CELLS_PER_CHANNEL + cellTypeOffset;
                     return [row, targetCol] as const;
                 }
                 return [row, (col + 1) % colCount] as const;
@@ -962,9 +695,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const navTarget = handleArrowNav(currentRowForNav, columnIndex, e.key, e.ctrlKey);
             if (navTarget) {
                 const [targetRow, targetCol] = navTarget;
-                const targetChannel = ToTic80ChannelIndex(Math.floor(targetCol / 4));
+                const targetChannel = ToTic80ChannelIndex(Math.floor(targetCol / CELLS_PER_CHANNEL));
                 onEditorStateChange((state) => state.setPatternEditTarget({ rowIndex: targetRow, channelIndex: targetChannel }));
-                selectionAnchorRef.current = { rowIndex: targetRow, channelIndex: targetChannel };
+                selection2d.setAnchor({ row: targetRow, col: targetChannel });
                 focusCell(targetRow, targetCol);
                 e.preventDefault();
                 return;
@@ -1064,12 +797,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const onCellFocus = (rowIndex: number, channelIndex: Tic80ChannelIndex, col: number) => {
             updateEditTarget({ rowIndex, channelIndex });
-            selectionAnchorRef.current = { rowIndex, channelIndex };
+            selection2d.setAnchor({ row: rowIndex, col: channelIndex });
         };
-
-        const isChannelSelected = (channelIndex: number) => selectionBounds
-            ? channelIndex >= selectionBounds.channelStart && channelIndex <= selectionBounds.channelEnd
-            : false;
 
         return (
             <div className={`pattern-grid-shell${advancedEditPanelOpen ? ' pattern-grid-shell--advanced-open' : ''}`}>
@@ -1102,9 +831,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                             <tr>
                                 <th></th>
                                 {gChannelsArray.map((i) => {
-                                    const headerClass = `channel-header${isChannelSelected(i) ? ' channel-header--selected' : ''}`;
+                                    const headerClass = `channel-header${editorState.isPatternChannelSelected(i) ? ' channel-header--selected' : ''}`;
                                     return (
-                                        <th key={i} colSpan={4} className={headerClass}>
+                                        <th key={i} colSpan={CELLS_PER_CHANNEL} className={headerClass}>
                                             <div className='channel-header-cell-contents'>
                                                 <div className='channel-header-label'>{i + 1}</div>
                                                 <div className='channel-header-controls-group'>
@@ -1130,7 +859,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                 const chunkSize = Math.max(song.highlightRowCount || 1, 1);
                                 const sectionIndex = Math.floor(rowIndex / chunkSize) % 2;
                                 const rowClass = `${sectionIndex === 0 ? 'row-section-a' : 'row-section-b'}${activeRow === rowIndex ? ' active-row' : ''}`;
-                                const isRowInSelection = selectionBounds ? rowIndex >= selectionBounds.rowStart && rowIndex <= selectionBounds.rowEnd : false;
+                                const isRowInSelection = editorState.isPatternRowSelected(rowIndex);
                                 const rowNumberClass = `row-number${isRowInSelection ? ' row-number--selected' : ''}`;
                                 return (
                                     <tr key={rowIndex} className={rowClass}>
@@ -1143,23 +872,23 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const [instText, instTooltip] = noteCut ? ["", null] : formatInstrument(row.instrumentIndex, song);
                                             const cmdText = formatCommand(row.effect);
                                             const paramText = formatParams(row.effectX, row.effectY);
-                                            const noteCol = channelIndex * 4;
-                                            const instCol = channelIndex * 4 + 1;
-                                            const cmdCol = channelIndex * 4 + 2;
-                                            const paramCol = channelIndex * 4 + 3;
+                                            const noteCol = channelIndex * CELLS_PER_CHANNEL;
+                                            const instCol = channelIndex * CELLS_PER_CHANNEL + 1;
+                                            const cmdCol = channelIndex * CELLS_PER_CHANNEL + 2;
+                                            const paramCol = channelIndex * CELLS_PER_CHANNEL + 3;
                                             const isEmpty = !row.midiNote && row.effect === undefined && row.instrumentIndex == null && row.effectX === undefined && row.effectY === undefined;
                                             const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
-                                            const channelSelected = isChannelSelected(channelIndex);
+                                            const channelSelected = editorState.isPatternChannelSelected(channelIndex);
                                             const isCellSelected = isRowInSelection && channelSelected;
                                             const isAudible = editorState.isChannelAudible(channelIndex);
 
                                             const getSelectionClasses = (cellType: CellType) => {
-                                                if (!isCellSelected || !selectionBounds) return '';
+                                                if (!isCellSelected || !editorState.patternSelection) return '';
                                                 let classes = ' pattern-cell--selected';
-                                                if (rowIndex === selectionBounds.rowStart) classes += ' pattern-cell--selection-top';
-                                                if (rowIndex === selectionBounds.rowEnd) classes += ' pattern-cell--selection-bottom';
-                                                if (channelIndex === selectionBounds.channelStart && cellType === 'note') classes += ' pattern-cell--selection-left';
-                                                if (channelIndex === selectionBounds.channelEnd && cellType === 'param') classes += ' pattern-cell--selection-right';
+                                                if (rowIndex === editorState.patternSelection.startRow) classes += ' pattern-cell--selection-top';
+                                                if (rowIndex === editorState.patternSelection.endRow) classes += ' pattern-cell--selection-bottom';
+                                                if (channelIndex === editorState.patternSelection.startChannel && cellType === 'note') classes += ' pattern-cell--selection-left';
+                                                if (channelIndex === editorState.patternSelection.endChannel && cellType === 'param') classes += ' pattern-cell--selection-right';
                                                 return classes;
                                             };
 
@@ -1201,8 +930,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][noteCol] = el)}
                                                         className={noteClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
-                                                        onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
+                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { row: rowIndex, col: channelIndex })}
+                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ row: rowIndex, col: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, noteCol)}
                                                         data-row-index={rowIndex}
                                                         data-channel-index={channelIndex}
@@ -1220,8 +949,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][instCol] = el)}
                                                         className={instClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
-                                                        onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
+                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { row: rowIndex, col: channelIndex })}
+                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ row: rowIndex, col: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, instCol)}
                                                         data-row-index={rowIndex}
                                                         data-channel-index={channelIndex}
@@ -1240,8 +969,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][cmdCol] = el)}
                                                         className={cmdClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
-                                                        onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
+                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { row: rowIndex, col: channelIndex })}
+                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ row: rowIndex, col: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, cmdCol)}
                                                         data-row-index={rowIndex}
                                                         data-channel-index={channelIndex}
@@ -1256,8 +985,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][paramCol] = el)}
                                                         className={paramClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
-                                                        onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
+                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { row: rowIndex, col: channelIndex })}
+                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ row: rowIndex, col: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, paramCol)}
                                                         data-row-index={rowIndex}
                                                         data-channel-index={channelIndex}

@@ -168,6 +168,20 @@ export class EditorState {
       return gChannelsArray.map(ch => this.isChannelAudible(ch) ? "1" : "0").join("");
    }
 
+   isPatternChannelSelected(channelIndex: Tic80ChannelIndex): boolean {
+      if (!this.patternSelection) {
+         return false;
+      }
+      return channelIndex >= this.patternSelection.startChannel && channelIndex <= this.patternSelection.endChannel;
+   }
+
+   isPatternRowSelected(rowIndex: number): boolean {
+      if (!this.patternSelection) {
+         return false;
+      }
+      return rowIndex >= this.patternSelection.startRow && rowIndex <= this.patternSelection.endRow;
+   }
+
    toData(): EditorStateDto {
       return {
          octave: this.octave,
