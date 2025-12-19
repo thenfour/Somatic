@@ -1344,7 +1344,7 @@ option {
     align-items: center;
 }
 
-.tooltip-trigger {
+.help-tooltip {
     display: inline-flex;
     align-items: center;
     justify-content: center;

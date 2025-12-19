@@ -1,5 +1,3 @@
-// shortcuts/platform.ts
-
 import {Platform} from "./KeyboardShortcutTypes";
 
 export function detectPlatform(): Platform {

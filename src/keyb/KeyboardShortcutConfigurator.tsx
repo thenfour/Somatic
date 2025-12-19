@@ -1,12 +1,40 @@
 import React from "react";
-import { useShortcutManager } from "./KeyboardShortcutManager";
-import { useChordCapture } from "./useChordCapture";
-import { ActionId, Actions } from "./ActionIds";
-import { formatChord } from "./format";
+import { Tooltip } from "../ui/tooltip";
+import { assert, CharMap } from "../utils/utils";
+import { ActionId } from "./ActionIds";
 import { gActionRegistry, kAllActions } from "./ActionRegistry";
+import { formatChord } from "./format";
 import "./KeyboardShortcutConfigurator.css";
+import { useShortcutManager } from "./KeyboardShortcutManager";
+import { isSameChord, ShortcutChord } from "./KeyboardShortcutTypes";
+import { useChordCapture } from "./useChordCapture";
 
-export function BindingEditorRow({ actionId }: { actionId: ActionId }) {
+interface KeyboardChordRowProps {
+    chord: ShortcutChord | null;
+    actionId: ActionId;
+    onRemove?: () => void;
+}
+
+function KeyboardChordRow({ chord, actionId, onRemove }: KeyboardChordRowProps) {
+    const mgr = useShortcutManager();
+
+    return <span className="keyboard-binding-chord">
+        <span className="keyboard-binding-chord__label">
+            {chord === null ? "Unbound" : formatChord(chord, mgr.platform)}
+        </span>
+        <button
+            className={`keyboard-binding-row__button ${!onRemove ? 'keyboard-binding-row__button--disabled' : ''}`}
+            onClick={onRemove}
+            title="remove this binding"
+            disabled={!onRemove}
+        >
+            {CharMap.Mul}
+        </button>
+    </span>;
+}
+
+
+function BindingEditorRow({ actionId }: { actionId: ActionId }) {
     const mgr = useShortcutManager();
     const capture = useChordCapture({ kind: "character", platform: mgr.platform });
 
@@ -17,9 +45,16 @@ export function BindingEditorRow({ actionId }: { actionId: ActionId }) {
             const chord = capture.captureFromEvent(e);
             if (!chord) return;
 
+            const existingBindings = mgr.userBindings[actionId] ?? [];
+
+            // avoid dupes.
+            if (existingBindings.some(b => isSameChord(b, chord))) {
+                return;
+            }
+
             mgr.setUserBindings(prev => ({
                 ...prev,
-                [actionId]: [chord],
+                [actionId]: [...existingBindings, chord],
             }));
 
             capture.setCapturing(false);
@@ -31,41 +66,99 @@ export function BindingEditorRow({ actionId }: { actionId: ActionId }) {
 
     const handleResetToDefault = React.useCallback(() => {
         mgr.setUserBindings(prev => {
-            const newBindings = { ...prev };
-            delete newBindings[actionId];
-            return newBindings;
+            const next = { ...prev };
+            delete next[actionId];
+            return next;
         });
     }, [mgr, actionId]);
 
-    const defaultBindings = gActionRegistry[actionId].defaultBindings;
+    const handleUnbind = React.useCallback(() => {
+        mgr.setUserBindings(prev => ({
+            ...prev,
+            [actionId]: null,
+        }));
+    }, [mgr, actionId]);
+
+    const handleRemoveBinding = React.useCallback((chord: ShortcutChord | null) => {
+        assert(chord !== null);
+        const existingBindings = mgr.userBindings[actionId] ?? [];
+        const newBindings = existingBindings.filter(b => !isSameChord(b, chord));
+        mgr.setUserBindings(prev => ({ ...prev, [actionId]: newBindings }));
+    }, [mgr, actionId]);
+
+
+    const currentBindings = mgr.userBindings[actionId] || [];//?.map(chord => formatChord(chord, mgr.platform)).join(", ");
+    const isCustomized = mgr.userBindings[actionId] !== undefined; // null = unbound, undefined = default
+    const isUnbound = mgr.userBindings[actionId] === null;
+    const isDefault = !isCustomized;
+    const defaultBindings = mgr.actions[actionId].defaultBindings || [];
 
     return (<div className="keyboard-binding-row">
-        <span>{actionId}</span>
-        {mgr.userBindings[actionId]?.map(chord => formatChord(chord, mgr.platform)).join(", ") || "<none>"}
-        <button onClick={() => capture.setCapturing(true)}>
-            Rebind…
-        </button>
-        <button onClick={() => handleResetToDefault}>
-            Reset to Default {defaultBindings ? `(${formatChord(defaultBindings[mgr.platform]?.[0]!, mgr.platform)})` : ""}
-        </button>
+        <Tooltip title={<>
+            <strong>{gActionRegistry[actionId].title}</strong><br />
+            <p>{gActionRegistry[actionId].description || ""}</p>
+        </>}>
+            <span className="keyboard-binding-row__label">
+                {actionId}
+            </span>
+        </Tooltip>
+        <span className={`keyboard-binding-row__binding ${!currentBindings.length ? 'keyboard-binding-row__binding--empty' : ''}`}>
+            {isUnbound && <span className="keyboard-binding-row__binding--placeholder">
+                <KeyboardChordRow chord={null} actionId={actionId} />
+            </span>}
+
+            {isDefault && (defaultBindings.length > 0) && <span className="keyboard-binding-row__binding--placeholder">
+                {defaultBindings.map((chord, i) => <KeyboardChordRow key={i} chord={chord} actionId={actionId} onRemove={handleUnbind} />)}
+            </span>}
+
+            {currentBindings.length > 0 && (
+                currentBindings.map((chord, i) => <KeyboardChordRow key={i} chord={chord} actionId={actionId} onRemove={() => handleRemoveBinding(chord)} />)
+            )}
+        </span>
+        <span className={`keyboard-binding-row-controls`}>
+            <button
+                className={`keyboard-binding-row__button ${capture.capturing ? 'keyboard-binding-row__button--capturing' : ''}`}
+                onClick={() => capture.setCapturing(!capture.capturing)}
+            >
+                {capture.capturing ? "Press key..." : `${CharMap.Plus} binding`}
+            </button>
+            {/* unbind button */}
+            {/* <button
+                className={`keyboard-binding-row__button ${isUnbound ? 'keyboard-binding-row__button--disabled' : ''}`}
+                onClick={handleUnbind}
+                title={"Unbind all shortcuts for this action"}
+            >   Unbind</button> */}
+
+            <button
+                className={`keyboard-binding-row__button ${isCustomized ? '' : 'keyboard-binding-row__button--disabled'}`}
+                onClick={handleResetToDefault}
+                title={"Reset to default"}
+            >
+                Use default
+            </button>
+        </span>
     </div>
     );
 }
 
 export const KeyboardShortcutConfigurator: React.FC<{}> = () => {
-
+    //const mgr = useShortcutManager();
     const allCategories = new Set(kAllActions.map(action => action.category));
 
+    // todo: warn when a chord is bound to multiple actions
+
     return <div className="keyboard-shortcut-configurator">
-        <h3>Keyboard Shortcuts</h3>
-        {Array.from(allCategories).map(category => (
-            <div key={category} style={{ marginBottom: 16 }}>
-                <h4>{category}</h4>
-                {kAllActions.filter(action => action.category === category).map(action => (
-                    <BindingEditorRow key={action.id} actionId={action.id} />
-                ))}
-            </div>
-        ))}
+        <section>
+            <h3>Keyboard Shortcuts</h3>
+            {Array.from(allCategories).map(category => (
+                <div key={category} className="keyboard-shortcut-category">
+                    <h4>{category}</h4>
+                    {kAllActions.filter(action => action.category === category).map(action => (
+                        <BindingEditorRow key={action.id} actionId={action.id} />
+                    ))}
+                </div>
+            ))}
+        </section>
     </div>;
 };
 

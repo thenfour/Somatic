@@ -1,4 +1,4 @@
-export function assert(condition: boolean = true, message: string = "Assertion failed") {
+export function assert(condition: boolean = true, message: string = "Assertion failed"): asserts condition {
    if (!condition) {
       console.error("Assertion failed:", message);
       throw new Error(message);
@@ -105,6 +105,13 @@ export const CharMap = {
    DownArrow: "▼",
    LeftArrow: "◀",
    RightArrow: "▶",
+   Mul: "×",
+   Div: "÷",
+   PlusMinus: "±",
+   Plus: "+",
+   Minus: "−",
+   Check: "✔",
+   Cross: "✘",
 };
 
 

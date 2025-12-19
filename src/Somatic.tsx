@@ -36,6 +36,7 @@ import { OptimizeSong } from './utils/SongOptimizer';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
 import { useActionHandler } from './keyb/useActionHandler';
+import { useShortcutManager } from './keyb/KeyboardShortcutManager';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -72,6 +73,7 @@ const MusicStateDisplay: React.FC<{ musicState: MusicState }> = ({ musicState })
 };
 
 export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
+    const keyboardShortcutMgr = useShortcutManager();
     const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
     const midiRef = React.useRef<MidiManager | null>(new MidiManager());
     const keyboardRef = React.useRef<KeyboardNoteInput | null>(null);
@@ -236,36 +238,40 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         applyUndoSnapshot(snapshot);
     }, [applyUndoSnapshot, getUndoSnapshot, pushToast]);
 
+    useActionHandler("Undo", handleUndo);
+    useActionHandler("Redo", handleRedo);
+    useActionHandler("TogglePreferencesPanel", () => setPreferencesPanelOpen(open => !open));
+
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
             const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase();
             const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'button';
 
-            const isBracketLeft = e.key === '[';// .code === 'BracketLeft';
-            const isBracketRight = e.key === ']';// .code === 'BracketRight';
+            // const isBracketLeft = e.key === '[';// .code === 'BracketLeft';
+            // const isBracketRight = e.key === ']';// .code === 'BracketRight';
             const isDigit1 = e.code === 'Digit1';
             const hasMeta = e.metaKey || e.ctrlKey;
             const lowerKey = e.key.toLowerCase();
 
             // pretty-print key combo.
-            const parts = [];
-            if (e.ctrlKey) parts.push('Ctrl');
-            if (e.altKey) parts.push('Alt');
-            if (e.shiftKey) parts.push('Shift');
-            if (e.metaKey) parts.push('Meta');
-            parts.push(e.code);
-            const combo = parts.join('+');
-            console.log(`Key combo pressed: code:${combo} key:${e.key} repeat:${e.repeat}`);
+            // const parts = [];
+            // if (e.ctrlKey) parts.push('Ctrl');
+            // if (e.altKey) parts.push('Alt');
+            // if (e.shiftKey) parts.push('Shift');
+            // if (e.metaKey) parts.push('Meta');
+            // parts.push(e.code);
+            //const combo = parts.join('+');
+            //console.log(`Key combo pressed: code:${combo} key:${e.key} repeat:${e.repeat}`);
 
-            if (!isEditable && hasMeta && !e.altKey && lowerKey === 'z') {
-                e.preventDefault();
-                if (e.shiftKey) {
-                    handleRedo();
-                } else {
-                    handleUndo();
-                }
-                return;
-            }
+            // if (!isEditable && hasMeta && !e.altKey && lowerKey === 'z') {
+            //     e.preventDefault();
+            //     if (e.shiftKey) {
+            //         handleRedo();
+            //     } else {
+            //         handleUndo();
+            //     }
+            //     return;
+            // }
             if (!isEditable && hasMeta && !e.altKey && !e.shiftKey && lowerKey === 'y') {
                 e.preventDefault();
                 handleRedo();
@@ -700,6 +706,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     checked={preferencesPanelOpen}
                                     closeOnSelect={false}
                                     onSelect={() => setPreferencesPanelOpen((open) => !open)}
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("TogglePreferencesPanel")}
                                 >
                                     Preferences Panel
                                 </DesktopMenu.Item>

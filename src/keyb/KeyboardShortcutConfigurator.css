@@ -1,5 +1,145 @@
 .keyboard-shortcut-configurator {
     display: flex;
     flex-direction: column;
+    gap: 16px;
+}
+
+.keyboard-shortcut-configurator h3 {
+    margin: 0 0 8px 0;
+    color: var(--text);
+    letter-spacing: 0.2px;
+}
+
+.keyboard-shortcut-category {
+    margin-bottom: 16px;
+}
+
+.keyboard-shortcut-category h4 {
+    margin: 0 0 8px 0;
+    padding-bottom: 4px;
+    color: var(--accent-strong);
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    letter-spacing: 0.2px;
+}
+
+.keyboard-binding-row {
+    display: flex;
     gap: 8px;
+    align-items: flex-start;
+    padding: 8px 12px;
+    background: var(--panel-strong);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    margin-bottom: 4px;
+}
+
+.keyboard-binding-row-controls {
+    display: inline-flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.keyboard-binding-row__label {
+    font-weight: 500;
+    width: 300px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.keyboard-binding-row__binding--placeholder {
+    color: var(--muted);
+    font-style: italic;
+}
+
+.keyboard-binding-row__binding {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: stretch;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    font-family: var(--ff-mono);
+    color: var(--accent-strong);
+    justify-content: stretch;
+}
+
+.keyboard-binding-row__binding--empty {
+    color: var(--muted);
+    font-style: italic;
+}
+
+.keyboard-binding-chord {
+    display: flex;
+    align-items: center;
+    /* background-color: #0ff; */
+}
+
+.keyboard-binding-chord:hover {
+    background-color: var(--accent);
+}
+
+.keyboard-binding-chord .keyboard-binding-chord__label {
+    display: flex;
+    align-items: center;
+    width: 200px;
+    padding: 0 14px;
+}
+
+.keyboard-binding-chord .keyboard-binding-row__button {
+    /* font-style: italic; */
+    border: 0;
+    background: none;
+    font-size: 16px;
+}
+
+.keyboard-binding-row__button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 2px;
+    white-space: nowrap;
+    justify-content: center;
+}
+
+.keyboard-binding-row__button--disabled {
+    background: var(--panel);
+    color: var(--muted);
+    border-color: var(--border-strong);
+    cursor: not-allowed;
+}
+
+.keyboard-binding-row__button:hover {
+    background: var(--panel-strong);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.keyboard-binding-row__button:active {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: var(--tic-0);
+}
+
+.keyboard-binding-row__button--capturing {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--tic-0);
+    animation: pulse 0.7s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
 }

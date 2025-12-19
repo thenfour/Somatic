@@ -1,6 +1,4 @@
-// shortcuts/types.ts
-
-import {ActionId} from "./ActionIds";
+import {ActionCategory, ActionId} from "./ActionIds";
 
 export type Platform = "mac"|"win"|"linux";
 export type ShortcutKind = "character"|"physical";
@@ -22,16 +20,26 @@ export type ShortcutChord = {
    shift?: boolean;
 };
 
+export function isSameChord(a: ShortcutChord, b: ShortcutChord): boolean {
+   return a.kind === b.kind &&           //
+      a.key === b.key &&                 //
+      a.code === b.code &&               //
+      !!a.primary === !!b.primary &&     //
+      !!a.secondary === !!b.secondary && //
+      !!a.alt === !!b.alt &&             //
+      !!a.shift === !!b.shift;           //
+}
+
 //export type ActionId = string;
 
 export type ActionDef = {
    id: ActionId; //
    title: string;
    description?: string;
-   category?: string;
+   category?: ActionCategory;
 
    // Defaults can be platform-specific (recommended)
-   defaultBindings?: Partial<Record<Platform, ShortcutChord[]>>;
+   defaultBindings?: ShortcutChord[]; // | Partial<Record<Platform, ShortcutChord[]>>;
 
    // runtime policy
    allowInEditable?: boolean; // default false
@@ -49,7 +57,7 @@ export type ShortcutContext = {
    isEditableTarget: boolean;
 };
 
-export type UserBindings = Partial<Record<ActionId, ShortcutChord[]>>;
+export type UserBindings = Partial<Record<ActionId, ShortcutChord[]|null>>;
 
 export type ActionRegistry = Record<ActionId, ActionDef>;
 

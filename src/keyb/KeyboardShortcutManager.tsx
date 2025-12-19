@@ -14,6 +14,7 @@ import { buildShortcutContext, chordMatchesEvent } from "./Keyboard";
 import { resolveBindingsForPlatform } from "./KeyboardConflicts";
 import { useActiveScopes } from "./KeyboardShortcutScope";
 import { ActionId } from "./ActionIds";
+import { formatChord } from "./format";
 
 type HandlerReg = {
     id: string;
@@ -30,6 +31,7 @@ type ShortcutManagerApi = {
 
     registerHandler: (actionId: ActionId, scopes: string[], handler: ActionHandler) => () => void;
     getResolvedBindings: () => Record<ActionId, ShortcutChord[]>;
+    getActionBindingLabel: (actionId: ActionId) => string | undefined;
 };
 
 const ShortcutManagerContext = React.createContext<ShortcutManagerApi | null>(null);
@@ -104,6 +106,12 @@ export function ShortcutManagerProvider(props: {
     const getResolvedBindings = React.useCallback(() => {
         return resolveBindingsForPlatform(actionsRef.current, userBindingsRef.current, platform);
     }, [platform]);
+
+    const getActionBindingLabel = React.useCallback((actionId: ActionId): string | undefined => {
+        const resolved = getResolvedBindings();
+        const chords = resolved[actionId] ?? [];
+        return chords.map(chord => formatChord(chord, platform)).join(", ") || undefined;
+    }, [getResolvedBindings, platform]);
 
     // One global listener: capture phase so you can intercept before nested handlers if you want.
     React.useEffect(() => {
@@ -183,6 +191,7 @@ export function ShortcutManagerProvider(props: {
         setUserBindings,
         registerHandler,
         getResolvedBindings,
+        getActionBindingLabel,
     };
 
     return <ShortcutManagerContext.Provider value={api}>{props.children}</ShortcutManagerContext.Provider>;

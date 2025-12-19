@@ -7,11 +7,9 @@ export const gActionRegistry: ActionRegistry = {
       title: "panic",
       description: "help for panick.",
       category: "Transport",
-      defaultBindings: {
-         mac: [{kind: "character", key: "?", shift: true}],
-         win: [{kind: "character", key: "?", shift: true}],
-         linux: [{kind: "character", key: "?", shift: true}],
-      },
+      defaultBindings: [
+         {kind: "character", key: "?", shift: true},
+      ],
    },
 
    "PlayPause": {
@@ -19,11 +17,9 @@ export const gActionRegistry: ActionRegistry = {
       title: "play/pause",
       description: "toggle playback.",
       category: "Transport",
-      defaultBindings: {
-         mac: [{kind: "character", key: "p", shift: true}],
-         win: [{kind: "character", key: "p", shift: true}],
-         linux: [{kind: "character", key: "p", shift: true}],
-      },
+      defaultBindings: [
+         {kind: "character", key: "p", shift: true},
+      ],
    },
 
    "Undo": {
@@ -31,11 +27,30 @@ export const gActionRegistry: ActionRegistry = {
       title: "undo",
       description: "undo last action.",
       category: "Edit",
-      defaultBindings: {
-         mac: [{kind: "character", key: "z", primary: true}],
-         win: [{kind: "character", key: "z", primary: true}],
-         linux: [{kind: "character", key: "z", primary: true}],
-      },
+      defaultBindings: [
+         {kind: "character", key: "z", primary: true},
+      ],
+   },
+
+   "Redo": {
+      id: "Redo",
+      title: "redo",
+      description: "redo last undone action.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "z", primary: true, shift: true},
+         {kind: "character", key: "y", primary: true},
+      ],
+   },
+
+   "TogglePreferencesPanel": {
+      id: "TogglePreferencesPanel",
+      title: "toggle preferences panel",
+      description: "open or close the preferences panel.",
+      category: "View",
+      defaultBindings: [
+         {kind: "character", key: ",", primary: true},
+      ],
    },
 } as const;
 
