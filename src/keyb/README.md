@@ -118,7 +118,22 @@ Stuff like <kbd>F5</kbd> should not be used. We treat these kinds of reserved ch
 ... todo: show why
 ```
 
----
+### chars requiring shift and strictness
+
+Our matching strategy is strict: if you specify `shift=true`, it requires shift to be down. If you specify `shift=false`, then it **must not** be down.
+And not specifying a modifier means it must not be down. This is so you don't have to specify all modifiers for all keys.
+
+Charecters like `?` or `{` therefore cause issues. Most keyboard layouts require <kbd>shift</kbd> to type these.
+So if you want to use `?` as a shortcut chord, you **probably** need to specify `shift=true`. But then if you use
+a different keyboard layout that doesn't require <kbd>shift</kbd> to type `?`, then it won't resolve.
+
+For user-configured bindings it's OK because we'll capture whatever your keyboard does; it follows you.
+
+But the problem is our specified default bindings. If we want `?` to be a default keyboard shortcut, we need to decide whether
+or not to specify `shift=true`.
+
+maybe there's a fancy way of dealing with this gracefully, but ... it's ok for now.
+
 
 ## Examples
 

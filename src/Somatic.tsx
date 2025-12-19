@@ -239,144 +239,42 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("Undo", handleUndo);
     useActionHandler("Redo", handleRedo);
     useActionHandler("TogglePreferencesPanel", () => setPreferencesPanelOpen(open => !open));
+    useActionHandler("FocusPattern", () => patternGridRef.current?.focusPattern());
+    useActionHandler("ToggleWaveformEditor", () => setWaveformEditorPanelOpen(open => !open));
+    useActionHandler("ToggleInstrumentPanel", () => setInstrumentPanelOpen(open => !open));
+    useActionHandler("ToggleTic80Panel", () => setTic80PanelOpen(open => !open));
+    useActionHandler("ToggleOnScreenKeyboard", () => setShowingOnScreenKeyboard(open => !open));
+    useActionHandler("ToggleArrangementEditor", () => setShowingArrangementEditor(open => !open));
+    useActionHandler("ToggleAdvancedEditPanel", () => setAdvancedEditPanelOpen(open => !open));
+    useActionHandler("PlaySong", () => {
+        autoSave.flush();
+        if (audio.getMusicState().somaticSongPosition >= 0) {
+            audio.stop();
+        } else {
+            audio.playSong(0, 0);
+        }
+    });
+    useActionHandler("PlayFromPosition", () => {
+        autoSave.flush();
+        audio.playSong(editorState.activeSongPosition, editorState.patternEditRow);
+    });
+    useActionHandler("PlayPattern", () => {
+        autoSave.flush();
+        audio.playSong(editorState.activeSongPosition, 0);
+    });
+    useActionHandler("ToggleEditMode", () => {
+        toggleEditingEnabled();
+    });
+    useActionHandler("Panic", () => {
+        console.log('[App] Panic!');
+        audio.panic();
+    });
+    useActionHandler("DecreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave - 1)));
+    useActionHandler("IncreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave + 1)));
+    useActionHandler("DecreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument - 1)));
+    useActionHandler("IncreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument + 1)));
 
-    useEffect(() => {
-        const handler = (e: KeyboardEvent) => {
-            const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase();
-            const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'button';
 
-            // const isBracketLeft = e.key === '[';// .code === 'BracketLeft';
-            // const isBracketRight = e.key === ']';// .code === 'BracketRight';
-            const isDigit1 = e.code === 'Digit1';
-            const hasMeta = e.metaKey || e.ctrlKey;
-            const lowerKey = e.key.toLowerCase();
-
-            // pretty-print key combo.
-            // const parts = [];
-            // if (e.ctrlKey) parts.push('Ctrl');
-            // if (e.altKey) parts.push('Alt');
-            // if (e.shiftKey) parts.push('Shift');
-            // if (e.metaKey) parts.push('Meta');
-            // parts.push(e.code);
-            //const combo = parts.join('+');
-            //console.log(`Key combo pressed: code:${combo} key:${e.key} repeat:${e.repeat}`);
-
-            // if (!isEditable && hasMeta && !e.altKey && lowerKey === 'z') {
-            //     e.preventDefault();
-            //     if (e.shiftKey) {
-            //         handleRedo();
-            //     } else {
-            //         handleUndo();
-            //     }
-            //     return;
-            // }
-            if (!isEditable && hasMeta && !e.altKey && !e.shiftKey && lowerKey === 'y') {
-                e.preventDefault();
-                handleRedo();
-                return;
-            }
-
-            if (e.altKey && !hasMeta && isDigit1) {
-                e.preventDefault();
-                patternGridRef.current?.focusPattern();
-                return;
-            }
-            if (e.altKey && !hasMeta && e.code === 'Digit2') {
-                e.preventDefault();
-                // toggle waveform editor
-                setWaveformEditorPanelOpen(open => !open);
-                return;
-            }
-            // alt+3 = toggle instrument panel
-            if (e.altKey && !hasMeta && e.code === 'Digit3') {
-                e.preventDefault();
-                setInstrumentPanelOpen(open => !open);
-                return;
-            }
-            // alt+4 = toggle tic80 panel
-            if (e.altKey && !hasMeta && e.code === 'Digit4') {
-                e.preventDefault();
-                setTic80PanelOpen(open => !open);
-                return;
-            }
-            // alt+5 = toggle on screen keyboard
-            if (e.altKey && !hasMeta && e.code === 'Digit5') {
-                e.preventDefault();
-                //console.log('setting on screen keyboard to', !showingOnScreenKeyboard);
-                setShowingOnScreenKeyboard(open => !open);
-                return;
-            }
-            //alt+6 = toggle arrangement editor
-            if (e.altKey && !hasMeta && e.code === 'Digit6') {
-                e.preventDefault();
-                setShowingArrangementEditor(open => !open);
-                return;
-            }
-            // backslash = toggle advanced edit panel
-            if (e.code === 'Backslash') {
-                e.preventDefault();
-                setAdvancedEditPanelOpen(open => !open);
-                return;
-            }
-            // alt+0 = play / stop
-            if (e.altKey && !hasMeta && e.code === 'Digit0') {
-                e.preventDefault();
-                autoSave.flush();
-                if (audio.getMusicState().somaticSongPosition >= 0) {
-                    audio.stop();
-                } else {
-                    audio.playSong(0, 0);
-                }
-            }
-            // alt+9 = play from position
-            if (e.altKey && !hasMeta && e.code === 'Digit9') {
-                e.preventDefault();
-                autoSave.flush();
-                audio.playSong(editorState.activeSongPosition, editorState.patternEditRow);
-            }
-            // alt+8 = play from pattern
-            if (e.altKey && !hasMeta && e.code === 'Digit8') {
-                e.preventDefault();
-                autoSave.flush();
-                audio.playSong(editorState.activeSongPosition, 0);
-            }
-            if (e.code === 'Escape') {
-                e.preventDefault();
-                // toggle edit mode
-                toggleEditingEnabled();
-                // and *also* panic.
-                audio.panic();
-                return;
-            }
-            if (isEditable) return;
-            if (e.repeat) return;
-            if (hasMeta || e.altKey) return;
-
-            if (e.key === '[') {
-                e.preventDefault();
-                updateEditorState((s) => s.setOctave(s.octave - 1));
-                return;
-            }
-            if (e.key === ']') {
-                e.preventDefault();
-                updateEditorState((s) => s.setOctave(s.octave + 1));
-                return;
-            }
-            if (e.key === '{') {
-                e.preventDefault();
-                updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument - 1));
-                return;
-            }
-            if (e.key === '}') {
-                e.preventDefault();
-                updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument + 1));
-                return;
-            }
-        };
-
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
-    }, [handleRedo, handleUndo]);
 
     useEffect(() => {
         autoSave.enqueue(song);
@@ -650,8 +548,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         <DesktopMenu.Root>
                             <DesktopMenu.Trigger caret={false}>Edit</DesktopMenu.Trigger>
                             <DesktopMenu.Content>
-                                <DesktopMenu.Item onSelect={handleUndo} shortcut="Ctrl+Z">Undo</DesktopMenu.Item>
-                                <DesktopMenu.Item onSelect={handleRedo} shortcut="Ctrl+Shift+Z / Ctrl+Y">Redo</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={handleUndo} shortcut={keyboardShortcutMgr.getActionBindingLabel("Undo")}>Undo</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={handleRedo} shortcut={keyboardShortcutMgr.getActionBindingLabel("Redo")}>Redo</DesktopMenu.Item>
                                 <DesktopMenu.Divider />
                                 <DesktopMenu.Item onSelect={() => { void copyNative(); }}>Copy Song JSON</DesktopMenu.Item>
                                 <DesktopMenu.Item onSelect={() => { void pasteSong(); }}>Paste Song JSON</DesktopMenu.Item>
@@ -664,7 +562,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     checked={waveformEditorPanelOpen}
                                     closeOnSelect={false}
                                     onSelect={() => setWaveformEditorPanelOpen(open => !open)}
-                                    shortcut="Alt+2"
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleWaveformEditor")}
                                 >
                                     Waveform Editor
                                 </DesktopMenu.Item>
@@ -672,7 +570,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     checked={instrumentPanelOpen}
                                     closeOnSelect={false}
                                     onSelect={() => setInstrumentPanelOpen(open => !open)}
-                                    shortcut="Alt+3"
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleInstrumentPanel")}
                                 >
                                     Instrument Panel
                                 </DesktopMenu.Item>
@@ -680,7 +578,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     checked={showingOnScreenKeyboard}
                                     closeOnSelect={false}
                                     onSelect={() => setShowingOnScreenKeyboard(open => !open)}
-                                    shortcut="Alt+5"
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleOnScreenKeyboard")}
                                 >
                                     On-Screen Keyboard
                                 </DesktopMenu.Item>
@@ -688,7 +586,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     checked={showingArrangementEditor}
                                     closeOnSelect={false}
                                     onSelect={() => setShowingArrangementEditor(open => !open)}
-                                    shortcut="Alt+6"
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleArrangementEditor")}
                                 >
                                     Arrangement Editor
                                 </DesktopMenu.Item>
@@ -696,7 +594,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     checked={advancedEditPanelOpen}
                                     closeOnSelect={false}
                                     onSelect={() => setAdvancedEditPanelOpen(open => !open)}
-                                    shortcut="\\"
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleAdvancedEditPanel")}
                                 >
                                     Advanced Edit Panel
                                 </DesktopMenu.Item>
@@ -719,7 +617,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     checked={tic80PanelOpen}
                                     closeOnSelect={false}
                                     onSelect={() => setTic80PanelOpen(open => !open)}
-                                    shortcut="Alt+4"
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleTic80Panel")}
                                 >
                                     TIC-80 Bridge
                                 </DesktopMenu.Item>
@@ -728,7 +626,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     checked={editorState.editingEnabled}
                                     closeOnSelect={false}
                                     onSelect={toggleEditingEnabled}
-                                    shortcut="Esc"
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleEditMode")}
                                 >
                                     Editing Mode Enabled
                                 </DesktopMenu.Item>
@@ -752,14 +650,14 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         </DesktopMenu.Root>
                     </nav>
                     <div className="menu-transport">
-                        <button onClick={onPanic} title="Stop all audio"><span className="icon" aria-hidden="true"></span>Panic</button>
+                        <button onClick={onPanic} title={`Stop all audio (${keyboardShortcutMgr.getActionBindingLabel("Panic")})`}><span className="icon" aria-hidden="true"></span>Panic</button>
                         <button className={undefined/*'active'*/} onClick={onStop}>
                             <span className="icon">⏹</span>
                             <span className="caption">Stop</span>
                         </button>
-                        <button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll}><span className="icon" aria-hidden="true">▶</span>Song</button>
-                        <button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern}><span className="icon" aria-hidden="true">▷</span>Pat</button>
-                        <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition}><span className="icon" aria-hidden="true">▷</span>Pos</button>
+                        <button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll} title={keyboardShortcutMgr.getActionBindingLabel("PlaySong")}><span className="icon" aria-hidden="true">▶</span>Song</button>
+                        <button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern} title={keyboardShortcutMgr.getActionBindingLabel("PlayPattern")}><span className="icon" aria-hidden="true">▷</span>Pat</button>
+                        <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition} title={keyboardShortcutMgr.getActionBindingLabel("PlayFromPosition")}><span className="icon" aria-hidden="true">▷</span>Pos</button>
                     </div>
                     <div className="right-controls">
                         <button
@@ -767,6 +665,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             onClick={toggleEditingEnabled}
                             aria-pressed={editorState.editingEnabled}
                             aria-label={editorState.editingEnabled ? 'Disable editing in pattern editor' : 'Enable editing in pattern editor'}
+                            title={`${editorState.editingEnabled ? 'Disable' : 'Enable'} editing (${keyboardShortcutMgr.getActionBindingLabel("ToggleEditMode")})`}
                         >
                             <span className="edit-toggle__dot" aria-hidden="true" />
                             <span className={`edit-toggle__label`}>Edit</span>

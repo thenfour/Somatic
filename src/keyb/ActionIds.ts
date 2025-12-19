@@ -5,6 +5,21 @@ export const Actions = {
    Undo: "Undo",
    Redo: "Redo",
    TogglePreferencesPanel: "TogglePreferencesPanel",
+   FocusPattern: "FocusPattern",
+   ToggleWaveformEditor: "ToggleWaveformEditor",
+   ToggleInstrumentPanel: "ToggleInstrumentPanel",
+   ToggleTic80Panel: "ToggleTic80Panel",
+   ToggleOnScreenKeyboard: "ToggleOnScreenKeyboard",
+   ToggleArrangementEditor: "ToggleArrangementEditor",
+   ToggleAdvancedEditPanel: "ToggleAdvancedEditPanel",
+   PlayFromPosition: "PlayFromPosition",
+   PlayPattern: "PlayPattern",
+   PlaySong: "PlaySong",
+   ToggleEditMode: "ToggleEditMode",
+   DecreaseOctave: "DecreaseOctave",
+   IncreaseOctave: "IncreaseOctave",
+   DecreaseInstrument: "DecreaseInstrument",
+   IncreaseInstrument: "IncreaseInstrument",
 } as const;
 
 export const kAllActionIds = Object.values(Actions);
