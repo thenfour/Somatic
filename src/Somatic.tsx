@@ -20,7 +20,6 @@ import { AppStatusBar } from './ui/AppStatusBar';
 import { ArrangementEditor } from './ui/ArrangementEditor';
 import { useConfirmDialog } from './ui/confirm_dialog';
 import { DesktopMenu } from './ui/DesktopMenu';
-import { HelpPanel } from './ui/help_panel';
 import { InstrumentPanel } from './ui/instrument_editor';
 import { Keyboard } from './ui/keyboard';
 import { PatternGrid, PatternGridHandle } from './ui/pattern_grid';
@@ -102,7 +101,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [showingArrangementEditor, setShowingArrangementEditor] = useLocalStorage("somatic-showArrangementEditor", true);
     const [advancedEditPanelOpen, setAdvancedEditPanelOpen] = useLocalStorage("somatic-advancedEditPanelOpen", false);
 
-    const [helpPanelOpen, setHelpPanelOpen] = useState(false);
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
     //const [transportState, setTransportState] = useState<TransportState>('stop');
@@ -746,9 +744,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         <DesktopMenu.Root>
                             <DesktopMenu.Trigger caret={false}>Help</DesktopMenu.Trigger>
                             <DesktopMenu.Content>
-                                <DesktopMenu.Item onSelect={() => setHelpPanelOpen(true)}>Keyboard Shortcuts…</DesktopMenu.Item>
-                                <DesktopMenu.Divider />
                                 <DesktopMenu.Item onSelect={() => window.open('https://github.com/thenfour/Somatic', '_blank', 'noopener')}>Visit Project on GitHub</DesktopMenu.Item>
+                                <DesktopMenu.Divider />
                                 <DesktopMenu.Item onSelect={() => window.open('https://reverietracker.github.io/chromatic/', '_blank', 'noopener')}>This project was based on Chromatic by Gasman</DesktopMenu.Item>
                                 <DesktopMenu.Item onSelect={() => window.open('https://github.com/nesbox/TIC-80/wiki/Music-Editor', '_blank', 'noopener')}>TIC-80 Music Editor</DesktopMenu.Item>
                             </DesktopMenu.Content>
@@ -857,9 +854,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 )}
                 {themePanelOpen && (
                     <ThemeEditorPanel onClose={() => setThemePanelOpen(false)} />
-                )}
-                {helpPanelOpen && (
-                    <HelpPanel onClose={() => setHelpPanelOpen(false)} />
                 )}
 
                 <div className={tic80PanelOpen ? "tic80-frame" : "tic80-frame hidden"}>
