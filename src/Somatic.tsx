@@ -36,6 +36,7 @@ import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
 import { useActionHandler } from './keyb/useActionHandler';
 import { useShortcutManager } from './keyb/KeyboardShortcutManager';
+import { CharMap } from './utils/utils';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -655,9 +656,15 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             <span className="icon">⏹</span>
                             <span className="caption">Stop</span>
                         </button>
-                        <button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll} title={keyboardShortcutMgr.getActionBindingLabel("PlaySong")}><span className="icon" aria-hidden="true">▶</span>Song</button>
-                        <button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern} title={keyboardShortcutMgr.getActionBindingLabel("PlayPattern")}><span className="icon" aria-hidden="true">▷</span>Pat</button>
-                        <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition} title={keyboardShortcutMgr.getActionBindingLabel("PlayFromPosition")}><span className="icon" aria-hidden="true">▷</span>Pos</button>
+                        <button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll} title={keyboardShortcutMgr.getActionBindingLabel("PlaySong")}><span className="icon" aria-hidden="true">
+                            {CharMap.RightTriangle}
+                        </span>Song</button>
+                        <button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern} title={keyboardShortcutMgr.getActionBindingLabel("PlayPattern")}><span className="icon" aria-hidden="true">
+                            {CharMap.RightTriangleOutlined}
+                        </span>Pat</button>
+                        <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition} title={keyboardShortcutMgr.getActionBindingLabel("PlayFromPosition")}><span className="icon" aria-hidden="true">
+                            {CharMap.RightTriangleOutlined}
+                        </span>Pos</button>
                     </div>
                     <div className="right-controls">
                         <button

@@ -4,7 +4,7 @@ import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
 import { SomaticCaps, Tic80Caps } from "../models/tic80Capabilities";
 import { Pattern } from "../models/pattern";
-import { clamp } from "../utils/utils";
+import { CharMap, clamp } from "../utils/utils";
 import { useConfirmDialog } from "./confirm_dialog";
 import { Tooltip } from "./tooltip";
 
@@ -417,7 +417,7 @@ export const ArrangementEditor: React.FC<{
                                     {">"}
                                 </button>
                                 <span className="arrangement-editor__position-id">
-                                    <span style={{ visibility: isSelected ? "visible" : "hidden" }}>▶</span>
+                                    <span style={{ visibility: isSelected ? "visible" : "hidden" }}>{CharMap.RightTriangle}</span>
                                     {formattedIndex(positionIndex)}
                                 </span>
                                 <button

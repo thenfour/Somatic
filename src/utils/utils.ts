@@ -101,10 +101,14 @@ export function compareBuffers(bufA: Uint8Array, bufB: Uint8Array): CompareResul
 
 
 export const CharMap = {
-   UpArrow: "▲",
-   DownArrow: "▼",
-   LeftArrow: "◀",
-   RightArrow: "▶",
+   UpTriangle: "▲",
+   DownTriangle: "▼",
+   LeftTriangle: "◀",
+   RightTriangle: "▶",
+   UpTriangleOutlined: "△",
+   DownTriangleOutlined: "▽",
+   LeftTriangleOutlined: "◁",
+   RightTriangleOutlined: "▷",
    Mul: "×",
    Div: "÷",
    PlusMinus: "±",
@@ -112,6 +116,7 @@ export const CharMap = {
    Minus: "−",
    Check: "✔",
    Cross: "✘",
+   Bullet: "•",
 };
 
 

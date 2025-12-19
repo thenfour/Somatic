@@ -1,3 +1,10 @@
+
+// todo:
+// - arrow keys to navigate items
+// - enter/space to activate
+// - esc to close menu
+// - return focus to trigger on close
+
 import React, {
     createContext,
     useCallback,
@@ -194,7 +201,7 @@ type MenuTriggerProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
     caret?: boolean;
 };
 
-const MenuTrigger = React.forwardRef<HTMLButtonElement, MenuTriggerProps>(({ caret = true, className = '', children, onClick, onKeyDown, ...rest }, forwardedRef) => {
+const MenuTrigger = React.forwardRef<HTMLButtonElement, MenuTriggerProps>(({ caret = true, className = '', children, onClick, ...rest }, forwardedRef) => {
     const ctx = useMenuContext('DesktopMenu.Trigger');
     const combinedRef = composeRefs<HTMLButtonElement>(forwardedRef, (node) => { ctx.triggerRef.current = node; });
 
@@ -202,15 +209,6 @@ const MenuTrigger = React.forwardRef<HTMLButtonElement, MenuTriggerProps>(({ car
         onClick?.(event);
         if (event.defaultPrevented) return;
         ctx.toggle();
-    };
-
-    const handleKeyDown: React.KeyboardEventHandler<HTMLButtonElement> = (event) => {
-        onKeyDown?.(event);
-        if (event.defaultPrevented) return;
-        if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            ctx.open();
-        }
     };
 
     const classes = ['desktop-menu-trigger'];
@@ -225,10 +223,9 @@ const MenuTrigger = React.forwardRef<HTMLButtonElement, MenuTriggerProps>(({ car
             aria-haspopup="menu"
             aria-expanded={ctx.isOpen}
             onClick={handleClick}
-            onKeyDown={handleKeyDown}
         >
             <span className="desktop-menu-trigger__label">{children}</span>
-            {caret && <span className="desktop-menu-trigger__caret">{CharMap.DownArrow}</span>}
+            {caret && <span className="desktop-menu-trigger__caret">{CharMap.DownTriangle}</span>}
         </button>
     );
 });
@@ -268,20 +265,20 @@ const MenuContent = React.forwardRef<HTMLDivElement, MenuContentProps>(({ childr
             if (withinTrigger || withinMenuTree) return;
             ctx.closeTree();
         };
-        const handleKey = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                ctx.closeTree();
-                ctx.triggerRef.current?.focus();
-            }
-        };
+        // const handleKey = (event: KeyboardEvent) => {
+        //     if (event.key === 'Escape') {
+        //         event.preventDefault();
+        //         ctx.closeTree();
+        //         ctx.triggerRef.current?.focus();
+        //     }
+        // };
         document.addEventListener('pointerdown', handlePointerDown);
-        document.addEventListener('contextmenu', handlePointerDown);
-        window.addEventListener('keydown', handleKey);
+        //document.addEventListener('contextmenu', handlePointerDown);
+        //window.addEventListener('keydown', handleKey);
         return () => {
             document.removeEventListener('pointerdown', handlePointerDown);
-            document.removeEventListener('contextmenu', handlePointerDown);
-            window.removeEventListener('keydown', handleKey);
+            //document.removeEventListener('contextmenu', handlePointerDown);
+            //window.removeEventListener('keydown', handleKey);
         };
     }, [ctx]);
 
@@ -349,18 +346,11 @@ const MenuItem = React.forwardRef<HTMLDivElement, MenuItemProps>(({ children, di
         handleActivate(event);
     };
 
-    const handleKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            handleActivate(event);
-        }
-    };
-
     const classes = ['desktop-menu-item'];
     if (disabled) classes.push('desktop-menu-item--disabled');
     if (inset) classes.push('desktop-menu-item--inset');
 
-    const leading = checked ? '✓' : icon;
+    const leading = checked ? CharMap.Check : icon;
 
     return (
         <div
@@ -369,7 +359,6 @@ const MenuItem = React.forwardRef<HTMLDivElement, MenuItemProps>(({ children, di
             aria-disabled={disabled || undefined}
             className={classes.join(' ')}
             onClick={handleClick}
-            onKeyDown={handleKeyDown}
             ref={combinedRef}
             data-menu-item="true"
         >
@@ -435,7 +424,7 @@ const MenuSubTrigger = React.forwardRef<HTMLDivElement, MenuSubTriggerProps>(({ 
             data-menu-item="true"
         >
             <span className="desktop-menu-item__label">{children}</span>
-            <span className="desktop-menu-item__shortcut">{CharMap.RightArrow}</span>
+            <span className="desktop-menu-item__shortcut">{CharMap.RightTriangle}</span>
         </div>
     );
 });
