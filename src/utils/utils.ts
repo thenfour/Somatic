@@ -131,8 +131,7 @@ export const formatBytes = (n: number|null) => {
 };
 
 
-
-export const inclusiveRange = (start: number, end: number): number[] => {
+export const inclusiveRangeStartEnd = (start: number, end: number): number[] => {
    const lower = Math.min(start, end);
    const upper = Math.max(start, end);
    const length = Math.max(upper - lower + 1, 0);
@@ -140,9 +139,28 @@ export const inclusiveRange = (start: number, end: number): number[] => {
 };
 
 
-export type Rect2D = {
-   startRow: number; endRow: number; startCol: number; endCol: number
+
+export const numericRange = (start: number, length: number): number[] => {
+   return Array.from({length}, (_, idx) => start + idx);
 };
+
+
+
 export type Coord2D = {
-   row: number; col: number
+   x: number; //
+   y: number
 };
+
+export type Size2D = {
+   width: number;  //
+   height: number; //
+};
+
+export type Rect2D = {
+   start: Coord2D; //
+   size: Size2D;   // can be negative
+};
+
+export function signNonZero(x: number): 1|- 1 {
+   return x >= 0 ? 1 : -1;
+}

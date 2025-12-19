@@ -8,11 +8,11 @@ import { EditorState } from '../models/editor_state';
 import { isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { Song } from '../models/song';
 import { gChannelsArray, SomaticCaps, SomaticEffectCommand, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
-import { CharMap, clamp, inclusiveRange } from '../utils/utils';
+import { CharMap, clamp, numericRange } from '../utils/utils';
 import { InterpolateTarget, PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
 import { useToasts } from './toast_provider';
 import { Tooltip } from './tooltip';
-import { useRectSelection2D } from '../hooks/useRectSelection2D';
+import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D';
 import { changeInstrumentInPattern, interpolatePatternValues, RowRange, setInstrumentInPattern, transposeCellsInPattern } from '../utils/advancedPatternEdit';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
@@ -115,26 +115,17 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const { pushToast } = useToasts();
 
         const selection2d = useRectSelection2D({
-            selection: editorState.patternSelection
-                ? {
-                    startRow: editorState.patternSelection.startRow,
-                    endRow: editorState.patternSelection.endRow,
-                    startCol: editorState.patternSelection.startChannel,
-                    endCol: editorState.patternSelection.endChannel,
-                }
-                : null,
-            onChange: (r) => onEditorStateChange((s) => s.setPatternSelection({
-                startRow: r.startRow,
-                endRow: r.endRow,
-                startChannel: r.startCol,
-                endChannel: r.endCol,
-            })),
+            selection: editorState.patternSelection,
+            onChange: (r) => onEditorStateChange((s) => {
+                s.setPatternSelection(r);
+            }),
             clampCoord: (coord) => {
                 return {
-                    row: clamp(coord.row, 0, song.rowsPerPattern - 1),
-                    col: clamp(coord.col, 0, Tic80Caps.song.audioChannels - 1),
+                    x: clamp(coord.x, 0, Tic80Caps.song.audioChannels - 1),
+                    y: clamp(coord.y, 0, song.rowsPerPattern - 1),
                 };
             },
+            normalize: true,
         });
 
         const resolveScopeTargets = useCallback((scope: ScopeValue): ScopeTargets | null => {
@@ -142,18 +133,17 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const fullRowRange: RowRange = { start: 0, end: lastRow };
             const patternCount = song.patterns.length;
             const allPatternIndices = Array.from({ length: patternCount }, (_, idx) => idx);
-            const allChannels = inclusiveRange(0, Tic80Caps.song.audioChannels - 1);
 
             switch (scope) {
                 case 'selection': {
-                    if (!editorState.patternSelection) {
+                    if (!editorState.patternSelection || editorState.patternSelection.isNull()) {
                         pushToast({ message: 'Select a block before using Selection scope.', variant: 'error' });
                         return null;
                     }
                     const targets = {
                         patternIndices: [safePatternIndex],
-                        channels: inclusiveRange(editorState.patternSelection.startChannel, editorState.patternSelection.endChannel),
-                        rowRange: { start: editorState.patternSelection.startRow, end: editorState.patternSelection.endRow },
+                        channels: numericRange(editorState.patternSelection.leftInclusive()!, editorState.patternSelection.leftInclusive()! + editorState.patternSelection.columnCount()! - 1),
+                        rowRange: { start: editorState.patternSelection.topInclusive()!, end: editorState.patternSelection.topInclusive()! + editorState.patternSelection.rowCount()! - 1 },
                     };
                     return targets;
                 }
@@ -174,14 +164,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 case 'pattern':
                     const patternTargets = {
                         patternIndices: [safePatternIndex],
-                        channels: allChannels,
+                        channels: [...gChannelsArray],
                         rowRange: fullRowRange,
                     };
                     return patternTargets;
                 case 'song':
                     const songTargets = {
                         patternIndices: allPatternIndices,
-                        channels: allChannels,
+                        channels: [...gChannelsArray],
                         rowRange: fullRowRange,
                     };
                     return songTargets;
@@ -308,14 +298,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const createClipboardPayload = (): PatternClipboardPayload | null => {
             const bounds = editorState.patternSelection;
             if (!bounds) return null;
-            //const maxRow = Math.max(0, song.rowsPerPattern - 1);
-            //const maxChannel = Tic80Caps.song.audioChannels - 1;
-            const rowStart = bounds.startRow;
-            const rowEnd = bounds.endRow;
-            const channelStart = bounds.startChannel;
-            const channelEnd = bounds.endChannel;
-            const rows = rowEnd - rowStart + 1;
-            const channels = channelEnd - channelStart + 1;
+            const rowStart = bounds.topInclusive();
+            const channelStart = bounds.leftInclusive();
+            const rows = bounds.rowCount();
+            const channels = bounds.columnCount();
+            if (rowStart === null || channelStart === null || rows === null || channels === null) return null;
             const cells = Array.from({ length: rows }, (_, rowOffset) => {
                 const sourceRow = rowStart + rowOffset;
                 return Array.from({ length: channels }, (_, channelOffset) => {
@@ -351,10 +338,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 const pat = s.patterns[safePatternIndex];
                 const maxRow = Math.max(0, s.rowsPerPattern - 1);
                 const maxChannel = Tic80Caps.song.audioChannels - 1;
-                for (let row = bounds.startRow; row <= bounds.endRow && row <= maxRow; row++) {
-                    for (let channel = bounds.startChannel; channel <= bounds.endChannel && channel <= maxChannel; channel++) {
-                        pat.setCell(ToTic80ChannelIndex(channel), row, {});
-                    }
+                const allSelectedCells = bounds.getAllCells();
+                for (const cellCoord of allSelectedCells) {
+                    if (cellCoord.y > maxRow || cellCoord.x > maxChannel) continue;
+                    pat.setCell(ToTic80ChannelIndex(cellCoord.x), cellCoord.y, {});
                 }
             });
         };
@@ -411,15 +398,18 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const selectionEndRow = Math.min(startRow + payload.rows - 1, maxRow);
             const selectionEndChannel = Math.min(startChannel + payload.channels - 1, maxChannel);
             onEditorStateChange((state) => {
-                state.setPatternSelection({
-                    startRow,
-                    endRow: selectionEndRow,
-                    startChannel,
-                    endChannel: selectionEndChannel,
-                });
+                state.setPatternSelection(new SelectionRect2D({
+                    start: { x: startChannel, y: startRow },
+                    size: { width: selectionEndChannel - startChannel + 1, height: selectionEndRow - startRow + 1 },
+                }));
+                //     startRow,
+                //     rowCount: selectionEndRow - startRow + 1,
+                //     startChannel,
+                //     channelCount: selectionEndChannel - startChannel + 1,
+                // });
                 state.setPatternEditTarget({ rowIndex: selectionEndRow, channelIndex: ToTic80ChannelIndex(selectionEndChannel) });
             });
-            selection2d.setAnchor({ row: startRow, col: startChannel });
+            selection2d.setAnchor({ x: startChannel, y: startRow });
             focusCell(startRow, startChannel * CELLS_PER_CHANNEL);
         };
 
@@ -686,19 +676,19 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const handleSelectionNudge = (e: React.KeyboardEvent<HTMLTableCellElement>): boolean => {
             if (!e.shiftKey) return false;
             if (e.key === 'ArrowUp') {
-                selection2d.nudgeActiveEnd({ dCol: 0, dRow: -1 });
+                selection2d.nudgeActiveEnd({ delta: { width: 0, height: -1 } });
                 return true;
             }
             if (e.key === 'ArrowDown') {
-                selection2d.nudgeActiveEnd({ dCol: 0, dRow: 1 });
+                selection2d.nudgeActiveEnd({ delta: { width: 0, height: 1 } });
                 return true;
             }
             if (e.key === 'ArrowLeft') {
-                selection2d.nudgeActiveEnd({ dCol: -1, dRow: 0 });
+                selection2d.nudgeActiveEnd({ delta: { width: -1, height: 0 } });
                 return true;
             }
             if (e.key === 'ArrowRight') {
-                selection2d.nudgeActiveEnd({ dCol: 1, dRow: 0 });
+                selection2d.nudgeActiveEnd({ delta: { width: 1, height: 0 } });
                 return true;
             }
             return false;
@@ -910,10 +900,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const getSelectionClasses = (cellType: CellType) => {
                                                 if (!isCellSelected || !editorState.patternSelection) return '';
                                                 let classes = ' pattern-cell--selected';
-                                                if (rowIndex === editorState.patternSelection.startRow) classes += ' pattern-cell--selection-top';
-                                                if (rowIndex === editorState.patternSelection.endRow) classes += ' pattern-cell--selection-bottom';
-                                                if (channelIndex === editorState.patternSelection.startChannel && cellType === 'note') classes += ' pattern-cell--selection-left';
-                                                if (channelIndex === editorState.patternSelection.endChannel && cellType === 'param') classes += ' pattern-cell--selection-right';
+                                                if (rowIndex === editorState.patternSelection.topInclusive()) classes += ' pattern-cell--selection-top';
+                                                if (rowIndex === editorState.patternSelection.bottomInclusive()) classes += ' pattern-cell--selection-bottom';
+                                                if (channelIndex === editorState.patternSelection.leftInclusive() && cellType === 'note') classes += ' pattern-cell--selection-left';
+                                                if ((channelIndex === editorState.patternSelection.rightInclusive()) && cellType === 'param') classes += ' pattern-cell--selection-right';
                                                 return classes;
                                             };
 
@@ -955,8 +945,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][noteCol] = el)}
                                                         className={noteClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { row: rowIndex, col: channelIndex })}
-                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ row: rowIndex, col: channelIndex })}
+                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex })}
+                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, noteCol)}
                                                         data-row-index={rowIndex}
                                                         data-channel-index={channelIndex}
@@ -974,8 +964,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][instCol] = el)}
                                                         className={instClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { row: rowIndex, col: channelIndex })}
-                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ row: rowIndex, col: channelIndex })}
+                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex })}
+                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, instCol)}
                                                         data-row-index={rowIndex}
                                                         data-channel-index={channelIndex}
@@ -994,8 +984,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][cmdCol] = el)}
                                                         className={cmdClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { row: rowIndex, col: channelIndex })}
-                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ row: rowIndex, col: channelIndex })}
+                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex })}
+                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, cmdCol)}
                                                         data-row-index={rowIndex}
                                                         data-channel-index={channelIndex}
@@ -1010,8 +1000,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][paramCol] = el)}
                                                         className={paramClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { row: rowIndex, col: channelIndex })}
-                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ row: rowIndex, col: channelIndex })}
+                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex })}
+                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, paramCol)}
                                                         data-row-index={rowIndex}
                                                         data-channel-index={channelIndex}

@@ -1,14 +1,15 @@
-import {clamp, CoalesceBoolean} from "../utils/utils";
+import {SelectionRect2D} from "../hooks/useRectSelection2D";
+import {clamp, CoalesceBoolean, Rect2D} from "../utils/utils";
 import {Pattern, PatternCell} from "./pattern";
 import {Song} from "./song";
 import {gChannelsArray, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex} from "./tic80Capabilities";
 
-export type PatternSelection = {
-   startRow: number;     //
-   endRow: number;       //
-   startChannel: number; //
-   endChannel: number;
-};
+// export type PatternSelectionDto = {
+//    startRow: number;     //
+//    rowCount: number;     //
+//    startChannel: number; //
+//    channelCount: number; //
+// };
 
 export interface EditorStateDto {
    octave: number;
@@ -18,7 +19,7 @@ export interface EditorStateDto {
    patternEditRow: number;
    patternEditChannel: Tic80ChannelIndex;
    selectedArrangementPositions: number[];
-   patternSelection: PatternSelection|null;
+   patternSelection: Rect2D|null;
    mutedChannels: Tic80ChannelIndex[];
    soloedChannels: Tic80ChannelIndex[];
 }
@@ -32,7 +33,7 @@ export class EditorState {
    patternEditRow: number;
    patternEditChannel: Tic80ChannelIndex;
    selectedArrangementPositions: number[];
-   patternSelection: PatternSelection|null;
+   patternSelection: SelectionRect2D|null;
    mutedChannels: Set<Tic80ChannelIndex> = new Set<Tic80ChannelIndex>();
    soloedChannels: Set<Tic80ChannelIndex> = new Set<Tic80ChannelIndex>();
 
@@ -55,7 +56,7 @@ export class EditorState {
       this.patternEditRow = clamp(patternEditRow, 0, 63);
       this.patternEditChannel = ToTic80ChannelIndex(patternEditChannel);
       this.selectedArrangementPositions = [...selectedArrangementPositions];
-      this.patternSelection = patternSelection ? this.normalizePatternSelection(patternSelection) : null;
+      this.patternSelection = patternSelection ? new SelectionRect2D(patternSelection) : null;
       this.mutedChannels = new Set(mutedChannels);
       this.soloedChannels = new Set(soloedChannels);
    }
@@ -85,12 +86,12 @@ export class EditorState {
       this.selectedArrangementPositions = [...positions];
    }
 
-   setPatternSelection(selection: PatternSelection|null) {
+   setPatternSelection(selection: SelectionRect2D|null) {
       if (!selection) {
          this.patternSelection = null;
          return;
       }
-      this.patternSelection = this.normalizePatternSelection(selection);
+      this.patternSelection = selection; // ? this.normalizePatternSelection(selection) : null;
    }
 
    advancePatternEditRow(step: number, rowsPerPattern: number = Tic80Caps.pattern.maxRows) {
@@ -108,21 +109,6 @@ export class EditorState {
       const pattern = this.getEditingPattern(song);
       const currentRow = pattern.getCell(this.patternEditChannel, this.patternEditRow);
       return currentRow;
-   }
-
-   private normalizePatternSelection(selection: PatternSelection): PatternSelection {
-      const rowStart = clamp(Math.min(selection.startRow, selection.endRow), 0, Tic80Caps.pattern.maxRows - 1);
-      const rowEnd = clamp(Math.max(selection.startRow, selection.endRow), 0, Tic80Caps.pattern.maxRows - 1);
-      const channelStart =
-         clamp(Math.min(selection.startChannel, selection.endChannel), 0, Tic80Caps.song.audioChannels - 1);
-      const channelEnd =
-         clamp(Math.max(selection.startChannel, selection.endChannel), 0, Tic80Caps.song.audioChannels - 1);
-      return {
-         startRow: rowStart,
-         endRow: rowEnd,
-         startChannel: channelStart,
-         endChannel: channelEnd,
-      };
    }
 
    isChannelExplicitlyMuted(channelIndex: Tic80ChannelIndex): boolean {
@@ -172,14 +158,14 @@ export class EditorState {
       if (!this.patternSelection) {
          return false;
       }
-      return channelIndex >= this.patternSelection.startChannel && channelIndex <= this.patternSelection.endChannel;
+      return this.patternSelection.includesX(channelIndex);
    }
 
    isPatternRowSelected(rowIndex: number): boolean {
       if (!this.patternSelection) {
          return false;
       }
-      return rowIndex >= this.patternSelection.startRow && rowIndex <= this.patternSelection.endRow;
+      return this.patternSelection.includesY(rowIndex);
    }
 
    toData(): EditorStateDto {
@@ -191,7 +177,7 @@ export class EditorState {
          patternEditRow: this.patternEditRow,
          patternEditChannel: this.patternEditChannel,
          selectedArrangementPositions: [...this.selectedArrangementPositions],
-         patternSelection: this.patternSelection ? {...this.patternSelection} : null,
+         patternSelection: this.patternSelection ? this.patternSelection.toData() : null,
          mutedChannels: [...this.mutedChannels],
          soloedChannels: [...this.soloedChannels],
       };
