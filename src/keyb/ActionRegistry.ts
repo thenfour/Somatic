@@ -202,6 +202,39 @@ export const gActionRegistry: ActionRegistry = {
          {kind: "character", key: "}", shift: true},
       ],
    },
+
+   "Copy": {
+      id: "Copy",
+      title: "copy selection",
+      description: "copy to the clipboard.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "c", primary: true},
+         {kind: "physical", code: "Insert", primary: true},
+      ],
+   },
+
+   "Paste": {
+      id: "Paste",
+      title: "paste selection",
+      description: "paste clipboard contents.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "v", primary: true},
+         {kind: "physical", code: "Insert", shift: true},
+      ],
+   },
+
+   "Cut": {
+      id: "Cut",
+      title: "cut selection",
+      description: "cut to the clipboard.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "x", primary: true},
+         {kind: "physical", code: "Delete", shift: true},
+      ],
+   },
 } as const;
 
 export const kAllActions = Object.values(gActionRegistry);

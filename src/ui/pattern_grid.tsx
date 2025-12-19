@@ -3,6 +3,7 @@ import type { MusicState } from '../audio/backend';
 import { AudioController } from '../audio/controller';
 import { midiToName } from '../defs';
 import { useClipboard } from '../hooks/useClipboard';
+import { useActionHandler } from '../keyb/useActionHandler';
 import { EditorState } from '../models/editor_state';
 import { isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { Song } from '../models/song';
@@ -708,44 +709,18 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             applyClipboardPayload(payload);
         };
 
-        const handleClipboardShortcuts = (e: React.KeyboardEvent<HTMLTableCellElement>) => {
-            if (e.repeat) return false;
-            const hasPrimaryModifier = e.ctrlKey || e.metaKey;
-            const keyLower = e.key.toLowerCase();
+        // Register clipboard action handlers
+        useActionHandler("Copy", () => {
+            handleCopySelection();
+        });
 
-            if (hasPrimaryModifier && !e.altKey) {
-                if (keyLower === 'c' || e.key === 'Insert') {
-                    e.preventDefault();
-                    handleCopySelection();
-                    return true;
-                }
-                if (keyLower === 'v') {
-                    e.preventDefault();
-                    void handlePasteSelection();
-                    return true;
-                }
-                if (keyLower === 'x') {
-                    e.preventDefault();
-                    void handleCutSelection();
-                    return true;
-                }
-            }
+        useActionHandler("Paste", () => {
+            void handlePasteSelection();
+        });
 
-            if (!hasPrimaryModifier && !e.altKey && e.shiftKey) {
-                if (e.key === 'Insert') {
-                    e.preventDefault();
-                    void handlePasteSelection();
-                    return true;
-                }
-                if (e.key === 'Delete') {
-                    e.preventDefault();
-                    void handleCutSelection();
-                    return true;
-                }
-            }
-
-            return false;
-        };
+        useActionHandler("Cut", () => {
+            void handleCutSelection();
+        });
 
         const playbackSongPosition = musicState.somaticSongPosition ?? -1;
         const playbackRowIndexRaw = musicState.tic80RowIndex ?? -1;
@@ -1003,10 +978,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const columnIndex = parseInt(target.dataset.columnIndex!, 10);
             //const col = channelIndex * 4 + colOffset;
 
-            if (handleClipboardShortcuts(e)) {
-                return;
-            }
-
             const currentRowForNav = editorState.patternEditRow ?? rowIndex;
             const navTarget = handleArrowNav(currentRowForNav, columnIndex, e.key, e.ctrlKey);
             if (navTarget) {
@@ -1145,7 +1116,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                             aria-expanded={advancedEditPanelOpen}
                             aria-controls="pattern-advanced-panel"
                         >
-                            {advancedEditPanelOpen ? CharMap.LeftArrow : CharMap.RightArrow}
+                            {advancedEditPanelOpen ? CharMap.LeftTriangle : CharMap.RightTriangle}
                         </button>
                     </Tooltip>
                     <table className="pattern-grid">

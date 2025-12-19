@@ -20,6 +20,9 @@ export const Actions = {
    IncreaseOctave: "IncreaseOctave",
    DecreaseInstrument: "DecreaseInstrument",
    IncreaseInstrument: "IncreaseInstrument",
+   Copy: "Copy",
+   Paste: "Paste",
+   Cut: "Cut",
 } as const;
 
 export const kAllActionIds = Object.values(Actions);

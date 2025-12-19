@@ -62,24 +62,46 @@ Example:
 
 ### Scopes
 
-Scopes allow shortcuts to depend on where focus currently is. So you can have global shortcuts, but if you're in 
-the pattern editor, you'll be using pattern editor shortcut scope.
+Scopes help decide which handler to call when multiple an action is handled at multiple levels of the react hierarchy.
+It's awkward and is a kind of heavy mechanism for what it solves, plus it's kinda incomplete.
 
-Scopes are a **stack**: top-most first.
+Simply put, it allows the difference between global shortcut handlers vs. per-component shortcuts. But with a lot of asterisks.
 
-At runtime, when multiple handlers exist for the same action, the **most specific matching scope** wins.
+Let's take for example, `"Copy"`. A global handler is installed which copies the whole song.
 
-Scopes are pushed via React composition:
+Another handler is installed for copying just some pattern data.
+
+Scope lets the pattern copy handler take priority over the global handler.
+
+#### Caveats
+
+It does NOT intend to allow arbitrary components to act as shortcut handlers.
+
+If you have a waveform editor open and the pattern editor at the same time, maybe they both want to handle `"Copy"` individually.
+
+As-is, the "active" scope is the one with the **deepest hierarchy**; the idea is mostly to separate global from local handlers.
+
+But we can't make assumptions about a waveform editor or pattern editor's depth. Probably they're siblings and the contention still happens.
 
 ```tsx
 <ShortcutScopeProvider scope="global">
-  ...
   <ShortcutScopeProvider scope="patternEditor">
     <PatternEditor />
   </ShortcutScopeProvider>
-  ...
+  <ShortcutScopeProvider scope="waveformEditor">
+    <WaveformEditor />
+  </ShortcutScopeProvider>
 </ShortcutScopeProvider>
 ```
+
+Right now there's no great way to handle that. But it's probably for the better; having multiple
+handlers is probably confusing to users too. Handlers can also be conditional so there's at least a workaround.
+
+I also don't really find a good way around this that's not going to open up a can of worms.
+For example if you just open the waveform editor panel, focus is likely to be set to `<body>`. So focus is just not
+a reliable way to know which panel should be prioritized.
+
+Another thing to consider is modal popups (confirm dialog)
 
 ### Editable targets (input text boxes)
 
@@ -257,3 +279,4 @@ export function BindingsEditorRow({ actionId }: { actionId: string }) {
 
 - **Chord sequences** , e.g. `p x`, `Ctrl+K Ctrl+C` (vs code style)
 - **Keyup support**; current module is keydown-only; for piano we could use keyup for note-off
+- **Better scope system**; want arbitrary components to be able to handle the same action (`"Copy"` handled by various panels depending on which is focused).

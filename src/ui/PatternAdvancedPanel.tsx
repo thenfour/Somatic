@@ -106,7 +106,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enab
                                 onChange={(e) => setChangeInstrumentFrom(Number(e.target.value))}
                                 aria-label="Change instrument: from"
                             />
-                            <span className="pattern-advanced-panel__arrow">{CharMap.RightArrow}</span>
+                            <span className="pattern-advanced-panel__arrow">{CharMap.RightTriangle}</span>
                             <input
                                 type="number"
                                 min={0}

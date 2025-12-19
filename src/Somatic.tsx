@@ -37,6 +37,7 @@ import { UndoStack } from './utils/UndoStack';
 import { useActionHandler } from './keyb/useActionHandler';
 import { useShortcutManager } from './keyb/KeyboardShortcutManager';
 import { CharMap } from './utils/utils';
+import { ShortcutScopeProvider } from './keyb/KeyboardShortcutScope';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -723,17 +724,19 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     onEditorStateChange={updateEditorState}
                     onSongChange={updateSong}
                 />}
-                <PatternGrid
-                    ref={patternGridRef}
-                    song={song}
-                    audio={audio}
-                    musicState={musicState}
-                    editorState={editorState}
-                    onEditorStateChange={updateEditorState}
-                    onSongChange={updateSong}
-                    advancedEditPanelOpen={advancedEditPanelOpen}
-                    onSetAdvancedEditPanelOpen={open => setAdvancedEditPanelOpen(open)}
-                />
+                <ShortcutScopeProvider scope="PatternGrid">
+                    <PatternGrid
+                        ref={patternGridRef}
+                        song={song}
+                        audio={audio}
+                        musicState={musicState}
+                        editorState={editorState}
+                        onEditorStateChange={updateEditorState}
+                        onSongChange={updateSong}
+                        advancedEditPanelOpen={advancedEditPanelOpen}
+                        onSetAdvancedEditPanelOpen={open => setAdvancedEditPanelOpen(open)}
+                    />
+                </ShortcutScopeProvider>
                 {waveformEditorPanelOpen && (
                     <WaveformEditorPanel
                         song={song}
