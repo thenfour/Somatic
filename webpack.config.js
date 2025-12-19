@@ -2,6 +2,7 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const MiniCssExtractPlugin = require("mini-css-extract-plugin")
+const CopyWebpackPlugin = require("copy-webpack-plugin");
 
 // This is the main configuration object.
 // Here, you write different options and tell Webpack what to do
@@ -58,6 +59,14 @@ module.exports = {
       template: 'index.html',
     }),
     new MiniCssExtractPlugin(),
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: "public", // source folder
+          to: ".",        // copy into dist root (default output.path)
+        },
+      ],
+    }),
   ],
 
   // Default mode for Webpack is production.
