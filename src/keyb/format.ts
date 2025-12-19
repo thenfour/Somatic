@@ -17,10 +17,10 @@ function prettyKey(keyOrCode: string): string {
       Backspace: "Backspace",
       Enter: "Enter",
       Space: "Space",
-      ArrowLeft: "←",
-      ArrowRight: "→",
-      ArrowUp: "↑",
-      ArrowDown: "↓",
+      ArrowLeft: "Left",
+      ArrowRight: "Right",
+      ArrowUp: "Up",
+      ArrowDown: "Down",
    };
    return map[keyOrCode] ?? keyOrCode;
 }

@@ -107,10 +107,6 @@ const inclusiveRange = (start: number, end: number): number[] => {
     return Array.from({ length }, (_, idx) => lower + idx);
 };
 
-const debugAdvanced = (...args: unknown[]) => {
-    //console.debug('[AdvancedEdit]', ...args);
-};
-
 const mutatePatternCells = (
     pattern: Pattern,
     channels: number[],
@@ -293,14 +289,6 @@ const interpolatePatternValues = (
         if (endRow === -1 || endValue === null) continue;
         if (endRow <= startRow) continue;
         anchorPairs++;
-        debugAdvanced('Interpolating channel', {
-            target,
-            channelIndex,
-            startRow,
-            startValue,
-            endRow,
-            endValue,
-        });
 
         const span = endRow - startRow;
         for (let row = startRow + 1; row < endRow; row++) {
@@ -427,7 +415,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         channels: inclusiveRange(selectionBounds.channelStart, selectionBounds.channelEnd),
                         rowRange: { start: selectionBounds.rowStart, end: selectionBounds.rowEnd },
                     };
-                    debugAdvanced('Scope resolved', scope, targets);
                     return targets;
                 }
                 case 'channel-pattern':
@@ -436,7 +423,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         channels: [editorState.patternEditChannel],
                         rowRange: fullRowRange,
                     };
-                    debugAdvanced('Scope resolved', scope, channelPatternTargets);
                     return channelPatternTargets;
                 case 'channel-song':
                     const channelSongTargets = {
@@ -444,7 +430,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         channels: [editorState.patternEditChannel],
                         rowRange: fullRowRange,
                     };
-                    debugAdvanced('Scope resolved', scope, channelSongTargets);
                     return channelSongTargets;
                 case 'pattern':
                     const patternTargets = {
@@ -452,7 +437,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         channels: allChannels,
                         rowRange: fullRowRange,
                     };
-                    debugAdvanced('Scope resolved', scope, patternTargets);
                     return patternTargets;
                 case 'song':
                     const songTargets = {
@@ -460,7 +444,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         channels: allChannels,
                         rowRange: fullRowRange,
                     };
-                    debugAdvanced('Scope resolved', scope, songTargets);
                     return songTargets;
                 default:
                     return null;
@@ -558,7 +541,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const targets = resolveScopeTargets(scope);
             if (!targets) return;
             const { patternIndices, channels, rowRange } = targets;
-            debugAdvanced('Interpolate request', { target, scope, patternIndices, channels, rowRange });
             if (patternIndices.length === 0 || channels.length === 0) {
                 pushToast({ message: 'Nothing to interpolate in that scope.', variant: 'error' });
                 return;
@@ -570,12 +552,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     const targetPattern = nextSong.patterns[patternIndex];
                     if (!targetPattern) continue;
                     const result = interpolatePatternValues(targetPattern, channels, rowRange, nextSong.rowsPerPattern, target);
-                    debugAdvanced('Interpolate result', { patternIndex, result });
                     if (result.mutated) totalMutated = true;
                     totalAnchorPairs += result.anchorPairs;
                 }
             });
-            debugAdvanced('Interpolate summary', { totalMutated, totalAnchorPairs });
             if (!totalMutated) {
                 if (totalAnchorPairs === 0) {
                     pushToast({ message: 'Need at least two anchors with values to interpolate.', variant: 'info' });
@@ -1061,11 +1041,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
         };
 
-        const onCellKeyUp = () => {
-            //stopRow();
-        };
-
-
         const toggleChannelMute = (channelIndex: Tic80ChannelIndex) => {
             onEditorStateChange((s) => {
                 s.setChannelMute(channelIndex, !s.isChannelExplicitlyMuted(channelIndex));
@@ -1226,11 +1201,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][noteCol] = el)}
                                                         className={noteClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onKeyUp={onCellKeyUp}
                                                         onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, noteCol)}
-                                                        //onBlur={onCellBlur}
                                                         data-row-index={rowIndex}
                                                         data-channel-index={channelIndex}
                                                         data-cell-type="note"
@@ -1247,11 +1220,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][instCol] = el)}
                                                         className={instClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onKeyUp={onCellKeyUp}
                                                         onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, instCol)}
-                                                        //onBlur={onCellBlur}
                                                         data-row-index={rowIndex}
                                                         data-channel-index={channelIndex}
                                                         data-cell-type="instrument"
@@ -1269,11 +1240,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][cmdCol] = el)}
                                                         className={cmdClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onKeyUp={onCellKeyUp}
                                                         onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, cmdCol)}
-                                                        //onBlur={onCellBlur}
                                                         data-row-index={rowIndex}
                                                         data-channel-index={channelIndex}
                                                         data-cell-type="command"
@@ -1287,11 +1256,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][paramCol] = el)}
                                                         className={paramClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onKeyUp={onCellKeyUp}
                                                         onMouseDown={(e) => handleCellMouseDown(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => handleCellMouseEnter(rowIndex, channelIndex)}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, paramCol)}
-                                                        //onBlur={onCellBlur}
                                                         data-row-index={rowIndex}
                                                         data-channel-index={channelIndex}
                                                         data-cell-type="param"
