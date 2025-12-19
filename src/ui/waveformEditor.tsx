@@ -341,7 +341,7 @@ export const WaveformEditorPanel: React.FC<{
     };
 
     return (
-        <div className="waveform-editor-panel">
+        <div className="waveform-editor-panel app-panel">
             <h3>Waveform Editor</h3>
             <WaveformSelect
                 onClickWaveform={setEditingWaveformId}

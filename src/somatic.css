@@ -492,14 +492,18 @@ option {
     line-height: 1;
 }
 
-.instrument-panel,
-.waveform-editor-panel {
-    /* width: 800px; */
+.app-panel {
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
     background-color: var(--panel);
     padding: 8px;
     overflow: auto;
-    /* for comfort */
     padding-bottom: 25vh;
+}
+
+.instrument-panel,
+.waveform-editor-panel {
+    /* width: 800px; */
+    /* for comfort */
 }
 
 .instrument-envelope-editor {
@@ -547,14 +551,13 @@ option {
     color: var(--bg);
 }
 
-.theme-panel {
+.app-panel.theme-panel {
     margin: 8px;
-    padding: 12px 14px;
-    background: var(--panel);
-    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.2);
     gap: 12px;
     display: flex;
     flex-direction: column;
+    /* undo the "lot of padding at the bottom for comfort" effect, because we have internal scroller */
+    padding-bottom: 24px;
 }
 
 .theme-panel__palette {

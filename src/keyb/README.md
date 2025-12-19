@@ -1,0 +1,244 @@
+# Keyboard Shortcuts System (Developer README)
+
+This module implements a **single-source-of-truth** keyboard shortcut system. It is designed to keep keyboard shortcuts in a managable place, reduce boilerplate for callers, and help enable user-configurable shortcuts.
+
+- Actions = semantic commands ("play", with descriptions)
+- Chords = a keyboard shortcut def ("Ctrl+V")
+- Bindings = ties actions to chords
+- Resolver = scope + focus + platform; where is a binding invokable in code
+- Dispatcher = connects bindings to resolver
+
+
+## tryies to improve on
+
+- Shortcut logic scattered across components in `keydown` handlers
+- Documentation: tooltips, menus, help screen, and handlers diverge.
+- Allow user-configurable shortcuts without adding tons of boilerplate and logic to call sites
+- Handle vexing scenarios like focus handling, typing in `<input>` boxes
+- handling platform differences (Cmd vs Ctrl)
+- Physical key handling (`event.code`) vs. character key (`event.key`)
+
+## Concepts
+
+### Actions
+
+a semantic operation: `"play"`, `"pattern.smallMoveLeft"`.
+
+Actions live in a central `ActionRegistry` and include:
+- `title`, `description`, `category` — for help/UI generation
+- `defaultBindings` — per platform (mac/win/linux)
+- policies:
+  - `allowInEditable` (default false)
+  - `allowRepeat` (default false)
+  - `preventDefault` / `stopPropagation` (defaults true when handled)
+  - `when(ctx)` predicate for enable/disable
+
+### Bindings
+
+A **binding** maps an `ActionDef` to one or more `ShortcutChord`s.
+
+There are two chord types:
+
+#### Character chord (`kind: "character"`)
+
+uses `event.key` (layout-aware). Use for most app commands (Cmd/Ctrl+something), because users expect shortcuts to follow their keyboard layout.
+
+Example:
+```ts
+{ kind: "character", key: "k", primary: true }
+````
+
+#### Physical chord (`kind: "physical"`)
+
+Matches `event.code` (layout-agnostic geometry).
+
+Use for "computer keyboard behaves like an instrument". This makes the physical grid stable even on AZERTY/DVORAK.
+
+Example:
+
+```ts
+{ kind: "physical", code: "KeyA" }
+```
+
+### Scopes
+
+Scopes allow shortcuts to depend on where focus currently is. So you can have global shortcuts, but if you're in 
+the pattern editor, you'll be using pattern editor shortcut scope.
+
+Scopes are a **stack**: top-most first.
+
+At runtime, when multiple handlers exist for the same action, the **most specific matching scope** wins.
+
+Scopes are pushed via React composition:
+
+```tsx
+<ShortcutScopeProvider scope="global">
+  ...
+  <ShortcutScopeProvider scope="patternEditor">
+    <PatternEditor />
+  </ShortcutScopeProvider>
+  ...
+</ShortcutScopeProvider>
+```
+
+### Editable targets (input text boxes)
+
+By default, shortcuts do **not** fire when the event target is:
+
+* `<input type="text|search|...">`
+* `<textarea>`
+* `<select>`
+* `contenteditable`
+
+unless the action explicitly sets:
+
+```ts
+allowInEditable: true
+```
+
+## Quirks
+
+### Scopes bridging (`useExposeActiveScopesToWindow`)
+
+The global keydown handler is installed once and should not churn with React re-renders.
+We expose active scopes via a stable window function:
+
+* `useExposeActiveScopesToWindow()` sets `window.__shortcut_activeScopes()`
+* the keydown handler calls it to get the current scope stack
+
+This avoids re-installing listeners on every scope update and only adds messiness in 1 place in your code.
+
+### Reserved / OS/browser collisions
+
+Stuff like <kbd>F5</kbd> should not be used. We treat these kinds of reserved chords as a warning but still allow it because there's no way to know for sure. Just make a guess.
+
+### Put scopes AROUND the element
+
+```tsx
+... todo: show why
+```
+
+---
+
+## Examples
+
+### Define an action registry
+
+```ts
+export const actions: ActionRegistry = {
+  "app.help": {
+    id: "app.help",
+    title: "Show help",
+    description: "Open the keyboard shortcuts help screen.",
+    category: "App",
+    defaultBindings: {
+      mac: [{ kind: "character", key: "?", shift: true }],
+      win: [{ kind: "character", key: "?", shift: true }],
+      linux: [{ kind: "character", key: "?", shift: true }],
+    },
+  },
+
+  "transport.playPause": {
+    id: "transport.playPause",
+    title: "Play/Pause",
+    category: "Transport",
+    defaultBindings: {
+      mac: [{ kind: "character", key: "Space" }],
+      win: [{ kind: "character", key: "Space" }],
+      linux: [{ kind: "character", key: "Space" }],
+    },
+    allowInEditable: false,
+  },
+
+  "piano.noteC": {
+    id: "piano.noteC",
+    title: "Piano: C",
+    category: "Piano",
+    defaultBindings: {
+      mac: [{ kind: "physical", code: "KeyA" }],
+      win: [{ kind: "physical", code: "KeyA" }],
+      linux: [{ kind: "physical", code: "KeyA" }],
+    },
+    allowRepeat: true,
+    allowInEditable: true, // if you want it to work even when an input is focused in piano mode
+  },
+};
+```
+
+### Install the manager at the app root
+
+```tsx
+function ShortcutRuntimeBridge() {
+  useExposeActiveScopesToWindow();
+  return null;
+}
+
+export function App() {
+  return (
+    <ShortcutManagerProvider actions={actions}>
+      <ShortcutRuntimeBridge />
+      {/* ...the rest of your app... */}
+    </ShortcutManagerProvider>
+  );
+}
+```
+
+### Use scopes throughout the app
+
+```tsx
+export function App() {
+  return (
+    <ShortcutScopeProvider scope="PatternEditor">
+      <PatternEditor />
+    </ShortcutScopeProvider>
+  );
+}
+```
+
+### Register action handlers via a hook
+
+```tsx
+useActionHandler("transport.play", () => {
+// toggle playback
+});
+```
+
+### Capture a new binding in settings UI
+
+```tsx
+export function BindingsEditorRow({ actionId }: { actionId: string }) {
+  const mgr = useShortcutManager();
+  const capture = useChordCapture({ kind: "character", platform: mgr.platform });
+
+  React.useEffect(() => {
+    if (!capture.capturing) return;
+
+    const onAnyKey = (e: KeyboardEvent) => {
+      const chord = capture.captureFromEvent(e);
+      if (!chord) return;
+
+      mgr.setUserBindings(prev => ({
+        ...prev,
+        [actionId]: [chord],
+      }));
+
+      capture.setCapturing(false);
+    };
+
+    document.addEventListener("keydown", onAnyKey, true);
+    return () => document.removeEventListener("keydown", onAnyKey, true);
+  }, [capture, mgr, actionId]);
+
+  return (
+    <button onClick={() => capture.setCapturing(true)}>
+      Rebind…
+    </button>
+  );
+}
+```
+
+
+## TODO
+
+- **Chord sequences** , e.g. `p x`, `Ctrl+K Ctrl+C` (vs code style)
+- **Keyup support**; current module is keydown-only; for piano we could use keyup for note-off

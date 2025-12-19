@@ -239,20 +239,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
-    if (!instrument) {
-        return (
-            <div className="instrument-panel">
-                <div className="toolbar">
-                    <label htmlFor="instrument">Instrument Editor</label>
-                    <button onClick={onClose}>Close</button>
-                </div>
-                <div className="section">
-                    <p>No instrument selected.</p>
-                </div>
-            </div>
-        );
-    }
-
     const handleVolumeEnvelopeChange = (frames: Int8Array, loopStart: number, loopLength: number) => {
         onSongChange((s) => {
             const inst = s.instruments[instrumentIndex];
@@ -331,7 +317,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
     }
 
     return (
-        <div className="instrument-panel">
+        <div className="instrument-panel app-panel">
             <div className="toolbar">
                 <label htmlFor="instrument">Instrument Editor</label>
                 {instrumentIndex === 0 && <div className='alertPanel'>!! instrument 0 is weird and should not be used.</div>}

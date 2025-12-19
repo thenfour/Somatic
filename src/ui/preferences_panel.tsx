@@ -1,5 +1,6 @@
 import React from 'react';
 import type { MidiDevice, MidiStatus } from '../midi/midi_manager';
+import { KeyboardShortcutConfigurator } from '../keyb/KeyboardShortcutConfigurator';
 
 type PreferencesPanelProps = {
     midiStatus: MidiStatus;
@@ -8,7 +9,7 @@ type PreferencesPanelProps = {
 };
 
 export const PreferencesPanel: React.FC<PreferencesPanelProps> = ({ midiStatus, midiDevices, onClose }) => (
-    <div className="preferences-panel" role="dialog" aria-label="Preferences">
+    <div className="preferences-panel app-panel" role="dialog" aria-label="Preferences">
         <h2>Preferences</h2>
 
         <section>
@@ -23,6 +24,8 @@ export const PreferencesPanel: React.FC<PreferencesPanelProps> = ({ midiStatus, 
                 ))}
             </ul>
         </section>
+
+        <KeyboardShortcutConfigurator />
 
         <div className="preferences-panel__actions">
             <button onClick={onClose}>Close</button>

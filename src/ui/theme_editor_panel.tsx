@@ -4,6 +4,8 @@ import { useToasts } from './toast_provider';
 const PALETTE_KEYS = Array.from({ length: 16 }, (_, i) => `--tic-${i}`);
 const PALETTE_CONTRAST_KEYS = PALETTE_KEYS.map((k) => `${k}-contrast`);
 
+export type Theme = 'light' | 'dark';
+
 const THEME_VARS = {
     "General": [
         '--bg',
@@ -150,7 +152,7 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
     };
 
     return (
-        <div className="theme-panel" role="dialog" aria-label="Theme editor">
+        <div className="theme-panel app-panel" role="dialog" aria-label="Theme editor">
             <h2>Theme Editor</h2>
             <p>Drag a palette swatch onto a variable to assign it. Export copies current vars.</p>
 
