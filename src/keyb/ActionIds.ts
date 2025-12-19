@@ -46,6 +46,7 @@ export const ActionCategories = {
    Transport: "Transport",
    Edit: "Edit",
    View: "View",
+   Navigation: "Navigation",
 } as const;
 
 export const kAllActionCategories = Object.values(ActionCategories);

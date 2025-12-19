@@ -235,6 +235,92 @@ export const gActionRegistry: ActionRegistry = {
          {kind: "physical", code: "Delete", shift: true},
       ],
    },
+
+   "IncreaseEditStep": {
+      id: "IncreaseEditStep",
+      title: "increase edit step",
+      description: "increase the pattern edit step.",
+      category: "Edit",
+      defaultBindings: [],
+   },
+
+   "DecreaseEditStep": {
+      id: "DecreaseEditStep",
+      title: "decrease edit step",
+      description: "decrease the pattern edit step.",
+      category: "Edit",
+      defaultBindings: [],
+   },
+
+   "IncreaseTempo": {
+      id: "IncreaseTempo",
+      title: "increase tempo",
+      description: "increase the song tempo (BPM).",
+      category: "Edit",
+      defaultBindings: [],
+   },
+
+   "DecreaseTempo": {
+      id: "DecreaseTempo",
+      title: "decrease tempo",
+      description: "decrease the song tempo (BPM).",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "-", primary: true, shift: true},
+      ],
+   },
+
+   "IncreaseSpeed": {
+      id: "IncreaseSpeed",
+      title: "increase speed",
+      description: "increase the song speed.",
+      category: "Edit",
+      defaultBindings: [],
+   },
+
+   "DecreaseSpeed": {
+      id: "DecreaseSpeed",
+      title: "decrease speed",
+      description: "decrease the song speed.",
+      category: "Edit",
+      defaultBindings: [],
+   },
+
+   "NextSongOrder": {
+      id: "NextSongOrder",
+      title: "next song order position",
+      description: "move to the next position in the song order.",
+      category: "Navigation",
+      defaultBindings: [],
+   },
+
+   "PreviousSongOrder": {
+      id: "PreviousSongOrder",
+      title: "previous song order position",
+      description: "move to the previous position in the song order.",
+      category: "Navigation",
+      defaultBindings: [],
+   },
+
+   "ToggleKeyboardNoteInput": {
+      id: "ToggleKeyboardNoteInput",
+      title: "toggle keyboard note input",
+      description: "enable or disable keyboard note input.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "k", alt: true},
+      ],
+   },
+
+   "ToggleMidiNoteInput": {
+      id: "ToggleMidiNoteInput",
+      title: "toggle MIDI note input",
+      description: "enable or disable MIDI note input.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "m", alt: true},
+      ],
+   },
 } as const;
 
 export const kAllActions = Object.values(gActionRegistry);

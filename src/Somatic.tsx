@@ -120,6 +120,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const midiIndicatorState = midiStatus === 'ready'
         ? (midiEnabled ? (connectedMidiInputs > 0 ? 'ok' : 'warn') : 'off')
         : 'off';
+
     const midiIndicatorLabel = midiStatus === 'ready'
         ? (midiEnabled
             ? (connectedMidiInputs > 0 ? `MIDI (${connectedMidiInputs})` : 'MIDI ready (no devices)')
@@ -131,6 +132,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 : midiStatus === 'denied'
                     ? 'MIDI access denied'
                     : 'MIDI error';
+
     const midiIndicatorTitle = midiEnabled && connectedMidiInputs > 0
         ? `${midiIndicatorLabel}: ${connectedMidiInputs} input${connectedMidiInputs === 1 ? '' : 's'} connected. Click to disable.`
         : midiEnabled
@@ -274,8 +276,26 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("IncreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave + 1)));
     useActionHandler("DecreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument - 1)));
     useActionHandler("IncreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument + 1)));
-
-
+    useActionHandler("IncreaseEditStep", () => updateSong((s) => s.setPatternEditStep(s.patternEditStep + 1)));
+    useActionHandler("DecreaseEditStep", () => updateSong((s) => s.setPatternEditStep(Math.max(0, s.patternEditStep - 1))));
+    useActionHandler("IncreaseTempo", () => updateSong((s) => s.setTempo(Math.min(240, s.tempo + 1))));
+    useActionHandler("DecreaseTempo", () => updateSong((s) => s.setTempo(Math.max(1, s.tempo - 1))));
+    useActionHandler("IncreaseSpeed", () => updateSong((s) => s.setSpeed(Math.min(31, s.speed + 1))));
+    useActionHandler("DecreaseSpeed", () => updateSong((s) => s.setSpeed(Math.max(1, s.speed - 1))));
+    useActionHandler("NextSongOrder", () => {
+        const nextPos = Math.min(song.songOrder.length - 1, editorState.activeSongPosition + 1);
+        updateEditorState((s) => s.setActiveSongPosition(nextPos));
+    });
+    useActionHandler("PreviousSongOrder", () => {
+        const prevPos = Math.max(0, editorState.activeSongPosition - 1);
+        updateEditorState((s) => s.setActiveSongPosition(prevPos));
+    });
+    useActionHandler("ToggleKeyboardNoteInput", () => {
+        toggleKeyboardEnabled();
+    });
+    useActionHandler("ToggleMidiNoteInput", () => {
+        toggleMidiEnabled();
+    });
 
     useEffect(() => {
         autoSave.enqueue(song);
@@ -680,37 +700,40 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         </Tooltip>
                     </div>
                     <div className="right-controls">
-                        <button
-                            className={`edit-toggle ${editorState.editingEnabled ? 'edit-toggle--on' : 'edit-toggle--off'}`}
-                            onClick={toggleEditingEnabled}
-                            aria-pressed={editorState.editingEnabled}
-                            aria-label={editorState.editingEnabled ? 'Disable editing in pattern editor' : 'Enable editing in pattern editor'}
-                            title={`${editorState.editingEnabled ? 'Disable' : 'Enable'} editing (${keyboardShortcutMgr.getActionBindingLabel("ToggleEditMode")})`}
-                        >
-                            <span className="edit-toggle__dot" aria-hidden="true" />
-                            <span className={`edit-toggle__label`}>Edit</span>
-                        </button>
-                        <button
-                            className={`midi-indicator midi-indicator--${midiIndicatorState}`}
-                            title={midiIndicatorTitle}
-                            aria-label={midiIndicatorTitle}
-                            onClick={toggleMidiEnabled}
-                        >
-                            <span className="midi-indicator__dot" aria-hidden="true" />
-                            <span className="midi-indicator__label">{midiIndicatorLabel}</span>
+                        <Tooltip title={`Toggle editing (${keyboardShortcutMgr.getActionBindingLabel("ToggleEditMode")})`}>
+                            <button
+                                className={`edit-toggle ${editorState.editingEnabled ? 'edit-toggle--on' : 'edit-toggle--off'}`}
+                                onClick={toggleEditingEnabled}
+                                aria-pressed={editorState.editingEnabled}
+                                aria-label={editorState.editingEnabled ? 'Disable editing in pattern editor' : 'Enable editing in pattern editor'}
+                            >
+                                <span className="edit-toggle__dot" aria-hidden="true" />
+                                <span className={`edit-toggle__label`}>Edit</span>
+                            </button>
+                        </Tooltip>
+                        <Tooltip title={`${midiIndicatorTitle} (${keyboardShortcutMgr.getActionBindingLabel("ToggleMidiNoteInput")})`}>
+                            <button
+                                className={`midi-indicator midi-indicator--${midiIndicatorState}`}
+                                title={midiIndicatorTitle}
+                                aria-label={midiIndicatorTitle}
+                                onClick={toggleMidiEnabled}
+                            >
+                                <span className="midi-indicator__dot" aria-hidden="true" />
+                                <span className="midi-indicator__label">{midiIndicatorLabel}</span>
 
-                        </button>
-                        <button
-                            className={`midi-indicator midi-indicator--${keyboardIndicatorState}`}
-                            title={keyboardIndicatorTitle}
-                            aria-label={keyboardIndicatorTitle}
-                            onClick={toggleKeyboardEnabled}
-                        >
-                            <span className="midi-indicator__dot" aria-hidden="true" />
-                            <span className="midi-indicator__label">{keyboardIndicatorLabel}</span>
-
-                        </button>
-
+                            </button>
+                        </Tooltip>
+                        <Tooltip title={`${keyboardIndicatorTitle} (${keyboardShortcutMgr.getActionBindingLabel("ToggleKeyboardNoteInput")})`}>
+                            <button
+                                className={`midi-indicator midi-indicator--${keyboardIndicatorState}`}
+                                title={keyboardIndicatorTitle}
+                                aria-label={keyboardIndicatorTitle}
+                                onClick={toggleKeyboardEnabled}
+                            >
+                                <span className="midi-indicator__dot" aria-hidden="true" />
+                                <span className="midi-indicator__label">{keyboardIndicatorLabel}</span>
+                            </button>
+                        </Tooltip>
                         <Tooltip title="Sync status with TIC-80 (auto-save)">
                             <span className="autoSaveIndicator__label">sync:{autoSave.state.status}</span>
                         </Tooltip>
