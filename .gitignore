@@ -1,3 +1,4 @@
 node_modules
 TIC-80
 dist
+.env.local
