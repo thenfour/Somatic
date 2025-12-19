@@ -2,17 +2,17 @@ import {getNoteInfo} from "../defs";
 import {Tic80Instrument} from "../models/instruments";
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
-import {Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
+import {gChannelsArray, Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
 import type {Tic80BridgeHandle} from "../ui/Tic80Bridged";
-import {AudioBackend, MakeEmptyMusicState, MusicState} from "./backend";
+import {MakeEmptyMusicState, MusicState} from "./backend";
 import {serializeSongForTic80Bridge, Tic80SerializedSong} from "./tic80_cart_serializer";
 
 // Minimal TIC-80 backend: delegates transport commands to the bridge.
 // Song/instrument upload is not implemented yet; this is a transport stub.
-export class Tic80Backend implements AudioBackend {
+export class Tic80Backend {
    //private readonly emit: BackendContext["emit"];
    private readonly bridge: () => Tic80BridgeHandle | null;
-   private song: Song|null = null;
+   //private song: Song|null = null;
    private serializedSong: Tic80SerializedSong|null = null;
    private lastKnownMusicState: MusicState = MakeEmptyMusicState();
    //private volume = 0.3;
@@ -22,10 +22,10 @@ export class Tic80Backend implements AudioBackend {
       this.bridge = bridgeGetter;
    }
 
-   async setSong(song: Song|null) {
-      this.song = song;
+   async transmitSong(song: Song|null, reason: string, audibleChannels: Set<Tic80ChannelIndex>) {
+      //this.song = song;
       if (song) {
-         this.serializedSong = serializeSongForTic80Bridge(song);
+         this.serializedSong = serializeSongForTic80Bridge(song, audibleChannels);
 
          const b = this.bridge();
          if (!b || !b.isReady())
@@ -35,7 +35,6 @@ export class Tic80Backend implements AudioBackend {
             tx.uploadSongData(this.serializedSong!, "Song has been modified.");
          });
       } else {
-         // todo: an actual empty song.
          this.serializedSong = null;
       }
    }
@@ -72,12 +71,7 @@ export class Tic80Backend implements AudioBackend {
       });
    }
 
-   async playRow(pattern: Pattern, rowNumber: number) {
-      const song = this.song;
-      if (!song) {
-         return;
-      }
-
+   async playRow(song: Song, pattern: Pattern, rowNumber: number) {
       const b = this.bridge();
       if (!b || !b.isReady()) {
          return;
@@ -117,9 +111,9 @@ export class Tic80Backend implements AudioBackend {
       }
 
       await b.invokeExclusive(async (tx) => {
-         for (const channel of [0, 1, 2, 3] as const) {
+         for (const channel of gChannelsArray) {
             try {
-               await tx.stopSfx({channel: channel as Tic80ChannelIndex});
+               await tx.stopSfx({channel});
             } catch (err) {
                console.warn("[Tic80Backend] stopSfx failed", err);
             }
@@ -135,25 +129,25 @@ export class Tic80Backend implements AudioBackend {
       });
    }
 
-   async playPattern(_pattern: Pattern) {
-      const b = this.bridge();
-      if (!b || !b.isReady())
-         return;
-      b.invokeExclusive(
-         async (tx) => {
-            //await this.tryUploadSong(tx);
-            // todo: proper pattern playback support
-            //await tx.play({songPosition: 0, row: 0, loop: true});
-         });
-      //this.emit.row(0, _pattern);
-   }
+   // async playPattern(_pattern: Pattern) {
+   //    const b = this.bridge();
+   //    if (!b || !b.isReady())
+   //       return;
+   //    b.invokeExclusive(
+   //       async (tx) => {
+   //          //await this.tryUploadSong(tx);
+   //          // todo: proper pattern playback support
+   //          //await tx.play({songPosition: 0, row: 0, loop: true});
+   //       });
+   //    //this.emit.row(0, _pattern);
+   // }
 
-   async playSong(startPosition: number, startRow?: number) {
+   async playSong(startPosition: number, startRow: number) {
       const b = this.bridge();
       if (!b || !b.isReady())
          return;
       await b.invokeExclusive(async (tx) => {
-         await tx.play({songPosition: startPosition, row: startRow ?? 0});
+         await tx.play({songPosition: startPosition, row: startRow});
       });
       //this.emit.position(startPosition);
    }
@@ -165,9 +159,9 @@ export class Tic80Backend implements AudioBackend {
       }
 
       await b.invokeExclusive(async (tx) => {
-         for (const channel of [0, 1, 2, 3] as const) {
+         for (const channel of gChannelsArray) {
             try {
-               await tx.stopSfx({channel: channel as Tic80ChannelIndex});
+               await tx.stopSfx({channel});
             } catch (err) {
                console.warn("[Tic80Backend] panic stopSfx failed", err);
             }
@@ -215,5 +209,18 @@ export class Tic80Backend implements AudioBackend {
          isLooping,
       };
       return this.lastKnownMusicState;
+   }
+
+   setChannelVolumes(volumes: [number, number, number, number]) {
+      // unfortunately this doesn't seem to work. my guess is that the music() system overrides it
+      console.error("Tic80Backend.setChannelVolumes is not supported by TIC-80 audio backend");
+      const b = this.bridge();
+      if (!b || !b.isReady())
+         return;
+      console.log("Tic80Backend.setChannelVolumes", volumes);
+      b.pokeU8(TicMemoryMap.CHANNEL_VOLUME_0, volumes[0]);
+      b.pokeU8(TicMemoryMap.CHANNEL_VOLUME_1, volumes[1]);
+      b.pokeU8(TicMemoryMap.CHANNEL_VOLUME_2, volumes[2]);
+      b.pokeU8(TicMemoryMap.CHANNEL_VOLUME_3, volumes[3]);
    }
 }

@@ -11,6 +11,8 @@ export type PatternCell = {
    effectY?: number; // 0-15
 };
 
+export const MakeEmptyPatternCell = (): PatternCell => ({});
+
 export function isNoteCut(cell: PatternCell): boolean {
    return cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex;
 }

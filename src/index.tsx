@@ -174,7 +174,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
 
     // auto-save to backend + localStorage
     const autoSave = useWriteBehindEffect<Song>(async (doc, { signal }) => {
-        audio.setSong(doc, "Auto-save");
+        audio.transmitSong(doc, "Auto-save", editorState.getAudibleChannels());
         localStorage.setItem('somatic-song', doc.toJSON());
     }, {
         debounceMs: 1000,//
@@ -324,7 +324,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
                 if (audio.getMusicState().somaticSongPosition >= 0) {
                     audio.stop();
                 } else {
-                    audio.playSong(0);
+                    audio.playSong(0, 0);
                 }
             }
             // alt+9 = play from position
@@ -399,7 +399,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         const channel = ToTic80ChannelIndex(ed.patternEditChannel);
         const skipNoteEntry = isEditingCommandOrParamCell();
         autoSave.flush();
-        audio.sfxNoteOn(ed.currentInstrument, note);
+        audio.sfxNoteOn(song, ed.currentInstrument, note);
 
         if (ed.editingEnabled !== false && !skipNoteEntry) {
             const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.activeSongPosition || 0));
@@ -485,7 +485,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
         //const channel = Math.max(0, Math.min(3, editorState.patternEditChannel || 0));
         autoSave.flush();
         //if (instrument) {
-        audio.sfxNoteOn(editorState.currentInstrument, midiNote);
+        audio.sfxNoteOn(song, editorState.currentInstrument, midiNote);
         //}
     };
 
@@ -536,7 +536,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     };
 
     const exportCart = (variant: "debug" | "release") => {
-        const cartData = serializeSongToCart(song, true, variant);
+        const cartData = serializeSongToCart(song, true, variant, editorState.getAudibleChannels());
 
         // Create a Blob from the Uint8Array
         const blob = new Blob([cartData as any /* workaround for Blob constructor typing */], { type: 'application/octet-stream' });
@@ -602,7 +602,7 @@ const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onT
     const onPlayAll = () => {
         //setTransportState('play-all');
         autoSave.flush();
-        audio.playSong(0);
+        audio.playSong(0, 0);
     };
 
     const onPlayFromPosition = () => {

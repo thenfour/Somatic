@@ -4,50 +4,66 @@ import { useToasts } from './toast_provider';
 const PALETTE_KEYS = Array.from({ length: 16 }, (_, i) => `--tic-${i}`);
 const PALETTE_CONTRAST_KEYS = PALETTE_KEYS.map((k) => `${k}-contrast`);
 
-const THEME_VARS = [
-    '--bg',
-    '--panel',
-    '--panel-strong',
-    '--text',
-    '--muted',
-    '--border',
-    '--border-strong',
-    '--accent',
-    '--accent-strong',
-    '--row-a',
-    '--row-b',
-    '--row-active',
-    '--tooltip-bg',
-    '--tooltip-text',
-    '--success-accent',
-    '--error-accent',
-    '--error-surface-bg',
-    '--error-surface-text',
-    '--error-surface-border',
-    '--edit-border',
-    '--cell-note',
-    '--cell-instrument',
-    '--cell-command',
-    '--cell-param',
-    '--keyboard-white-key',
-    '--keyboard-black-key',
-    '--keyboard-white-text',
-    '--keyboard-black-text',
-    '--waveform-edit-background',
-    '--waveform-edit-grid-line',
-    '--waveform-edit-loop-line',
-    '--waveform-edit-point',
-    '--waveform-edit-coordinate-text',
-    '--waveform-edit-highlight',
-    '--waveform-swatch-normal-background',
-    '--waveform-swatch-normal-point',
-    '--waveform-swatch-muted-background',
-    '--waveform-swatch-muted-point',
-    '--waveform-swatch-highlighted-background',
-    '--waveform-swatch-highlighted-point',
-    '--waveform-swatch-highlighted-border',
+const THEME_VARS = {
+    "General": [
+        '--bg',
+        '--panel',
+        '--panel-strong',
+        '--text',
+        '--muted',
+        '--border',
+        '--border-strong',
+        '--accent',
+        '--accent-strong',
+        '--row-a',
+        '--row-b',
+        '--row-active',
+        '--tooltip-bg',
+        '--tooltip-text',
+        '--success-accent',
+        '--error-accent',
+        '--error-surface-bg',
+        '--error-surface-text',
+        '--error-surface-border',
+        '--edit-border',
+        '--cell-note',
+        '--cell-instrument',
+        '--cell-command',
+        '--cell-param',
+    ],
+    "Keyboard": [
+        '--keyboard-white-key',
+        '--keyboard-black-key',
+        '--keyboard-white-text',
+        '--keyboard-black-text',
+    ],
+    "Waveform Editor": [
+        '--waveform-edit-background',
+        '--waveform-edit-grid-line',
+        '--waveform-edit-loop-line',
+        '--waveform-edit-point',
+        '--waveform-edit-coordinate-text',
+        '--waveform-edit-highlight',
+        '--waveform-swatch-normal-background',
+        '--waveform-swatch-normal-point',
+        '--waveform-swatch-muted-background',
+        '--waveform-swatch-muted-point',
+        '--waveform-swatch-highlighted-background',
+        '--waveform-swatch-highlighted-point',
+        '--waveform-swatch-highlighted-border',
+    ],
+    "Channel Header": [
+        '--channel-header-button-bg',
+        '--channel-header-button-hover-bg',
+        '--mute-button-label',
+        '--solo-button-label',
+        '--mute-button-active-bg',
+        '--solo-button-active-bg',
+        '--mute-button-active-label',
+        '--solo-button-active-label',
+    ],
 
-];
+} as const;
 
 function readCssVar(name: string, target: HTMLElement = document.documentElement): string {
     const val = getComputedStyle(target).getPropertyValue(name) || '';
@@ -80,9 +96,13 @@ export const PaletteSwatch: React.FC<{ color: string; }> = ({ color }) => {
 
 export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const { pushToast } = useToasts();
+
+    // get all the theme variable names
+    const themeKeys = Object.values(THEME_VARS).flat();
+
     const [values, setValues] = React.useState<Record<string, string>>(() => {
         const obj: Record<string, string> = {};
-        for (const key of [...PALETTE_KEYS, ...PALETTE_CONTRAST_KEYS, ...THEME_VARS]) {
+        for (const key of [...PALETTE_KEYS, ...PALETTE_CONTRAST_KEYS, ...themeKeys]) {
             obj[key] = readCssVar(key);
         }
         return obj;
@@ -118,7 +138,7 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
     const getForegroundForValue = (val: string) => paletteContrastMap.get(val) || '#000';
 
     const handleCopy = async () => {
-        const lines = [...THEME_VARS].map((name) => `${name}: ${values[name]};`);
+        const lines = [...themeKeys].map((name) => `${name}: ${values[name]};`);
         const css = lines.join('\n  ') + '\n';
         try {
             await navigator.clipboard.writeText(css);
@@ -144,7 +164,28 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
             </div>
 
             <div className="theme-panel__vars" aria-label="Theme variables">
-                {THEME_VARS.map((name) => (
+
+                {Object.entries(THEME_VARS).map(([sectionName, varNames]) => (
+                    <div key={sectionName} className="theme-panel__var-section">
+                        <h3>{sectionName}</h3>
+                        {varNames.map((name) => (
+                            <button
+                                key={name}
+                                className="theme-panel__var"
+                                onDragOver={handleDragOver}
+                                onDrop={(ev) => handleDrop(ev, name)}
+                                style={{ background: values[name], color: getForegroundForValue(values[name]) }}
+                                title={`${name} ${values[name]} (drop a swatch to change)`}
+                            >
+                                <span className="theme-panel__var-name">{name}</span>
+                                <span className="theme-panel__var-value">{values[name]}</span>
+                            </button>
+                        ))}
+                    </div>
+                ))
+                }
+
+                {/* {THEME_VARS.map((name) => (
                     <button
                         key={name}
                         className="theme-panel__var"
@@ -156,7 +197,7 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
                         <span className="theme-panel__var-name">{name}</span>
                         <span className="theme-panel__var-value">{values[name]}</span>
                     </button>
-                ))}
+                ))} */}
             </div>
 
             <div className="theme-panel__actions">

@@ -1,11 +1,28 @@
 import {clamp, CoalesceBoolean} from "../utils/utils";
 import {Pattern, PatternCell} from "./pattern";
 import {Song} from "./song";
-import {Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex} from "./tic80Capabilities";
+import {gChannelsArray, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex} from "./tic80Capabilities";
 
 export type PatternSelection = {
-   startRow: number; endRow: number; startChannel: number; endChannel: number;
+   startRow: number;     //
+   endRow: number;       //
+   startChannel: number; //
+   endChannel: number;
 };
+
+export interface EditorStateDto {
+   octave: number;
+   activeSongPosition: number;
+   currentInstrument: number;
+   editingEnabled: boolean;
+   patternEditRow: number;
+   patternEditChannel: Tic80ChannelIndex;
+   selectedArrangementPositions: number[];
+   patternSelection: PatternSelection|null;
+   mutedChannels: Tic80ChannelIndex[];
+   soloedChannels: Tic80ChannelIndex[];
+}
+;
 
 export class EditorState {
    octave: number;
@@ -16,6 +33,8 @@ export class EditorState {
    patternEditChannel: Tic80ChannelIndex;
    selectedArrangementPositions: number[];
    patternSelection: PatternSelection|null;
+   mutedChannels: Set<Tic80ChannelIndex> = new Set<Tic80ChannelIndex>();
+   soloedChannels: Set<Tic80ChannelIndex> = new Set<Tic80ChannelIndex>();
 
    constructor({
       octave = Math.floor(Tic80Caps.pattern.octaveCount / 2),
@@ -26,7 +45,9 @@ export class EditorState {
       patternEditChannel = 0,
       selectedArrangementPositions = [],
       patternSelection = null,
-   }: Partial<EditorState> = {}) {
+      mutedChannels = [],
+      soloedChannels = [],
+   }: Partial<EditorStateDto> = {}) {
       this.octave = clamp(octave, 1, Tic80Caps.pattern.octaveCount);
       this.activeSongPosition = clamp(activeSongPosition, 0, 255);
       this.currentInstrument = clamp(currentInstrument, 0, Tic80Caps.sfx.count - 1);
@@ -35,6 +56,8 @@ export class EditorState {
       this.patternEditChannel = ToTic80ChannelIndex(patternEditChannel);
       this.selectedArrangementPositions = [...selectedArrangementPositions];
       this.patternSelection = patternSelection ? this.normalizePatternSelection(patternSelection) : null;
+      this.mutedChannels = new Set(mutedChannels);
+      this.soloedChannels = new Set(soloedChannels);
    }
 
    setOctave(nextOctave: number) {
@@ -102,7 +125,50 @@ export class EditorState {
       };
    }
 
-   toData() {
+   isChannelExplicitlyMuted(channelIndex: Tic80ChannelIndex): boolean {
+      return this.mutedChannels.has(channelIndex);
+   }
+
+   isChannelExplicitlySoloed(channelIndex: Tic80ChannelIndex): boolean {
+      return this.soloedChannels.has(channelIndex);
+   }
+
+   setChannelSolo(channelIndex: Tic80ChannelIndex, soloed: boolean) {
+      if (soloed) {
+         this.soloedChannels.add(channelIndex);
+      } else {
+         this.soloedChannels.delete(channelIndex);
+      }
+   }
+
+   setChannelMute(channelIndex: Tic80ChannelIndex, muted: boolean) {
+      if (muted) {
+         this.mutedChannels.add(channelIndex);
+      } else {
+         this.mutedChannels.delete(channelIndex);
+      }
+   }
+
+   isChannelAudible(channelIndex: Tic80ChannelIndex): boolean {
+      if (this.soloedChannels.size > 0) {
+         return this.soloedChannels.has(channelIndex);
+      }
+      if (this.mutedChannels.size > 0) {
+         return !this.mutedChannels.has(channelIndex);
+      }
+      return true;
+   }
+
+   getAudibleChannels(): Set<Tic80ChannelIndex> {
+      return new Set(gChannelsArray.filter(ch => this.isChannelAudible(ch)));
+   }
+
+   // Returns a string signature representing the current audible channels state; deterministic hash-like.
+   getAudibleChannelSignature(): string {
+      return gChannelsArray.map(ch => this.isChannelAudible(ch) ? "1" : "0").join("");
+   }
+
+   toData(): EditorStateDto {
       return {
          octave: this.octave,
          activeSongPosition: this.activeSongPosition,
@@ -112,10 +178,12 @@ export class EditorState {
          patternEditChannel: this.patternEditChannel,
          selectedArrangementPositions: [...this.selectedArrangementPositions],
          patternSelection: this.patternSelection ? {...this.patternSelection} : null,
+         mutedChannels: [...this.mutedChannels],
+         soloedChannels: [...this.soloedChannels],
       };
    }
 
-   static fromData(data?: Partial<EditorState>) {
+   static fromData(data: Partial<EditorStateDto> = {}): EditorState {
       return new EditorState(data || {});
    }
 

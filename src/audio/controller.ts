@@ -1,7 +1,7 @@
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
+import {Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {Tic80BridgeHandle} from "../ui/Tic80Bridged";
-import type {AudioBackend} from "./backend";
 import {Tic80Backend} from "./tic80_backend";
 import {VoiceManager} from "./voice_manager";
 
@@ -10,10 +10,10 @@ import {VoiceManager} from "./voice_manager";
 // type StopListener = () => void;
 
 export class AudioController {
-   backend: AudioBackend;
-   song: Song|null;
-   volume: number;
-   isPlaying: boolean;
+   backend: Tic80Backend;
+   //song: Song|null;
+   //volume: number;
+   //isPlaying: boolean;
    private voiceManager: VoiceManager;
 
    // private rowListeners = new Set<RowListener>();
@@ -21,33 +21,33 @@ export class AudioController {
    // private stopListeners = new Set<StopListener>();
 
    constructor(opts: {bridgeGetter: () => Tic80BridgeHandle | null}) {
-      this.volume = 0.3;
-      this.song = null;
-      this.isPlaying = false;
+      //this.volume = 0.3;
+      //this.song = null;
+      //this.isPlaying = false;
       this.voiceManager = new VoiceManager();
       this.backend = new Tic80Backend(opts.bridgeGetter);
    }
 
-   setSong(song: Song|null, reason: string) {
-      this.song = song;
-      this.backend.setSong(song, reason);
+   transmitSong(song: Song|null, reason: string, audibleChannels: Set<Tic80ChannelIndex>) {
+      //this.song = song;
+      this.backend.transmitSong(song, reason, audibleChannels);
    }
 
    stop() {
       this.backend.stop();
-      this.isPlaying = false;
+      //this.isPlaying = false;
    }
 
    getMusicState() {
       return this.backend.getMusicState();
    }
 
-   sfxNoteOn(instrumentIndex: number, note: number) {
-      if (!this.song) {
-         return;
-      }
+   sfxNoteOn(song: Song, instrumentIndex: number, note: number) {
+      // if (!this.song) {
+      //    return;
+      // }
       const channel = this.voiceManager.allocateVoice(instrumentIndex, note);
-      this.backend.sfxNoteOn(instrumentIndex, this.song.instruments[instrumentIndex], note, channel);
+      this.backend.sfxNoteOn(instrumentIndex, song.instruments[instrumentIndex], note, channel);
    }
 
    sfxNoteOff(note: number) {
@@ -57,13 +57,13 @@ export class AudioController {
       }
    }
 
-   readRow(pattern: Pattern, rowNumber: number) {
+   readRow(song: Song, pattern: Pattern, rowNumber: number) {
       // Deprecated in favor of backend-driven playback; preserved for UI callers.
-      this.backend.playRow(pattern, rowNumber);
+      this.backend.playRow(song, pattern, rowNumber);
    }
 
-   playRow(pattern: Pattern, rowNumber: number) {
-      this.backend.playRow(pattern, rowNumber);
+   playRow(song: Song, pattern: Pattern, rowNumber: number) {
+      this.backend.playRow(song, pattern, rowNumber);
    }
 
    // playPattern(pattern: Pattern) {
@@ -71,15 +71,19 @@ export class AudioController {
    //    this.isPlaying = true;
    // }
 
-   playSong(startPosition: number, startRow?: number) {
+   playSong(startPosition: number, startRow: number) {
       this.backend.playSong(startPosition, startRow);
-      this.isPlaying = true;
+      //this.isPlaying = true;
    }
 
    panic() {
       this.voiceManager.releaseAll();
       this.backend.panic();
-      this.isPlaying = false;
+      //this.isPlaying = false;
+   }
+
+   setChannelVolumes(volumes: [number, number, number, number]) {
+      this.backend.setChannelVolumes(volumes);
    }
 
    // onRow(cb: RowListener) {

@@ -2,7 +2,7 @@ import playroutineDebug from "../../bridge/playroutine-debug.lua";
 import playroutineRelease from "../../bridge/playroutine-release.lua";
 import {NOTE_INFOS} from "../defs";
 import type {Tic80Instrument} from "../models/instruments";
-import {Pattern} from "../models/pattern";
+import {MakeEmptyPatternCell, Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {getMaxPatternUsedIndex, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong} from "../utils/SongOptimizer";
@@ -43,7 +43,8 @@ function encodePatternCellTriplet(
 }
 
 // outputs 4 patterns (one for each channel)
-export function encodePatternChannel(pattern: Pattern, channelIndex: Tic80ChannelIndex): Uint8Array {
+export function encodePatternChannel(
+   pattern: Pattern, channelIndex: Tic80ChannelIndex, audibleChannels: Set<Tic80ChannelIndex>): Uint8Array {
    // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#music-patterns
    // chunk type 15
    // RAM at 0x11164...0x13E63
@@ -64,7 +65,7 @@ export function encodePatternChannel(pattern: Pattern, channelIndex: Tic80Channe
    const buf = new Uint8Array(Tic80Caps.pattern.maxRows * 3);
 
    for (let row = 0; row < Tic80Caps.pattern.maxRows; row++) {
-      const cellData = pattern.getCell(channelIndex, row);
+      const cellData = audibleChannels.has(channelIndex) ? pattern.getCell(channelIndex, row) : MakeEmptyPatternCell();
       const inst = cellData.instrumentIndex ?? 0;
       const commandArgX = cellData.effectX ?? 0;
       const commandArgY = cellData.effectY ?? 0;
@@ -80,16 +81,17 @@ export function encodePatternChannel(pattern: Pattern, channelIndex: Tic80Channe
    return buf;
 }
 
-export function encodePattern(pattern: Pattern): [Uint8Array, Uint8Array, Uint8Array, Uint8Array] {
-   const encoded0 = encodePatternChannel(pattern, 0);
-   const encoded1 = encodePatternChannel(pattern, 1);
-   const encoded2 = encodePatternChannel(pattern, 2);
-   const encoded3 = encodePatternChannel(pattern, 3);
+export function encodePattern(
+   pattern: Pattern, audibleChannels: Set<Tic80ChannelIndex>): [Uint8Array, Uint8Array, Uint8Array, Uint8Array] {
+   const encoded0 = encodePatternChannel(pattern, 0, audibleChannels);
+   const encoded1 = encodePatternChannel(pattern, 1, audibleChannels);
+   const encoded2 = encodePatternChannel(pattern, 2, audibleChannels);
+   const encoded3 = encodePatternChannel(pattern, 3, audibleChannels);
    return [encoded0, encoded1, encoded2, encoded3];
 };
 
-export function encodePatternCombined(pattern: Pattern): Uint8Array {
-   const [encoded0, encoded1, encoded2, encoded3] = encodePattern(pattern);
+export function encodePatternCombined(pattern: Pattern, audibleChannels: Set<Tic80ChannelIndex>): Uint8Array {
+   const [encoded0, encoded1, encoded2, encoded3] = encodePattern(pattern, audibleChannels);
    const combined = new Uint8Array(encoded0.length + encoded1.length + encoded2.length + encoded3.length);
    let offset = 0;
    combined.set(encoded0, offset);
@@ -105,12 +107,12 @@ export function encodePatternCombined(pattern: Pattern): Uint8Array {
 // each of OUR internal patterns is actually 4 tic80 patterns (channel A, B, C, D) in series.
 // so for double-buffering, the front buffer for the 4 channels is [0,1,2,3], and the back buffer is [4,5,6,7], etc.
 // we output as a 4-channel pattern quad in order so it can just be copied directly to TIC-80 memory.
-function encodeRealPatterns(song: Song): Uint8Array[] {
+function encodeRealPatterns(song: Song, audibleChannels: Set<Tic80ChannelIndex>): Uint8Array[] {
    const ret: Uint8Array[] = [];
    const patternCount = getMaxPatternUsedIndex(song) + 1;
    for (let p = 0; p < patternCount; p++) {
       const pattern = song.patterns[p]!;
-      const combined = encodePatternCombined(pattern);
+      const combined = encodePatternCombined(pattern, audibleChannels);
 
       // compress
       const compressed = lzCompress(combined, gSomaticLZDefaultConfig);
@@ -351,7 +353,7 @@ export interface Tic80SerializedSong {
    patternData: Uint8Array;
 }
 
-export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
+export function serializeSongForTic80Bridge(song: Song, audibleChannels: Set<Tic80ChannelIndex>): Tic80SerializedSong {
    //const parts: Uint8Array[] = [];
 
    // NB: do not optimize the song because
@@ -410,7 +412,7 @@ export function serializeSongForTic80Bridge(song: Song): Tic80SerializedSong {
       songOrderData[1 + i] = patternIndex & 0xff;
    }
 
-   const realPatternData = encodeRealPatterns(song); // separate pattern data for playback use
+   const realPatternData = encodeRealPatterns(song, audibleChannels); // separate pattern data for playback use
 
    return {
       //memory_0FFE4: out,
@@ -515,8 +517,8 @@ function getPlayroutineCode(variant: "debug"|"release"): string {
    return variant === "debug" ? playroutineDebug : playroutineRelease;
 };
 
-function getCode(
-   song: Song, variant: "debug"|"release"): {code: string, generatedCode: string, patternChunks: Uint8Array[]} {
+function getCode(song: Song, variant: "debug"|"release", audibleChannels: Set<Tic80ChannelIndex>):
+   {code: string, generatedCode: string, patternChunks: Uint8Array[]} {
    // Generate the SOMATIC_MUSIC_DATA section
    const songOrder = song.songOrder.map(idx => idx.toString()).join(",");
 
@@ -525,7 +527,7 @@ function getCode(
    const patternLengths: number[] = []; // size of the base85-decoded (still compressed) pattern data
 
    const patternStringContents = song.patterns.slice(0, maxPattern + 1).map((pattern, patternIndex) => {
-      const encodedPattern = encodePatternCombined(pattern);
+      const encodedPattern = encodePatternCombined(pattern, audibleChannels);
       patternChunks.push(encodedPattern);
 
       const fingerprint = getBufferFingerprint(encodedPattern);
@@ -600,7 +602,8 @@ export type SongCartDetails = {
    cartridge: Uint8Array;
 }
 
-export function serializeSongToCartDetailed(song: Song, optimize: boolean, variant: "debug"|"release"):
+export function serializeSongToCartDetailed(
+   song: Song, optimize: boolean, variant: "debug"|"release", audibleChannels: Set<Tic80ChannelIndex>):
    SongCartDetails //
 {
    const startTime = performance.now();
@@ -624,7 +627,7 @@ export function serializeSongToCartDetailed(song: Song, optimize: boolean, varia
    const sfxChunk = createChunk(CHUNK.SFX, encodeSfx(song, getMaxSfxUsedIndex(song) + 1), true);
    const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, new Uint8Array(1), true); // all zeros
    const trackChunk = createChunk(CHUNK.MUSIC_TRACKS, encodeTrack(song), true);
-   const {code, generatedCode, patternChunks} = getCode(song, variant);
+   const {code, generatedCode, patternChunks} = getCode(song, variant, audibleChannels);
    const codePayload = stringToAsciiPayload(code);
    const codeChunk = createChunk(CHUNK.CODE, codePayload, false, 0);
 
@@ -661,7 +664,8 @@ export function serializeSongToCartDetailed(song: Song, optimize: boolean, varia
 }
 
 
-export function serializeSongToCart(song: Song, optimize: boolean, variant: "debug"|"release"): Uint8Array {
-   const details = serializeSongToCartDetailed(song, optimize, variant);
+export function serializeSongToCart(
+   song: Song, optimize: boolean, variant: "debug"|"release", audibleChannels: Set<Tic80ChannelIndex>): Uint8Array {
+   const details = serializeSongToCartDetailed(song, optimize, variant, audibleChannels);
    return details.cartridge;
 }

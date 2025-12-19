@@ -71,6 +71,11 @@ export const ToTic80ChannelIndex = (value: number): Tic80ChannelIndex => {
    return clamp(value, 0, Tic80Caps.song.audioChannels - 1) as Tic80ChannelIndex;
 };
 
+export const gChannelsArray =
+   [0 as Tic80ChannelIndex, 1 as Tic80ChannelIndex, 2 as Tic80ChannelIndex, 3 as Tic80ChannelIndex] as const;
+
+export const gAllChannelsAudible = new Set<Tic80ChannelIndex>(gChannelsArray);
+
 export const TicMemoryMap = {
    // BRIDGE_MEMORY_MAP
    MARKER_ADDR: 0x14e24,
@@ -90,6 +95,11 @@ export const TicMemoryMap = {
 
    LOG_BASE: 0x14ec0 + 16,
    LOG_SIZE: 240,
+
+   CHANNEL_VOLUME_0: 0x14000,
+   CHANNEL_VOLUME_1: 0x14001,
+   CHANNEL_VOLUME_2: 0x14002,
+   CHANNEL_VOLUME_3: 0x14003,
 
    // NB: IF THIS CHANGES YOU HAVE TO UPDATE maxPatternLengthToBridge IN SomaticCaps
    TILE_BASE: 0x4000,

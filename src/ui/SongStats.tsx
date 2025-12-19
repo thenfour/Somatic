@@ -7,7 +7,7 @@ import { compareBuffers, formatBytes } from "../utils/utils";
 import { useClipboard } from "../hooks/useClipboard";
 import { base85Encode, lzCompress, lzDecompress } from "../audio/encoding";
 import { OptimizeSong } from "../utils/SongOptimizer";
-import { SomaticCaps } from "../models/tic80Capabilities";
+import { gAllChannelsAudible, SomaticCaps } from "../models/tic80Capabilities";
 
 type ChunkInfo = {
     name: string; //
@@ -39,10 +39,10 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
     //const [data, setData] = useState<SongStatsData>({ cartSize: 0, breakdown: [] });
 
     const cartWriter = useWriteBehindEffect<Song, SongSerialized>(async (doc) => {
-        const cartDetails = serializeSongToCartDetailed(doc, true, 'release');
+        const cartDetails = serializeSongToCartDetailed(doc, true, 'release', gAllChannelsAudible);
 
         const optimizedDoc = OptimizeSong(doc).optimizedSong;
-        const bridge = serializeSongForTic80Bridge(optimizedDoc);
+        const bridge = serializeSongForTic80Bridge(optimizedDoc, gAllChannelsAudible);
         return { cartridge: cartDetails, bridge };
     }, {
         debounceMs: 1200,

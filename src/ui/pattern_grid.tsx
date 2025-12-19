@@ -1,17 +1,16 @@
 import React, { forwardRef, KeyboardEvent, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { AudioController } from '../audio/controller';
 import type { MusicState } from '../audio/backend';
+import { AudioController } from '../audio/controller';
 import { midiToName } from '../defs';
+import { useClipboard } from '../hooks/useClipboard';
 import { EditorState } from '../models/editor_state';
 import { isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { Song } from '../models/song';
-import { SomaticEffectCommand, SomaticCaps, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
-import { HelpTooltip } from './HelpTooltip';
-import { useClipboard } from '../hooks/useClipboard';
-import { useToasts } from './toast_provider';
-import { PatternAdvancedPanel, ScopeValue, InterpolateTarget } from './PatternAdvancedPanel';
-import { Tooltip } from './tooltip';
+import { gChannelsArray, SomaticCaps, SomaticEffectCommand, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
 import { CharMap, clamp } from '../utils/utils';
+import { InterpolateTarget, PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
+import { useToasts } from './toast_provider';
+import { Tooltip } from './tooltip';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 
@@ -766,7 +765,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         // };
 
         const playRow = (rowIndex: number) => {
-            audio.playRow(pattern, rowIndex);
+            audio.playRow(song, pattern, rowIndex);
         };
 
         const handleNoteKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, e: KeyboardEvent<HTMLTableCellElement>) => {
@@ -798,7 +797,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 });
             });
             //setRowValue(channelIndex, rowIndex, 'instrument', idx);
-            if (!audio.isPlaying) playRow(rowIndex);
+            playRow(rowIndex);
         };
 
         const handleCommandKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
@@ -1096,6 +1095,27 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         };
 
 
+        const toggleChannelMute = (channelIndex: Tic80ChannelIndex) => {
+            onEditorStateChange((s) => {
+                s.setChannelMute(channelIndex, !s.isChannelExplicitlyMuted(channelIndex));
+            });
+        };
+
+        const toggleChannelSolo = (channelIndex: Tic80ChannelIndex) => {
+            onEditorStateChange((s) => {
+                s.setChannelSolo(channelIndex, !s.isChannelExplicitlySoloed(channelIndex));
+            });
+        };
+
+        useEffect(() => {
+            // const volumes = gChannelsArray.map(ch => editorState.isChannelAudible(ch) ? 15 : 0) as [number, number, number, number];
+            //audio.setChannelVolumes(volumes); <-- doesn't work sadly.
+            // so we have to upload the song with baked-in muting.
+
+            audio.transmitSong(song, "mutes changed", editorState.getAudibleChannels());
+
+        }, [editorState.getAudibleChannelSignature()]);
+
         const onCellFocus = (rowIndex: number, channelIndex: Tic80ChannelIndex, col: number) => {
             updateEditTarget({ rowIndex, channelIndex });
             selectionAnchorRef.current = { rowIndex, channelIndex };
@@ -1135,10 +1155,26 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         <thead>
                             <tr>
                                 <th></th>
-                                {[0, 1, 2, 3].map((i) => {
+                                {gChannelsArray.map((i) => {
                                     const headerClass = `channel-header${isChannelSelected(i) ? ' channel-header--selected' : ''}`;
                                     return (
-                                        <th key={i} colSpan={4} className={headerClass}>{i + 1}</th>
+                                        <th key={i} colSpan={4} className={headerClass}>
+                                            <div className='channel-header-cell-contents'>
+                                                <div className='channel-header-label'>{i + 1}</div>
+                                                <div className='channel-header-controls-group'>
+                                                    <button
+                                                        type="button"
+                                                        className={`channel-header-control-btn channel-header-control-btn-mute ${editorState.isChannelExplicitlyMuted(i) ? 'channel-header-control-btn--muted' : ''}`}
+                                                        onClick={() => toggleChannelMute(i)}
+                                                    >M</button>
+                                                    <button
+                                                        type="button"
+                                                        className={`channel-header-control-btn channel-header-control-btn-solo ${editorState.isChannelExplicitlySoloed(i) ? 'channel-header-control-btn--soloed' : ''}`}
+                                                        onClick={() => toggleChannelSolo(i)}
+                                                    >S</button>
+                                                </div>
+                                            </div>
+                                        </th>
                                     );
                                 })}
                             </tr>
@@ -1169,6 +1205,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
                                             const channelSelected = isChannelSelected(channelIndex);
                                             const isCellSelected = isRowInSelection && channelSelected;
+                                            const isAudible = editorState.isChannelAudible(channelIndex);
 
                                             const getSelectionClasses = (cellType: CellType) => {
                                                 if (!isCellSelected || !selectionBounds) return '';
@@ -1201,7 +1238,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                 errorText = "Instrument set without a note.";
                                             }
 
-                                            const additionalClasses = `${isEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}`;
+                                            const additionalClasses = `${isEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}${isAudible ? '' : ' muted-cell'}`;
                                             const noteSelectionClass = getSelectionClasses('note');
                                             const instSelectionClass = getSelectionClasses('instrument');
                                             const cmdSelectionClass = getSelectionClasses('command');
