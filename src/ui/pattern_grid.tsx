@@ -129,6 +129,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 startChannel: r.startCol,
                 endChannel: r.endCol,
             })),
+            clampCoord: (coord) => {
+                return {
+                    row: clamp(coord.row, 0, song.rowsPerPattern - 1),
+                    col: clamp(coord.col, 0, Tic80Caps.song.audioChannels - 1),
+                };
+            },
         });
 
         const resolveScopeTargets = useCallback((scope: ScopeValue): ScopeTargets | null => {
@@ -550,11 +556,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             onEditorStateChange((s) => s.setPatternEditTarget({ rowIndex, channelIndex }));
         };
 
-        const ColToChannel = (col: number): Tic80ChannelIndex => {
-            const channelIndex = Math.floor(col / CELLS_PER_CHANNEL);
-            return ToTic80ChannelIndex(channelIndex);
-        }
-
         const handleArrowNav = (row: number, col: number, key: string, ctrlKey: boolean): readonly [number, number] | null => {
             const rowCount = song.rowsPerPattern;
             const colCount = 16;
@@ -682,6 +683,27 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             return null;
         };
 
+        const handleSelectionNudge = (e: React.KeyboardEvent<HTMLTableCellElement>): boolean => {
+            if (!e.shiftKey) return false;
+            if (e.key === 'ArrowUp') {
+                selection2d.nudgeActiveEnd({ dCol: 0, dRow: -1 });
+                return true;
+            }
+            if (e.key === 'ArrowDown') {
+                selection2d.nudgeActiveEnd({ dCol: 0, dRow: 1 });
+                return true;
+            }
+            if (e.key === 'ArrowLeft') {
+                selection2d.nudgeActiveEnd({ dCol: -1, dRow: 0 });
+                return true;
+            }
+            if (e.key === 'ArrowRight') {
+                selection2d.nudgeActiveEnd({ dCol: 1, dRow: 0 });
+                return true;
+            }
+            return false;
+        };
+
         const onCellKeyDown = (e: React.KeyboardEvent<HTMLTableCellElement>) => {
             const target = e.currentTarget;
             const rowIndex = parseInt(target.dataset.rowIndex!, 10);
@@ -691,13 +713,17 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const columnIndex = parseInt(target.dataset.columnIndex!, 10);
             //const col = channelIndex * 4 + colOffset;
 
+            if (handleSelectionNudge(e)) {
+                e.preventDefault();
+                return;
+            }
+
             const currentRowForNav = editorState.patternEditRow ?? rowIndex;
             const navTarget = handleArrowNav(currentRowForNav, columnIndex, e.key, e.ctrlKey);
             if (navTarget) {
                 const [targetRow, targetCol] = navTarget;
                 const targetChannel = ToTic80ChannelIndex(Math.floor(targetCol / CELLS_PER_CHANNEL));
                 onEditorStateChange((state) => state.setPatternEditTarget({ rowIndex: targetRow, channelIndex: targetChannel }));
-                selection2d.setAnchor({ row: targetRow, col: targetChannel });
                 focusCell(targetRow, targetCol);
                 e.preventDefault();
                 return;
@@ -797,7 +823,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const onCellFocus = (rowIndex: number, channelIndex: Tic80ChannelIndex, col: number) => {
             updateEditTarget({ rowIndex, channelIndex });
-            selection2d.setAnchor({ row: rowIndex, col: channelIndex });
         };
 
         return (

@@ -1112,11 +1112,12 @@ option {
 .pattern-grid td.note-cell {
     color: var(--cell-note);
     white-space: nowrap;
+    border-left: 8px solid var(--bg);
     /* border-left: 18px solid transparent; */
 }
 
 .pattern-grid td.note-cell>div {
-    margin-left: 19px;
+    /* margin-left: 19px; */
     white-space: nowrap;
 }
 

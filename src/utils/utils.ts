@@ -138,3 +138,11 @@ export const inclusiveRange = (start: number, end: number): number[] => {
    const length = Math.max(upper - lower + 1, 0);
    return Array.from({length}, (_, idx) => lower + idx);
 };
+
+
+export type Rect2D = {
+   startRow: number; endRow: number; startCol: number; endCol: number
+};
+export type Coord2D = {
+   row: number; col: number
+};
