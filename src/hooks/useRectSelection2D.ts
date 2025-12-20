@@ -150,6 +150,17 @@ export class SelectionRect2D {
       return next;
    }
 
+   withNudge(delta: Size2D): SelectionRect2D {
+      const next = new SelectionRect2D(this.toData());
+      if (!next.anchor)
+         return next;
+      next.anchor = {
+         x: next.anchor.x + delta.width,
+         y: next.anchor.y + delta.height,
+      };
+      return next;
+   }
+
    withClampedCoords(clampFunc: (coord: Coord2D) => Coord2D): SelectionRect2D {
       const next = new SelectionRect2D(this.toData());
       if (!next.anchor || !next.size)

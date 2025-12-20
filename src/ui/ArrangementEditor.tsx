@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { MusicState } from "../audio/backend";
+import { SelectionRect2D, useRectSelection2D } from "../hooks/useRectSelection2D";
 import { EditorState } from "../models/editor_state";
-import { Song } from "../models/song";
-import { SomaticCaps, Tic80Caps } from "../models/tic80Capabilities";
 import { Pattern } from "../models/pattern";
+import { Song } from "../models/song";
+import { SomaticCaps } from "../models/tic80Capabilities";
 import { CharMap, clamp } from "../utils/utils";
 import { useConfirmDialog } from "./confirm_dialog";
 import { Tooltip } from "./tooltip";
@@ -28,6 +29,17 @@ export const ArrangementEditor: React.FC<{
         [maxPositions]
     );
 
+    const selection2d = useRectSelection2D({
+        selection: editorState.selectedArrangementPositions,
+        onChange: (rect) => {
+            onEditorStateChange((state) => state.setArrangementSelection(rect));
+        },
+        clampCoord: (coord) => ({
+            x: 0,
+            y: clamp(coord.y, 0, Math.max(0, song.songOrder.length - 1)),
+        }),
+    });
+
     const formattedIndex = (index: number) => index.toString().padStart(2, "0");
 
     const ensurePatternExists = (s: Song, patternIndex: number) => {
@@ -37,6 +49,15 @@ export const ArrangementEditor: React.FC<{
         }
         return target;
     };
+
+    useEffect(() => {
+        const sel = editorState.selectedArrangementPositions;
+        if (!sel || sel.isNull()) {
+            //console.log("ArrangementEditor selection [] (empty)");
+            return;
+        }
+        //console.log(`ArrangementEditor selection [${sel.getAllCells().map(c => c.y).join(", ")}]`);
+    }, [editorState.selectedArrangementPositions]);
 
     const changePatternAtPosition = (positionIndex: number, delta: number) => {
         onSongChange((s) => {
@@ -50,6 +71,12 @@ export const ArrangementEditor: React.FC<{
         onEditorStateChange((state) => {
             state.setActiveSongPosition(positionIndex);
         });
+    };
+
+    const handleRowMouseDown = (e: React.MouseEvent, positionIndex: number) => {
+        onEditorStateChange((state) => state.setActiveSongPosition(positionIndex));
+        selection2d.onCellMouseDown(e, { x: 0, y: positionIndex });
+        focusRow(positionIndex);
     };
 
     const deletePosition = (positionIndex: number) => {
@@ -96,12 +123,11 @@ export const ArrangementEditor: React.FC<{
         return result;
     };
 
-    // Get the selection range (either selectedArrangementPositions or just the active position)
     const getSelectionRange = (): number[] => {
-        if (editorState.selectedArrangementPositions.length > 0) {
-            return [...editorState.selectedArrangementPositions].sort((a, b) => a - b);
-        }
-        return [editorState.activeSongPosition];
+        const sel = editorState.selectedArrangementPositions;
+        if (!sel || sel.isNull()) return [];
+        const ycoords = sel.getAllCells().map(c => c.y);
+        return ycoords;
     };
 
     const handleInsertAbove = () => {
@@ -114,9 +140,6 @@ export const ArrangementEditor: React.FC<{
                 s.songOrder.splice(insertPos, 0, newPatterns[0]);
             }
         });
-        onEditorStateChange((state) => {
-            state.setArrangementSelection([]);
-        });
     };
 
     const handleInsertBelow = () => {
@@ -128,9 +151,6 @@ export const ArrangementEditor: React.FC<{
             if (newPatterns.length > 0) {
                 s.songOrder.splice(insertPos, 0, newPatterns[0]);
             }
-        });
-        onEditorStateChange((state) => {
-            state.setArrangementSelection([]);
         });
     };
 
@@ -153,16 +173,13 @@ export const ArrangementEditor: React.FC<{
 
         if (!confirmed) return;
 
+        selection2d.setSelection(new SelectionRect2D(null));
+
         onSongChange((s) => {
             // Delete in reverse order to maintain indices
             for (let i = selection.length - 1; i >= 0; i--) {
                 s.songOrder.splice(selection[i], 1);
             }
-        });
-        onEditorStateChange((state) => {
-            const newActive = Math.min(selection[0], song.songOrder.length - selection.length - 1);
-            state.setActiveSongPosition(Math.max(0, newActive));
-            state.setArrangementSelection([]);
         });
     };
 
@@ -178,9 +195,13 @@ export const ArrangementEditor: React.FC<{
 
             s.songOrder.splice(insertPos, 0, ...patterns);
         });
-        onEditorStateChange((state) => {
-            state.setArrangementSelection([]);
-        });
+        // move selection to the new items.
+        // note that there's an issue if you duplicate the last item; state hasn't made space for that item yet
+        // the workaround would be to useEffect() but ... meh.
+        const sel = editorState.selectedArrangementPositions;
+        if (sel && !sel.isNull()) {
+            selection2d.setSelection(sel.withNudge({ width: 0, height: sel.getSignedSize()!.height }));
+        }
     };
 
     const handleDuplicateSelection = () => {
@@ -207,9 +228,13 @@ export const ArrangementEditor: React.FC<{
             const insertPos = selection[selection.length - 1] + 1;
             s.songOrder.splice(insertPos, 0, ...duplicatedPatterns);
         });
-        onEditorStateChange((state) => {
-            state.setArrangementSelection([]);
-        });
+        // move selection to the new items.
+        // note that there's an issue if you duplicate the last item; state hasn't made space for that item yet
+        // the workaround would be to useEffect() but ... meh.
+        const sel = editorState.selectedArrangementPositions;
+        if (sel && !sel.isNull()) {
+            selection2d.setSelection(sel.withNudge({ width: 0, height: sel.getSignedSize()!.height }));
+        }
     };
 
     const handleMoveUp = () => {
@@ -224,15 +249,11 @@ export const ArrangementEditor: React.FC<{
                 s.songOrder[idx - 1] = temp;
             }
         });
-        onEditorStateChange((state) => {
-            // Update selection to follow the moved items
-            state.setActiveSongPosition(state.activeSongPosition - 1);
-            if (state.selectedArrangementPositions.length > 0) {
-                state.setArrangementSelection(
-                    state.selectedArrangementPositions.map(idx => idx - 1)
-                );
-            }
-        });
+
+        // update selection to follow the moved items.
+        if (editorState.selectedArrangementPositions) {
+            selection2d.setSelection(editorState.selectedArrangementPositions?.withNudge({ width: 0, height: -1 }) || null);
+        }
     };
 
     const handleMoveDown = () => {
@@ -248,15 +269,10 @@ export const ArrangementEditor: React.FC<{
                 s.songOrder[idx + 1] = temp;
             }
         });
-        onEditorStateChange((state) => {
-            // Update selection to follow the moved items
-            state.setActiveSongPosition(state.activeSongPosition + 1);
-            if (state.selectedArrangementPositions.length > 0) {
-                state.setArrangementSelection(
-                    state.selectedArrangementPositions.map(idx => idx + 1)
-                );
-            }
-        });
+        // update selection to follow the moved items.
+        if (editorState.selectedArrangementPositions) {
+            selection2d.setSelection(editorState.selectedArrangementPositions?.withNudge({ width: 0, height: 1 }) || null);
+        }
     };
 
     const patternDisplayName = (patternIndex: number) => {
@@ -290,53 +306,65 @@ export const ArrangementEditor: React.FC<{
         if (target) target.focus();
     };
 
-    const handleSelectPosition = (positionIndex: number, shiftKey: boolean) => {
-        onEditorStateChange((state) => {
-            if (shiftKey && state.activeSongPosition !== positionIndex) {
-                // Shift+click: select range from active position to clicked position
-                const start = Math.min(state.activeSongPosition, positionIndex);
-                const end = Math.max(state.activeSongPosition, positionIndex);
-                const selection: number[] = [];
-                for (let i = start; i <= end; i++) {
-                    selection.push(i);
-                }
-                state.setArrangementSelection(selection);
-            } else {
-                // Normal click: clear selection and set active position
-                state.setActiveSongPosition(positionIndex);
-                state.setArrangementSelection([]);
-            }
-        });
-        focusRow(positionIndex);
-    };
-
     const handleKeyDown = (e: React.KeyboardEvent, positionIndex: number) => {
+        const maxIndex = Math.max(0, song.songOrder.length - 1);
         switch (e.key) {
-            case 'ArrowUp':
+            case 'ArrowUp': {
                 e.preventDefault();
-                if (positionIndex > 0) {
-                    handleSelectPosition(positionIndex - 1, e.shiftKey);
+                const next = Math.max(0, positionIndex - 1);
+                if (e.shiftKey) {
+                    // shift up = nudge selection.
+                    selection2d.nudgeActiveEnd({ delta: { width: 0, height: -1 } });
+                } else {
+                    // no shift = set active position.
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: { x: 0, y: next },
+                        size: { width: 1, height: 1 },
+                    }));
                 }
+                onEditorStateChange((state) => {
+                    state.setActiveSongPosition(next);
+                });
+                focusRow(next);
                 break;
-            case 'ArrowDown':
+            }
+            case 'ArrowDown': {
                 e.preventDefault();
-                if (positionIndex < song.songOrder.length - 1) {
-                    handleSelectPosition(positionIndex + 1, e.shiftKey);
+                const next = Math.min(maxIndex, positionIndex + 1);
+                if (e.shiftKey) {
+                    // shift down = nudge selection.
+                    selection2d.nudgeActiveEnd({ delta: { width: 0, height: 1 } });
+                } else {
+                    // no shift = set active position.
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: { x: 0, y: next },
+                        size: { width: 1, height: 1 },
+                    }));
                 }
+                onEditorStateChange((state) => {
+                    state.setActiveSongPosition(next);
+                });
+                focusRow(next);
                 break;
+            }
+            case 'ArrowLeft': {
+                e.preventDefault();
+                changePatternAtPosition(positionIndex, -1);
+                break;
+            }
+            case 'ArrowRight': {
+                e.preventDefault();
+                changePatternAtPosition(positionIndex, 1);
+                break;
+            }
             case 'Delete':
             case 'Backspace':
                 e.preventDefault();
-                if (e.shiftKey || e.ctrlKey) {
-                    handleDeleteSelected();
-                } else {
-                    handleDeletePosition(positionIndex);
-                }
+                handleDeleteSelected();
                 break;
             case 'Enter':
             case ' ':
                 e.preventDefault();
-                handleSelectPosition(positionIndex, e.shiftKey);
                 break;
         }
     };
@@ -351,14 +379,14 @@ export const ArrangementEditor: React.FC<{
                 {song.songOrder.map((patternIndex, positionIndex) => {
                     const clampedPattern = clamp(patternIndex ?? 0, 0, maxPatterns - 1);
                     const isSelected = editorState.activeSongPosition === positionIndex;
-                    const isInSelection = editorState.selectedArrangementPositions.includes(positionIndex);
+                    const sel = editorState.selectedArrangementPositions;
+                    const isInSelection = sel?.includesCoord({ x: 0, y: positionIndex }) || false;
                     const isPlaying = activeSongPosition === positionIndex;
                     const canDelete = song.songOrder.length > 1;
 
                     // Determine if this is the first or last in selection
-                    const sortedSelection = [...editorState.selectedArrangementPositions].sort((a, b) => a - b);
-                    const isFirstInSelection = sortedSelection.length > 0 && positionIndex === sortedSelection[0];
-                    const isLastInSelection = sortedSelection.length > 0 && positionIndex === sortedSelection[sortedSelection.length - 1];
+                    const isFirstInSelection = positionIndex === sel?.topInclusive(); //editorState.selectedArrangementPositions sortedSelection.length > 0 && positionIndex === sortedSelection[0];
+                    const isLastInSelection = positionIndex === sel?.bottomInclusive();
 
                     const rowClass = [
                         "arrangement-editor__row",
@@ -371,14 +399,15 @@ export const ArrangementEditor: React.FC<{
                     return (
                         <div
                             key={positionIndex}
-                            ref={(el) => (rowRefs[positionIndex] = el)}
                             className={rowClass}
                         >
                             <div
                                 className="arrangement-editor__controls"
                                 tabIndex={0}
-                                onClick={(e) => handleSelectPosition(positionIndex, e.shiftKey)}
+                                ref={(el) => (rowRefs[positionIndex] = el)}
                                 onKeyDown={(e) => handleKeyDown(e, positionIndex)}
+                                onMouseDown={(e) => handleRowMouseDown(e, positionIndex)}
+                                onMouseEnter={() => selection2d.onCellMouseEnter({ x: 0, y: positionIndex })}
                             >
                                 <button
                                     type="button"
@@ -390,7 +419,7 @@ export const ArrangementEditor: React.FC<{
                                     disabled={!canDelete}
                                     aria-label="Delete position"
                                 >
-                                    ×
+                                    {CharMap.Mul}
                                 </button>
                                 <button
                                     type="button"
@@ -420,16 +449,11 @@ export const ArrangementEditor: React.FC<{
                                     <span style={{ visibility: isSelected ? "visible" : "hidden" }}>{CharMap.RightTriangle}</span>
                                     {formattedIndex(positionIndex)}
                                 </span>
-                                <button
-                                    type="button"
+                                <span
                                     className="arrangement-editor__pattern"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleSelectPosition(positionIndex, e.shiftKey);
-                                    }}
                                 >
                                     {formattedIndex(clampedPattern)}
-                                </button>
+                                </span>
                             </div>
                             <div
                                 className="arrangement-editor__pattern-name-container"

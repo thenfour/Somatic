@@ -531,7 +531,7 @@ function getCode(song: Song, variant: "debug"|"release", audibleChannels: Set<Ti
       patternChunks.push(encodedPattern);
 
       const fingerprint = getBufferFingerprint(encodedPattern);
-      console.log(`Pattern ${patternIndex} fingerprint:`, fingerprint);
+      //console.log(`Pattern ${patternIndex} fingerprint:`, fingerprint);
 
       // { TestBase85Encoding("04 00 42 00 00 00 0d 00 81"); }
 
@@ -539,12 +539,6 @@ function getCode(song: Song, variant: "debug"|"release", audibleChannels: Set<Ti
       patternLengths.push(compressed.length);
 
       const patternStr = base85Encode(compressed);
-      // const decodedPattern = base85Decode(patternStr, encodedPattern.length);
-
-      // console.log(`  -> b85:`, patternStr);
-
-      // const result = compareBuffers(decodedPattern, encodedPattern);
-      // console.log(`  -> round-trip`, result);
 
       return patternStr;
    });

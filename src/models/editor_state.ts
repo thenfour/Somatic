@@ -18,7 +18,7 @@ export interface EditorStateDto {
    editingEnabled: boolean;
    patternEditRow: number;
    patternEditChannel: Tic80ChannelIndex;
-   selectedArrangementPositions: number[];
+   selectedArrangementPositions: Rect2D|null;
    patternSelection: Rect2D|null;
    mutedChannels: Tic80ChannelIndex[];
    soloedChannels: Tic80ChannelIndex[];
@@ -32,7 +32,7 @@ export class EditorState {
    editingEnabled: boolean;
    patternEditRow: number;
    patternEditChannel: Tic80ChannelIndex;
-   selectedArrangementPositions: number[];
+   selectedArrangementPositions: SelectionRect2D|null;
    patternSelection: SelectionRect2D|null;
    mutedChannels: Set<Tic80ChannelIndex> = new Set<Tic80ChannelIndex>();
    soloedChannels: Set<Tic80ChannelIndex> = new Set<Tic80ChannelIndex>();
@@ -44,7 +44,7 @@ export class EditorState {
       editingEnabled = false,
       patternEditRow = 0,
       patternEditChannel = 0,
-      selectedArrangementPositions = [],
+      selectedArrangementPositions = null,
       patternSelection = null,
       mutedChannels = [],
       soloedChannels = [],
@@ -55,7 +55,8 @@ export class EditorState {
       this.editingEnabled = CoalesceBoolean(editingEnabled, true);
       this.patternEditRow = clamp(patternEditRow, 0, 63);
       this.patternEditChannel = ToTic80ChannelIndex(patternEditChannel);
-      this.selectedArrangementPositions = [...selectedArrangementPositions];
+      this.selectedArrangementPositions =
+         selectedArrangementPositions ? new SelectionRect2D(selectedArrangementPositions) : null;
       this.patternSelection = patternSelection ? new SelectionRect2D(patternSelection) : null;
       this.mutedChannels = new Set(mutedChannels);
       this.soloedChannels = new Set(soloedChannels);
@@ -82,16 +83,12 @@ export class EditorState {
       this.patternEditChannel = channelIndex;
    }
 
-   setArrangementSelection(positions: number[]) {
-      this.selectedArrangementPositions = [...positions];
+   setArrangementSelection(positions: SelectionRect2D|null) {
+      this.selectedArrangementPositions = positions;
    }
 
    setPatternSelection(selection: SelectionRect2D|null) {
-      if (!selection) {
-         this.patternSelection = null;
-         return;
-      }
-      this.patternSelection = selection; // ? this.normalizePatternSelection(selection) : null;
+      this.patternSelection = selection;
    }
 
    advancePatternEditRow(step: number, rowsPerPattern: number = Tic80Caps.pattern.maxRows) {
@@ -101,7 +98,8 @@ export class EditorState {
    }
 
    getEditingPattern(song: Song): Pattern {
-      const patternId = song.songOrder[this.activeSongPosition]!;
+      const activeSongPosition = clamp(this.activeSongPosition, 0, song.songOrder.length - 1);
+      const patternId = song.songOrder[activeSongPosition]!;
       return song.patterns[patternId]!;
    }
 
@@ -176,7 +174,8 @@ export class EditorState {
          editingEnabled: this.editingEnabled,
          patternEditRow: this.patternEditRow,
          patternEditChannel: this.patternEditChannel,
-         selectedArrangementPositions: [...this.selectedArrangementPositions],
+         selectedArrangementPositions: this.selectedArrangementPositions ? this.selectedArrangementPositions.toData() :
+                                                                           null,
          patternSelection: this.patternSelection ? this.patternSelection.toData() : null,
          mutedChannels: [...this.mutedChannels],
          soloedChannels: [...this.soloedChannels],

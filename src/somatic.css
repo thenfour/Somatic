@@ -1526,6 +1526,7 @@ option {
     overflow-y: auto;
     overflow-x: hidden;
     min-height: 0;
+    padding: 8px;
     padding-bottom: 20vh;
 }
 
@@ -1595,9 +1596,14 @@ option {
     color: var(--muted);
     outline: none;
     cursor: pointer;
+    border-left: 1px solid transparent;
+    border-right: 1px solid transparent;
+
+    --selection-rect-border: 1px solid var(--accent);
 }
 
-.arrangement-editor__row:focus {
+
+.arrangement-editor__controls:focus {
     outline: 2px solid var(--accent-strong);
     outline-offset: -2px;
 }
@@ -1609,16 +1615,20 @@ option {
 
 .arrangement-editor__row--in-selection {
     /* background-color: var(--accent-strong); */
-    border-left: 8px solid var(--accent);
-    border-right: 8px solid var(--accent);
+    border-left: var(--selection-rect-border);
+    border-right: var(--selection-rect-border);
 }
 
 .arrangement-editor__row--selection-first {
-    border-top: 2px solid var(--accent);
+    border-top: var(--selection-rect-border);
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
 }
 
 .arrangement-editor__row--selection-last {
-    border-bottom: 2px solid var(--accent);
+    border-bottom: var(--selection-rect-border);
+    border-bottom-left-radius: 3px;
+    border-bottom-right-radius: 3px;
 }
 
 .arrangement-editor__row--playing {
@@ -1640,10 +1650,10 @@ option {
     border-left: 8px solid transparent;
     border-right: 8px solid transparent;
     /* don't do border top & bottom because it leaves weird gaps*/
-
 }
 
-.arrangement-editor button.arrangement-editor__pattern {
+.arrangement-editor .arrangement-editor__pattern {
+    margin-left: 12px;
     color: var(--text);
     /* background-color: var(--row-a); */
 }

@@ -14,6 +14,7 @@ interface AppStatusBarProps {
 export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, onSongChange, onEditorStateChange }) => {
 
     const editingCell = editorState.getEditingCell(song);
+    //console.log("AppStatusBar editingCell:", editingCell);
     let statusMessage = "No cell selected";
 
     if (!!editingCell.instrumentIndex) {
