@@ -358,6 +358,13 @@ export function useRectSelection2D({
       [selection],
    );
 
+   const setEnd = React.useCallback((endCoord: Coord2D) => {
+      const anchor = selection?.getAnchorPoint();
+      if (!anchor)
+         return;
+      applyFromAnchorToEnd(anchor, endCoord);
+   }, [selection, applyFromAnchorToEnd]);
+
    return {
       isSelecting,
       onCellMouseDown,
@@ -365,6 +372,7 @@ export function useRectSelection2D({
       end,
       setSelection: apply,
 
+      setEnd,
       nudgeActiveEnd,
    };
 }

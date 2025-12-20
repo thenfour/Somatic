@@ -8,7 +8,7 @@ import { EditorState } from '../models/editor_state';
 import { isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { Song } from '../models/song';
 import { gChannelsArray, SomaticCaps, SomaticEffectCommand, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
-import { CharMap, clamp, numericRange } from '../utils/utils';
+import { CharMap, clamp, Coord2D, numericRange } from '../utils/utils';
 import { InterpolateTarget, PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
 import { useToasts } from './toast_provider';
 import { Tooltip } from './tooltip';
@@ -538,10 +538,30 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             onEditorStateChange((s) => s.setPatternEditTarget({ rowIndex, channelIndex }));
         };
 
+        const jumpSize = Math.max(song.highlightRowCount || 1, 1);
+        const rowCount = song.rowsPerPattern;
+        const colCount = CELLS_PER_CHANNEL * Tic80Caps.song.audioChannels;
+
+        const getTargetCoordForPageUp = (row: number, col: number): Coord2D => {
+            const currentBlock = Math.floor(row / jumpSize);
+            const targetBlock = currentBlock - 1;
+            const targetRow = targetBlock * jumpSize;
+            if (targetRow < 0) {
+                // Navigate to previous song order position
+                if (currentPosition > 0) {
+                    onEditorStateChange((s) => s.setActiveSongPosition(currentPosition - 1));
+                    const blocksInPattern = Math.ceil(rowCount / jumpSize);
+                    const newTargetRow = (blocksInPattern + targetBlock) * jumpSize;
+                    return { y: Math.max(0, newTargetRow), x: col };
+                }
+                // At the beginning of the song, clamp to top
+                return { y: 0, x: col };
+            }
+            return { y: targetRow, x: col };
+        }
+
         const handleArrowNav = (row: number, col: number, key: string, ctrlKey: boolean): readonly [number, number] | null => {
-            const rowCount = song.rowsPerPattern;
-            const colCount = 16;
-            const jumpSize = Math.max(song.highlightRowCount || 1, 1);
+            //const jumpSize = Math.max(song.highlightRowCount || 1, 1);
             if (key === 'ArrowUp') {
                 if (ctrlKey) {
                     const targetRow = row - CTRL_ARROW_JUMP_SIZE;
@@ -618,21 +638,23 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 return [row, (col + 1) % colCount] as const;
             }
             if (key === 'PageUp') {
-                const currentBlock = Math.floor(row / jumpSize);
-                const targetBlock = currentBlock - 1;
-                const targetRow = targetBlock * jumpSize;
-                if (targetRow < 0) {
-                    // Navigate to previous song order position
-                    if (currentPosition > 0) {
-                        onEditorStateChange((s) => s.setActiveSongPosition(currentPosition - 1));
-                        const blocksInPattern = Math.ceil(rowCount / jumpSize);
-                        const newTargetRow = (blocksInPattern + targetBlock) * jumpSize;
-                        return [Math.max(0, newTargetRow), col] as const;
-                    }
-                    // At the beginning of the song, clamp to top
-                    return [0, col] as const;
-                }
-                return [targetRow, col] as const;
+                const target = getTargetCoordForPageUp(row, col);
+                return [target.y, target.x] as const;
+                // const currentBlock = Math.floor(row / jumpSize);
+                // const targetBlock = currentBlock - 1;
+                // const targetRow = targetBlock * jumpSize;
+                // if (targetRow < 0) {
+                //     // Navigate to previous song order position
+                //     if (currentPosition > 0) {
+                //         onEditorStateChange((s) => s.setActiveSongPosition(currentPosition - 1));
+                //         const blocksInPattern = Math.ceil(rowCount / jumpSize);
+                //         const newTargetRow = (blocksInPattern + targetBlock) * jumpSize;
+                //         return [Math.max(0, newTargetRow), col] as const;
+                //     }
+                //     // At the beginning of the song, clamp to top
+                //     return [0, col] as const;
+                // }
+                // return [targetRow, col] as const;
             }
             if (key === 'PageDown') {
                 const currentBlock = Math.floor(row / jumpSize);
@@ -720,6 +742,60 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     return true;
                 }
                 selection2d.nudgeActiveEnd({ delta: { width: 1, height: 0 } });
+                return true;
+            }
+            // home / end / page up / page down
+            if (e.key === 'PageUp') {
+                if (!isCurrentCellTheAnchor()) {
+                    const newAnchor = { x: editorState.patternEditChannel, y: editorState.patternEditRow };
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: newAnchor,
+                        size: { width: 1, height: -jumpSize },
+                    }));
+                    return true;
+                }
+                selection2d.nudgeActiveEnd({ delta: { width: 0, height: -jumpSize } });
+                return true;
+            }
+            if (e.key === 'PageDown') {
+                if (!isCurrentCellTheAnchor()) {
+                    const newAnchor = { x: editorState.patternEditChannel, y: editorState.patternEditRow };
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: newAnchor,
+                        size: { width: 1, height: jumpSize },
+                    }));
+                    return true;
+                }
+                selection2d.nudgeActiveEnd({ delta: { width: 0, height: jumpSize } });
+                return true;
+            }
+            if (e.key === 'Home') {
+                if (!isCurrentCellTheAnchor()) {
+                    const newAnchor = { x: editorState.patternEditChannel, y: editorState.patternEditRow };
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: newAnchor,
+                        size: { width: -newAnchor.x, height: -newAnchor.y },
+                    }));
+                    return true;
+                }
+                // TODO: retain the WIDTH of the selection.
+                // TODO: if already at top, go to far left instead.
+                selection2d.setEnd({ x: editorState.patternEditChannel!, y: 0 });
+                return true;
+            }
+            if (e.key === 'End') {
+                const lastCell = { x: Tic80Caps.song.audioChannels - 1, y: song.rowsPerPattern - 1 };
+                if (!isCurrentCellTheAnchor()) {
+                    const newAnchor = { x: editorState.patternEditChannel, y: editorState.patternEditRow };
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: newAnchor,
+                        size: { width: lastCell.x - newAnchor.x, height: lastCell.y - newAnchor.y },
+                    }));
+                    return true;
+                }
+                // TODO: retain the WIDTH of the selection.
+                // TODO: if already at top, go to far left instead.
+                selection2d.setEnd({ x: editorState.patternEditChannel!, y: lastCell.y });
                 return true;
             }
             return false;

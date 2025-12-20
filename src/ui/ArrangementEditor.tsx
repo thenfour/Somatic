@@ -9,6 +9,8 @@ import { CharMap, clamp } from "../utils/utils";
 import { useConfirmDialog } from "./confirm_dialog";
 import { Tooltip } from "./tooltip";
 
+const PAGE_SIZE = 4;
+
 export const ArrangementEditor: React.FC<{
     song: Song;
     editorState: EditorState;
@@ -357,15 +359,72 @@ export const ArrangementEditor: React.FC<{
                 changePatternAtPosition(positionIndex, 1);
                 break;
             }
+            case 'Home': {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    selection2d.setEnd({ x: 0, y: 0 });
+                    return;
+                }
+                const next = 0;
+                selection2d.setSelection(new SelectionRect2D({
+                    start: { x: 0, y: next },
+                    size: { width: 1, height: 1 },
+                }));
+                break;
+            }
+            case 'End': {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    selection2d.setEnd({ x: 0, y: maxIndex });
+                    return;
+                }
+                const next = maxIndex;
+                selection2d.setSelection(new SelectionRect2D({
+                    start: { x: 0, y: next },
+                    size: { width: 1, height: 1 },
+                }));
+                break;
+            }
+            // page up / down will move by 4
+            case 'PageUp': {
+                e.preventDefault();
+                const next = Math.max(0, positionIndex - PAGE_SIZE);
+                if (e.shiftKey) {
+                    selection2d.nudgeActiveEnd({ delta: { width: 0, height: -PAGE_SIZE } });
+                    focusRow(next);
+                    return;
+                }
+                selection2d.setSelection(new SelectionRect2D({
+                    start: { x: 0, y: next },
+                    size: { width: 1, height: 1 },
+                }));
+                focusRow(next);
+                break;
+            }
+            case 'PageDown': {
+                e.preventDefault();
+                const next = Math.min(maxIndex, positionIndex + PAGE_SIZE);
+                if (e.shiftKey) {
+                    selection2d.nudgeActiveEnd({ delta: { width: 0, height: PAGE_SIZE } });
+                    focusRow(next);
+                    return;
+                }
+                selection2d.setSelection(new SelectionRect2D({
+                    start: { x: 0, y: next },
+                    size: { width: 1, height: 1 },
+                }));
+                focusRow(next);
+                break;
+            }
             case 'Delete':
             case 'Backspace':
                 e.preventDefault();
                 handleDeleteSelected();
                 break;
-            case 'Enter':
-            case ' ':
-                e.preventDefault();
-                break;
+            // case 'Enter':
+            // case ' ':
+            //     e.preventDefault();
+            //     break;
         }
     };
 
