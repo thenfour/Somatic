@@ -129,7 +129,8 @@ export const gActionRegistry: ActionRegistry = {
       description: "start playback from the current row in the active position.",
       category: "Transport",
       defaultBindings: [
-         {kind: "character", key: "9", alt: true},
+         //{kind: "character", key: "9", alt: true},
+         {kind: "physical", code: "Space", shift: true},
       ],
    },
 
@@ -139,19 +140,20 @@ export const gActionRegistry: ActionRegistry = {
       description: "start playback from the beginning of the active pattern.",
       category: "Transport",
       defaultBindings: [
-         {kind: "character", key: "8", alt: true},
+         {kind: "physical", code: "Space"},
+         //{kind: "character", key: "8", alt: true},
       ],
    },
 
-   "PlayStop": {
-      id: "PlayStop",
-      title: "play or stop playback",
-      description: "stops playback if playing, otherwise starts playback from the current position.",
-      category: "Transport",
-      defaultBindings: [
-         {kind: "physical", code: "Space"},
-      ],
-   },
+   // "PlayStop": {
+   //    id: "PlayStop",
+   //    title: "play or stop playback",
+   //    description: "stops playback if playing, otherwise starts playback from the current position.",
+   //    category: "Transport",
+   //    defaultBindings: [
+   //       {kind: "physical", code: "Space"},
+   //    ],
+   // },
 
    "ToggleEditMode": {
       id: "ToggleEditMode",

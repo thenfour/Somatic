@@ -14,7 +14,7 @@ export const Actions = {
    PlayFromPosition: "PlayFromPosition",
    PlayPattern: "PlayPattern",
    PlaySong: "PlaySong",
-   PlayStop: "PlayStop",
+   //PlayStop: "PlayStop",
    ToggleEditMode: "ToggleEditMode",
    DecreaseOctave: "DecreaseOctave",
    IncreaseOctave: "IncreaseOctave",

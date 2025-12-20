@@ -248,64 +248,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         applyUndoSnapshot(snapshot);
     }, [applyUndoSnapshot, getUndoSnapshot, pushToast]);
 
-    useActionHandler("Undo", handleUndo);
-    useActionHandler("Redo", handleRedo);
-    useActionHandler("TogglePreferencesPanel", () => setPreferencesPanelOpen(open => !open));
-    useActionHandler("FocusPattern", () => patternGridRef.current?.focusPattern());
-    useActionHandler("ToggleWaveformEditor", () => setWaveformEditorPanelOpen(open => !open));
-    useActionHandler("ToggleInstrumentPanel", () => setInstrumentPanelOpen(open => !open));
-    useActionHandler("ToggleTic80Panel", () => setTic80PanelOpen(open => !open));
-    useActionHandler("ToggleOnScreenKeyboard", () => setShowingOnScreenKeyboard(open => !open));
-    useActionHandler("ToggleArrangementEditor", () => setShowingArrangementEditor(open => !open));
-    useActionHandler("ToggleAdvancedEditPanel", () => setAdvancedEditPanelOpen(open => !open));
-    useActionHandler("PlaySong", () => {
-        autoSave.flush();
-        if (audio.getMusicState().somaticSongPosition >= 0) {
-            audio.panic();
-        } else {
-            audio.playSong(0, 0);
-        }
-    });
-    useActionHandler("PlayFromPosition", () => {
-        autoSave.flush();
-        audio.playSong(editorState.activeSongPosition, editorState.patternEditRow);
-    });
-    useActionHandler("PlayPattern", () => {
-        autoSave.flush();
-        audio.playSong(editorState.activeSongPosition, 0);
-    });
-    useActionHandler("ToggleEditMode", () => {
-        toggleEditingEnabled();
-    });
-    useActionHandler("Panic", () => {
-        console.log('[App] Panic!');
-        audio.panic();
-    });
-    useActionHandler("DecreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave - 1)));
-    useActionHandler("IncreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave + 1)));
-    useActionHandler("DecreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument - 1)));
-    useActionHandler("IncreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument + 1)));
-    useActionHandler("IncreaseEditStep", () => updateSong((s) => s.setPatternEditStep(s.patternEditStep + 1)));
-    useActionHandler("DecreaseEditStep", () => updateSong((s) => s.setPatternEditStep(Math.max(0, s.patternEditStep - 1))));
-    useActionHandler("IncreaseTempo", () => updateSong((s) => s.setTempo(Math.min(240, s.tempo + 1))));
-    useActionHandler("DecreaseTempo", () => updateSong((s) => s.setTempo(Math.max(1, s.tempo - 1))));
-    useActionHandler("IncreaseSpeed", () => updateSong((s) => s.setSpeed(Math.min(31, s.speed + 1))));
-    useActionHandler("DecreaseSpeed", () => updateSong((s) => s.setSpeed(Math.max(1, s.speed - 1))));
-    useActionHandler("NextSongOrder", () => {
-        const nextPos = Math.min(song.songOrder.length - 1, editorState.activeSongPosition + 1);
-        updateEditorState((s) => s.setActiveSongPosition(nextPos));
-    });
-    useActionHandler("PreviousSongOrder", () => {
-        const prevPos = Math.max(0, editorState.activeSongPosition - 1);
-        updateEditorState((s) => s.setActiveSongPosition(prevPos));
-    });
-    useActionHandler("ToggleKeyboardNoteInput", () => {
-        toggleKeyboardEnabled();
-    });
-    useActionHandler("ToggleMidiNoteInput", () => {
-        toggleMidiEnabled();
-    });
-
     useEffect(() => {
         autoSave.enqueue(song);
         autoSave.flush();
@@ -409,14 +351,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     // handlers for clicking the keyboard view note on / off
     const handleNoteOn = (midiNote: number) => {
-        //const s = song;
-        //const instIdx = clamp(editorState.currentInstrument, 0, s.instruments.length - 1);
-        //const instrument = s.instruments[instIdx];
-        //const channel = Math.max(0, Math.min(3, editorState.patternEditChannel || 0));
         autoSave.flush();
-        //if (instrument) {
         audio.sfxNoteOn(song, editorState.currentInstrument, midiNote);
-        //}
     };
 
     const handleNoteOff = (midiNote: number) => {
@@ -526,20 +462,75 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const onPlayPattern = () => {
         autoSave.flush();
-        audio.playSong(editorState.activeSongPosition, 0);
+        if (audio.getMusicState().isPlaying) {
+            audio.panic();
+        } else {
+            audio.playSong(editorState.activeSongPosition, 0);
+        }
     };
 
     const onPlayAll = () => {
-        //setTransportState('play-all');
         autoSave.flush();
-        audio.playSong(0, 0);
+        if (audio.getMusicState().isPlaying) {
+            audio.panic();
+        } else {
+            audio.playSong(0, 0);
+        }
     };
 
     const onPlayFromPosition = () => {
-        //setTransportState('play-from-position');
         autoSave.flush();
-        audio.playSong(editorState.activeSongPosition, editorState.patternEditRow);
+        if (audio.getMusicState().isPlaying) {
+            audio.panic();
+        } else {
+            audio.playSong(editorState.activeSongPosition, editorState.patternEditRow);
+        }
     };
+
+
+    useActionHandler("Panic", onPanic);
+    useActionHandler("Undo", handleUndo);
+    useActionHandler("Redo", handleRedo);
+    useActionHandler("TogglePreferencesPanel", () => setPreferencesPanelOpen(open => !open));
+    useActionHandler("FocusPattern", () => patternGridRef.current?.focusPattern());
+    useActionHandler("ToggleWaveformEditor", () => setWaveformEditorPanelOpen(open => !open));
+    useActionHandler("ToggleInstrumentPanel", () => setInstrumentPanelOpen(open => !open));
+    useActionHandler("ToggleTic80Panel", () => setTic80PanelOpen(open => !open));
+    useActionHandler("ToggleOnScreenKeyboard", () => setShowingOnScreenKeyboard(open => !open));
+    useActionHandler("ToggleArrangementEditor", () => setShowingArrangementEditor(open => !open));
+    useActionHandler("ToggleAdvancedEditPanel", () => setAdvancedEditPanelOpen(open => !open));
+    useActionHandler("PlaySong", onPlayAll);
+    useActionHandler("PlayFromPosition", onPlayFromPosition);
+    useActionHandler("PlayPattern", onPlayPattern);
+    useActionHandler("PlayPattern", onPlayPattern);
+    useActionHandler("ToggleEditMode", toggleEditingEnabled);
+    useActionHandler("DecreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave - 1)));
+    useActionHandler("IncreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave + 1)));
+    useActionHandler("DecreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument - 1)));
+    useActionHandler("IncreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument + 1)));
+    useActionHandler("IncreaseEditStep", () => updateSong((s) => s.setPatternEditStep(s.patternEditStep + 1)));
+    useActionHandler("DecreaseEditStep", () => updateSong((s) => s.setPatternEditStep(Math.max(0, s.patternEditStep - 1))));
+    useActionHandler("IncreaseTempo", () => updateSong((s) => s.setTempo(Math.min(240, s.tempo + 1))));
+    useActionHandler("DecreaseTempo", () => updateSong((s) => s.setTempo(Math.max(1, s.tempo - 1))));
+    useActionHandler("IncreaseSpeed", () => updateSong((s) => s.setSpeed(Math.min(31, s.speed + 1))));
+    useActionHandler("DecreaseSpeed", () => updateSong((s) => s.setSpeed(Math.max(1, s.speed - 1))));
+    useActionHandler("NextSongOrder", () => {
+        const nextPos = Math.min(song.songOrder.length - 1, editorState.activeSongPosition + 1);
+        updateEditorState((s) => s.setActiveSongPosition(nextPos));
+    });
+    useActionHandler("PreviousSongOrder", () => {
+        const prevPos = Math.max(0, editorState.activeSongPosition - 1);
+        updateEditorState((s) => s.setActiveSongPosition(prevPos));
+    });
+    useActionHandler("ToggleKeyboardNoteInput", () => {
+        toggleKeyboardEnabled();
+    });
+    useActionHandler("ToggleMidiNoteInput", () => {
+        toggleMidiEnabled();
+    });
+
+
+
 
     const handleBridgeReady = React.useCallback((handle: Tic80BridgeHandle) => {
         //console.log('[App] Bridge ready, uploading current song');
@@ -549,14 +540,13 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         autoSave.flush();
     }, [audio, song]);
 
-    useActionHandler("Panic", onPanic);
-    useActionHandler("PlayStop", () => {
-        if (audio.getMusicState().isPlaying) {
-            onPanic();
-        } else {
-            onPlayFromPosition();
-        }
-    });
+    // useActionHandler("PlayStop", () => {
+    //     if (audio.getMusicState().isPlaying) {
+    //         onPanic();
+    //     } else {
+    //         onPlayFromPosition();
+    //     }
+    // });
 
     return (
         <div className="app">

@@ -8,6 +8,7 @@ import "./KeyboardShortcutConfigurator.css";
 import { useShortcutManager } from "./KeyboardShortcutManager";
 import { isSameChord, ShortcutChord } from "./KeyboardShortcutTypes";
 import { useChordCapture } from "./useChordCapture";
+import { useConfirmDialog } from "../ui/confirm_dialog";
 
 interface KeyboardChordRowProps {
     chord: ShortcutChord | null;
@@ -129,27 +130,36 @@ function BindingEditorRow({ actionId }: { actionId: ActionId }) {
                 title={"Unbind all shortcuts for this action"}
             >   Unbind</button> */}
 
-            <button
-                className={`keyboard-binding-row__button ${isCustomized ? '' : 'keyboard-binding-row__button--disabled'}`}
-                onClick={handleResetToDefault}
-                title={"Reset to default"}
-            >
-                Use default
-            </button>
+            <Tooltip title={isDefault ? "This action is using the default bindings." : `Reset this action's bindings to the default (${defaultBindings.map(b => formatChord(b, mgr.platform)).join(", ") || "unbound"} ).`}>
+                <button
+                    className={`keyboard-binding-row__button ${isCustomized ? '' : 'keyboard-binding-row__button--disabled'}`}
+                    onClick={handleResetToDefault}
+                    title={"Reset to default"}
+                >
+                    Reset to default
+                </button>
+            </Tooltip>
         </span>
     </div>
     );
 }
 
 export const KeyboardShortcutConfigurator: React.FC<{}> = () => {
-    //const mgr = useShortcutManager();
+    const confirm = useConfirmDialog();
+    const mgr = useShortcutManager();
     const allCategories = new Set(kAllActions.map(action => action.category));
 
-    // todo: warn when a chord is bound to multiple actions
+    const onResetAllToDefaults = React.useCallback(async () => {
+        if (!await confirm.confirm({ content: "Reset all keyboard shortcuts to their default bindings?" })) {
+            return;
+        }
+        mgr.setUserBindings({});
+    }, []);
 
     return <div className="keyboard-shortcut-configurator">
         <section>
             <h3>Keyboard Shortcuts</h3>
+            <button onClick={onResetAllToDefaults}>Reset all to defaults</button>
             {Array.from(allCategories).map(category => (
                 <div key={category} className="keyboard-shortcut-category">
                     <h4>{category}</h4>
