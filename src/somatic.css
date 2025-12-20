@@ -1068,6 +1068,7 @@ option {
 .pattern-grid .channel-header-cell-contents .channel-header-label {
     padding: 0 12px;
     font-size: 24px;
+    cursor: pointer;
 }
 
 
@@ -1177,6 +1178,7 @@ option {
 .pattern-grid .row-number {
     background-color: var(--bg);
     color: var(--muted);
+    cursor: pointer;
 }
 
 .pattern-grid .row-number.row-number--selected {

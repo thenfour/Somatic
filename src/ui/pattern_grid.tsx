@@ -959,6 +959,65 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex });
         };
 
+        const handleChannelHeaderClick = (e: React.MouseEvent<HTMLDivElement>, channelIndex: Tic80ChannelIndex) => {
+            // hm this is slightly awkward but it will do for now..
+            // issues:
+            // - anchor moves to a place that's not natural
+            // - unable to click-drag to select multiple channels
+            if (e.shiftKey) {
+                // extend selection to this channel
+                const anchor = editorState.patternSelection?.getAnchorPoint();
+                if (!anchor) {
+                    // no selection yet, set to this channel
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: { x: channelIndex, y: 0 },
+                        size: { width: 1, height: song.rowsPerPattern },
+                    }));
+                } else {
+                    const newLeft = Math.min(anchor.x, channelIndex);
+                    const newRight = Math.max(anchor.x, channelIndex);
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: { x: newLeft, y: 0 },
+                        size: { width: newRight - newLeft + 1, height: song.rowsPerPattern },
+                    }));
+                }
+            } else {
+                // select only this channel
+                selection2d.setSelection(new SelectionRect2D({
+                    start: { x: channelIndex, y: 0 },
+                    size: { width: 1, height: song.rowsPerPattern },
+                }));
+            }
+        };
+
+        const handleRowHeaderMouseDown = (e: React.MouseEvent<HTMLTableCellElement>, rowIndex: number) => {
+            // adapted from above.
+            // select the row / extend the selection to this row
+            if (e.shiftKey) {
+                const anchor = editorState.patternSelection?.getAnchorPoint();
+                if (!anchor) {
+                    // no selection yet, set to this row
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: { x: 0, y: rowIndex },
+                        size: { width: Tic80Caps.song.audioChannels, height: 1 },
+                    }));
+                } else {
+                    const newTop = Math.min(anchor.y, rowIndex);
+                    const newBottom = Math.max(anchor.y, rowIndex);
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: { x: 0, y: newTop },
+                        size: { width: Tic80Caps.song.audioChannels, height: newBottom - newTop + 1 },
+                    }));
+                }
+            } else {
+                // select only this row
+                selection2d.setSelection(new SelectionRect2D({
+                    start: { x: 0, y: rowIndex },
+                    size: { width: Tic80Caps.song.audioChannels, height: 1 },
+                }));
+            }
+        };
+
         return (
             <div className={`pattern-grid-shell${advancedEditPanelOpen ? ' pattern-grid-shell--advanced-open' : ''}`}>
                 {advancedEditPanelOpen && (
@@ -994,7 +1053,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                     return (
                                         <th key={i} colSpan={CELLS_PER_CHANNEL} className={headerClass}>
                                             <div className='channel-header-cell-contents'>
-                                                <div className='channel-header-label'>{i + 1}</div>
+                                                <div
+                                                    className='channel-header-label'
+                                                    onClick={(e) => handleChannelHeaderClick(e, i)}
+                                                >
+                                                    {i + 1}
+                                                </div>
                                                 <div className='channel-header-controls-group'>
                                                     <button
                                                         type="button"
@@ -1022,7 +1086,13 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                 const rowNumberClass = `row-number${isRowInSelection ? ' row-number--selected' : ''}`;
                                 return (
                                     <tr key={rowIndex} className={rowClass}>
-                                        <td className={rowNumberClass}>{rowIndex}</td>
+                                        <td
+                                            className={rowNumberClass}
+                                            data-row-index={rowIndex}
+                                            onMouseDown={(e) => handleRowHeaderMouseDown(e, rowIndex)}
+                                        >
+                                            {rowIndex}
+                                        </td>
                                         {pattern.channels.map((channel, channelIndexRaw) => {
                                             const channelIndex = ToTic80ChannelIndex(channelIndexRaw);
                                             const row = channel.rows[rowIndex];
