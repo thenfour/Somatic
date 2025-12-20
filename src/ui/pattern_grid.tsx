@@ -454,9 +454,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             // note entry is now handled via global note input sources (MIDI/keyboard), so other keys are ignored here.
         };
 
-        const handleInstrumentKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string) => {
+        const handleInstrumentKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
             const idx = instrumentKeyMap.indexOf(key);
-            if (idx === -1) return;
+            if (idx === -1) return false;
             onSongChange((s) => {
                 const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
                 const pat = s.patterns[patIndex];
@@ -466,8 +466,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     instrumentIndex: idx,
                 });
             });
-            //setRowValue(channelIndex, rowIndex, 'instrument', idx);
             playRow(rowIndex);
+            return true;
         };
 
         const handleCommandKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
@@ -518,11 +518,13 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const step = song.patternEditStep ?? 0;
             if (step <= 0) return;
             const rowCount = song.rowsPerPattern;
-            onEditorStateChange((state) => state.advancePatternEditRow(step, rowCount));
+            onEditorStateChange((state) => {
+                state.advancePatternEditRow(step, rowCount);
+            });
             const nextRow = clamp(rowIndex + step, 0, Math.max(0, rowCount - 1));
-            if (nextRow !== rowIndex) {
-                focusCell(nextRow, columnIndex);
-            }
+            //if (nextRow !== rowIndex) {
+            focusCell(nextRow, columnIndex);
+            //}
         };
 
         useImperativeHandle(ref, () => ({
@@ -640,21 +642,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             if (key === 'PageUp') {
                 const target = getTargetCoordForPageUp(row, col);
                 return [target.y, target.x] as const;
-                // const currentBlock = Math.floor(row / jumpSize);
-                // const targetBlock = currentBlock - 1;
-                // const targetRow = targetBlock * jumpSize;
-                // if (targetRow < 0) {
-                //     // Navigate to previous song order position
-                //     if (currentPosition > 0) {
-                //         onEditorStateChange((s) => s.setActiveSongPosition(currentPosition - 1));
-                //         const blocksInPattern = Math.ceil(rowCount / jumpSize);
-                //         const newTargetRow = (blocksInPattern + targetBlock) * jumpSize;
-                //         return [Math.max(0, newTargetRow), col] as const;
-                //     }
-                //     // At the beginning of the song, clamp to top
-                //     return [0, col] as const;
-                // }
-                // return [targetRow, col] as const;
             }
             if (key === 'PageDown') {
                 const currentBlock = Math.floor(row / jumpSize);
@@ -874,7 +861,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             if (cellType === 'note' && !e.repeat) {
                 handleNoteKey(channelIndex, rowIndex, e);
             } else if (cellType === 'instrument' && instrumentKeyMap.includes(e.key) && !e.repeat) {
-                handleInstrumentKey(channelIndex, rowIndex, e.key);
+                const handled = handleInstrumentKey(channelIndex, rowIndex, e.key);
+                if (handled) {
+                    advanceAfterCellEdit(rowIndex, columnIndex);
+                    e.preventDefault();
+                }
             } else if (cellType === 'command' && commandKeyMap.includes(e.key) && !e.repeat) {
                 const handled = handleCommandKey(channelIndex, rowIndex, e.key);
                 if (handled) {
@@ -884,7 +875,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             } else if (cellType === 'param' && paramKeyMap.includes(e.key) && !e.repeat) {
                 const handled = handleParamKey(channelIndex, rowIndex, e.key);
                 if (handled) {
-                    advanceAfterCellEdit(rowIndex, columnIndex);
+                    // don't advance after param edit; facilitates typing
+                    //advanceAfterCellEdit(rowIndex, columnIndex);
                     e.preventDefault();
                 }
             } else if (e.key === '0' && cellType === 'note' && !e.repeat) {
