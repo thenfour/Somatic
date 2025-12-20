@@ -9,13 +9,6 @@ const FPS_WARNING_THRESHOLD = 45; // below this and we show a warning
 // why accept musicState as a prop? to let the parent fetch it only when needed
 // and why not put fps in music state? because we expect it's updating constantly and don't want infinite re-renders
 export const MusicStateDisplay: React.FC<{ bridgeReady: boolean; audio: AudioController, musicState: MusicState }> = ({ bridgeReady, audio, musicState }) => {
-    if (!bridgeReady) {
-        return <Tooltip title="TIC-80 bridge is initializing... should take a few seconds">
-            <div className='musicState-panel musicState-panel--booting'>
-                <div className='loading-spinner'></div>
-            </div>
-        </Tooltip>;
-    }
 
     const [fps, setFps] = useState(0);
 
@@ -32,6 +25,14 @@ export const MusicStateDisplay: React.FC<{ bridgeReady: boolean; audio: AudioCon
         }, FPS_UPDATE_INTERVAL_MS);
         return () => clearInterval(interval);
     }, [audio]);
+
+    if (!bridgeReady) {
+        return <Tooltip title="TIC-80 bridge is initializing... should take a few seconds">
+            <div className='musicState-panel musicState-panel--booting'>
+                <div className='loading-spinner'></div>
+            </div>
+        </Tooltip>;
+    }
 
     return <Tooltip title={<div>
         <div>TIC-80 playback status</div>

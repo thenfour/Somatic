@@ -308,6 +308,32 @@ export const ArrangementEditor: React.FC<{
         if (target) target.focus();
     };
 
+    const handleWheel = (e: React.WheelEvent) => {
+        const positionIndex = editorState.activeSongPosition;
+        const maxIndex = Math.max(0, song.songOrder.length - 1);
+
+        // deltaY > 0 means scrolling down (move cursor down)
+        // deltaY < 0 means scrolling up (move cursor up)
+        if (e.deltaY === 0) return;
+
+        e.preventDefault();
+
+        let next: number;
+        if (e.deltaY < 0) {
+            next = Math.max(0, positionIndex - 1);
+        } else {
+            next = Math.min(maxIndex, positionIndex + 1);
+        }
+        selection2d.setSelection(new SelectionRect2D({
+            start: { x: 0, y: next },
+            size: { width: 1, height: 1 },
+        }));
+        onEditorStateChange((state) => {
+            state.setActiveSongPosition(next);
+        });
+        focusRow(next);
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent, positionIndex: number) => {
         const maxIndex = Math.max(0, song.songOrder.length - 1);
         switch (e.key) {
@@ -434,7 +460,9 @@ export const ArrangementEditor: React.FC<{
         <div className="arrangement-editor">
             <div className="arrangement-editor__header">
             </div>
-            <div className="arrangement-editor__content">
+            <div className="arrangement-editor__content"
+                onWheel={(e) => handleWheel(e)}
+            >
                 {song.songOrder.map((patternIndex, positionIndex) => {
                     const clampedPattern = clamp(patternIndex ?? 0, 0, maxPatterns - 1);
                     const isSelected = editorState.activeSongPosition === positionIndex;
