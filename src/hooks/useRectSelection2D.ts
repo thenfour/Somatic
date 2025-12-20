@@ -54,7 +54,7 @@ export class SelectionRect2D {
       if (this.size.height >= 0) {
          return this.anchor.y;
       } else {
-         return this.anchor.y + this.size.height;
+         return this.anchor.y + this.size.height + 1; // adjust negative span to stay inclusive
       }
    }
 
@@ -64,7 +64,7 @@ export class SelectionRect2D {
       if (this.size.width >= 0) {
          return this.anchor.x;
       } else {
-         return this.anchor.x + this.size.width;
+         return this.anchor.x + this.size.width + 1; // adjust negative span to stay inclusive
       }
    }
 
@@ -132,21 +132,45 @@ export class SelectionRect2D {
          width: next.size.width + delta.width,
          height: next.size.height + delta.height,
       };
-      // avoid 0-sized rects
-      if (next.size.width === 0) {
-         if (delta.width > 0) {
-            next.size.width = 1;
-         } else if (delta.width < 0) {
-            next.size.width = -1;
-         }
+      // avoid 0-sized rects.
+      // it means we have to avoid 0 height or width.
+      // it also means we have to avoid -1, because it would have the same semantics as 1.
+
+      // jumping from -2 to -1 -> set to 1.
+      if (delta.height === 1 && next.size.height === -1) {
+         next.size.height = 1;
       }
-      if (next.size.height === 0) {
-         if (delta.height > 0) {
-            next.size.height = 1;
-         } else if (delta.height < 0) {
-            next.size.height = -1;
-         }
+      if (delta.width === 1 && next.size.width === -1) {
+         next.size.width = 1;
       }
+
+      // jumping from 1 to 0 -> set to -2.
+      if (delta.height === -1 && next.size.height === 0) {
+         next.size.height = -2;
+      }
+      if (delta.width === -1 && next.size.width === 0) {
+         next.size.width = -2;
+      }
+
+
+      // if (delta.width  && next.size.width === 0) {
+      //    next.size.width = 1;
+      // }
+
+      // if (next.size.width === 0) {
+      //    if (delta.width > 0) {
+      //       next.size.width = 1; // jumping from negative to positive; select 1.
+      //    } else if (delta.width < 0) {
+      //       next.size.width = -2; // jumping from positive to negative; select -2.
+      //    }
+      // }
+      // if (next.size.height === 0) {
+      //    if (delta.height > 0) {
+      //       next.size.height = 1; // jumping from negative to positive; select 1.
+      //    } else if (delta.height < 0) {
+      //       next.size.height = -2; // jumping from positive to negative; select -2.
+      //    }
+      // }
       return next;
    }
 
@@ -254,6 +278,7 @@ export function useRectSelection2D({
 
    const apply = React.useCallback(
       (rect: SelectionRect2D) => {
+         console.log(`apply selection: ${rect.toString()}`);
          const next = rect.withClampedCoords(clampCoord);
          onChange(next);
       },
