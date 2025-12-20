@@ -41,6 +41,13 @@ export const Actions = {
    ToggleSoloChannel4: "ToggleSoloChannel4",
    UnmuteUnsoloAllChannels: "UnmuteUnsoloAllChannels",
 
+   TransposeSelectionUpSemitone: "TransposeSelectionUpSemitone",
+   TransposeSelectionDownSemitone: "TransposeSelectionDownSemitone",
+   TransposeSelectionUpOctave: "TransposeSelectionUpOctave",
+   TransposeSelectionDownOctave: "TransposeSelectionDownOctave",
+
+   ExportCartRelease: "ExportCartRelease",
+
    Copy: "Copy",
    Paste: "Paste",
    Cut: "Cut",

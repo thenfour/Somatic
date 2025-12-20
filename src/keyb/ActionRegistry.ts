@@ -78,7 +78,7 @@ export const gActionRegistry: ActionRegistry = {
       description: "show or hide the TIC-80 bridge panel.",
       category: "View",
       defaultBindings: [
-         {kind: "character", key: "8", alt: true},
+         {kind: "character", key: ".", primary: true},
       ],
    },
 
@@ -398,6 +398,50 @@ export const gActionRegistry: ActionRegistry = {
       category: "Edit",
       defaultBindings: [
          {kind: "character", key: "5", alt: true},
+      ],
+   },
+   "ExportCartRelease": {
+      id: "ExportCartRelease",
+      title: "export cart release",
+      description: "export an optimized TIC-80 cartridge.",
+      category: "Edit",
+      defaultBindings: [],
+   },
+
+   "TransposeSelectionUpSemitone": {
+      id: "TransposeSelectionUpSemitone",
+      title: "transpose selection up semitone",
+      description: "transpose the selected notes up by one semitone.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "ArrowRight", alt: true},
+      ],
+   },
+   "TransposeSelectionDownSemitone": {
+      id: "TransposeSelectionDownSemitone",
+      title: "transpose selection down semitone",
+      description: "transpose the selected notes down by one semitone.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "ArrowLeft", alt: true},
+      ],
+   },
+   "TransposeSelectionUpOctave": {
+      id: "TransposeSelectionUpOctave",
+      title: "transpose selection up octave",
+      description: "transpose the selected notes up by one octave.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "ArrowUp", alt: true},
+      ],
+   },
+   "TransposeSelectionDownOctave": {
+      id: "TransposeSelectionDownOctave",
+      title: "transpose selection down octave",
+      description: "transpose the selected notes down by one octave.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "ArrowDown", alt: true},
       ],
    },
 } as const;

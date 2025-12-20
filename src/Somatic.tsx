@@ -537,6 +537,23 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             }
         });
     });
+    useActionHandler("ExportCartRelease", () => exportCart('release'));
+    useActionHandler("TransposeSelectionDownSemitone", () => {
+        if (!patternGridRef.current) return;
+        patternGridRef.current?.transposeNotes(-1, 'selection');
+    });
+    useActionHandler("TransposeSelectionUpSemitone", () => {
+        if (!patternGridRef.current) return;
+        patternGridRef.current?.transposeNotes(1, 'selection');
+    });
+    useActionHandler("TransposeSelectionDownOctave", () => {
+        if (!patternGridRef.current) return;
+        patternGridRef.current?.transposeNotes(-12, 'selection');
+    });
+    useActionHandler("TransposeSelectionUpOctave", () => {
+        if (!patternGridRef.current) return;
+        patternGridRef.current?.transposeNotes(12, 'selection');
+    });
 
     const handleBridgeReady = React.useCallback((handle: Tic80BridgeHandle) => {
         //console.log('[App] Bridge ready, uploading current song');

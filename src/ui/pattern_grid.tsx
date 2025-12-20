@@ -77,6 +77,7 @@ type PatternGridProps = {
 export type PatternGridHandle = {
     focusPattern: () => void;
     focusCellAdvancedToRow: (rowIndex: number) => void; // after editstep changes, set focus to this row. we will keep the same column as current.
+    transposeNotes: (amount: number, scope: ScopeValue) => void;
 };
 
 const PATTERN_CLIPBOARD_TYPE = 'somatic-pattern-block';
@@ -553,6 +554,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 focusCell(row, col);
             },
             focusCellAdvancedToRow,
+            transposeNotes: handleTranspose,
         }), [editorState.patternEditChannel, editorState.patternEditRow, focusCell, focusCellAdvancedToRow]);
 
         const updateEditTarget = ({ rowIndex, channelIndex }: { rowIndex: number, channelIndex: Tic80ChannelIndex }) => {
@@ -809,6 +811,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         };
 
         const onCellKeyDown = (e: React.KeyboardEvent<HTMLTableCellElement>) => {
+            if (e.altKey) {
+                // let alt+key combinations pass through for system/user handling
+                return;
+            }
             const target = e.currentTarget;
             const rowIndex = parseInt(target.dataset.rowIndex!, 10);
             const channelIndex = parseInt(target.dataset.channelIndex!, 10) as Tic80ChannelIndex;
