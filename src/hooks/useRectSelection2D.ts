@@ -278,7 +278,6 @@ export function useRectSelection2D({
 
    const apply = React.useCallback(
       (rect: SelectionRect2D) => {
-         console.log(`apply selection: ${rect.toString()}`);
          const next = rect.withClampedCoords(clampCoord);
          onChange(next);
       },

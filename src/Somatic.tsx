@@ -38,6 +38,7 @@ import { useActionHandler } from './keyb/useActionHandler';
 import { useShortcutManager } from './keyb/KeyboardShortcutManager';
 import { CharMap } from './utils/utils';
 import { ShortcutScopeProvider } from './keyb/KeyboardShortcutScope';
+import { useRenderAlarm } from './hooks/useRenderAlarm';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -175,7 +176,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         return () => cancelAnimationFrame(animationFrameId);
     }, [audio]);
 
-
     const getUndoSnapshot = useCallback(() => ({
         song: songRef.current.toData(),
         editor: editorRef.current.toData(),
@@ -195,8 +195,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         // }
     });
 
-
-
+    useRenderAlarm({
+        name: 'App',
+    });
 
     const applyUndoSnapshot = useCallback((snapshot: UndoSnapshot) => {
         autoSave.flush();

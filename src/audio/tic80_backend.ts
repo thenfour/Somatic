@@ -199,7 +199,7 @@ export class Tic80Backend {
       const somaticSongPosition = b.peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_SONG_POSITION);
 
       const isLooping = !!(flags & 0x1);
-      this.lastKnownMusicState = {
+      const next: MusicState = {
          tic80RowIndex: row,
          tic80FrameIndex: frame,
          tic80TrackIndex: track,
@@ -208,6 +208,12 @@ export class Tic80Backend {
          isPlaying: somaticSongPosition !== 255,
          isLooping,
       };
+
+      // do not spam instances. check if it actually changed.
+      if (JSON.stringify(this.lastKnownMusicState) !== JSON.stringify(next)) {
+         this.lastKnownMusicState = next;
+      }
+
       return this.lastKnownMusicState;
    }
 

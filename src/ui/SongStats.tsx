@@ -8,6 +8,7 @@ import { useClipboard } from "../hooks/useClipboard";
 import { base85Encode, lzCompress, lzDecompress } from "../audio/encoding";
 import { OptimizeSong } from "../utils/SongOptimizer";
 import { gAllChannelsAudible, SomaticCaps } from "../models/tic80Capabilities";
+import { useRenderAlarm } from "../hooks/useRenderAlarm";
 
 type ChunkInfo = {
     name: string; //
@@ -34,6 +35,10 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
     const [minMatchLength, setMinMatchLength] = useState<number>(4);
     const [maxMatchLength, setMaxMatchLength] = useState<number>(30);
     const [useRLE, setUseRLE] = useState<boolean>(false);
+
+    useRenderAlarm({
+        name: 'SongStats',
+    });
 
     const clipboard = useClipboard();
     //const [data, setData] = useState<SongStatsData>({ cartSize: 0, breakdown: [] });

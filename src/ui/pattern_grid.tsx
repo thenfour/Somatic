@@ -14,6 +14,7 @@ import { useToasts } from './toast_provider';
 import { Tooltip } from './tooltip';
 import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D';
 import { changeInstrumentInPattern, interpolatePatternValues, RowRange, setInstrumentInPattern, transposeCellsInPattern } from '../utils/advancedPatternEdit';
+import { useRenderAlarm } from '../hooks/useRenderAlarm';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 
@@ -127,6 +128,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     y: clamp(coord.y, 0, song.rowsPerPattern - 1),
                 };
             },
+        });
+
+        useRenderAlarm({
+            name: 'PatternGrid',
         });
 
         const resolveScopeTargets = useCallback((scope: ScopeValue): ScopeTargets | null => {
