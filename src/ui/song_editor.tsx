@@ -7,6 +7,9 @@ import { Song } from '../models/song';
 import { HelpTooltip } from './HelpTooltip';
 import { Tic80Caps } from '../models/tic80Capabilities';
 import { TryParseInt } from '../utils/utils';
+import { Tooltip } from './tooltip';
+import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
+import { ActionId } from '../keyb/ActionIds';
 
 type SongEditorProps = {
     song: Song;
@@ -17,9 +20,9 @@ type SongEditorProps = {
 };
 
 export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSongChange, onEditorStateChange, audio }) => {
-    const effectiveBpm = Math.round(((song.tempo * 6) / song.speed) * 10) / 10; // TIC BPM approximation
     const patternId = song.songOrder[editorState.activeSongPosition]!;
     const pattern = song.patterns[patternId]!;
+    const mgr = useShortcutManager();
 
     const onSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = TryParseInt(e.target.value);
@@ -63,6 +66,10 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
         onSongChange((s) => s.setPatternEditStep(val));
     };
 
+    const getActionBindingLabel = (actionId: ActionId) => {
+        return mgr.getActionBindingLabel(actionId) || "Unbound";
+    };
+
     return (
         <div className="section">
             {/* <PositionList
@@ -72,44 +79,25 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 onEditorStateChange={onEditorStateChange}
                 audio={audio}
             /> */}
-            <div className="field-row">
-                <label htmlFor="song-tempo">Tempo</label>
-                <HelpTooltip
-                    content={(
-                        <>
-                            Effective BPM ≈ tempo*6/speed. Higher tempo = faster; higher speed = slower rows.<br />
-                            Current ≈ {effectiveBpm} BPM.
-                        </>
-                    )}
-                >
-                </HelpTooltip>
-                <input id="song-tempo" type="number" min={1} max={255} value={song.tempo} onChange={onTempoChange} />
-            </div>
-            <div className="field-row">
-                <label htmlFor="song-speed">Speed</label>
-                <HelpTooltip
-                    content={(
-                        <>
-                            TIC tick divisor; rows advance slower as speed increases. Effective BPM ≈ tempo*6/speed.<br />
-                            Current ≈ {effectiveBpm} BPM.
-                        </>
-                    )}
-                >
-                </HelpTooltip>
-                <input id="song-speed" type="number" min={1} max={31} value={song.speed} onChange={onSpeedChange} />
-            </div>
-            <div className="field-row">
-                <label htmlFor="song-rows-per-pattern">Pattern Len</label>
-                <HelpTooltip
-                    content={(
-                        <>
-                            Rows per pattern. Affects all patterns in the song.
-                        </>
-                    )}
-                >
-                </HelpTooltip>
-                <input id="song-rows-per-pattern" type="number" min={1} max={Tic80Caps.pattern.maxRows} value={song.rowsPerPattern} onChange={onRowsPerPatternChange} />
-            </div>
+            <Tooltip title={`Song tempo; ${getActionBindingLabel("IncreaseTempo")} / ${getActionBindingLabel("DecreaseTempo")} to adjust.`}>
+                <div className="field-row">
+                    <label htmlFor="song-tempo">Tempo</label>
+                    <input id="song-tempo" type="number" min={1} max={255} value={song.tempo} onChange={onTempoChange} />
+                </div>
+            </Tooltip>
+            <Tooltip title={`Song speed (ticks per row). ${getActionBindingLabel("IncreaseSpeed")} / ${getActionBindingLabel("DecreaseSpeed")} to adjust.`}>
+                <div className="field-row">
+                    <label htmlFor="song-speed">Speed</label>
+                    <input id="song-speed" type="number" min={1} max={31} value={song.speed} onChange={onSpeedChange} />
+                </div>
+            </Tooltip>
+            <Tooltip title={`Number of rows in each pattern. Affects all patterns in the song.`}>
+                <div className="field-row">
+
+                    <label htmlFor="song-rows-per-pattern">Pattern Len</label>
+                    <input id="song-rows-per-pattern" type="number" min={1} max={Tic80Caps.pattern.maxRows} value={song.rowsPerPattern} onChange={onRowsPerPatternChange} />
+                </div>
+            </Tooltip>
             <label>
                 Highlight rows
                 <input
@@ -120,41 +108,46 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     onChange={onHighlightRowCountChange}
                 />
             </label>
-            <label>
-                Edit step
-                <input
-                    type="number"
-                    min={0}
-                    max={32}
-                    value={song.patternEditStep}
-                    onChange={onEditStepChange}
-                />
-            </label>
-            <label>
-                Octave
-                <input type="number" min={1} max={Tic80Caps.pattern.octaveCount/* -1 + 1 for 1-baseddisplay */} value={editorState.octave} onChange={onOctaveChange} />
-            </label>
-            <label>
-                Instrument
-                <select
-                    value={editorState.currentInstrument}
-                    onChange={(e) => onEditorStateChange((state) => state.setCurrentInstrument(parseInt(e.target.value, 10)))}
-                >
-                    {Array.from({ length: Tic80Caps.sfx.count }, (_, i) => (
-                        <option key={i} value={i}>
-                            {i}: {song.instruments[i].name}
-                        </option>
-                    ))}
-                </select>
-                {/* <input
+            <Tooltip title={`Number of rows the cursor moves after note input. ${getActionBindingLabel("IncreaseEditStep")} / ${getActionBindingLabel("DecreaseEditStep")} to adjust.`}>
+                <label>
+                    Edit step
+                    <input
+                        type="number"
+                        min={0}
+                        max={32}
+                        value={song.patternEditStep}
+                        onChange={onEditStepChange}
+                    />
+                </label>
+            </Tooltip>
+            <Tooltip title={`Current octave for note input. ${getActionBindingLabel("IncreaseOctave")} / ${getActionBindingLabel("DecreaseOctave")} to adjust.`}>
+                <label>
+                    Octave
+                    <input type="number" min={1} max={Tic80Caps.pattern.octaveCount/* -1 + 1 for 1-baseddisplay */} value={editorState.octave} onChange={onOctaveChange} />
+                </label>
+            </Tooltip>
+            <Tooltip title={`Current instrument for note input. ${getActionBindingLabel("IncreaseInstrument")} / ${getActionBindingLabel("DecreaseInstrument")} to adjust.`}>
+                <label>
+                    Instrument
+                    <select
+                        value={editorState.currentInstrument}
+                        onChange={(e) => onEditorStateChange((state) => state.setCurrentInstrument(parseInt(e.target.value, 10)))}
+                    >
+                        {Array.from({ length: Tic80Caps.sfx.count }, (_, i) => (
+                            <option key={i} value={i}>
+                                {i}: {song.instruments[i].name}
+                            </option>
+                        ))}
+                    </select>
+                    {/* <input
                     type="number"
                     min={1}
                     max={Tic80Caps.sfx.count}
                     value={editorState.currentInstrument}
                     onChange={onCurrentInstrumentChange}
                 /> */}
-            </label>
-
+                </label>
+            </Tooltip>
         </div>
     );
 };

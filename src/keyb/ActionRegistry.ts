@@ -272,9 +272,7 @@ export const gActionRegistry: ActionRegistry = {
       title: "decrease tempo",
       description: "decrease the song tempo (BPM).",
       category: "Edit",
-      defaultBindings: [
-         {kind: "character", key: "-", primary: true, shift: true},
-      ],
+      defaultBindings: [],
    },
 
    "IncreaseSpeed": {
