@@ -1,5 +1,6 @@
 import {ActionRegistry} from "./KeyboardShortcutTypes";
-
+// when capturing chords, they always land as character kind.
+// so in order to detect duplicates, it's best to default to using character kind in these defaults.
 
 export const gActionRegistry: ActionRegistry = {
    "Panic": {
@@ -109,7 +110,7 @@ export const gActionRegistry: ActionRegistry = {
       description: "show or hide the advanced edit panel.",
       category: "View",
       defaultBindings: [
-         {kind: "physical", code: "Backslash"},
+         {kind: "character", key: "\\"},
       ],
    },
 
@@ -161,7 +162,7 @@ export const gActionRegistry: ActionRegistry = {
       description: "enable or disable editing in the pattern editor and panic audio.",
       category: "Edit",
       defaultBindings: [
-         {kind: "physical", code: "Escape"},
+         {kind: "character", key: "Escape"},
       ],
    },
 
@@ -212,7 +213,7 @@ export const gActionRegistry: ActionRegistry = {
       category: "Edit",
       defaultBindings: [
          {kind: "character", key: "c", primary: true},
-         {kind: "physical", code: "Insert", primary: true},
+         {kind: "character", key: "Insert", primary: true},
       ],
    },
 
@@ -223,7 +224,7 @@ export const gActionRegistry: ActionRegistry = {
       category: "Edit",
       defaultBindings: [
          {kind: "character", key: "v", primary: true},
-         {kind: "physical", code: "Insert", shift: true},
+         {kind: "character", key: "Insert", shift: true},
       ],
    },
 
@@ -234,7 +235,7 @@ export const gActionRegistry: ActionRegistry = {
       category: "Edit",
       defaultBindings: [
          {kind: "character", key: "x", primary: true},
-         {kind: "physical", code: "Delete", shift: true},
+         {kind: "character", key: "Delete", shift: true},
       ],
    },
 
