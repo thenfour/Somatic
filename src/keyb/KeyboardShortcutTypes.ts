@@ -67,6 +67,29 @@ export type ShortcutContext = {
 
 export type UserBindings = Partial<Record<ActionId, ShortcutChord[]|null>>;
 
+export type UserBindigsDto = {
+   [actionId: string]: ShortcutChord[]|null;
+};
+
+export function serializeUserBindings(bindings: UserBindings): UserBindigsDto {
+   const dto: UserBindigsDto = {};
+   for (const actionId of Object.keys(bindings)) {
+      const b = bindings[actionId as ActionId];
+      if (b === undefined)
+         continue;
+      dto[actionId] = b;
+   }
+   return dto;
+}
+
+export function deserializeUserBindings(dto: UserBindigsDto): UserBindings {
+   const bindings: UserBindings = {};
+   for (const actionId of Object.keys(dto)) {
+      bindings[actionId as ActionId] = dto[actionId];
+   }
+   return bindings;
+};
+
 export type ActionRegistry = Record<ActionId, ActionDef>;
 
 export type ActionHandler = (ctx: ShortcutContext) => void;

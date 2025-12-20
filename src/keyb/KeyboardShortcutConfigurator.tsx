@@ -6,10 +6,11 @@ import { gActionRegistry, kAllActions } from "./ActionRegistry";
 import { formatChord } from "./format";
 import "./KeyboardShortcutConfigurator.css";
 import { useShortcutManager } from "./KeyboardShortcutManager";
-import { isSameChord, ShortcutChord } from "./KeyboardShortcutTypes";
+import { deserializeUserBindings, isSameChord, serializeUserBindings, ShortcutChord } from "./KeyboardShortcutTypes";
 import { useChordCapture } from "./useChordCapture";
 import { useConfirmDialog } from "../ui/confirm_dialog";
 import { useToasts } from "../ui/toast_provider";
+import { useClipboard } from "../hooks/useClipboard";
 
 interface KeyboardChordRowProps {
     chord: ShortcutChord | null;
@@ -174,6 +175,8 @@ function BindingEditorRow({ actionId }: { actionId: ActionId }) {
 
 export const KeyboardShortcutConfigurator: React.FC<{}> = () => {
     const confirm = useConfirmDialog();
+    const clipboard = useClipboard();
+    const toast = useToasts();
     const mgr = useShortcutManager();
     const allCategories = new Set(kAllActions.map(action => action.category));
 
@@ -184,10 +187,30 @@ export const KeyboardShortcutConfigurator: React.FC<{}> = () => {
         mgr.setUserBindings({});
     }, []);
 
+    const onCopyCurrentShortcutsToClipboard = React.useCallback(async () => {
+        const shortcuts = serializeUserBindings(mgr.userBindings);
+        await clipboard.copyObjectToClipboard(shortcuts);
+    }, [mgr, clipboard]);
+
+    const onPasteShortcutsFromClipboard = React.useCallback(async () => {
+        if (!await confirm.confirm({ content: "Paste keyboard shortcuts from clipboard? This will overwrite your current bindings." })) {
+            return;
+        }
+        const dto = await clipboard.readObjectFromClipboard();
+        mgr.setUserBindings(deserializeUserBindings(dto));
+        toast.pushToast({ variant: "success", message: "Keyboard shortcuts pasted from clipboard." });
+    }, [clipboard, mgr]);
+
     return <div className="keyboard-shortcut-configurator">
         <section>
             <h3>Keyboard Shortcuts</h3>
-            <button onClick={onResetAllToDefaults}>Reset all to defaults</button>
+            <div style={{ display: "flex" }}>
+                <button onClick={onResetAllToDefaults}>Reset to defaults</button>
+                <button onClick={onCopyCurrentShortcutsToClipboard}>Copy config</button>
+                <button onClick={onPasteShortcutsFromClipboard}>Paste</button>
+            </div>
+        </section>
+        <section>
             {Array.from(allCategories).map(category => (
                 <div key={category} className="keyboard-shortcut-category">
                     <h4>{category}</h4>

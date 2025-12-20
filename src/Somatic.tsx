@@ -14,7 +14,7 @@ import { KeyboardNoteInput } from './midi/keyboard_input';
 import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
-import { ToTic80ChannelIndex } from './models/tic80Capabilities';
+import { gChannelsArray, ToTic80ChannelIndex } from './models/tic80Capabilities';
 import { AppStatusBar } from './ui/AppStatusBar';
 import { ArrangementEditor } from './ui/ArrangementEditor';
 import { useConfirmDialog } from './ui/confirm_dialog';
@@ -505,8 +505,38 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("ToggleKeyboardNoteInput", toggleKeyboardEnabled);
     useActionHandler("ToggleMidiNoteInput", toggleMidiEnabled);
 
-
-
+    useActionHandler("ToggleMuteChannel1", () => {
+        updateEditorState((s) => s.setChannelMute(0, !s.isChannelExplicitlyMuted(0)));
+    });
+    useActionHandler("ToggleMuteChannel2", () => {
+        updateEditorState((s) => s.setChannelMute(1, !s.isChannelExplicitlyMuted(1)));
+    });
+    useActionHandler("ToggleMuteChannel3", () => {
+        updateEditorState((s) => s.setChannelMute(2, !s.isChannelExplicitlyMuted(2)));
+    });
+    useActionHandler("ToggleMuteChannel4", () => {
+        updateEditorState((s) => s.setChannelMute(3, !s.isChannelExplicitlyMuted(3)));
+    });
+    useActionHandler("ToggleSoloChannel1", () => {
+        updateEditorState((s) => s.setChannelSolo(0, !s.isChannelExplicitlySoloed(0)));
+    });
+    useActionHandler("ToggleSoloChannel2", () => {
+        updateEditorState((s) => s.setChannelSolo(1, !s.isChannelExplicitlySoloed(1)));
+    });
+    useActionHandler("ToggleSoloChannel3", () => {
+        updateEditorState((s) => s.setChannelSolo(2, !s.isChannelExplicitlySoloed(2)));
+    });
+    useActionHandler("ToggleSoloChannel4", () => {
+        updateEditorState((s) => s.setChannelSolo(3, !s.isChannelExplicitlySoloed(3)));
+    });
+    useActionHandler("UnmuteUnsoloAllChannels", () => {
+        updateEditorState((s) => {
+            for (const ch of gChannelsArray) {
+                s.setChannelMute(ch, false);
+                s.setChannelSolo(ch, false);
+            }
+        });
+    });
 
     const handleBridgeReady = React.useCallback((handle: Tic80BridgeHandle) => {
         //console.log('[App] Bridge ready, uploading current song');

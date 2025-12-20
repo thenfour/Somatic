@@ -49,9 +49,7 @@ export const gActionRegistry: ActionRegistry = {
       title: "focus pattern editor",
       description: "set keyboard focus to the pattern editor.",
       category: "View",
-      defaultBindings: [
-         {kind: "character", key: "1", alt: true},
-      ],
+      defaultBindings: [],
    },
 
    "ToggleWaveformEditor": {
@@ -60,7 +58,7 @@ export const gActionRegistry: ActionRegistry = {
       description: "show or hide the waveform editor panel.",
       category: "View",
       defaultBindings: [
-         {kind: "character", key: "2", alt: true},
+         {kind: "character", key: ","},
       ],
    },
 
@@ -70,7 +68,7 @@ export const gActionRegistry: ActionRegistry = {
       description: "show or hide the instrument editor panel.",
       category: "View",
       defaultBindings: [
-         {kind: "character", key: "3", alt: true},
+         {kind: "character", key: "."},
       ],
    },
 
@@ -80,7 +78,7 @@ export const gActionRegistry: ActionRegistry = {
       description: "show or hide the TIC-80 bridge panel.",
       category: "View",
       defaultBindings: [
-         {kind: "character", key: "4", alt: true},
+         {kind: "character", key: "8", alt: true},
       ],
    },
 
@@ -90,7 +88,7 @@ export const gActionRegistry: ActionRegistry = {
       description: "show or hide the on-screen keyboard.",
       category: "View",
       defaultBindings: [
-         {kind: "character", key: "5", alt: true},
+         {kind: "character", key: "9", alt: true},
       ],
    },
 
@@ -100,7 +98,7 @@ export const gActionRegistry: ActionRegistry = {
       description: "show or hide the arrangement editor.",
       category: "View",
       defaultBindings: [
-         {kind: "character", key: "6", alt: true},
+         {kind: "character", key: "/"},
       ],
    },
 
@@ -324,6 +322,82 @@ export const gActionRegistry: ActionRegistry = {
       category: "Edit",
       defaultBindings: [
          {kind: "character", key: "m", alt: true},
+      ],
+   },
+
+   "ToggleMuteChannel1": {
+      id: "ToggleMuteChannel1",
+      title: "toggle mute channel 1",
+      description: "mute or unmute channel 1.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "1", alt: true},
+      ],
+   },
+
+   "ToggleMuteChannel2": {
+      id: "ToggleMuteChannel2",
+      title: "toggle mute channel 2",
+      description: "mute or unmute channel 2.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "2", alt: true},
+      ],
+   },
+   "ToggleMuteChannel3": {
+      id: "ToggleMuteChannel3",
+      title: "toggle mute channel 3",
+      description: "mute or unmute channel 3.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "3", alt: true},
+      ],
+   },
+   "ToggleMuteChannel4": {
+      id: "ToggleMuteChannel4",
+      title: "toggle mute channel 4",
+      description: "mute or unmute channel 4.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "4", alt: true},
+      ],
+   },
+   "ToggleSoloChannel1": {
+      id: "ToggleSoloChannel1",
+      title: "toggle solo channel 1",
+      description: "solo or unsolo channel 1.",
+      category: "Edit",
+      defaultBindings: [],
+   },
+   "ToggleSoloChannel2": {
+      id: "ToggleSoloChannel2",
+      title: "toggle solo channel 2",
+      description: "solo or unsolo channel 2.",
+      category: "Edit",
+      defaultBindings: [],
+   },
+   "ToggleSoloChannel3": {
+      id: "ToggleSoloChannel3",
+      title: "toggle solo channel 3",
+      description: "solo or unsolo channel 3.",
+      category: "Edit",
+      defaultBindings: [],
+   },
+   "ToggleSoloChannel4": {
+      id: "ToggleSoloChannel4",
+      title: "toggle solo channel 4",
+      description: "solo or unsolo channel 4.",
+      category: "Edit",
+      defaultBindings: [],
+   },
+
+   "UnmuteUnsoloAllChannels": {
+      id: "UnmuteUnsoloAllChannels",
+      title: "unmute and unsolo all channels",
+      description: "unmute and unsolo all channels.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "5", alt: true},
       ],
    },
 } as const;
