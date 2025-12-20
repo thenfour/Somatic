@@ -75,6 +75,7 @@ type PatternGridProps = {
 
 export type PatternGridHandle = {
     focusPattern: () => void;
+    focusCellAdvancedToRow: (rowIndex: number) => void; // after editstep changes, set focus to this row. we will keep the same column as current.
 };
 
 const PATTERN_CLIPBOARD_TYPE = 'somatic-pattern-block';
@@ -105,6 +106,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const currentPosition = Math.max(0, Math.min(song.songOrder.length - 1, editorState.activeSongPosition || 0));
         const currentPatternIndex = song.songOrder[currentPosition] ?? 0;
         const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
+        const [currentColumnIndex, setCurrentColumnIndex] = useState(0);
         const pattern: Pattern = song.patterns[safePatternIndex];
         const cellRefs = useMemo(
             () => Array.from({ length: 64 }, () => Array(16).fill(null) as (HTMLTableCellElement | null)[]),
@@ -527,13 +529,19 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             //}
         };
 
+        const focusCellAdvancedToRow = useCallback((rowIndex: number) => {
+            //const columnIndex = (editorState.patternEditChannel || 0) * CELLS_PER_CHANNEL;
+            focusCell(rowIndex, currentColumnIndex);
+        }, [focusCell, currentColumnIndex]);
+
         useImperativeHandle(ref, () => ({
             focusPattern() {
                 const row = editorState.patternEditRow || 0;
                 const col = (editorState.patternEditChannel || 0) * CELLS_PER_CHANNEL;
                 focusCell(row, col);
             },
-        }), [editorState.patternEditChannel, editorState.patternEditRow, focusCell]);
+            focusCellAdvancedToRow,
+        }), [editorState.patternEditChannel, editorState.patternEditRow, focusCell, focusCellAdvancedToRow]);
 
         const updateEditTarget = ({ rowIndex, channelIndex }: { rowIndex: number, channelIndex: Tic80ChannelIndex }) => {
             //const channelIndex = Math.floor(col / 4);
@@ -912,6 +920,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const onCellFocus = (rowIndex: number, channelIndex: Tic80ChannelIndex, col: number) => {
             updateEditTarget({ rowIndex, channelIndex });
+            setCurrentColumnIndex(col);
         };
 
         return (

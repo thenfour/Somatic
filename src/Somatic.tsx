@@ -56,7 +56,7 @@ const getActivePatternCellType = (): PatternCellType | null => {
 
 const isEditingCommandOrParamCell = () => {
     const cellType = getActivePatternCellType();
-    return cellType === 'command' || cellType === 'param';
+    return cellType === 'command' || cellType === 'param' || cellType === 'instrument';
 };
 
 const MusicStateDisplay: React.FC<{ musicState: MusicState; bridgeReady: boolean }> = ({ musicState, bridgeReady }) => {
@@ -343,6 +343,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             setEditorState((prev) => {
                 const next = prev.clone();
                 next.advancePatternEditRow(patternEditStep, rowsPerPattern);
+                patternGridRef.current?.focusCellAdvancedToRow(next.patternEditRow);
                 return next;
             });
         }
