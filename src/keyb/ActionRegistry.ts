@@ -244,7 +244,9 @@ export const gActionRegistry: ActionRegistry = {
       title: "increase edit step",
       description: "increase the pattern edit step.",
       category: "Edit",
-      defaultBindings: [],
+      defaultBindings: [
+         {kind: "character", key: "]", primary: true},
+      ],
    },
 
    "DecreaseEditStep": {
@@ -252,7 +254,9 @@ export const gActionRegistry: ActionRegistry = {
       title: "decrease edit step",
       description: "decrease the pattern edit step.",
       category: "Edit",
-      defaultBindings: [],
+      defaultBindings: [
+         {kind: "character", key: "[", primary: true},
+      ],
    },
 
    "IncreaseTempo": {

@@ -110,13 +110,13 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [showingOnScreenKeyboard, setShowingOnScreenKeyboard] = useLocalStorage("somatic-showOnScreenKeyboard", true);
     const [showingArrangementEditor, setShowingArrangementEditor] = useLocalStorage("somatic-showArrangementEditor", true);
     const [advancedEditPanelOpen, setAdvancedEditPanelOpen] = useLocalStorage("somatic-advancedEditPanelOpen", false);
+    const [midiEnabled, setMidiEnabled] = useLocalStorage("somatic-midiEnabled", true);
+    const [keyboardEnabled, setKeyboardEnabled] = useLocalStorage("somatic-keyboardEnabled", true);
 
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
-    const [midiEnabled, setMidiEnabled] = useState(true);
-    const [keyboardEnabled, setKeyboardEnabled] = useState(true);
     const [musicState, setMusicState] = useState(() => audio.getMusicState());
     const [bridgeReady, setBridgeReady] = useState(false);
     const clipboard = useClipboard();
@@ -522,12 +522,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         const prevPos = Math.max(0, editorState.activeSongPosition - 1);
         updateEditorState((s) => s.setActiveSongPosition(prevPos));
     });
-    useActionHandler("ToggleKeyboardNoteInput", () => {
-        toggleKeyboardEnabled();
-    });
-    useActionHandler("ToggleMidiNoteInput", () => {
-        toggleMidiEnabled();
-    });
+    useActionHandler("ToggleKeyboardNoteInput", toggleKeyboardEnabled);
+    useActionHandler("ToggleMidiNoteInput", toggleMidiEnabled);
 
 
 
