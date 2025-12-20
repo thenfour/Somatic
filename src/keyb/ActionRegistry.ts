@@ -130,7 +130,7 @@ export const gActionRegistry: ActionRegistry = {
       category: "Transport",
       defaultBindings: [
          //{kind: "character", key: "9", alt: true},
-         {kind: "physical", code: "Space", shift: true},
+         {kind: "character", key: "Space", shift: true},
       ],
    },
 
@@ -140,7 +140,7 @@ export const gActionRegistry: ActionRegistry = {
       description: "start playback from the beginning of the active pattern.",
       category: "Transport",
       defaultBindings: [
-         {kind: "physical", code: "Space"},
+         {kind: "character", key: "Space"},
          //{kind: "character", key: "8", alt: true},
       ],
    },

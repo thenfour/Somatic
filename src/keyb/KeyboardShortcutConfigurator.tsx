@@ -1,7 +1,7 @@
 import React from "react";
 import { Tooltip } from "../ui/tooltip";
 import { assert, CharMap } from "../utils/utils";
-import { ActionId } from "./ActionIds";
+import { ActionId, kAllActionIds } from "./ActionIds";
 import { gActionRegistry, kAllActions } from "./ActionRegistry";
 import { formatChord } from "./format";
 import "./KeyboardShortcutConfigurator.css";
@@ -19,10 +19,31 @@ interface KeyboardChordRowProps {
 function KeyboardChordRow({ chord, actionId, onRemove }: KeyboardChordRowProps) {
     const mgr = useShortcutManager();
 
+    // find if this chord is used by another action.
+    const allBindings = mgr.getResolvedBindings();
+    const conflicts: ActionId[] = [];
+    if (chord !== null) {
+        for (const otherActionId of kAllActionIds) {
+            if (otherActionId === actionId) continue;
+            const bindingsForOtherAction = allBindings[otherActionId] || [];
+            if (bindingsForOtherAction.some(b => isSameChord(b, chord))) {
+                conflicts.push(otherActionId);
+            }
+        }
+    }
+
     return <span className="keyboard-binding-chord">
-        <span className="keyboard-binding-chord__label">
-            {chord === null ? "Unbound" : formatChord(chord, mgr.platform)}
-        </span>
+        <Tooltip title={JSON.stringify(chord)}>
+            <span className="keyboard-binding-chord__label">
+                {chord === null ? "Unbound" : formatChord(chord, mgr.platform)}
+            </span>
+        </Tooltip>
+        {conflicts.length > 0 && <Tooltip title={<>
+            This binding is also used by:<br />
+            {conflicts.map(aid => <div key={aid}>{aid}</div>)}
+        </>}>
+            <span className="keyboard-binding-chord__conflict" title="This binding conflicts with another action!">⚠️</span>
+        </Tooltip>}
         <button
             className={`keyboard-binding-row__button ${!onRemove ? 'keyboard-binding-row__button--disabled' : ''}`}
             onClick={onRemove}

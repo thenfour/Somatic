@@ -21,13 +21,21 @@ export type ShortcutChord = {
 };
 
 export function isSameChord(a: ShortcutChord, b: ShortcutChord): boolean {
-   return a.kind === b.kind &&           //
-      a.key === b.key &&                 //
-      a.code === b.code &&               //
-      !!a.primary === !!b.primary &&     //
-      !!a.secondary === !!b.secondary && //
-      !!a.alt === !!b.alt &&             //
-      !!a.shift === !!b.shift;           //
+   if (a.kind !== b.kind)
+      return false;
+   if (Boolean(a.primary) !== Boolean(b.primary))
+      return false;
+   if (Boolean(a.secondary) !== Boolean(b.secondary))
+      return false;
+   if (Boolean(a.alt) !== Boolean(b.alt))
+      return false;
+   if (Boolean(a.shift) !== Boolean(b.shift))
+      return false;
+   if (a.kind === "character") {
+      return a.key === b.key;
+   } else {
+      return a.code === b.code;
+   }
 }
 
 //export type ActionId = string;
