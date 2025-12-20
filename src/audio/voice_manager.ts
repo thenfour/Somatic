@@ -20,13 +20,25 @@ export class VoiceManager {
             timestamp: 0,
          });
       }
+
+      // assert that channelindexes are the same as array indexes
+      for (let i = 0; i < this.voices.length; i++) {
+         if (this.voices[i].channel !== i) {
+            throw new Error("VoiceManager channel index mismatch; required to make allocation logic efficient.");
+         }
+      }
    }
 
-   allocateVoice(instrumentIndex: number, midiNote: number): Tic80ChannelIndex {
+   allocateVoice(instrumentIndex: number, midiNote: number, preferredChannel: Tic80ChannelIndex|null = 0):
+      Tic80ChannelIndex //
+   {
       const now = performance.now();
+      const startChannel = (preferredChannel || 0) % Tic80Caps.song.audioChannels;
 
-      // try to find an idle voice
-      for (const voice of this.voices) {
+      // try to find an idle voice beginning from preferredChannel
+      for (let offset = 0; offset < Tic80Caps.song.audioChannels; offset++) {
+         const channelIndex = (startChannel + offset) % Tic80Caps.song.audioChannels;
+         const voice = this.voices[channelIndex];
          if (voice.midiNote === null) {
             voice.midiNote = midiNote;
             voice.instrumentIndex = instrumentIndex;

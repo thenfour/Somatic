@@ -46,11 +46,8 @@ export class AudioController {
       return this.backend.getFPS();
    }
 
-   sfxNoteOn(song: Song, instrumentIndex: number, note: number) {
-      // if (!this.song) {
-      //    return;
-      // }
-      const channel = this.voiceManager.allocateVoice(instrumentIndex, note);
+   sfxNoteOn(song: Song, instrumentIndex: number, note: number, preferredChannel: Tic80ChannelIndex|null = null) {
+      const channel = this.voiceManager.allocateVoice(instrumentIndex, note, preferredChannel);
       this.backend.sfxNoteOn(instrumentIndex, song.instruments[instrumentIndex], note, channel);
    }
 

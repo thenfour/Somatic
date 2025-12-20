@@ -251,7 +251,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         const channel = ToTic80ChannelIndex(ed.patternEditChannel);
         const skipNoteEntry = isEditingCommandOrParamCell();
         autoSave.flush();
-        audio.sfxNoteOn(song, ed.currentInstrument, note);
+        audio.sfxNoteOn(s, ed.currentInstrument, note, ed.patternEditChannel);
 
         if (ed.editingEnabled !== false && !skipNoteEntry) {
             const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.activeSongPosition || 0));
@@ -333,7 +333,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     // handlers for clicking the keyboard view note on / off
     const handleNoteOn = (midiNote: number) => {
         autoSave.flush();
-        audio.sfxNoteOn(song, editorState.currentInstrument, midiNote);
+        audio.sfxNoteOn(song, editorState.currentInstrument, midiNote, editorState.patternEditChannel);
     };
 
     const handleNoteOff = (midiNote: number) => {
