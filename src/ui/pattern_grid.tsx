@@ -125,7 +125,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     y: clamp(coord.y, 0, song.rowsPerPattern - 1),
                 };
             },
-            normalize: true,
         });
 
         const resolveScopeTargets = useCallback((scope: ScopeValue): ScopeTargets | null => {
@@ -395,21 +394,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     }
                 }
             });
-            const selectionEndRow = Math.min(startRow + payload.rows - 1, maxRow);
-            const selectionEndChannel = Math.min(startChannel + payload.channels - 1, maxChannel);
-            onEditorStateChange((state) => {
-                state.setPatternSelection(new SelectionRect2D({
-                    start: { x: startChannel, y: startRow },
-                    size: { width: selectionEndChannel - startChannel + 1, height: selectionEndRow - startRow + 1 },
-                }));
-                //     startRow,
-                //     rowCount: selectionEndRow - startRow + 1,
-                //     startChannel,
-                //     channelCount: selectionEndChannel - startChannel + 1,
-                // });
-                state.setPatternEditTarget({ rowIndex: selectionEndRow, channelIndex: ToTic80ChannelIndex(selectionEndChannel) });
-            });
-            selection2d.setAnchor({ x: startChannel, y: startRow });
+
+            // set the selection to the pasted area
+            // and set the cursor to the end of the pasted area
+            selection2d.setSelection(new SelectionRect2D({
+                start: { x: startChannel, y: startRow },
+                size: { width: Math.min(payload.channels, maxChannel - startChannel + 1), height: Math.min(payload.rows, maxRow - startRow + 1) },
+            }));
+
             focusCell(startRow, startChannel * CELLS_PER_CHANNEL);
         };
 
@@ -675,19 +667,58 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const handleSelectionNudge = (e: React.KeyboardEvent<HTMLTableCellElement>): boolean => {
             if (!e.shiftKey) return false;
+
+            const isCurrentCellTheAnchor = () => {
+                const anchor = editorState.patternSelection?.getAnchorPoint() || null;
+                if (!anchor) return false;
+                const editRow = editorState.patternEditRow;
+                const editChannel = editorState.patternEditChannel;
+                return anchor.x === editChannel && anchor.y === editRow;
+            };
+
             if (e.key === 'ArrowUp') {
+                // if the currently editing cell is different than the selection anchor,
+                // set the anchor to the editing cell first.
+                if (!isCurrentCellTheAnchor()) {
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: { x: editorState.patternEditChannel, y: editorState.patternEditRow },
+                        size: { width: 1, height: -1 },
+                    }));
+                    return true;
+                }
                 selection2d.nudgeActiveEnd({ delta: { width: 0, height: -1 } });
                 return true;
             }
             if (e.key === 'ArrowDown') {
+                if (!isCurrentCellTheAnchor()) {
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: { x: editorState.patternEditChannel, y: editorState.patternEditRow },
+                        size: { width: 1, height: 2 },
+                    }));
+                    return true;
+                }
                 selection2d.nudgeActiveEnd({ delta: { width: 0, height: 1 } });
                 return true;
             }
             if (e.key === 'ArrowLeft') {
+                if (!isCurrentCellTheAnchor()) {
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: { x: editorState.patternEditChannel, y: editorState.patternEditRow },
+                        size: { width: -1, height: 1 },
+                    }));
+                    return true;
+                }
                 selection2d.nudgeActiveEnd({ delta: { width: -1, height: 0 } });
                 return true;
             }
             if (e.key === 'ArrowRight') {
+                if (!isCurrentCellTheAnchor()) {
+                    selection2d.setSelection(new SelectionRect2D({
+                        start: { x: editorState.patternEditChannel, y: editorState.patternEditRow },
+                        size: { width: 2, height: 1 },
+                    }));
+                    return true;
+                }
                 selection2d.nudgeActiveEnd({ delta: { width: 1, height: 0 } });
                 return true;
             }

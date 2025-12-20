@@ -155,50 +155,57 @@ export class SelectionRect2D {
       if (!next.anchor || !next.size)
          return next;
 
-      // simplify the calculation by assuming anchor is already in bounds. so only the size needs adjusting.
-      const clampedAnchor = clampFunc(next.anchor);
-      assert(clampedAnchor.x === clampedAnchor.x);
-      assert(clampedAnchor.y === clampedAnchor.y);
+      // Clamp anchor too (it can matter if caller passes something out of bounds)
+      next.anchor = clampFunc(next.anchor);
 
-      // ensure size is adjusted so that the end coordinate is clamped.
-      // because size can be negative, check top & left
+      // Recompute based on NEXT state, not this.
+      const clampXAtY = (x: number) => clampFunc({x, y: next.anchor!.y}).x;
+      const clampYAtX = (y: number) => clampFunc({x: next.anchor!.x, y}).y;
+
+      // Width
       if (next.size.width < 0) {
-         const left = this.leftInclusive()!;
-         const clampedLeft = clampFunc({x: left, y: next.anchor.y}).x;
-         const adjustmentDeltaX = clampedLeft - left;
-         next.size = {
-            width: next.size.width + adjustmentDeltaX,
-            height: next.size.height,
-         };
+         const left = next.leftInclusive()!; // <= next
+         const clampedLeft = clampXAtY(left);
+         const dx = clampedLeft - left; // dx >= 0 (towards right)
+         next.size.width += dx;         // makes width less negative (shrinks magnitude)
+         if (next.size.width === 0)
+            next.size.width = -1; // preserve direction
       } else {
-         const right = this.rightInclusive()!;
-         const clampedRight = clampFunc({x: right, y: next.anchor.y}).x;
-         const adjustmentDeltaX = clampedRight - right;
-         next.size = {
-            width: next.size.width + adjustmentDeltaX,
-            height: next.size.height,
-         };
+         const right = next.rightInclusive()!;
+         const clampedRight = clampXAtY(right);
+         const dx = clampedRight - right; // dx <= 0 (towards left)
+         next.size.width += dx;
+         if (next.size.width === 0)
+            next.size.width = 1;
       }
 
+      // Height
       if (next.size.height < 0) {
-         const top = this.topInclusive()!;
-         const clampedTop = clampFunc({x: next.anchor.x, y: top}).y;
-         const adjustmentDeltaY = clampedTop - top;
-         next.size = {
-            width: next.size.width,
-            height: next.size.height + adjustmentDeltaY,
-         };
+         const top = next.topInclusive()!;
+         const clampedTop = clampYAtX(top);
+         const dy = clampedTop - top; // dy >= 0
+         next.size.height += dy;
+         if (next.size.height === 0)
+            next.size.height = -1;
       } else {
-         const bottom = this.bottomInclusive()!;
-         const clampedBottom = clampFunc({x: next.anchor.x, y: bottom}).y;
-         const adjustmentDeltaY = clampedBottom - bottom;
-         next.size = {
-            width: next.size.width,
-            height: next.size.height + adjustmentDeltaY,
-         };
+         const bottom = next.bottomInclusive()!;
+         const clampedBottom = clampYAtX(bottom);
+         const dy = clampedBottom - bottom; // dy <= 0
+         next.size.height += dy;
+         if (next.size.height === 0)
+            next.size.height = 1;
       }
 
       return next;
+   }
+
+
+   getAnchorPoint(): Coord2D|null {
+      return this.anchor;
+   }
+
+   getSignedSize(): Size2D|null {
+      return this.size;
    }
 
    private anchor: Coord2D|null = null;
@@ -213,14 +220,7 @@ export class SelectionRect2D {
 };
 
 type UseRectSelection2DArgs = {
-   selection: SelectionRect2D|null; onChange: (next: SelectionRect2D) => void;
-
-   clampCoord: (coord: Coord2D) => Coord2D;
-
-   // How to get the anchor from an existing selection when extend=true and no anchorRef exists.
-   // With start+size semantics, default anchor is simply the rect's start.
-   //getAnchorFromSelection?: (sel: Rect2D) => Coord2D; //
-   normalize: boolean; // whether to normalize the rect (make size positive) on apply
+   selection: SelectionRect2D|null; onChange: (next: SelectionRect2D) => void; clampCoord: (coord: Coord2D) => Coord2D;
 };
 
 function sizeFromAnchorToEnd(anchor: Coord2D, end: Coord2D): Size2D {
@@ -241,20 +241,12 @@ export function useRectSelection2D({
    const selectingRef = React.useRef(false);
    const [isSelecting, setIsSelecting] = React.useState(false);
 
-   const setAnchor = React.useCallback(
-      (coord: Coord2D) => {
-         anchorRef.current = clampCoord(coord);
-      },
-      [clampCoord],
-   );
-
    const apply = React.useCallback(
       (rect: SelectionRect2D) => {
-         console.log("apply rect:", rect.toString());
          const next = rect.withClampedCoords(clampCoord);
          onChange(next);
       },
-      [onChange],
+      [onChange, clampCoord],
    );
 
    // Apply a selection from anchor -> end coordinates
@@ -266,24 +258,18 @@ export function useRectSelection2D({
          const rect = new SelectionRect2D({start: a, size});
          apply(rect);
       },
-      [clampCoord, onChange, apply],
+      [clampCoord, apply],
    );
 
    const begin = React.useCallback(
       (coord: Coord2D, extend: boolean) => {
          const c = clampCoord(coord);
-
-         let anchor: Coord2D|null = anchorRef.current;
-
-         // ensure we have an anchor; also if not extending (new selection like first click), set this as the anchor.
-         if (!anchor || !extend) {
+         let anchor = extend ? (anchorRef.current ?? selection?.getAnchorPoint()) : null;
+         if (!anchor)
             anchor = c;
-         }
          anchorRef.current = anchor;
-
          selectingRef.current = true;
          setIsSelecting(true);
-
          applyFromAnchorToEnd(anchor, c);
       },
       [clampCoord, selection, applyFromAnchorToEnd],
@@ -304,6 +290,7 @@ export function useRectSelection2D({
    const end = React.useCallback(() => {
       selectingRef.current = false;
       setIsSelecting(false);
+      anchorRef.current = null;
    }, []);
 
    React.useEffect(() => {
@@ -337,10 +324,10 @@ export function useRectSelection2D({
 
    return {
       isSelecting,
-      setAnchor,
       onCellMouseDown,
       onCellMouseEnter,
       end,
+      setSelection: apply,
 
       nudgeActiveEnd,
    };
