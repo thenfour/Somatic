@@ -42,6 +42,10 @@ export class AudioController {
       return this.backend.getMusicState();
    }
 
+   getFPS(): number {
+      return this.backend.getFPS();
+   }
+
    sfxNoteOn(song: Song, instrumentIndex: number, note: number) {
       // if (!this.song) {
       //    return;

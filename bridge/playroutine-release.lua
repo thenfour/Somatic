@@ -141,7 +141,7 @@ do
 		lastPlayingFrame = -1
 		stopPlayingOnNextFrame = false
 		swapInPlayorder(currentSongOrder, bufferALocation)
-		music(0, 0, startRow, false, true)
+		music(0, 0, startRow, true, true)
 	end
 
 	function somatic_get_state()

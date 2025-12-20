@@ -328,9 +328,11 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
             </div>
             <div className="">
                 <div className="field-row">
-                    <label htmlFor="instrument-name">Name</label>
+                    <div className='instrument-index'>{instrumentIndex.toString(16).toUpperCase()}:</div>
+                    {/* <label htmlFor="instrument-name">Name</label> */}
                     <input
-                        id="instrument-name"
+                        //id="instrument-name"
+                        className='instrument-name'
                         type="text"
                         value={instrument.name}
                         onChange={handleNameChange}

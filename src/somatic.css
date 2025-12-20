@@ -510,6 +510,15 @@ option {
     /* for comfort */
 }
 
+.instrument-panel .instrument-index {
+    font-size: 30px;
+    ;
+}
+
+.instrument-panel .instrument-name {
+    font-size: 24px;
+}
+
 .instrument-envelope-editor {
     padding-left: 8px;
     margin-bottom: 32px;
@@ -1650,7 +1659,16 @@ option {
 
 .musicState-panel div.flags {
     display: flex;
-    /* background-color: var(--panel); */
+}
+
+.musicState-panel div.flags .fps {
+    padding: 4px 12px;
+    display: flex;
+}
+
+.musicState-panel .fps.warning {
+    color: var(--error-surface-text);
+    background-color: var(--error-surface-bg);
 }
 
 .musicState-panel--booting {

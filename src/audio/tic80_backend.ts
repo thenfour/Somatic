@@ -195,7 +195,7 @@ export class Tic80Backend {
       const frame = b.peekU8(TicMemoryMap.MUSIC_STATE_FRAME);
       const row = b.peekU8(TicMemoryMap.MUSIC_STATE_ROW);
       const flags = b.peekU8(TicMemoryMap.MUSIC_STATE_FLAGS);
-      const somaticPatternIndex = b.peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_PATTERN_ID);
+      //const somaticPatternIndex = b.peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_PATTERN_ID);
       const somaticSongPosition = b.peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_SONG_POSITION);
 
       const isLooping = !!(flags & 0x1);
@@ -203,7 +203,7 @@ export class Tic80Backend {
          tic80RowIndex: row,
          tic80FrameIndex: frame,
          tic80TrackIndex: track,
-         somaticPatternIndex,
+         //somaticPatternIndex,
          somaticSongPosition: somaticSongPosition === 255 ? -1 : somaticSongPosition,
          isPlaying: somaticSongPosition !== 255,
          isLooping,
@@ -215,6 +215,13 @@ export class Tic80Backend {
       }
 
       return this.lastKnownMusicState;
+   }
+
+   getFPS(): number {
+      const b = this.bridge();
+      if (!b || !b.isReady())
+         return 0;
+      return b.peekU8(TicMemoryMap.FPS);
    }
 
    setChannelVolumes(volumes: [number, number, number, number]) {

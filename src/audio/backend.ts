@@ -1,6 +1,6 @@
 
 export type MusicState = {
-   somaticPatternIndex: number; //
+   //somaticPatternIndex: number; //
    somaticSongPosition: number; //
    isPlaying: boolean;          //
    tic80TrackIndex: number;     //
@@ -11,13 +11,13 @@ export type MusicState = {
 
 export function MakeEmptyMusicState(): MusicState{
    return {
-      somaticPatternIndex: 0,    //
-         somaticSongPosition: 0, //
-         isPlaying: false,       //
-         tic80TrackIndex: -1,    //
-         tic80FrameIndex: 0,     //
-         tic80RowIndex: 0,       //
-         isLooping: false,       //
+      //somaticPatternIndex: 0,    //
+      somaticSongPosition: 0, //
+         isPlaying: false,    //
+         tic80TrackIndex: -1, //
+         tic80FrameIndex: 0,  //
+         tic80RowIndex: 0,    //
+         isLooping: false,    //
    }
 };
 

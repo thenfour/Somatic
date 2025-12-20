@@ -42,6 +42,7 @@ local INBOX = {
 local CH_REGISTERS = {
 	-- NB: KEEP IN SYNC WITH HOST (search FOR "BRIDGE_MEMORY_MAP")
 	SONG_POSITION = ADDR.REGISTERS + 0, -- current song position (0..255)
+	FPS = ADDR.REGISTERS + 1, -- current FPS
 }
 
 local function ch_set_playroutine_regs(songPosition)
@@ -622,7 +623,7 @@ tf_music_init = function(songPosition, startRow)
 		0, -- track
 		0, -- frame
 		startRow, -- row
-		false, -- loop
+		true, -- loop
 		true -- sustain
 	)
 end
@@ -696,6 +697,8 @@ function TIC()
 		fps_frame_count = 0
 		fps_last_time = current_time
 	end
+
+	poke(CH_REGISTERS.FPS, fps & 0xFF)
 
 	-- heartbeat
 	out_set(OUTBOX.HEARTBEAT, (out_get(OUTBOX.HEARTBEAT) + 1) & 0xFF)

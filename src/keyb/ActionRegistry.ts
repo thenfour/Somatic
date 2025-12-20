@@ -172,7 +172,7 @@ export const gActionRegistry: ActionRegistry = {
       description: "lower the current octave for note input.",
       category: "Edit",
       defaultBindings: [
-         {kind: "character", key: "["},
+         {kind: "character", key: "{", shift: true},
       ],
    },
 
@@ -182,7 +182,7 @@ export const gActionRegistry: ActionRegistry = {
       description: "raise the current octave for note input.",
       category: "Edit",
       defaultBindings: [
-         {kind: "character", key: "]"},
+         {kind: "character", key: "}", shift: true},
       ],
    },
 
@@ -192,7 +192,7 @@ export const gActionRegistry: ActionRegistry = {
       description: "select the previous instrument.",
       category: "Edit",
       defaultBindings: [
-         {kind: "character", key: "{", shift: true},
+         {kind: "character", key: "["},
       ],
    },
 
@@ -202,7 +202,7 @@ export const gActionRegistry: ActionRegistry = {
       description: "select the next instrument.",
       category: "Edit",
       defaultBindings: [
-         {kind: "character", key: "}", shift: true},
+         {kind: "character", key: "]"},
       ],
    },
 

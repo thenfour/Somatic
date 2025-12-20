@@ -5,7 +5,6 @@ import { saveSync } from 'save-file';
 import './AppStatusBar.css';
 import './somatic.css';
 
-import type { MusicState } from './audio/backend';
 import { AudioController } from './audio/controller';
 import { serializeSongToCart } from './audio/tic80_cart_serializer';
 import { useClipboard } from './hooks/useClipboard';
@@ -39,11 +38,13 @@ import { useShortcutManager } from './keyb/KeyboardShortcutManager';
 import { CharMap } from './utils/utils';
 import { ShortcutScopeProvider } from './keyb/KeyboardShortcutScope';
 import { useRenderAlarm } from './hooks/useRenderAlarm';
+import { MusicStateDisplay } from './ui/MusicStateDisplay';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
-//type TransportState = 'stop' | 'play-pattern' | 'play-from-position' | 'play-all';
 type PatternCellType = 'note' | 'instrument' | 'command' | 'param';
+
+const FPS_UPDATE_INTERVAL_MS = 500;
 
 const getActivePatternCellType = (): PatternCellType | null => {
     if (typeof document === 'undefined') return null;
@@ -60,26 +61,6 @@ const isEditingCommandOrParamCell = () => {
     return cellType === 'command' || cellType === 'param' || cellType === 'instrument';
 };
 
-const MusicStateDisplay: React.FC<{ musicState: MusicState; bridgeReady: boolean }> = ({ musicState, bridgeReady }) => {
-    if (!bridgeReady) {
-        return <Tooltip title="TIC-80 bridge is initializing... should take ~5 seconds">
-            <div className='musicState-panel musicState-panel--booting'>
-                <div className='loading-spinner'></div>
-            </div>
-        </Tooltip>;
-    }
-
-    return <Tooltip title="TIC-80 playback status">
-        <div className='musicState-panel'>
-            <div className='flags'>
-                {musicState.isPlaying ? <>
-                    <div className='key'>Order:</div><div className='value'>{musicState.somaticSongPosition}</div>
-                    <div className='key'>Row:</div><div className='value'>{musicState.tic80RowIndex}</div>
-                </> : <>Ready</>}
-            </div>
-        </div>
-    </Tooltip>;
-};
 
 export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
     const keyboardShortcutMgr = useShortcutManager();
@@ -502,7 +483,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("PlaySong", onPlayAll);
     useActionHandler("PlayFromPosition", onPlayFromPosition);
     useActionHandler("PlayPattern", onPlayPattern);
-    useActionHandler("PlayPattern", onPlayPattern);
     useActionHandler("ToggleEditMode", toggleEditingEnabled);
     useActionHandler("DecreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave - 1)));
     useActionHandler("IncreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave + 1)));
@@ -735,7 +715,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             <span className="autoSaveIndicator__label">sync:{autoSave.state.status}</span>
                         </Tooltip>
                         <SongStats song={song} />
-                        <MusicStateDisplay musicState={musicState} bridgeReady={bridgeReady} />
+                        <MusicStateDisplay bridgeReady={bridgeReady} audio={audio} musicState={musicState} />
 
                     </div>
                 </div>

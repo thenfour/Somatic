@@ -317,7 +317,7 @@ tf_music_init = function(songPosition, startRow)
 		0, -- track
 		0, -- frame
 		startRow, -- row
-		false, -- loop
+		true, -- loop
 		true -- sustain
 	)
 	log("tf_music_init: music() called")

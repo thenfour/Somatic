@@ -39,7 +39,7 @@ const formatInstrumentTooltip = (instId: number | undefined | null, song: Song):
     if (instId === null || instId === undefined) return null;
     const inst = song.getInstrument(instId);
     if (!inst) return null;
-    return `${instId}: ${inst.name}`;
+    return `${instId.toString(16).toUpperCase()}: ${inst.name}`;
 };
 
 const formatInstrument = (val: number | undefined | null, song: Song): [string, string | null] => {
