@@ -128,7 +128,7 @@
     --border-strong: #566c86;
     --accent: #41a6f6;
     --accent-strong: #73eff7;
-    --row-a: #29366f;
+    --row-a: var(--tic-1);
     --row-b: #333c57;
     --row-active: #38b764;
     --tooltip-bg: #1a1c2c;
