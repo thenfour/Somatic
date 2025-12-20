@@ -941,6 +941,24 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             setCurrentColumnIndex(col);
         };
 
+        const onInstrumentCellMouseDown = (e: React.MouseEvent<HTMLTableCellElement>, rowIndex: number, channelIndex: Tic80ChannelIndex) => {
+            // if you ctrl+click an instrument cell, select that instrument.
+            if (e.ctrlKey || e.metaKey) {
+                const cell = pattern.getCell(channelIndex, rowIndex);
+                if (cell.instrumentIndex != null) {
+                    onEditorStateChange((s) => {
+                        //s.setSelectedInstrumentIndex(cell.instrumentIndex!);
+                        s.setCurrentInstrument(cell.instrumentIndex!);
+                        const inst = song.getInstrument(cell.instrumentIndex!)!;
+                        pushToast({ message: `Selected instrument ${inst.getCaption(cell.instrumentIndex!)}.`, variant: 'info' });
+                    });
+                }
+                e.preventDefault();
+                return;
+            }
+            selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex });
+        };
+
         return (
             <div className={`pattern-grid-shell${advancedEditPanelOpen ? ' pattern-grid-shell--advanced-open' : ''}`}>
                 {advancedEditPanelOpen && (
@@ -1090,7 +1108,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][instCol] = el)}
                                                         className={instClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex })}
+                                                        onMouseDown={(e) => onInstrumentCellMouseDown(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, instCol)}
                                                         data-row-index={rowIndex}

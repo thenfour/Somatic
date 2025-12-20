@@ -186,4 +186,8 @@ export class Tic80Instrument {
       const {name, ...content} = dto;
       return JSON.stringify(content);
    }
+
+   getCaption(myIndex: number): string {
+      return `${myIndex.toString(16).toUpperCase()}: ${this.name}`;
+   }
 }
