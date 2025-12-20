@@ -1,17 +1,26 @@
-// shortcuts/useChordCapture.ts
 import React from "react";
 import type {Platform, ShortcutChord} from "./KeyboardShortcutTypes";
 import {getEventPrimaryDown, getEventSecondaryDown} from "./KeyboardShortcutPlatform";
 import {normalizeKeyForCharacterShortcut} from "./Keyboard";
+import {useShortcutManager} from "./KeyboardShortcutManager";
 
 type CaptureOptions = {
-   kind: "character"|"physical"; platform: Platform;
+   kind: "character"|"physical"; //
+   platform: Platform;
    // optional: block chords that are "just modifiers"
    allowBareModifier?: boolean;
 };
 
 export function useChordCapture(opts: CaptureOptions) {
    const [capturing, setCapturing] = React.useState(false);
+   const mgr = useShortcutManager();
+
+   React.useEffect(() => {
+      if (!capturing)
+         return;
+      const release = mgr.suspendShortcuts();
+      return release;
+   }, [capturing, mgr]);
 
    const onKeyDown = React.useCallback(
       (e: KeyboardEvent):

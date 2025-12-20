@@ -9,6 +9,7 @@ import { useShortcutManager } from "./KeyboardShortcutManager";
 import { isSameChord, ShortcutChord } from "./KeyboardShortcutTypes";
 import { useChordCapture } from "./useChordCapture";
 import { useConfirmDialog } from "../ui/confirm_dialog";
+import { useToasts } from "../ui/toast_provider";
 
 interface KeyboardChordRowProps {
     chord: ShortcutChord | null;
@@ -58,6 +59,7 @@ function KeyboardChordRow({ chord, actionId, onRemove }: KeyboardChordRowProps) 
 
 function BindingEditorRow({ actionId }: { actionId: ActionId }) {
     const mgr = useShortcutManager();
+    const toast = useToasts();
     const capture = useChordCapture({ kind: "character", platform: mgr.platform });
 
     React.useEffect(() => {
@@ -71,6 +73,11 @@ function BindingEditorRow({ actionId }: { actionId: ActionId }) {
 
             // avoid dupes.
             if (existingBindings.some(b => isSameChord(b, chord))) {
+                toast.pushToast({
+                    variant: "error",
+                    message: "This shortcut is already assigned to this action.",
+                }
+                );
                 return;
             }
 

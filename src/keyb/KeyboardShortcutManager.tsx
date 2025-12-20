@@ -32,6 +32,7 @@ type ShortcutManagerApi = {
     registerHandler: (actionId: ActionId, scopes: string[], handler: ActionHandler) => () => void;
     getResolvedBindings: () => Record<ActionId, ShortcutChord[]>;
     getActionBindingLabel: (actionId: ActionId) => string | undefined;
+    suspendShortcuts: () => () => void; // returns a release function
 };
 
 const ShortcutManagerContext = React.createContext<ShortcutManagerApi | null>(null);
@@ -78,6 +79,7 @@ export function ShortcutManagerProvider(props: {
     eventPolicy?: ShortcutEventPolicy;
     children: React.ReactNode;
 }) {
+    const suspendCountRef = React.useRef(0);
     const platform = props.platform ?? detectPlatform();
     const [userBindings, setUserBindings] = React.useState<UserBindings>(props.initialBindings ?? {});
 
@@ -92,6 +94,17 @@ export function ShortcutManagerProvider(props: {
 
     const userBindingsRef = React.useRef(userBindings);
     userBindingsRef.current = userBindings;
+
+    const suspendShortcuts = React.useCallback(() => {
+        suspendCountRef.current += 1;
+        let released = false;
+
+        return () => {
+            if (released) return;
+            released = true;
+            suspendCountRef.current = Math.max(0, suspendCountRef.current - 1);
+        };
+    }, []);
 
     const registerHandler = React.useCallback((actionId: ActionId, scopes: string[], handler: ActionHandler) => {
         const id = `${actionId}:${Math.random().toString(36).slice(2)}`;
@@ -116,6 +129,8 @@ export function ShortcutManagerProvider(props: {
     // One global listener: capture phase so you can intercept before nested handlers if you want.
     React.useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
+            if (suspendCountRef.current > 0) return;
+
             if (props.eventPolicy?.ignoreEvent?.(e)) return;
             if (e.isComposing) return;
 
@@ -192,6 +207,7 @@ export function ShortcutManagerProvider(props: {
         registerHandler,
         getResolvedBindings,
         getActionBindingLabel,
+        suspendShortcuts,
     };
 
     return <ShortcutManagerContext.Provider value={api}>{props.children}</ShortcutManagerContext.Provider>;
