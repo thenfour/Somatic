@@ -142,15 +142,22 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
             switch (scope) {
                 case 'selection': {
-                    if (!editorState.patternSelection || editorState.patternSelection.isNull()) {
+                    const sel = editorState.patternSelection;
+                    if (!sel || sel.isNull()) {
                         pushToast({ message: 'Select a block before using Selection scope.', variant: 'error' });
                         return null;
                     }
+
                     const targets = {
                         patternIndices: [safePatternIndex],
-                        channels: numericRange(editorState.patternSelection.leftInclusive()!, editorState.patternSelection.leftInclusive()! + editorState.patternSelection.columnCount()! - 1),
-                        rowRange: { start: editorState.patternSelection.topInclusive()!, end: editorState.patternSelection.topInclusive()! + editorState.patternSelection.rowCount()! - 1 },
+                        channels: numericRange(sel.leftInclusive()!, sel.columnCount()!),
+                        //rowRange: { start: sel.topInclusive()!, end: sel.topInclusive()! + sel.rowCount()! - 1 },
+                        rowRange: {
+                            start: sel.topInclusive()!,
+                            end: sel.topInclusive()! + sel.rowCount()! - 1,
+                        }
                     };
+
                     return targets;
                 }
                 case 'channel-pattern':
