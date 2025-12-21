@@ -89,6 +89,10 @@ Based on that, Somatic can write to TIC-80 memory, and tell the bridge to do thi
 It's pretty reliable but not 100% perfect -- it does introduce lag, and it's harder
 to do things like make realtime updates. Could be solved but introduces complexity.
 
+## Why an `<iframe>`?
+
+because the tic80 will capture input from its whole `document` which conflicts with Somatic. It has to be isolated.
+
 # dev stuff
 
 ```

@@ -33,6 +33,7 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
 
         const [frameDoc, setFrameDoc] = useState<Document | null>(null);
         const [frameWin, setFrameWin] = useState<Window | null>(null);
+        const [hasStarted, setHasStarted] = useState(false);
 
         const mountId = "tic80-iframe-root" as const;
 
@@ -92,6 +93,7 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
         }, [mountId]);
 
         useEffect(() => {
+            if (!hasStarted) return;
             if (!frameDoc || !frameWin) return;
             if (!canvasRef.current) return;
             if (injectedRef.current) return;
@@ -107,12 +109,19 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
             frameDoc.head.appendChild(script);
 
             injectedRef.current = true;
-        }, [frameDoc, frameWin]);
+        }, [frameDoc, frameWin, hasStarted, args]);
 
         const portalTarget = frameDoc?.getElementById(mountId) ?? null;
 
+        const handleStartClick = () => {
+            setHasStarted(true);
+            if (frameWin) {
+                frameWin.focus();
+            }
+        };
+
         return (
-            <>
+            <div style={{ position: "relative", width: "100%", height: "100%" }}>
                 <iframe
                     ref={iframeRef}
                     style={{ width: "100%", height: "100%", border: 0, display: "block" }}
@@ -129,7 +138,27 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
                         />,
                         portalTarget
                     )}
-            </>
+                {!hasStarted && (
+                    <button
+                        type="button"
+                        onClick={handleStartClick}
+                        style={{
+                            position: "absolute",
+                            inset: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "rgba(0, 0, 0, 0.6)",
+                            color: "white",
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: "16px",
+                        }}
+                    >
+                        Click to start the audio engine
+                    </button>
+                )}
+            </div>
         );
     }
 );
