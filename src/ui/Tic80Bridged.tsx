@@ -8,6 +8,7 @@ import React, {
     useState,
 } from "react";
 import { Tic80Iframe, Tic80IframeHandle } from "./Tic80EmbedIframe";
+import { Tic80TopLevel, Tic80TopLevelHandle } from "./Tic80TopLevel";
 import { AsyncMutex } from "../utils/async_mutex";
 import { Tic80ChannelIndex, TicBridge, TicMemoryMap } from "../models/tic80Capabilities";
 import { Tic80SerializedSong } from "../audio/tic80_cart_serializer";
@@ -91,7 +92,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         },
         ref
     ) {
-        const iframeRef = useRef<Tic80IframeHandle | null>(null);
+        const iframeRef = useRef<Tic80IframeHandle | Tic80TopLevelHandle | null>(null);
 
         const moduleRef = useRef<any | null>(null);
         const heapRef = useRef<Uint8Array | null>(null);
@@ -105,8 +106,24 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         const commandMutexRef = useRef(new AsyncMutex());
 
         const [ready, setReady] = useState(false);
+        const [embedMode, setEmbedMode] = useState<"iframe" | "toplevel">("iframe");
 
         const log = (...args: any[]) => console.log("[Tic80Bridge]", ...args);
+
+        useEffect(() => {
+            if (typeof window === "undefined") return;
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const mode = params.get("embed");
+                if (mode === "toplevel") {
+                    setEmbedMode("toplevel");
+                } else if (mode === "iframe") {
+                    setEmbedMode("iframe");
+                }
+            } catch {
+                // ignore invalid URL/search
+            }
+        }, []);
 
         // Boot sequence:
         // 1) wait for iframe window.Module to appear
@@ -546,13 +563,25 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         );
 
         return (<>
-            <Tic80Iframe
-                ref={iframeRef}
-                args={["/bridge.tic"]}
-            />
-            <button onClick={() => {
-                ping();
-            }}>ping</button>
+            {embedMode === "toplevel" ? (
+                <Tic80TopLevel
+                    ref={iframeRef}
+                    args={["/bridge.tic"]}
+                />
+            ) : (
+                <Tic80Iframe
+                    ref={iframeRef}
+                    args={["/bridge.tic"]}
+                />
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                <button onClick={() => {
+                    ping();
+                }}>ping</button>
+                <span style={{ fontSize: 12, opacity: 0.7 }}>
+                    Embed variant: {embedMode === "toplevel" ? "top-level" : "iframe"}
+                </span>
+            </div>
         </>
         );
     }
