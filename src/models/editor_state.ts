@@ -97,14 +97,17 @@ export class EditorState {
       this.patternEditRow = clamp(this.patternEditRow + safeStep, 0, maxRow);
    }
 
-   getEditingPattern(song: Song): Pattern {
+   getEditingPattern(song: Song): Pattern|null {
       const activeSongPosition = clamp(this.activeSongPosition, 0, song.songOrder.length - 1);
       const patternId = song.songOrder[activeSongPosition]!;
-      return song.patterns[patternId]!;
+      return song.patterns[patternId] || null;
    }
 
-   getEditingCell(song: Song): PatternCell {
+   getEditingCell(song: Song): PatternCell|null {
       const pattern = this.getEditingPattern(song);
+      if (!pattern) {
+         return null;
+      }
       const currentRow = pattern.getCell(this.patternEditChannel, this.patternEditRow);
       return currentRow;
    }

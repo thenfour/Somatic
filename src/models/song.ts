@@ -183,3 +183,6 @@ export class Song {
       return Song.fromData(this.toData());
    }
 }
+
+
+export const formatPatternIndex = (index: number) => index.toString().padStart(2, "0");

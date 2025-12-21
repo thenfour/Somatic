@@ -6,7 +6,7 @@ import { useClipboard } from '../hooks/useClipboard';
 import { useActionHandler } from '../keyb/useActionHandler';
 import { EditorState } from '../models/editor_state';
 import { isNoteCut, Pattern, PatternCell } from '../models/pattern';
-import { Song } from '../models/song';
+import { formatPatternIndex, Song } from '../models/song';
 import { gChannelsArray, SomaticCaps, SomaticEffectCommand, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
 import { CharMap, clamp, Coord2D, numericRange } from '../utils/utils';
 import { InterpolateTarget, PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
@@ -1060,6 +1060,26 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                             {advancedEditPanelOpen ? CharMap.LeftTriangle : CharMap.RightTriangle}
                         </button>
                     </Tooltip>
+                    <div className="pattern-grid-top-controls">
+                        <label>
+                            <span className="label-pattern-name">Pattern{' '}
+                                <span className="label-pattern-index">{formatPatternIndex(safePatternIndex)}</span></span>
+                            <input
+                                type="text"
+                                className="input-pattern-name"
+                                value={pattern.name}
+                                onChange={(e) => {
+                                    const newName = e.target.value;
+                                    onSongChange((s) => {
+                                        const pat = s.patterns[safePatternIndex];
+                                        pat.name = newName;
+                                    }
+                                    )
+                                }}
+                            //disabled={!editingEnabled} always allow this.
+                            />
+                        </label>
+                    </div>
                     <table className="pattern-grid">
                         <colgroup>
                             <col />

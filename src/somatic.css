@@ -782,6 +782,27 @@ option {
     border-bottom: 2px solid var(--border-strong);
 }
 
+.pattern-grid-top-controls {
+    margin-left: 50px;
+}
+
+.pattern-grid-top-controls .label-pattern-index {
+    color: var(--text);
+}
+
+.pattern-grid-top-controls .label-pattern-name {
+    color: var(--muted);
+    margin-right: 8px;
+}
+
+.pattern-grid-top-controls .input-pattern-name {
+    font-size: 14px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    color: var(--accent);
+    width: 400px;
+}
+
 .pattern-grid {
     font-family: var(--ff-mono);
     border-collapse: collapse;
@@ -1578,10 +1599,6 @@ option {
     color: var(--muted);
     outline: none;
     cursor: pointer;
-    border-left: 1px solid transparent;
-    border-right: 1px solid transparent;
-
-    --selection-rect-border: 1px solid var(--accent);
 }
 
 
@@ -1596,13 +1613,22 @@ option {
     /* color: var(--tic-0); */
 }
 
-.arrangement-editor__row--in-selection {
+.arrangement-editor__row--selection-container {
+    border-left: 1px solid transparent;
+    border-right: 1px solid transparent;
+    border-top: 1px solid transparent;
+    border-bottom: 1px solid transparent;
+
+    --selection-rect-border: 1px solid var(--accent);
+}
+
+.arrangement-editor__row--selection-container.arrangement-editor__row--in-selection {
     background-color: #8883;
     border-left: var(--selection-rect-border);
     border-right: var(--selection-rect-border);
 }
 
-.arrangement-editor__row--selection-first {
+.arrangement-editor__row--selection-container.arrangement-editor__row--selection-first {
     border-top: var(--selection-rect-border);
     border-top-left-radius: 3px;
     border-top-right-radius: 3px;
@@ -1630,13 +1656,11 @@ option {
 
 .arrangement-editor__controls {
     display: flex;
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    /* don't do border top & bottom because it leaves weird gaps*/
 }
 
 .arrangement-editor .arrangement-editor__pattern {
     margin-left: 12px;
+    margin-right: 16px;
     color: var(--text);
     /* background-color: var(--row-a); */
 }
@@ -1652,9 +1676,11 @@ option {
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 40px;
+    max-width: 120px;
     display: inline-block;
     height: 100%;
     cursor: pointer;
+    color: var(--accent);
 }
 
 .arrangement-editor__pattern-name-input {

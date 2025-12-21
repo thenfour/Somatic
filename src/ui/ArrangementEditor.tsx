@@ -3,7 +3,7 @@ import type { MusicState } from "../audio/backend";
 import { SelectionRect2D, useRectSelection2D } from "../hooks/useRectSelection2D";
 import { EditorState } from "../models/editor_state";
 import { Pattern } from "../models/pattern";
-import { Song } from "../models/song";
+import { formatPatternIndex, Song } from "../models/song";
 import { SomaticCaps } from "../models/tic80Capabilities";
 import { CharMap, clamp } from "../utils/utils";
 import { useConfirmDialog } from "./confirm_dialog";
@@ -23,8 +23,8 @@ export const ArrangementEditor: React.FC<{
     const maxPatterns = SomaticCaps.maxPatternCount;
     const maxPositions = SomaticCaps.maxSongLength;
 
-    const [editingPatternNameIndex, setEditingPatternNameIndex] = useState<number | null>(null);
-    const [editingPatternNameValue, setEditingPatternNameValue] = useState("");
+    //const [editingPatternNameIndex, setEditingPatternNameIndex] = useState<number | null>(null);
+    //const [editingPatternNameValue, setEditingPatternNameValue] = useState("");
 
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -44,8 +44,6 @@ export const ArrangementEditor: React.FC<{
             y: clamp(coord.y, 0, Math.max(0, song.songOrder.length - 1)),
         }),
     });
-
-    const formattedIndex = (index: number) => index.toString().padStart(2, "0");
 
     const ensurePatternExists = (s: Song, patternIndex: number) => {
         const target = clamp(patternIndex, 0, maxPatterns - 1);
@@ -102,7 +100,7 @@ export const ArrangementEditor: React.FC<{
             content: (
                 <div>
                     <p>
-                        Are you sure you want to delete position {formattedIndex(positionIndex)} from the arrangement?
+                        Are you sure you want to delete position {formatPatternIndex(positionIndex)} from the arrangement?
                     </p>
                 </div>
             ),
@@ -330,30 +328,32 @@ export const ArrangementEditor: React.FC<{
     };
 
     const patternDisplayName = (patternIndex: number) => {
+        console.log("patternDisplayName", patternIndex);
         const pat = song.patterns[patternIndex]!;
+        if (!pat) return "";
         return pat.name;
     };
 
-    const startEditingPatternName = (patternIndex: number) => {
-        setEditingPatternNameIndex(patternIndex);
-        setEditingPatternNameValue(patternDisplayName(patternIndex));
-    };
+    // const startEditingPatternName = (patternIndex: number) => {
+    //     setEditingPatternNameIndex(patternIndex);
+    //     setEditingPatternNameValue(patternDisplayName(patternIndex));
+    // };
 
-    const commitEditingPatternName = () => {
-        if (editingPatternNameIndex === null) return;
-        const index = editingPatternNameIndex;
-        const value = editingPatternNameValue.trim();
-        onSongChange((s) => {
-            const pat = s.patterns[index];
-            if (!pat) return;
-            pat.name = value;
-        });
-        setEditingPatternNameIndex(null);
-    };
+    // const commitEditingPatternName = () => {
+    //     if (editingPatternNameIndex === null) return;
+    //     const index = editingPatternNameIndex;
+    //     const value = editingPatternNameValue.trim();
+    //     onSongChange((s) => {
+    //         const pat = s.patterns[index];
+    //         if (!pat) return;
+    //         pat.name = value;
+    //     });
+    //     setEditingPatternNameIndex(null);
+    // };
 
-    const cancelEditingPatternName = () => {
-        setEditingPatternNameIndex(null);
-    };
+    // const cancelEditingPatternName = () => {
+    //     setEditingPatternNameIndex(null);
+    // };
 
     const focusRow = (positionIndex: number) => {
         const target = rowRefs[positionIndex];
@@ -531,19 +531,25 @@ export const ArrangementEditor: React.FC<{
 
                     const rowClass = [
                         "arrangement-editor__row",
+                        "arrangement-editor__row--selection-container",
                         isSelected && "arrangement-editor__row--selected",
                         isInSelection && "arrangement-editor__row--in-selection",
                         isFirstInSelection && "arrangement-editor__row--selection-first",
                         isLastInSelection && "arrangement-editor__row--selection-last",
                         isPlaying && "arrangement-editor__row--playing",
                     ].filter(Boolean).join(" ");
+
+                    const controlsClass = [
+                        "arrangement-editor__controls",
+                    ].filter(Boolean).join(" ");
+
                     return (
                         <div
                             key={positionIndex}
                             className={rowClass}
                         >
                             <div
-                                className="arrangement-editor__controls"
+                                className={controlsClass}
                                 tabIndex={0}
                                 ref={(el) => (rowRefs[positionIndex] = el)}
                                 onKeyDown={(e) => handleKeyDown(e, positionIndex)}
@@ -588,19 +594,19 @@ export const ArrangementEditor: React.FC<{
                                 </button>
                                 <span className="arrangement-editor__position-id">
                                     <span style={{ visibility: isSelected ? "visible" : "hidden" }}>{CharMap.RightTriangle}</span>
-                                    {formattedIndex(positionIndex)}
+                                    {formatPatternIndex(positionIndex)}
                                 </span>
                                 <span
                                     className="arrangement-editor__pattern"
                                 >
-                                    {formattedIndex(clampedPattern)}
+                                    {formatPatternIndex(clampedPattern)}
                                 </span>
                             </div>
                             <div
                                 className="arrangement-editor__pattern-name-container"
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                {editingPatternNameIndex === clampedPattern ? (
+                                {/* {editingPatternNameIndex === clampedPattern ? (
                                     <input
                                         type="text"
                                         className="arrangement-editor__pattern-name-input"
@@ -618,15 +624,15 @@ export const ArrangementEditor: React.FC<{
                                             }
                                         }}
                                     />
-                                ) : (
-                                    <span
-                                        className="arrangement-editor__pattern-name"
-                                        title={patternDisplayName(clampedPattern)}
-                                        onDoubleClick={() => startEditingPatternName(clampedPattern)}
-                                    >
-                                        {patternDisplayName(clampedPattern)}
-                                    </span>
-                                )}
+                                ) : ( */}
+                                <span
+                                    className="arrangement-editor__pattern-name"
+                                //title={patternDisplayName(clampedPattern)}
+                                //onDoubleClick={() => startEditingPatternName(clampedPattern)}
+                                >
+                                    {patternDisplayName(clampedPattern)}
+                                </span>
+                                {/* )} */}
                             </div>
                         </div>
                     );
