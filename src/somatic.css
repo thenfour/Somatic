@@ -718,8 +718,9 @@ option {
 
 #keyboard {
     position: relative;
-    height: 100px;
-    overflow-x: scroll;
+    /* allow vert size for a horiz scroll bar */
+    height: 115px;
+    overflow: auto;
     margin: 0;
 }
 
