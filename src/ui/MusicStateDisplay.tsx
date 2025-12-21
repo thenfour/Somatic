@@ -34,8 +34,16 @@ export const MusicStateDisplay: React.FC<{ bridgeReady: boolean; audio: AudioCon
         </Tooltip>;
     }
 
+    const fpsWarning = fps < FPS_WARNING_THRESHOLD;
+
     return <Tooltip title={<div>
         <div>TIC-80 playback status</div>
+        {fpsWarning && <div style={{ color: 'orange' }}>
+            <div>⚠️ Low FPS detected ({fps} FPS)</div>
+            <div>It means the tic80 won't keep up well and the audio will be glitchy / unstable.</div>
+            <div>See: <a href="https://github.com/thenfour/Somatic/issues/56" target="_blank" rel="noopener noreferrer">github issue #56</a> for details about this issue.</div>
+            <div>As a workaround, interact with the tic80 window at startup so the browser knows it's active</div>
+        </div>}
         <table>
             <tbody>
                 <tr>
@@ -58,9 +66,9 @@ export const MusicStateDisplay: React.FC<{ bridgeReady: boolean; audio: AudioCon
     </div>}>
         <div className='musicState-panel'>
             <div className='flags'>
-                <div className={`fps ${fps < FPS_WARNING_THRESHOLD ? 'warning' : ''}`}>
+                <div className={`fps ${fpsWarning ? 'warning' : ''}`}>
                     <div className={`key`}>FPS:</div>
-                    <div className='value'>{fps}{fps < FPS_WARNING_THRESHOLD ? ' ⚠️' : ''}</div>
+                    <div className='value'>{fps}{fpsWarning ? ' ⚠️' : ''}</div>
                 </div>
                 {audio.getMusicState().isPlaying ? <>
                     <div className='key'>Order:</div><div className='value'>{musicState.somaticSongPosition}</div>

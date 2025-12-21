@@ -23,6 +23,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
     const tooltipRef = React.useRef<HTMLSpanElement | null>(null);
     const [open, setOpen] = React.useState(false);
     const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null);
+    const [cursorPos, setCursorPos] = React.useState<{ x: number; y: number } | null>(null);
 
     const updatePosition = React.useCallback(() => {
         const el = triggerRef.current;
@@ -38,6 +39,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
         const tooltipHeight = tooltip?.offsetHeight || 100; // estimated
 
         const margin = 8; // margin from viewport edge
+        const cursorAvoidPadding = 8; // minimal distance from cursor to tooltip content
 
         let top = 0;
         let left = 0;
@@ -103,8 +105,93 @@ export const Tooltip: React.FC<TooltipProps> = ({
             }
         }
 
+        // Avoid overlapping the cursor point with the tooltip content when possible.
+        if (cursorPos && tooltipWidth > 0 && tooltipHeight > 0) {
+            const cursorX = cursorPos.x;
+            const cursorY = cursorPos.y;
+
+            let boxLeft = left;
+            let boxRight = left;
+            let boxTop = top;
+            let boxBottom = top;
+
+            if (placement === 'bottom') {
+                boxLeft = left - tooltipWidth / 2;
+                boxRight = left + tooltipWidth / 2;
+                boxTop = top;
+                boxBottom = top + tooltipHeight;
+            } else if (placement === 'top') {
+                boxLeft = left - tooltipWidth / 2;
+                boxRight = left + tooltipWidth / 2;
+                boxTop = top - tooltipHeight;
+                boxBottom = top;
+            } else if (placement === 'left') {
+                boxLeft = left - tooltipWidth;
+                boxRight = left;
+                boxTop = top - tooltipHeight / 2;
+                boxBottom = top + tooltipHeight / 2;
+            } else if (placement === 'right') {
+                boxLeft = left;
+                boxRight = left + tooltipWidth;
+                boxTop = top - tooltipHeight / 2;
+                boxBottom = top + tooltipHeight / 2;
+            }
+
+            const overlapsCursor =
+                cursorX >= boxLeft - cursorAvoidPadding &&
+                cursorX <= boxRight + cursorAvoidPadding &&
+                cursorY >= boxTop - cursorAvoidPadding &&
+                cursorY <= boxBottom + cursorAvoidPadding;
+
+            if (overlapsCursor) {
+                // Nudge tooltip away from the cursor along the primary axis.
+                if (placement === 'bottom') {
+                    top = cursorY + cursorAvoidPadding;
+                } else if (placement === 'top') {
+                    top = cursorY - cursorAvoidPadding - tooltipHeight;
+                } else if (placement === 'right') {
+                    left = cursorX + cursorAvoidPadding;
+                } else if (placement === 'left') {
+                    left = cursorX - cursorAvoidPadding - tooltipWidth;
+                }
+
+                // Clamp again to viewport after nudging.
+                if (placement === 'bottom' || placement === 'top') {
+                    const halfWidth = tooltipWidth / 2;
+                    if (left - halfWidth < margin) {
+                        left = halfWidth + margin;
+                    } else if (left + halfWidth > viewportWidth - margin) {
+                        left = viewportWidth - halfWidth - margin;
+                    }
+                } else {
+                    if (left + tooltipWidth > viewportWidth - margin) {
+                        left = viewportWidth - tooltipWidth - margin;
+                    }
+                    if (left < margin) {
+                        left = margin;
+                    }
+                }
+
+                if (placement === 'left' || placement === 'right') {
+                    const halfHeight = tooltipHeight / 2;
+                    if (top - halfHeight < margin) {
+                        top = halfHeight + margin;
+                    } else if (top + halfHeight > viewportHeight - margin) {
+                        top = viewportHeight - halfHeight - margin;
+                    }
+                } else {
+                    if (top + tooltipHeight > viewportHeight - margin) {
+                        top = viewportHeight - tooltipHeight - margin;
+                    }
+                    if (top - tooltipHeight < margin) {
+                        top = margin + tooltipHeight;
+                    }
+                }
+            }
+        }
+
         setCoords({ top, left });
-    }, [placement]);
+    }, [placement, cursorPos]);
 
     React.useEffect(() => {
         if (!open) return;
@@ -144,12 +231,24 @@ export const Tooltip: React.FC<TooltipProps> = ({
             }
         },
         onMouseEnter: (e: React.MouseEvent) => {
-            if (!disabled) setOpen(true);
+            if (!disabled) {
+                setCursorPos({ x: e.clientX, y: e.clientY });
+                setOpen(true);
+            }
             childElement.props.onMouseEnter?.(e);
         },
         onMouseLeave: (e: React.MouseEvent) => {
-            if (!disabled) setOpen(false);
+            if (!disabled) {
+                setOpen(false);
+                setCursorPos(null);
+            }
             childElement.props.onMouseLeave?.(e);
+        },
+        onMouseMove: (e: React.MouseEvent) => {
+            if (!disabled) {
+                setCursorPos({ x: e.clientX, y: e.clientY });
+            }
+            childElement.props.onMouseMove?.(e);
         },
         onFocus: (e: React.FocusEvent) => {
             if (!disabled) setOpen(true);
