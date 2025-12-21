@@ -151,7 +151,7 @@ export class Song {
          instruments: this.instruments.map((inst) => inst.toData()),
          patterns: this.patterns.map((pattern) => pattern.toData()),
          waveforms: this.waveforms.map((wave) => wave.toData()),
-         songOrder: this.songOrder,
+         songOrder: [...this.songOrder],
          tempo: this.tempo,
          speed: this.speed,
          rowsPerPattern: this.rowsPerPattern,
