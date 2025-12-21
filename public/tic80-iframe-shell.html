@@ -19,6 +19,12 @@
             width: 100vw;
             height: 100vh;
         }
+
+        /* removing this will enable the gesture gate */
+        #game-frame {
+            display: none;
+            ;
+        }
     </style>
 </head>
 
@@ -40,7 +46,14 @@
     </div>
 
     <script type="text/javascript">
-        var Module = { canvas: document.getElementById('canvas'), arguments: ["./bridge.tic"] };
+        var Module = {
+            canvas: document.getElementById('canvas'),
+            arguments: [
+                "./bridge.tic",
+                "--skip",
+                "--vsync",
+            ]
+        };
 
         var gameFrame = document.getElementById('game-frame');
         var displayStyle = window.getComputedStyle(gameFrame).display;

@@ -70,6 +70,11 @@ export const Tic80TopLevel = forwardRef<Tic80TopLevelHandle, Tic80TopLevelProps>
             document.head.appendChild(script);
         };
 
+        // auto-start
+        useEffect(() => {
+            handleStartClick();
+        }, []);
+
         // Contain TIC-80's global keyboard handling (e.g. F6) so that
         // it only reacts when the TIC canvas is focused.
         useEffect(() => {

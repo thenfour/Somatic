@@ -566,12 +566,12 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             {embedMode === "toplevel" ? (
                 <Tic80TopLevel
                     ref={iframeRef}
-                    args={["/bridge.tic"]}
+                    args={["/bridge.tic", "--skip", "--vsync"]}
                 />
             ) : (
                 <Tic80Iframe
                     ref={iframeRef}
-                    args={["/bridge.tic"]}
+                    args={["/bridge.tic", "--skip", "--vsync"]}
                 />
             )}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
