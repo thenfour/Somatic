@@ -669,6 +669,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <DesktopMenu.Item
                                     onSelect={handleUndo}
                                     shortcut={keyboardShortcutMgr.getActionBindingLabel("Undo")}
+                                    disabled={!undoStackRef.current || !undoStackRef.current.canUndo()}
                                 >
                                     {(() => {
                                         const stack = undoStackRef.current;
@@ -679,6 +680,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <DesktopMenu.Item
                                     onSelect={handleRedo}
                                     shortcut={keyboardShortcutMgr.getActionBindingLabel("Redo")}
+                                    disabled={!undoStackRef.current || !undoStackRef.current.canRedo()}
                                 >
                                     {(() => {
                                         const stack = undoStackRef.current;

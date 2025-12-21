@@ -596,42 +596,48 @@ export const ArrangementEditor: React.FC<{
                                 onMouseDown={(e) => handleRowMouseDown(e, positionIndex)}
                                 onMouseEnter={() => selection2d.onCellMouseEnter({ x: 0, y: positionIndex })}
                             >
-                                <button
-                                    type="button"
-                                    className="arrangement-editor__delete"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeletePosition(positionIndex);
-                                    }}
-                                    disabled={!canDelete}
-                                    aria-label="Delete position"
-                                >
-                                    {CharMap.Mul}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="arrangement-editor__step"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        changePatternAtPosition(positionIndex, -1);
-                                    }}
-                                    disabled={clampedPattern <= 0}
-                                    aria-label="Previous pattern"
-                                >
-                                    {"<"}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="arrangement-editor__step"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        changePatternAtPosition(positionIndex, 1);
-                                    }}
-                                    disabled={clampedPattern >= maxPatterns - 1}
-                                    aria-label="Next pattern"
-                                >
-                                    {">"}
-                                </button>
+                                <Tooltip title="Delete position">
+                                    <button
+                                        type="button"
+                                        className="arrangement-editor__delete"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeletePosition(positionIndex);
+                                        }}
+                                        disabled={!canDelete}
+                                        aria-label="Delete position"
+                                    >
+                                        {CharMap.Mul}
+                                    </button>
+                                </Tooltip>
+                                <Tooltip title="Dec pattern">
+                                    <button
+                                        type="button"
+                                        className="arrangement-editor__step"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            changePatternAtPosition(positionIndex, -1);
+                                        }}
+                                        disabled={clampedPattern <= 0}
+                                        aria-label="Previous pattern"
+                                    >
+                                        {"<"}
+                                    </button>
+                                </Tooltip>
+                                <Tooltip title="Inc pattern">
+                                    <button
+                                        type="button"
+                                        className="arrangement-editor__step"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            changePatternAtPosition(positionIndex, 1);
+                                        }}
+                                        disabled={clampedPattern >= maxPatterns - 1}
+                                        aria-label="Next pattern"
+                                    >
+                                        {">"}
+                                    </button>
+                                </Tooltip>
                                 <span className="arrangement-editor__position-id">
                                     <span style={{ visibility: isSelected ? "visible" : "hidden" }}>{CharMap.RightTriangle}</span>
                                     {formatPatternIndex(positionIndex)}
