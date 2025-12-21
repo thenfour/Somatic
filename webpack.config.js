@@ -1,8 +1,46 @@
 // Webpack uses this to work with directories
 const path = require('path');
-const HtmlWebpackPlugin = require('html-webpack-plugin')
-const MiniCssExtractPlugin = require("mini-css-extract-plugin")
-const CopyWebpackPlugin = require("copy-webpack-plugin");
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
+const webpack = require('webpack');
+const childProcess = require('child_process');
+
+function safeExec(command) {
+  try {
+    return childProcess.execSync(command, { encoding: 'utf8' }).trim();
+  } catch (err) {
+    return null;
+  }
+}
+
+function getBuildInfo() {
+  const gitTag = safeExec('git describe --tags --abbrev=0');
+
+  let commitsSinceTag = null;
+  if (gitTag) {
+    const count = safeExec(`git rev-list ${gitTag}..HEAD --count`);
+    commitsSinceTag = count != null ? parseInt(count, 10) : null;
+  }
+
+  const dirtyOutput = safeExec('git status --porcelain');
+  const dirty = dirtyOutput == null ? null : dirtyOutput.length > 0;
+
+  const commitHash = safeExec('git rev-parse --short HEAD');
+  const lastCommitDate = safeExec('git log -1 --format=%cI');
+  const buildDate = new Date().toISOString();
+
+  return {
+    gitTag,
+    commitsSinceTag,
+    dirty,
+    buildDate,
+    lastCommitDate,
+    commitHash,
+  };
+}
+
+const BUILD_INFO = getBuildInfo();
 
 // This is the main configuration object.
 // Here, you write different options and tell Webpack what to do
@@ -66,6 +104,9 @@ module.exports = {
           to: ".",        // copy into dist root (default output.path)
         },
       ],
+    }),
+    new webpack.DefinePlugin({
+      BUILD_INFO: JSON.stringify(BUILD_INFO),
     }),
   ],
 

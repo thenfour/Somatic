@@ -164,3 +164,60 @@ export type Rect2D = {
 export function signNonZero(x: number): 1|- 1 {
    return x >= 0 ? 1 : -1;
 }
+
+
+
+export type RelativeUnit = "second(s)"|"minute(s)"|"hour(s)"|"day(s)"|"week(s)"|"month(s)"|"year(s)";
+
+/**
+ * Turn a date into a short, human-readable description relative to now
+ * (e.g. "3 minutes ago", "in 2 hours", "just now").
+ */
+export const formatRelativeToNow = (value: Date, now: Date = new Date()): string => {
+   if (!Number.isFinite(value.getTime()))
+      return "";
+
+   const diffMs = value.getTime() - now.getTime();
+   const absMs = Math.abs(diffMs);
+   const isFuture = diffMs > 0;
+
+   const sec = 1000;
+   const min = 60 * sec;
+   const hour = 60 * min;
+   const day = 24 * hour;
+   const week = 7 * day;
+   const month = 30 * day; // rough but good enough for a relative hint
+   const year = 365 * day;
+
+   // Very close to now
+   if (absMs < 5 * sec)
+      return "just now";
+
+   let unit: RelativeUnit;
+   let valueAbs: number;
+
+   if (absMs < min) {
+      unit = "second(s)";
+      valueAbs = Math.round(absMs / sec);
+   } else if (absMs < hour) {
+      unit = "minute(s)";
+      valueAbs = Math.round(absMs / min);
+   } else if (absMs < day) {
+      unit = "hour(s)";
+      valueAbs = Math.round(absMs / hour);
+   } else if (absMs < week) {
+      unit = "day(s)";
+      valueAbs = Math.round(absMs / day);
+   } else if (absMs < month) {
+      unit = "week(s)";
+      valueAbs = Math.round(absMs / week);
+   } else if (absMs < year) {
+      unit = "month(s)";
+      valueAbs = Math.round(absMs / month);
+   } else {
+      unit = "year(s)";
+      valueAbs = Math.round(absMs / year);
+   }
+
+   return isFuture ? `in ${valueAbs} ${unit}` : `${valueAbs} ${unit} ago`;
+};
