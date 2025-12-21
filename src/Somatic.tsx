@@ -40,6 +40,7 @@ import { ShortcutScopeProvider } from './keyb/KeyboardShortcutScope';
 import { useRenderAlarm } from './hooks/useRenderAlarm';
 import { MusicStateDisplay } from './ui/MusicStateDisplay';
 import { MidiStatusIndicator } from './ui/MidiStatusIndicator';
+import { AboutSomaticDialog } from './ui/AboutSomaticDialog';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -102,6 +103,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
     const [musicState, setMusicState] = useState(() => audio.getMusicState());
     const [bridgeReady, setBridgeReady] = useState(false);
+    const [aboutOpen, setAboutOpen] = useState(false);
     const clipboard = useClipboard();
 
     if (!undoStackRef.current) {
@@ -723,6 +725,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <DesktopMenu.Divider />
                                 <DesktopMenu.Item onSelect={() => window.open('https://reverietracker.github.io/chromatic/', '_blank', 'noopener')}>This project was based on Chromatic by Gasman</DesktopMenu.Item>
                                 <DesktopMenu.Item onSelect={() => window.open('https://github.com/nesbox/TIC-80/wiki/Music-Editor', '_blank', 'noopener')}>TIC-80 Music Editor</DesktopMenu.Item>
+                                <DesktopMenu.Divider />
+                                <DesktopMenu.Item onSelect={() => setAboutOpen(true)}>About Somatic…</DesktopMenu.Item>
                             </DesktopMenu.Content>
                         </DesktopMenu.Root>
                     </nav>
@@ -868,6 +872,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     onEditorStateChange={updateEditorState}
                 />
             </div>
+            <AboutSomaticDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
         </div>
     );
 };

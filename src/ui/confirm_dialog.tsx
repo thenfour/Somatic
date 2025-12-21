@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { ModalDialog } from './ModalDialog';
 
 export type ConfirmDialogOptions = {
     content: React.ReactNode;
@@ -67,44 +68,40 @@ export const ConfirmDialogProvider: React.FC<{ children: React.ReactNode }> = ({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, options, close]);
 
-    const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (e.target === e.currentTarget) {
-            close(false);
-        }
-    };
-
     const handleYes = () => close(true);
     const handleNo = () => close(false);
 
     return (
         <ConfirmDialogContext.Provider value={{ confirm }}>
             {children}
-            {isOpen && options && (
-                <div className="modal-backdrop" onClick={handleBackdropClick}>
-                    <div className="modal-dialog" role="dialog" aria-modal="true">
-                        <div className="modal-dialog__body">
-                            {options.content}
-                        </div>
-                        <div className="modal-dialog__footer">
-                            <button
-                                type="button"
-                                className="modal-dialog__button modal-dialog__button--primary"
-                                onClick={handleYes}
-                                autoFocus={options.defaultAction !== 'no'}
-                            >
-                                {options.yesLabel}
-                            </button>
-                            <button
-                                type="button"
-                                className="modal-dialog__button"
-                                onClick={handleNo}
-                                autoFocus={options.defaultAction === 'no'}
-                            >
-                                {options.noLabel}
-                            </button>
-                        </div>
+            {options && (
+                <ModalDialog
+                    isOpen={isOpen}
+                    onBackdropClick={() => close(false)}
+                    ariaLabel="Confirmation dialog"
+                >
+                    <div className="modal-dialog__body">
+                        {options.content}
                     </div>
-                </div>
+                    <div className="modal-dialog__footer">
+                        <button
+                            type="button"
+                            className="modal-dialog__button modal-dialog__button--primary"
+                            onClick={handleYes}
+                            autoFocus={options.defaultAction !== 'no'}
+                        >
+                            {options.yesLabel}
+                        </button>
+                        <button
+                            type="button"
+                            className="modal-dialog__button"
+                            onClick={handleNo}
+                            autoFocus={options.defaultAction === 'no'}
+                        >
+                            {options.noLabel}
+                        </button>
+                    </div>
+                </ModalDialog>
             )}
         </ConfirmDialogContext.Provider>
     );
