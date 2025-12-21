@@ -3,6 +3,33 @@ import {ActionRegistry} from "./KeyboardShortcutTypes";
 // so in order to detect duplicates, it's best to default to using character kind in these defaults.
 
 export const gActionRegistry: ActionRegistry = {
+   "OpenFile": {
+      id: "OpenFile",
+      title: "open file",
+      description: "open a somatic project file.",
+      category: "File",
+      defaultBindings: [
+         {kind: "character", key: "o", primary: true},
+      ],
+   },
+   "SaveFile": {
+      id: "SaveFile",
+      title: "save file",
+      description: "save the current somatic project file.",
+      category: "File",
+      defaultBindings: [
+         {kind: "character", key: "s", primary: true},
+      ],
+   },
+   "NewFile": {
+      id: "NewFile",
+      title: "new file",
+      description: "create a new somatic project file.",
+      category: "File",
+      defaultBindings: [
+         {kind: "character", key: "n", primary: true},
+      ],
+   },
    "Panic": {
       id: "Panic",
       title: "panic",
@@ -442,6 +469,24 @@ export const gActionRegistry: ActionRegistry = {
       category: "Edit",
       defaultBindings: [
          {kind: "character", key: "ArrowDown", alt: true},
+      ],
+   },
+   "IncrementInstrumentInSelection": {
+      id: "IncrementInstrumentInSelection",
+      title: "increment instrument in selection",
+      description: "increase the instrument index for the selection in the pattern.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "ArrowUp", alt: true, shift: true},
+      ],
+   },
+   "DecrementInstrumentInSelection": {
+      id: "DecrementInstrumentInSelection",
+      title: "decrement instrument in selection",
+      description: "decrement the instrument index for the selection in the pattern.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "ArrowDown", alt: true, shift: true},
       ],
    },
 } as const;

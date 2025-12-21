@@ -6,6 +6,7 @@ export type PatternAdvancedPanelProps = {
     onTranspose: (amount: number, scope: ScopeValue) => void;
     onSetInstrument: (instrument: number, scope: ScopeValue) => void;
     onChangeInstrument: (fromInstrument: number, toInstrument: number, scope: ScopeValue) => void;
+    onNudgeInstrument: (amount: number, scope: ScopeValue) => void;
     onInterpolate: (target: InterpolateTarget, scope: ScopeValue) => void;
 };
 
@@ -27,7 +28,7 @@ const interpolateOptions = [
 
 export type InterpolateTarget = (typeof interpolateOptions)[number]['value'];
 
-export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enabled = true, onTranspose, onSetInstrument, onChangeInstrument, onInterpolate }) => {
+export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enabled = true, onTranspose, onSetInstrument, onChangeInstrument, onNudgeInstrument, onInterpolate }) => {
     const scopeGroupId = useId();
     const [scope, setScope] = useState<ScopeValue>('selection');
     const [setInstrumentValue, setSetInstrumentValue] = useState<number>(2);
@@ -126,6 +127,24 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enab
                             </button>
                         </div>
                     </label>
+                    <div className="pattern-advanced-panel__buttonRow">
+                        <button
+                            type="button"
+                            className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
+                            onClick={() => onNudgeInstrument(-1, scope)}
+                            disabled={!enabled}
+                        >
+                            Inst-1
+                        </button>
+                        <button
+                            type="button"
+                            className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
+                            onClick={() => onNudgeInstrument(1, scope)}
+                            disabled={!enabled}
+                        >
+                            Inst+1
+                        </button>
+                    </div>
                 </section>
 
                 <section className="pattern-advanced-panel__section">

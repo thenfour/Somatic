@@ -537,6 +537,18 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         if (!patternGridRef.current) return;
         patternGridRef.current?.transposeNotes(12, 'selection');
     });
+    useActionHandler("IncrementInstrumentInSelection", () => {
+        if (!patternGridRef.current) return;
+        patternGridRef.current?.nudgeInstrumentInSelection(1, 'selection');
+    });
+    useActionHandler("DecrementInstrumentInSelection", () => {
+        if (!patternGridRef.current) return;
+        patternGridRef.current?.nudgeInstrumentInSelection(-1, 'selection');
+    });
+
+    useActionHandler("OpenFile", openSongFile);
+    useActionHandler("SaveFile", saveSongFile);
+    useActionHandler("NewFile", createNewSong);
 
     const handleBridgeReady = React.useCallback((handle: Tic80BridgeHandle) => {
         //console.log('[App] Bridge ready, uploading current song');

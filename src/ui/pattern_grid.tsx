@@ -13,7 +13,7 @@ import { InterpolateTarget, PatternAdvancedPanel, ScopeValue } from './PatternAd
 import { useToasts } from './toast_provider';
 import { Tooltip } from './tooltip';
 import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D';
-import { changeInstrumentInPattern, interpolatePatternValues, RowRange, setInstrumentInPattern, transposeCellsInPattern } from '../utils/advancedPatternEdit';
+import { changeInstrumentInPattern, interpolatePatternValues, RowRange, setInstrumentInPattern, transposeCellsInPattern, nudgeInstrumentInPattern } from '../utils/advancedPatternEdit';
 import { useRenderAlarm } from '../hooks/useRenderAlarm';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
@@ -78,6 +78,7 @@ export type PatternGridHandle = {
     focusPattern: () => void;
     focusCellAdvancedToRow: (rowIndex: number) => void; // after editstep changes, set focus to this row. we will keep the same column as current.
     transposeNotes: (amount: number, scope: ScopeValue) => void;
+    nudgeInstrumentInSelection: (amount: number, scope: ScopeValue) => void;
 };
 
 const PATTERN_CLIPBOARD_TYPE = 'somatic-pattern-block';
@@ -220,33 +221,49 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             });
         }, [onSongChange, pushToast, resolveScopeTargets]);
 
+        const runInstrumentMutationInScope = useCallback(
+            (
+                scope: ScopeValue,
+                mutatePattern: (pattern: Pattern, channels: number[], rowRange: RowRange, rowsPerPattern: number) => boolean,
+                noMutatedMessage: string,
+            ) => {
+                const targets = resolveScopeTargets(scope);
+                if (!targets) return;
+                const { patternIndices, channels, rowRange } = targets;
+                if (patternIndices.length === 0 || channels.length === 0) {
+                    pushToast({ message: 'Nothing to edit in that scope.', variant: 'error' });
+                    return;
+                }
+                onSongChange((nextSong) => {
+                    let mutated = false;
+                    for (const patternIndex of patternIndices) {
+                        const targetPattern = nextSong.patterns[patternIndex];
+                        if (!targetPattern) continue;
+                        if (mutatePattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern)) {
+                            mutated = true;
+                        }
+                    }
+                    if (!mutated) {
+                        pushToast({ message: noMutatedMessage, variant: 'info' });
+                    }
+                });
+            },
+            [onSongChange, pushToast, resolveScopeTargets],
+        );
+
         const handleSetInstrument = useCallback((rawInstrument: number, scope: ScopeValue) => {
             const instrumentValue = normalizeInstrumentValue(rawInstrument);
             if (instrumentValue === SomaticCaps.noteCutInstrumentIndex) {
                 pushToast({ message: 'Instrument 1 is reserved for note cuts.', variant: 'error' });
                 return;
             }
-            const targets = resolveScopeTargets(scope);
-            if (!targets) return;
-            const { patternIndices, channels, rowRange } = targets;
-            if (patternIndices.length === 0 || channels.length === 0) {
-                pushToast({ message: 'Nothing to edit in that scope.', variant: 'error' });
-                return;
-            }
-            onSongChange((nextSong) => {
-                let mutated = false;
-                for (const patternIndex of patternIndices) {
-                    const targetPattern = nextSong.patterns[patternIndex];
-                    if (!targetPattern) continue;
-                    if (setInstrumentInPattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern, instrumentValue)) {
-                        mutated = true;
-                    }
-                }
-                if (!mutated) {
-                    pushToast({ message: 'No instruments were eligible for update.', variant: 'info' });
-                }
-            });
-        }, [onSongChange, pushToast, resolveScopeTargets]);
+            runInstrumentMutationInScope(
+                scope,
+                (pattern, channels, rowRange, rowsPerPattern) =>
+                    setInstrumentInPattern(pattern, channels, rowRange, rowsPerPattern, instrumentValue),
+                'No instruments were eligible for update.',
+            );
+        }, [pushToast, runInstrumentMutationInScope]);
 
         const handleChangeInstrument = useCallback((rawFrom: number, rawTo: number, scope: ScopeValue) => {
             const fromInstrument = normalizeInstrumentValue(rawFrom);
@@ -259,27 +276,25 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 pushToast({ message: 'Choose different instruments to change.', variant: 'info' });
                 return;
             }
-            const targets = resolveScopeTargets(scope);
-            if (!targets) return;
-            const { patternIndices, channels, rowRange } = targets;
-            if (patternIndices.length === 0 || channels.length === 0) {
-                pushToast({ message: 'Nothing to edit in that scope.', variant: 'error' });
-                return;
-            }
-            onSongChange((nextSong) => {
-                let mutated = false;
-                for (const patternIndex of patternIndices) {
-                    const targetPattern = nextSong.patterns[patternIndex];
-                    if (!targetPattern) continue;
-                    if (changeInstrumentInPattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern, fromInstrument, toInstrument)) {
-                        mutated = true;
-                    }
-                }
-                if (!mutated) {
-                    pushToast({ message: 'No matching instruments were found to change.', variant: 'info' });
-                }
-            });
-        }, [onSongChange, pushToast, resolveScopeTargets]);
+            runInstrumentMutationInScope(
+                scope,
+                (pattern, channels, rowRange, rowsPerPattern) =>
+                    changeInstrumentInPattern(pattern, channels, rowRange, rowsPerPattern, fromInstrument, toInstrument),
+                'No matching instruments were found to change.',
+            );
+        }, [pushToast, runInstrumentMutationInScope]);
+
+
+        const nudgeInstrumentInSelection = useCallback((amount: number, scope: ScopeValue) => {
+            if (!amount) return;
+            runInstrumentMutationInScope(
+                scope,
+                (pattern, channels, rowRange, rowsPerPattern) =>
+                    nudgeInstrumentInPattern(pattern, channels, rowRange, rowsPerPattern, amount),
+                'No instruments were eligible for nudge.',
+            );
+        }, [runInstrumentMutationInScope]);
+
 
         const handleInterpolate = useCallback((target: InterpolateTarget, scope: ScopeValue) => {
             const targets = resolveScopeTargets(scope);
@@ -547,6 +562,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             focusCell(rowIndex, currentColumnIndex);
         }, [focusCell, currentColumnIndex]);
 
+
+
         useImperativeHandle(ref, () => ({
             focusPattern() {
                 const row = editorState.patternEditRow || 0;
@@ -555,6 +572,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             },
             focusCellAdvancedToRow,
             transposeNotes: handleTranspose,
+            nudgeInstrumentInSelection,
         }), [editorState.patternEditChannel, editorState.patternEditRow, focusCell, focusCellAdvancedToRow]);
 
         const updateEditTarget = ({ rowIndex, channelIndex }: { rowIndex: number, channelIndex: Tic80ChannelIndex }) => {
@@ -1026,6 +1044,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         onTranspose={handleTranspose}
                         onSetInstrument={handleSetInstrument}
                         onChangeInstrument={handleChangeInstrument}
+                        onNudgeInstrument={nudgeInstrumentInSelection}
                         onInterpolate={handleInterpolate}
                     />
                 )}

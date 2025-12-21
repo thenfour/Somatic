@@ -1,5 +1,9 @@
 // a list of all keyboard shortcuts.
 export const Actions = {
+   OpenFile: "OpenFile",
+   SaveFile: "SaveFile",
+   NewFile: "NewFile",
+
    Panic: "Panic",
    Undo: "Undo",
    Redo: "Redo",
@@ -46,6 +50,9 @@ export const Actions = {
    TransposeSelectionUpOctave: "TransposeSelectionUpOctave",
    TransposeSelectionDownOctave: "TransposeSelectionDownOctave",
 
+   IncrementInstrumentInSelection: "IncrementInstrumentInSelection",
+   DecrementInstrumentInSelection: "DecrementInstrumentInSelection",
+
    ExportCartRelease: "ExportCartRelease",
 
    Copy: "Copy",
@@ -60,6 +67,7 @@ export type ActionId = keyof typeof Actions;
 
 export const ActionCategories = {
    Transport: "Transport",
+   File: "File",
    Edit: "Edit",
    View: "View",
    Navigation: "Navigation",

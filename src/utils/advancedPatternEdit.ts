@@ -106,6 +106,25 @@ export const changeInstrumentInPattern = (
    return {...cell, instrumentIndex: toInstrument};
 });
 
+export const nudgeInstrumentInPattern = (
+   pattern: Pattern,
+   channels: number[],
+   rowRange: RowRange,
+   rowsPerPattern: number,
+   amount: number,
+   ): boolean => mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, (cell) => {
+   if (cell.instrumentIndex === undefined)
+      return null;
+   if (cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex)
+      return null;
+   const nextInstrument = clamp(cell.instrumentIndex + amount, 0, Tic80Caps.sfx.count - 1);
+   if (nextInstrument === SomaticCaps.noteCutInstrumentIndex)
+      return null;
+   if (nextInstrument === cell.instrumentIndex)
+      return null;
+   return {...cell, instrumentIndex: nextInstrument};
+});
+
 
 type CellValueAccessor = {
    min: number; max: number; read: (cell: PatternCell) => number | undefined;
