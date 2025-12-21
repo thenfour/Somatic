@@ -203,7 +203,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     // auto-save to backend + localStorage
     const autoSave = useWriteBehindEffect<Song>(async (doc, { signal }) => {
-        audio.transmitSong(doc, "Auto-save", editorState.getAudibleChannels());
+        await audio.transmitSong(doc, "Auto-save", editorState.getAudibleChannels());
         localStorage.setItem('somatic-song', doc.toJSON());
     }, {
         debounceMs: 1000,//
@@ -484,31 +484,27 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         audio.panic();
     };
 
-    const onPlayPattern = () => {
-        autoSave.flush();
+    const playSongWithFlush = useCallback(async (startPosition: number, startRow: number) => {
         if (audio.getMusicState().isPlaying) {
             audio.panic();
         } else {
-            audio.playSong(editorState.activeSongPosition, 0);
+            await autoSave.flush();
+            audio.playSong(startPosition, startRow);
         }
+    }, [audio, autoSave]);
+
+    const onPlayPattern = () => {
+        const ed = editorRef.current;
+        void playSongWithFlush(ed.activeSongPosition, 0);
     };
 
     const onPlayAll = () => {
-        autoSave.flush();
-        if (audio.getMusicState().isPlaying) {
-            audio.panic();
-        } else {
-            audio.playSong(0, 0);
-        }
+        void playSongWithFlush(0, 0);
     };
 
     const onPlayFromPosition = () => {
-        autoSave.flush();
-        if (audio.getMusicState().isPlaying) {
-            audio.panic();
-        } else {
-            audio.playSong(editorState.activeSongPosition, editorState.patternEditRow);
-        }
+        const ed = editorRef.current;
+        void playSongWithFlush(ed.activeSongPosition, ed.patternEditRow);
     };
 
 

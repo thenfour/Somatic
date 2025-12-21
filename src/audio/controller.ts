@@ -28,9 +28,9 @@ export class AudioController {
       this.backend = new Tic80Backend(opts.bridgeGetter);
    }
 
-   transmitSong(song: Song|null, reason: string, audibleChannels: Set<Tic80ChannelIndex>) {
+   async transmitSong(song: Song|null, reason: string, audibleChannels: Set<Tic80ChannelIndex>) {
       //this.song = song;
-      this.backend.transmitSong(song, reason, audibleChannels);
+      await this.backend.transmitSong(song, reason, audibleChannels);
    }
 
    stop() {
