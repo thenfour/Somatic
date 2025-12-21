@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useClipboard } from '../hooks/useClipboard';
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
 import { Tic80Caps } from "../models/tic80Capabilities";
 import { Tic80Waveform, Tic80WaveformDto } from "../models/waveform";
 import { WaveformCanvas } from "./waveform_canvas";
-import { clamp } from "../utils/utils";
 import '/src/waveform.css';
+import { WaveformSwatch, WaveformSwatchDisplayStyle } from "./waveformSwatch";
+import { calculateSongUsage, getMaxWaveformUsedIndex, SongUsage } from "../utils/SongOptimizer";
 
 // keep tied in with Tic80Caps.
 
@@ -35,63 +36,13 @@ typedef struct
 
 */
 
-export type WaveformSwatchDisplayStyle = "normal" | "selected" | "muted";
-
-export const WaveformSwatch: React.FC<{
-    value: Tic80Waveform;
-    scale: number;
-    //isSelected?: boolean;
-    displayStyle: WaveformSwatchDisplayStyle;
-    onClick?: () => void;
-}> = ({ value, scale, displayStyle, onClick }) => {
-    const pointCount = Tic80Caps.waveform.pointCount;
-    const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
-    const width = scale * pointCount;
-    const height = scale * amplitudeRange;
-
-    const maxAmp = amplitudeRange - 1;
-
-    const points: JSX.Element[] = [];
-    for (let i = 0; i < pointCount; i += 1) {
-        const amp = clamp(value.amplitudes[i] ?? 0, 0, maxAmp);
-
-        const x = (i) * (width / pointCount);
-        const y = height - ((amp + 1) * height) / amplitudeRange;
-        points.push(
-            <rect
-                key={i}
-                className="waveform-swatch__point"
-                x={x}
-                y={y}
-                width={scale}
-                height={scale}
-            />,
-        );
-    }
-
-    const className = `interactable waveform-swatch waveform-swatch--${displayStyle}`;
-
-    return (
-        <button type="button" className={className} onClick={onClick} style={{ width, height }}>
-            <svg
-                className="waveform-swatch__svg"
-                viewBox={`0 0 ${width} ${height}`}
-                width={width}
-                height={height}
-                aria-hidden="true"
-            >
-                {points}
-            </svg>
-        </button>
-    );
-};
-
 export const WaveformSelect: React.FC<{
     //selectedWaveformId: number;
     song: Song;
     onClickWaveform: (waveformId: number) => void;
     getWaveformDisplayStyle: (waveformId: number) => WaveformSwatchDisplayStyle;
-}> = ({ getWaveformDisplayStyle, song, onClickWaveform }) => {
+    getOverlayText: (waveformId: number) => string;
+}> = ({ getWaveformDisplayStyle, getOverlayText, song, onClickWaveform }) => {
     const waveformCount = Math.min(song.waveforms.length, Tic80Caps.waveform.count);
     const scale = 3;
 
@@ -107,6 +58,7 @@ export const WaveformSelect: React.FC<{
                         //isSelected={index === selectedWaveformId}
                         displayStyle={getWaveformDisplayStyle(index)}
                         onClick={() => onClickWaveform(index)}
+                        overlayText={getOverlayText(index)}
                     />
                 );
             })}
@@ -169,6 +121,13 @@ export const WaveformEditorPanel: React.FC<{
     const [mixPercent, setMixPercent] = useState<number>(100);
     const [harmonic, setHarmonic] = useState<number>(1);
     const clipboard = useClipboard();
+
+    const [songUsage, setSongUsage] = useState<SongUsage | null>(null);
+
+    useEffect(() => {
+        const usage = calculateSongUsage(song);
+        setSongUsage(usage);
+    }, [song]);
 
     const applyGeneratedWaveform = (generator: (index: number, pointCount: number, maxAmp: number) => number) => {
         const waveform = song.waveforms[editingWaveformId];
@@ -303,30 +262,6 @@ export const WaveformEditorPanel: React.FC<{
         });
     };
 
-    const handleLowpass1Pole = () => {
-        const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
-        const maxAmp = amplitudeRange - 1;
-        onSongChange((s) => {
-            const wf = s.waveforms[editingWaveformId];
-            if (!wf) return;
-
-            // 1-pole IIR lowpass filter: y[n] = y[n-1] + α * (x[n] - y[n-1])
-            // α = 0.3 gives a moderate smoothing effect
-            const alpha = 0.5;
-            const original = new Uint8Array(wf.amplitudes);
-            const len = original.length;
-
-            // Initialize with the first sample
-            let y = original[0];
-
-            for (let i = 0; i < len; i += 1) {
-                const x = original[i];
-                y = y + alpha * (x - y);
-                wf.amplitudes[i] = Math.round(Math.max(0, Math.min(maxAmp, y)));
-            }
-        });
-    };
-
     const handleCopy = async () => {
         const waveform = song.waveforms[editingWaveformId];
         await clipboard.copyObjectToClipboard(waveform.toData());
@@ -347,8 +282,25 @@ export const WaveformEditorPanel: React.FC<{
                 onClickWaveform={setEditingWaveformId}
                 //selectedWaveformId={editingWaveformId}
                 getWaveformDisplayStyle={(waveformId) => {
-                    //if (waveformId === 1) return "muted"; // testing
-                    return waveformId === editingWaveformId ? "selected" : "normal";
+
+                    if (waveformId === editingWaveformId) {
+                        return "selected";
+                    }
+
+                    if (songUsage) {
+                        if (songUsage.usedWaveforms.has(waveformId)) {
+                            return "normal";
+                        }
+                    }
+                    return "muted";
+                }}
+                getOverlayText={(waveformIndex) => {
+                    // show a * if the waveform is used in the song
+                    let used = false;
+                    if (songUsage) {
+                        used = songUsage.usedWaveforms.has(waveformIndex);
+                    }
+                    return `${waveformIndex.toString(16).toUpperCase()}${used ? '*' : ''}`;
                 }}
                 song={song}
             />
@@ -402,7 +354,6 @@ export const WaveformEditorPanel: React.FC<{
                     <button type="button" onClick={() => handleShift(-1)}>Down</button>
                     <button type="button" onClick={handleNormalize}>Normalize</button>
                     <button type="button" onClick={handleLowpass}>Lowpass</button>
-                    <button type="button" onClick={handleLowpass1Pole}>LP 1-pole</button>
                 </div>
             </div>
         </div>);

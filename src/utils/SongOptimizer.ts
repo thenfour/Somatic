@@ -5,7 +5,7 @@ import {Tic80Instrument} from "../models/instruments";
 import {Tic80Waveform} from "../models/waveform";
 import {clamp} from "./utils";
 
-type SongUsage = {
+export type SongUsage = {
    usedPatterns: Set<number>;    //
    usedInstruments: Set<number>; //
    usedWaveforms: Set<number>;   //

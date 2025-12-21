@@ -6,7 +6,8 @@ import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { assert, clamp, TryParseInt } from '../utils/utils';
 import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
 import { useClipboard } from '../hooks/useClipboard';
-import { WaveformSelect, WaveformSwatch } from './waveformEditor';
+import { WaveformSelect } from './waveformEditor';
+import { WaveformSwatch } from './waveformSwatch';
 
 /*
 
@@ -399,9 +400,17 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                                 });
                             }}
                             song={song}
+                            getOverlayText={(i) => i.toString(16).toUpperCase()}
                             getWaveformDisplayStyle={(waveformId) => {
+                                if (hoveredWaveform === null) {
+                                    // no hover; just highlight all the USED waveforms
+                                    if (instrument.waveFrames.includes(waveformId)) {
+                                        return "normal";
+                                    }
+                                    return "muted";
+                                }
                                 if (hoveredWaveform && waveformId === hoveredWaveform.value) {
-                                    return "normal";
+                                    return "selected";
                                 }
                                 // interesting but introduces a 4th display styl...
                                 // if (instrument.waveFrames.includes(waveformId)) {
@@ -409,7 +418,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                                 // }
 
                                 if (waveformId === hoveredWaveform?.actualValue) {
-                                    return "selected";
+                                    return "normal";
                                 }
 
                                 return "muted";
