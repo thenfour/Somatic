@@ -43,6 +43,15 @@ import { MidiStatusIndicator } from './ui/MidiStatusIndicator';
 import { AboutSomaticDialog } from './ui/AboutSomaticDialog';
 import { TransportTime } from './ui/transportTime';
 
+const TIC80_FRAME_SIZES = [
+
+    { id: 'small', label: 'Small', width: '256px', height: '300px' },// smaller than this and it disappears
+    { id: 'medium', label: 'Medium', width: '512px', height: '400px' },
+    { id: 'large', label: 'Large', width: '768px', height: '600px' },
+] as const;
+
+const TIC80_FRAME_DEFAULT_INDEX = 1;
+
 type SongMutator = (song: Song) => void;
 type SongChangeArgs = {
     mutator: SongMutator;
@@ -100,7 +109,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useLocalStorage("somatic-instrumentPanelOpen", false);
     const [waveformEditorPanelOpen, setWaveformEditorPanelOpen] = useLocalStorage("somatic-waveformEditorPanelOpen", false);
-    const [tic80PanelOpen, setTic80PanelOpen] = useLocalStorage("somatic-tic80PanelOpen", true);
+    const [tic80FrameSizeIndex, setTic80FrameSizeIndex] = useLocalStorage<number>("somatic-tic80FrameSizeIndex", TIC80_FRAME_DEFAULT_INDEX);
     const [showingOnScreenKeyboard, setShowingOnScreenKeyboard] = useLocalStorage("somatic-showOnScreenKeyboard", true);
     const [showingArrangementEditor, setShowingArrangementEditor] = useLocalStorage("somatic-showArrangementEditor", true);
     const [advancedEditPanelOpen, setAdvancedEditPanelOpen] = useLocalStorage("somatic-advancedEditPanelOpen", false);
@@ -171,6 +180,10 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             const hash = window.location.hash || "";
             window.location.href = base + search + hash;
         }
+    };
+
+    const cycleTic80FrameSize = () => {
+        setTic80FrameSizeIndex((prev) => (prev + 1) % TIC80_FRAME_SIZES.length);
     };
 
     useEffect(() => {
@@ -506,7 +519,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("FocusPattern", () => patternGridRef.current?.focusPattern());
     useActionHandler("ToggleWaveformEditor", () => setWaveformEditorPanelOpen(open => !open));
     useActionHandler("ToggleInstrumentPanel", () => setInstrumentPanelOpen(open => !open));
-    useActionHandler("ToggleTic80Panel", () => setTic80PanelOpen(open => !open));
+    useActionHandler("CycleTic80PanelSize", () => cycleTic80FrameSize());
     useActionHandler("ToggleOnScreenKeyboard", () => setShowingOnScreenKeyboard(open => !open));
     useActionHandler("ToggleArrangementEditor", () => setShowingArrangementEditor(open => !open));
     useActionHandler("ToggleAdvancedEditPanel", () => setAdvancedEditPanelOpen(open => !open));
@@ -797,12 +810,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     Theme Editor
                                 </DesktopMenu.Item>
                                 <DesktopMenu.Item
-                                    checked={tic80PanelOpen}
+                                    checked={tic80FrameSizeIndex !== 0}
                                     closeOnSelect={false}
-                                    onSelect={() => setTic80PanelOpen(open => !open)}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleTic80Panel")}
+                                    onSelect={() => cycleTic80FrameSize()}
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("CycleTic80PanelSize")}
                                 >
-                                    TIC-80 Bridge
+                                    TIC-80 Bridge Size
                                 </DesktopMenu.Item>
                                 <DesktopMenu.Sub>
                                     <DesktopMenu.SubTrigger>TIC-80 Embed Variant</DesktopMenu.SubTrigger>
@@ -986,11 +999,21 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     <ThemeEditorPanel onClose={() => setThemePanelOpen(false)} />
                 )}
 
-                {/* When booting (bridge ! ready), we have to show it so it can take focus and convince the browser to make the iframe run in high-performance; see #56 */}
-                <div className={tic80PanelOpen || !bridgeReady ? "tic80-frame" : "tic80-frame hidden"}>
-                    {/* <Tic80Iframe /> */}
-                    <Tic80Bridge ref={bridgeRef} onReady={handleBridgeReady} />
-                </div>
+                {/* When booting (bridge ! ready), force a visible size so it can take focus and convince the browser to make the iframe run in high-performance; see #56 */}
+                {(() => {
+                    const effectiveIndex = !bridgeReady ? TIC80_FRAME_DEFAULT_INDEX : tic80FrameSizeIndex;
+                    const size = TIC80_FRAME_SIZES[effectiveIndex] ?? TIC80_FRAME_SIZES[TIC80_FRAME_DEFAULT_INDEX];
+                    const frameStyle: React.CSSProperties = {
+                        "--tic80-frame-width": size.width,
+                        "--tic80-frame-height": size.height,
+                    } as React.CSSProperties;
+                    return (
+                        <div className="tic80-frame" style={frameStyle}>
+                            {/* <Tic80Iframe /> */}
+                            <Tic80Bridge ref={bridgeRef} onReady={handleBridgeReady} />
+                        </div>
+                    );
+                })()}
             </div>
             <div className="footer appRow">
                 {showingOnScreenKeyboard && <Keyboard

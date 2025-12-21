@@ -99,10 +99,10 @@ export const gActionRegistry: ActionRegistry = {
       ],
    },
 
-   "ToggleTic80Panel": {
-      id: "ToggleTic80Panel",
-      title: "toggle TIC-80 bridge",
-      description: "show or hide the TIC-80 bridge panel.",
+   "CycleTic80PanelSize": {
+      id: "CycleTic80PanelSize",
+      title: "cycle TIC-80 size",
+      description: "cycle through the available TIC-80 sizes.",
       category: "View",
       defaultBindings: [
          {kind: "character", key: ".", primary: true},

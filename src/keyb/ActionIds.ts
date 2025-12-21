@@ -11,7 +11,7 @@ export const Actions = {
    FocusPattern: "FocusPattern",
    ToggleWaveformEditor: "ToggleWaveformEditor",
    ToggleInstrumentPanel: "ToggleInstrumentPanel",
-   ToggleTic80Panel: "ToggleTic80Panel",
+   CycleTic80PanelSize: "CycleTic80PanelSize",
    ToggleOnScreenKeyboard: "ToggleOnScreenKeyboard",
    ToggleArrangementEditor: "ToggleArrangementEditor",
    ToggleAdvancedEditPanel: "ToggleAdvancedEditPanel",
