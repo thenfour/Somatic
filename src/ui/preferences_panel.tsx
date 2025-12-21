@@ -2,13 +2,35 @@ import React from 'react';
 import type { MidiDevice, MidiStatus } from '../midi/midi_manager';
 import { KeyboardShortcutConfigurator } from '../keyb/KeyboardShortcutConfigurator';
 
+interface MidiDeviceChipProps {
+    device: MidiDevice;
+    isEnabled: boolean;
+    onDisconnect: () => void;
+    onEnabled: () => void;
+};
+
+export const MidiDeviceChip: React.FC<MidiDeviceChipProps> = ({ device, isEnabled, onDisconnect, onEnabled }) => {
+
+
+    const statusText = isEnabled ? device.state === "connected" ? 'Connected' : '?' : 'Disabled';
+
+    return <div className="midi-device-chip">
+        <strong>{device.name}</strong> {device.manufacturer ? `(${device.manufacturer})` : ''} - {statusText}
+        {isEnabled ? <button onClick={onDisconnect}>Disconnect</button> : <button onClick={onEnabled}>Enable</button>}
+    </div>
+};
+
 type PreferencesPanelProps = {
     midiStatus: MidiStatus;
     midiDevices: MidiDevice[];
+    disabledMidiDeviceIds: string[];
     onClose: () => void;
+    onDisconnectMidiDevice: (device: MidiDevice) => void;
+    onEnableMidiDevice: (device: MidiDevice) => void;
 };
 
-export const PreferencesPanel: React.FC<PreferencesPanelProps> = ({ midiStatus, midiDevices, onClose }) => (
+
+export const PreferencesPanel: React.FC<PreferencesPanelProps> = ({ midiStatus, midiDevices, disabledMidiDeviceIds, onClose, onDisconnectMidiDevice, onEnableMidiDevice }) => (
     <div className="preferences-panel app-panel" role="dialog" aria-label="Preferences">
         <h2>Preferences</h2>
 
@@ -19,7 +41,12 @@ export const PreferencesPanel: React.FC<PreferencesPanelProps> = ({ midiStatus, 
                 {midiDevices.length === 0 && <li>No MIDI devices detected.</li>}
                 {midiDevices.map((d) => (
                     <li key={d.id}>
-                        <strong>{d.name}</strong> {d.manufacturer ? `(${d.manufacturer})` : ''} — {d.state}
+                        <MidiDeviceChip
+                            device={d}
+                            isEnabled={!disabledMidiDeviceIds.includes(d.id)}
+                            onDisconnect={() => onDisconnectMidiDevice(d)}
+                            onEnabled={() => onEnableMidiDevice(d)}
+                        />
                     </li>
                 ))}
             </ul>

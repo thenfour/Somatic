@@ -23,9 +23,14 @@ export class MidiManager implements NoteInputSource {
    private deviceListeners = new Set<Listener<MidiDevice[]>>();
    private access: WebMidi|null = null;
    private enabled: boolean = true;
+   private disabledDeviceIds: Set<string>;
+
+   constructor(disabledDeviceIds: string[]) {
+      this.disabledDeviceIds = new Set(disabledDeviceIds);
+   }
 
    async init(): Promise<void> {
-      console.log("[MidiManager] Initializing MIDI...");
+      //console.log("[MidiManager] Initializing MIDI...");
       if (!navigator.requestMIDIAccess) {
          this.status = "unsupported";
          console.warn("[MidiManager] Web MIDI API not supported in this browser.");
@@ -81,6 +86,11 @@ export class MidiManager implements NoteInputSource {
       return this.enabled;
    }
 
+   setDisabledDeviceIds(disabledIds: string[]): void {
+      this.disabledDeviceIds = new Set(disabledIds);
+      this.attachInputs();
+   }
+
    private emitDevices() {
       const list = this.getDevices();
       this.deviceListeners.forEach((cb) => cb(list));
@@ -109,7 +119,11 @@ export class MidiManager implements NoteInputSource {
       this.access.inputs.forEach((input) => {
          // Remove any existing to avoid duplicate handlers
          input.onmidimessage = null;
-         input.onmidimessage = (evt: MIDIMessageEvent) => this.handleMessage(input.id, evt);
+         // Only attach handler if device is not disabled
+         console.log(`MIDI disabled devices: ${JSON.stringify([...this.disabledDeviceIds])}`);
+         if (!this.disabledDeviceIds.has(input.id)) {
+            input.onmidimessage = (evt: MIDIMessageEvent) => this.handleMessage(input.id, evt);
+         }
       });
    }
 
@@ -128,6 +142,9 @@ export class MidiManager implements NoteInputSource {
 
    private dispatchNote(on: boolean, payload: MidiNoteEvent) {
       if (!this.enabled)
+         return;
+      // Don't dispatch notes from disabled devices
+      if (this.disabledDeviceIds.has(payload.deviceId))
          return;
       const listeners = on ? this.noteOnListeners : this.noteOffListeners;
       listeners.forEach((cb) => cb(payload));

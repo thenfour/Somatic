@@ -39,6 +39,7 @@ import { CharMap } from './utils/utils';
 import { ShortcutScopeProvider } from './keyb/KeyboardShortcutScope';
 import { useRenderAlarm } from './hooks/useRenderAlarm';
 import { MusicStateDisplay } from './ui/MusicStateDisplay';
+import { MidiStatusIndicator } from './ui/MidiStatusIndicator';
 
 type SongMutator = (song: Song) => void;
 type EditorStateMutator = (state: EditorState) => void;
@@ -65,7 +66,8 @@ const isEditingCommandOrParamCell = () => {
 export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
     const keyboardShortcutMgr = useShortcutManager();
     const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
-    const midiRef = React.useRef<MidiManager | null>(new MidiManager());
+    const [disabledMidiDeviceIds, setDisabledMidiDeviceIds] = useLocalStorage<string[]>("somatic-disabledMidiDeviceIds", []);
+    const midiRef = React.useRef<MidiManager | null>(new MidiManager(disabledMidiDeviceIds));
     const keyboardRef = React.useRef<KeyboardNoteInput | null>(null);
     const patternGridRef = React.useRef<PatternGridHandle | null>(null);
     const undoStackRef = React.useRef<UndoStack | null>(null);
@@ -106,28 +108,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         undoStackRef.current = new UndoStack(200);
     }
 
-    const connectedMidiInputs = useMemo(() => midiDevices.filter((d) => d.state === 'connected').length, [midiDevices]);
-    const midiIndicatorState = midiStatus === 'ready'
-        ? (midiEnabled ? (connectedMidiInputs > 0 ? 'ok' : 'warn') : 'off')
-        : 'off';
-
-    const midiIndicatorLabel = midiStatus === 'ready'
-        ? (midiEnabled
-            ? (connectedMidiInputs > 0 ? `MIDI (${connectedMidiInputs})` : 'MIDI ready (no devices)')
-            : 'MIDI off')
-        : midiStatus === 'pending'
-            ? 'MIDI initializing'
-            : midiStatus === 'unsupported'
-                ? 'MIDI unsupported'
-                : midiStatus === 'denied'
-                    ? 'MIDI access denied'
-                    : 'MIDI error';
-
-    const midiIndicatorTitle = midiEnabled && connectedMidiInputs > 0
-        ? `${midiIndicatorLabel}: ${connectedMidiInputs} input${connectedMidiInputs === 1 ? '' : 's'} connected. Click to disable.`
-        : midiEnabled
-            ? `${midiIndicatorLabel}. Click to disable.`
-            : `${midiIndicatorLabel}. Click to enable.`;
+    useEffect(() => {
+        midiRef.current?.setDisabledDeviceIds(disabledMidiDeviceIds);
+    }, [disabledMidiDeviceIds]);
 
     const keyboardIndicatorState = keyboardEnabled ? 'ok' : 'off';
     const keyboardIndicatorLabel = keyboardEnabled ? 'Keyb note inp' : 'Keyb off';
@@ -571,6 +554,17 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     //     }
     // });
 
+    const handleDisconnectMidiDevice = (device: MidiDevice) => {
+        setDisabledMidiDeviceIds((prev) => {
+            if (prev.includes(device.id)) return prev;
+            return [...prev, device.id];
+        });
+    };
+
+    const handleEnableMidiDevice = (device: MidiDevice) => {
+        setDisabledMidiDeviceIds((prev) => prev.filter((id) => id !== device.id));
+    };
+
     return (
         <div className="app">
             <div className="stickyHeader appRow">
@@ -735,18 +729,14 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <span className={`edit-toggle__label`}>Edit</span>
                             </button>
                         </Tooltip>
-                        <Tooltip title={`${midiIndicatorTitle} (${keyboardShortcutMgr.getActionBindingLabel("ToggleMidiNoteInput")})`}>
-                            <button
-                                className={`midi-indicator midi-indicator--${midiIndicatorState}`}
-                                title={midiIndicatorTitle}
-                                aria-label={midiIndicatorTitle}
-                                onClick={toggleMidiEnabled}
-                            >
-                                <span className="midi-indicator__dot" aria-hidden="true" />
-                                <span className="midi-indicator__label">{midiIndicatorLabel}</span>
-
-                            </button>
-                        </Tooltip>
+                        <MidiStatusIndicator
+                            midiStatus={midiStatus}
+                            midiDevices={midiDevices}
+                            midiEnabled={midiEnabled}
+                            disabledMidiDeviceIds={disabledMidiDeviceIds}
+                            onToggleMidiEnabled={toggleMidiEnabled}
+                            shortcutLabel={keyboardShortcutMgr.getActionBindingLabel("ToggleMidiNoteInput")}
+                        />
                         <Tooltip title={`${keyboardIndicatorTitle} (${keyboardShortcutMgr.getActionBindingLabel("ToggleKeyboardNoteInput")})`}>
                             <button
                                 className={`midi-indicator midi-indicator--${keyboardIndicatorState}`}
@@ -817,7 +807,10 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     <PreferencesPanel
                         midiStatus={midiStatus}
                         midiDevices={midiDevices}
+                        disabledMidiDeviceIds={disabledMidiDeviceIds}
                         onClose={() => setPreferencesPanelOpen(false)}
+                        onDisconnectMidiDevice={handleDisconnectMidiDevice}
+                        onEnableMidiDevice={handleEnableMidiDevice}
                     />
                 )}
                 {themePanelOpen && (

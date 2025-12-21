@@ -37,9 +37,10 @@ export const MusicStateDisplay: React.FC<{ bridgeReady: boolean; audio: AudioCon
     return <Tooltip title={<div>
         <div>TIC-80 playback status</div>
         <table>
-            <tbody>                <tr>
-                <td>FPS</td><td>{fps}</td>
-            </tr>
+            <tbody>
+                <tr>
+                    <td>FPS</td><td>{fps}</td>
+                </tr>
                 <tr>
                     <td>Playing</td><td>{musicState.isPlaying ? 'Yes' : 'No'}</td>
                 </tr>
