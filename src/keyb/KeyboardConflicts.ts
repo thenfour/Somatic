@@ -25,7 +25,7 @@ export function resolveBindingsForPlatform(
          continue;
       }
       if (u !== undefined) {
-         out[id] = u; // user override (can be [] if you want)
+         out[id] = u; // user override
          continue;
       }
 

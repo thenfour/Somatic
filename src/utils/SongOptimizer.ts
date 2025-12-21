@@ -262,10 +262,10 @@ export function OptimizeSong(song: Song): OptimizeResult {
    changeLog.push(`Packed waveforms: ${usedWaveformCount} used of ${newWaveforms.length}.`);
 
    // clamp song order length to capability if it somehow got longer; ensure at least one position.
-   if (working.songOrder.length > Tic80Caps.arrangement.count) {
-      working.songOrder = working.songOrder.slice(0, Tic80Caps.arrangement.count);
-      changeLog.push(`Trimmed song order to ${Tic80Caps.arrangement.count} entries.`);
-   }
+   // if (working.songOrder.length > Tic80Caps.arrangement.count) {
+   //    working.songOrder = working.songOrder.slice(0, Tic80Caps.arrangement.count);
+   //    changeLog.push(`Trimmed song order to ${Tic80Caps.arrangement.count} entries.`);
+   // }
    if (working.songOrder.length === 0) {
       working.songOrder = [0];
       changeLog.push("Song order was empty; added pattern 0.");

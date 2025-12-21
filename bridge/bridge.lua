@@ -108,7 +108,7 @@ local LOG_CMD_LOG = 1 -- log message to host
 -- INBOX.SUSTAIN      : sustain (0/1)
 -- INBOX.TEMPO        : tempo (0=default)
 -- INBOX.SPEED        : speed (0=default)
--- INBOX.HOST_ACK     : hostAck (optional; host may write its logReadPtr here if you want)
+-- INBOX.HOST_ACK     : hostAck (optional; host may write its logReadPtr here)
 -- INBOX + 8..        : reserved
 
 -- =========================
@@ -489,8 +489,6 @@ function lzdec_mem(src, srcLen, dst)
 				di = di + 1
 			end
 		else
-			-- Unknown tag; in your data this should never happen.
-			-- You can error() here if you want hard failure.
 			-- error(string.format("unknown LZ tag 0x%02x at src+%d", tag, si-1))
 			break
 		end
@@ -675,7 +673,7 @@ end
 -- =========================
 function TIC()
 	if not booted then
-		math.randomseed(12345) -- stable-ish; remove if you want varying visuals
+		math.randomseed(12345) -- stable-ish
 		write_marker()
 		out_init()
 		host_last_seq = peek(INBOX.SEQ)

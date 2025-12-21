@@ -126,7 +126,6 @@ export function ShortcutManagerProvider(props: {
         return chords.map(chord => formatChord(chord, platform)).join(", ") || undefined;
     }, [getResolvedBindings, platform]);
 
-    // One global listener: capture phase so you can intercept before nested handlers if you want.
     React.useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             if (suspendCountRef.current > 0) return;

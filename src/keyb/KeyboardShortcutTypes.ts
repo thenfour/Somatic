@@ -4,7 +4,7 @@ export type Platform = "mac"|"win"|"linux";
 export type ShortcutKind = "character"|"physical";
 
 // Semantic modifiers: "primary" is Cmd on mac, Ctrl on win/linux.
-// "secondary" is the other one (Ctrl on mac, Meta on win/linux) if you ever need it.
+// "secondary" is the other one (Ctrl on mac, Meta on win/linux)
 export type ShortcutChord = {
    kind: ShortcutKind;
 

@@ -530,7 +530,7 @@ function getCode(song: Song, variant: "debug"|"release", audibleChannels: Set<Ti
       const encodedPattern = encodePatternCombined(pattern, audibleChannels);
       patternChunks.push(encodedPattern);
 
-      const fingerprint = getBufferFingerprint(encodedPattern);
+      //const fingerprint = getBufferFingerprint(encodedPattern);
       //console.log(`Pattern ${patternIndex} fingerprint:`, fingerprint);
 
       // { TestBase85Encoding("04 00 42 00 00 00 0d 00 81"); }

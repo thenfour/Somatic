@@ -204,8 +204,6 @@ function lzdec_mem(src, srcLen, dst)
 				di = di + 1
 			end
 		else
-			-- Unknown tag; in your data this should never happen.
-			-- You can error() here if you want hard failure.
 			-- error(string.format("unknown LZ tag 0x%02x at src+%d", tag, si-1))
 			break
 		end

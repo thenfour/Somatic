@@ -383,7 +383,7 @@ export function lzCompress(input: Uint8Array, cfg: LZConfig): Uint8Array {
 
    let i = 0;
    while (i < input.length) {
-      // 1) Optional: detect RLE run at i
+      // Optional: detect RLE run at i
       let rleLen = 0;
       if (useRLE) {
          const v = input[i];
@@ -394,7 +394,7 @@ export function lzCompress(input: Uint8Array, cfg: LZConfig): Uint8Array {
          rleLen = k - i;
       }
 
-      // 2) Find best LZ match (greedy longest within window, capped)
+      // Find best LZ match (greedy longest within window, capped)
       let bestLen = 0;
       let bestDist = 0;
 
@@ -402,7 +402,6 @@ export function lzCompress(input: Uint8Array, cfg: LZConfig): Uint8Array {
       const maxLenCap = Math.min(maxMatchLength, input.length - i);
 
       // Simple brute-force search. For tuning/testing this is fine.
-      // If you later need speed, we can add hashing.
       for (let dist = 1; dist <= maxDist; dist++) {
          let len = 0;
          // Compare input[i + len] vs input[i + len - dist]
@@ -428,7 +427,7 @@ export function lzCompress(input: Uint8Array, cfg: LZConfig): Uint8Array {
          continue;
       }
 
-      // Choose best operation by cost-per-byte-saved. We’ll compare:
+      // Choose best operation by cost-per-byte-saved. We'll compare:
       // - LZ match candidate (if any)
       // - RLE candidate (if any)
       // - otherwise literals
@@ -441,7 +440,7 @@ export function lzCompress(input: Uint8Array, cfg: LZConfig): Uint8Array {
       let choose: "LZ"|"RLE"|"LIT" = "LIT";
       let useLen = 1;
 
-      // Start with “literal run” as baseline (encode next byte as literal; we’ll accumulate)
+      // Start with "literal run" as baseline (encode next byte as literal; we'll accumulate)
       let bestScore = Infinity;
 
       if (canMatch) {
