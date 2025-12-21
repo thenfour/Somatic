@@ -120,7 +120,6 @@ export class MidiManager implements NoteInputSource {
          // Remove any existing to avoid duplicate handlers
          input.onmidimessage = null;
          // Only attach handler if device is not disabled
-         console.log(`MIDI disabled devices: ${JSON.stringify([...this.disabledDeviceIds])}`);
          if (!this.disabledDeviceIds.has(input.id)) {
             input.onmidimessage = (evt: MIDIMessageEvent) => this.handleMessage(input.id, evt);
          }

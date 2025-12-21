@@ -368,7 +368,6 @@ export const ArrangementEditor: React.FC<{
     };
 
     const patternDisplayName = (patternIndex: number) => {
-        console.log("patternDisplayName", patternIndex);
         const pat = song.patterns[patternIndex]!;
         if (!pat) return "";
         return pat.name;

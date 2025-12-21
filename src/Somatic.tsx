@@ -231,7 +231,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     useEffect(() => {
         autoSave.enqueue(song);
-    }, [song, autoSave]);
+    }, [song]);
 
     const songRef = React.useRef(song);
     const editorRef = React.useRef(editorState);

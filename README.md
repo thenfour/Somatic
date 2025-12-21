@@ -101,7 +101,6 @@ npm install
 npm start
 npm run typecheck
 
-
 npm run build
 npx webpack --mode production
 npx serve
@@ -109,3 +108,10 @@ npx serve
 
 ```
 
+## changes to bridge.lua
+
+load it in a tic80 instance and save the cart to `/public/bridge.tic`. that's what gets loaded @ runtime.
+
+## sanity checks
+
+code is not so well organized in many places; lots of dependencies still cause confusion and unexpected effect loops. check for this before deploying.
