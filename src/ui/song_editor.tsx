@@ -14,7 +14,7 @@ import { ActionId } from '../keyb/ActionIds';
 type SongEditorProps = {
     song: Song;
     editorState: EditorState;
-    onSongChange: (mutator: (song: Song) => void) => void;
+    onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
     audio: AudioController;
 };
@@ -27,19 +27,19 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
     const onSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = TryParseInt(e.target.value);
         if (val === null) return;
-        onSongChange((s) => s.setSpeed(val));
+        onSongChange({ description: 'Set song speed', undoable: true, mutator: (s) => s.setSpeed(val) });
     };
 
     const onTempoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = TryParseInt(e.target.value);
         if (val === null) return;
-        onSongChange((s) => s.setTempo(val));
+        onSongChange({ description: 'Set song tempo', undoable: true, mutator: (s) => s.setTempo(val) });
     };
 
     const onRowsPerPatternChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = TryParseInt(e.target.value);
         if (val === null) return;
-        onSongChange((s) => s.setRowsPerPattern(val));
+        onSongChange({ description: 'Set rows per pattern', undoable: true, mutator: (s) => s.setRowsPerPattern(val) });
     };
 
     const onOctaveChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,13 +57,13 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
     const onHighlightRowCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = TryParseInt(e.target.value);
         if (val === null) return;
-        onSongChange((s) => s.setHighlightRowCount(val));
+        onSongChange({ description: 'Set highlight row count', undoable: true, mutator: (s) => s.setHighlightRowCount(val) });
     };
 
     const onEditStepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = TryParseInt(e.target.value);
         if (val === null) return;
-        onSongChange((s) => s.setPatternEditStep(val));
+        onSongChange({ description: 'Set edit step', undoable: true, mutator: (s) => s.setPatternEditStep(val) });
     };
 
     const getActionBindingLabel = (actionId: ActionId) => {
@@ -154,7 +154,13 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     type="text"
                     maxLength={SomaticCaps.maxSongTitleLength}
                     value={song.name}
-                    onChange={(e) => onSongChange((s) => s.name = e.target.value)}
+                    onChange={(e) => onSongChange({
+                        description: 'Set song title',
+                        undoable: true,
+                        mutator: (s) => {
+                            s.name = e.target.value;
+                        },
+                    })}
                 />
             </label>
         </div>

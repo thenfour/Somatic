@@ -7,7 +7,7 @@ import { IsNullOrWhitespace } from "../utils/utils";
 interface AppStatusBarProps {
     song: Song;
     editorState: EditorState;
-    onSongChange: (mutator: (song: Song) => void) => void;
+    onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
 };
 

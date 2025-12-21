@@ -71,7 +71,7 @@ export const WaveformEditor: React.FC<{
     song: Song;
     editingWaveformId: number;
     editorState: EditorState;
-    onSongChange: (mutator: (song: Song) => void) => void;
+    onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
 }> = ({ song, editingWaveformId, editorState, onSongChange }) => {
     const waveform = song.waveforms[editingWaveformId];
     if (!waveform) {
@@ -87,14 +87,18 @@ export const WaveformEditor: React.FC<{
     const maxAmp = amplitudeRange - 1;
 
     const handleCanvasChange = (nextValues: number[]) => {
-        onSongChange((s) => {
-            const wf = s.waveforms[editingWaveformId];
-            if (!wf) return;
-            const len = Math.min(wf.amplitudes.length, nextValues.length);
-            for (let i = 0; i < len; i += 1) {
-                const v = Math.max(0, Math.min(maxAmp, nextValues[i] ?? 0));
-                wf.amplitudes[i] = v;
-            }
+        onSongChange({
+            description: 'Edit waveform samples',
+            undoable: true,
+            mutator: (s) => {
+                const wf = s.waveforms[editingWaveformId];
+                if (!wf) return;
+                const len = Math.min(wf.amplitudes.length, nextValues.length);
+                for (let i = 0; i < len; i += 1) {
+                    const v = Math.max(0, Math.min(maxAmp, nextValues[i] ?? 0));
+                    wf.amplitudes[i] = v;
+                }
+            },
         });
     };
 
@@ -114,7 +118,7 @@ export const WaveformEditor: React.FC<{
 export const WaveformEditorPanel: React.FC<{
     song: Song;
     editorState: EditorState;
-    onSongChange: (mutator: (song: Song) => void) => void;
+    onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
 }> = ({ song, editorState, onSongChange }) => {
 
     const [editingWaveformId, setEditingWaveformId] = useState<number>(0);
@@ -138,16 +142,20 @@ export const WaveformEditorPanel: React.FC<{
         const maxAmp = amplitudeRange - 1;
         const mix = Math.max(0, Math.min(100, mixPercent)) / 100;
 
-        onSongChange((s) => {
-            const wf = s.waveforms[editingWaveformId];
-            if (!wf) return;
-            const len = Math.min(wf.amplitudes.length, pointCount);
-            for (let i = 0; i < len; i += 1) {
-                const current = Math.max(0, Math.min(maxAmp, wf.amplitudes[i] ?? 0));
-                const generated = Math.max(0, Math.min(maxAmp, generator(i, pointCount, maxAmp)));
-                const blended = Math.round(current * (1 - mix) + generated * mix);
-                wf.amplitudes[i] = blended;
-            }
+        onSongChange({
+            description: 'Generate waveform',
+            undoable: true,
+            mutator: (s) => {
+                const wf = s.waveforms[editingWaveformId];
+                if (!wf) return;
+                const len = Math.min(wf.amplitudes.length, pointCount);
+                for (let i = 0; i < len; i += 1) {
+                    const current = Math.max(0, Math.min(maxAmp, wf.amplitudes[i] ?? 0));
+                    const generated = Math.max(0, Math.min(maxAmp, generator(i, pointCount, maxAmp)));
+                    const blended = Math.round(current * (1 - mix) + generated * mix);
+                    wf.amplitudes[i] = blended;
+                }
+            },
         });
     };
 
@@ -199,66 +207,78 @@ export const WaveformEditorPanel: React.FC<{
     const handleShift = (direction: 1 | -1) => {
         const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
         const maxAmp = amplitudeRange - 1;
-        onSongChange((s) => {
-            const wf = s.waveforms[editingWaveformId];
-            if (!wf) return;
-            for (let i = 0; i < wf.amplitudes.length; i += 1) {
-                const current = Math.max(0, Math.min(maxAmp, wf.amplitudes[i] ?? 0));
-                let next = current + direction;
-                if (next < 0) next = maxAmp;
-                if (next > maxAmp) next = 0;
-                wf.amplitudes[i] = next;
-            }
+        onSongChange({
+            description: direction > 0 ? 'Shift waveform up' : 'Shift waveform down',
+            undoable: true,
+            mutator: (s) => {
+                const wf = s.waveforms[editingWaveformId];
+                if (!wf) return;
+                for (let i = 0; i < wf.amplitudes.length; i += 1) {
+                    const current = Math.max(0, Math.min(maxAmp, wf.amplitudes[i] ?? 0));
+                    let next = current + direction;
+                    if (next < 0) next = maxAmp;
+                    if (next > maxAmp) next = 0;
+                    wf.amplitudes[i] = next;
+                }
+            },
         });
     };
 
     const handleNormalize = () => {
         const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
         const maxAmp = amplitudeRange - 1;
-        onSongChange((s) => {
-            const wf = s.waveforms[editingWaveformId];
-            if (!wf) return;
+        onSongChange({
+            description: 'Normalize waveform',
+            undoable: true,
+            mutator: (s) => {
+                const wf = s.waveforms[editingWaveformId];
+                if (!wf) return;
 
-            // Find the min and max values in the waveform
-            let min = maxAmp;
-            let max = 0;
-            for (let i = 0; i < wf.amplitudes.length; i += 1) {
-                const val = wf.amplitudes[i];
-                if (val < min) min = val;
-                if (val > max) max = val;
-            }
+                // Find the min and max values in the waveform
+                let min = maxAmp;
+                let max = 0;
+                for (let i = 0; i < wf.amplitudes.length; i += 1) {
+                    const val = wf.amplitudes[i];
+                    if (val < min) min = val;
+                    if (val > max) max = val;
+                }
 
-            // If the waveform is flat, nothing to normalize
-            if (min === max) return;
+                // If the waveform is flat, nothing to normalize
+                if (min === max) return;
 
-            // Scale to use the full range
-            const range = max - min;
-            for (let i = 0; i < wf.amplitudes.length; i += 1) {
-                const val = wf.amplitudes[i];
-                wf.amplitudes[i] = Math.round(((val - min) / range) * maxAmp);
-            }
+                // Scale to use the full range
+                const range = max - min;
+                for (let i = 0; i < wf.amplitudes.length; i += 1) {
+                    const val = wf.amplitudes[i];
+                    wf.amplitudes[i] = Math.round(((val - min) / range) * maxAmp);
+                }
+            },
         });
     };
 
     const handleLowpass = () => {
         const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
         const maxAmp = amplitudeRange - 1;
-        onSongChange((s) => {
-            const wf = s.waveforms[editingWaveformId];
-            if (!wf) return;
+        onSongChange({
+            description: 'Lowpass filter waveform',
+            undoable: true,
+            mutator: (s) => {
+                const wf = s.waveforms[editingWaveformId];
+                if (!wf) return;
 
-            // Simple 3-point moving average lowpass filter
-            const original = new Uint8Array(wf.amplitudes);
-            const len = original.length;
+                // Simple 3-point moving average lowpass filter
+                const original = new Uint8Array(wf.amplitudes);
+                const len = original.length;
 
-            for (let i = 0; i < len; i += 1) {
-                const prev = original[(i - 1 + len) % len];
-                const curr = original[i];
-                const next = original[(i + 1) % len];
-                // Weighted average: 25% prev + 50% current + 25% next
-                const filtered = (prev * 0.25 + curr * 0.5 + next * 0.25);
-                wf.amplitudes[i] = Math.round(Math.max(0, Math.min(maxAmp, filtered)));
-            }
+                for (let i = 0; i < len; i += 1) {
+                    const prev = original[(i - 1 + len) % len];
+                    const curr = original[i];
+                    const next = original[(i + 1) % len];
+                    // Weighted average: 25% prev + 50% current + 25% next
+                    const filtered = (prev * 0.25 + curr * 0.5 + next * 0.25);
+                    wf.amplitudes[i] = Math.round(Math.max(0, Math.min(maxAmp, filtered)));
+                }
+            },
         });
     };
 
@@ -270,8 +290,12 @@ export const WaveformEditorPanel: React.FC<{
     const handlePaste = async () => {
         const data = await clipboard.readObjectFromClipboard<Tic80WaveformDto>();
         if (!data) return;
-        onSongChange((s) => {
-            s.waveforms[editingWaveformId] = Tic80Waveform.fromData(data);
+        onSongChange({
+            description: 'Paste waveform',
+            undoable: true,
+            mutator: (s) => {
+                s.waveforms[editingWaveformId] = Tic80Waveform.fromData(data);
+            },
         });
     };
 

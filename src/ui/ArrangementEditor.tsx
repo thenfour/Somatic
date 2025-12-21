@@ -17,7 +17,7 @@ export const ArrangementEditor: React.FC<{
     editorState: EditorState;
     musicState: MusicState;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
-    onSongChange: (mutator: (song: Song) => void) => void;
+    onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
 }> = ({ song, editorState, musicState, onEditorStateChange, onSongChange }) => {
     const { confirm } = useConfirmDialog();
     const maxPatterns = SomaticCaps.maxPatternCount;
@@ -63,13 +63,17 @@ export const ArrangementEditor: React.FC<{
     }, [editorState.selectedArrangementPositions]);
 
     const changePatternAtPosition = (positionIndex: number, delta: number) => {
-        onSongChange((s) => {
-            if (positionIndex < 0 || positionIndex >= s.songOrder.length) return;
-            const current = s.songOrder[positionIndex] ?? 0;
-            let next = current + delta;
-            next = clamp(next, 0, maxPatterns - 1);
-            next = ensurePatternExists(s, next);
-            s.songOrder[positionIndex] = next;
+        onSongChange({
+            description: delta > 0 ? 'Next pattern in arrangement' : 'Previous pattern in arrangement',
+            undoable: true,
+            mutator: (s) => {
+                if (positionIndex < 0 || positionIndex >= s.songOrder.length) return;
+                const current = s.songOrder[positionIndex] ?? 0;
+                let next = current + delta;
+                next = clamp(next, 0, maxPatterns - 1);
+                next = ensurePatternExists(s, next);
+                s.songOrder[positionIndex] = next;
+            },
         });
         onEditorStateChange((state) => {
             state.setActiveSongPosition(positionIndex);
@@ -83,10 +87,14 @@ export const ArrangementEditor: React.FC<{
     };
 
     const deletePosition = (positionIndex: number) => {
-        onSongChange((s) => {
-            if (s.songOrder.length <= 1) return; // keep at least one position
-            if (positionIndex < 0 || positionIndex >= s.songOrder.length) return;
-            s.songOrder.splice(positionIndex, 1);
+        onSongChange({
+            description: 'Delete arrangement position',
+            undoable: true,
+            mutator: (s) => {
+                if (s.songOrder.length <= 1) return; // keep at least one position
+                if (positionIndex < 0 || positionIndex >= s.songOrder.length) return;
+                s.songOrder.splice(positionIndex, 1);
+            },
         });
         onEditorStateChange((state) => {
             if (state.activeSongPosition >= positionIndex && state.activeSongPosition > 0) {
@@ -134,26 +142,34 @@ export const ArrangementEditor: React.FC<{
     };
 
     const handleInsertAbove = () => {
-        onSongChange((s) => {
-            if (s.songOrder.length >= maxPositions) return;
-            const selection = getSelectionRange();
-            const insertPos = selection[0];
-            const newPatterns = findUnusedPatternIndices(s, 1);
-            if (newPatterns.length > 0) {
-                s.songOrder.splice(insertPos, 0, newPatterns[0]);
-            }
+        onSongChange({
+            description: 'Insert pattern above',
+            undoable: true,
+            mutator: (s) => {
+                if (s.songOrder.length >= maxPositions) return;
+                const selection = getSelectionRange();
+                const insertPos = selection[0];
+                const newPatterns = findUnusedPatternIndices(s, 1);
+                if (newPatterns.length > 0) {
+                    s.songOrder.splice(insertPos, 0, newPatterns[0]);
+                }
+            },
         });
     };
 
     const handleInsertBelow = () => {
-        onSongChange((s) => {
-            if (s.songOrder.length >= maxPositions) return;
-            const selection = getSelectionRange();
-            const insertPos = selection[selection.length - 1] + 1;
-            const newPatterns = findUnusedPatternIndices(s, 1);
-            if (newPatterns.length > 0) {
-                s.songOrder.splice(insertPos, 0, newPatterns[0]);
-            }
+        onSongChange({
+            description: 'Insert pattern below',
+            undoable: true,
+            mutator: (s) => {
+                if (s.songOrder.length >= maxPositions) return;
+                const selection = getSelectionRange();
+                const insertPos = selection[selection.length - 1] + 1;
+                const newPatterns = findUnusedPatternIndices(s, 1);
+                if (newPatterns.length > 0) {
+                    s.songOrder.splice(insertPos, 0, newPatterns[0]);
+                }
+            },
         });
     };
 
@@ -178,25 +194,33 @@ export const ArrangementEditor: React.FC<{
 
         selection2d.setSelection(new SelectionRect2D(null));
 
-        onSongChange((s) => {
-            // Delete in reverse order to maintain indices
-            for (let i = selection.length - 1; i >= 0; i--) {
-                s.songOrder.splice(selection[i], 1);
-            }
+        onSongChange({
+            description: 'Delete arrangement selection',
+            undoable: true,
+            mutator: (s) => {
+                // Delete in reverse order to maintain indices
+                for (let i = selection.length - 1; i >= 0; i--) {
+                    s.songOrder.splice(selection[i], 1);
+                }
+            },
         });
     };
 
     const handleRepeatSelection = () => {
-        onSongChange((s) => {
-            if (s.songOrder.length >= maxPositions) return;
-            const selection = getSelectionRange();
-            const patterns = selection.map(idx => s.songOrder[idx]);
-            const insertPos = selection[selection.length - 1] + 1;
+        onSongChange({
+            description: 'Repeat arrangement selection',
+            undoable: true,
+            mutator: (s) => {
+                if (s.songOrder.length >= maxPositions) return;
+                const selection = getSelectionRange();
+                const patterns = selection.map(idx => s.songOrder[idx]);
+                const insertPos = selection[selection.length - 1] + 1;
 
-            // Check if we have room
-            if (s.songOrder.length + patterns.length > maxPositions) return;
+                // Check if we have room
+                if (s.songOrder.length + patterns.length > maxPositions) return;
 
-            s.songOrder.splice(insertPos, 0, ...patterns);
+                s.songOrder.splice(insertPos, 0, ...patterns);
+            },
         });
         // move selection to the new items.
         // note that there's an issue if you duplicate the last item; state hasn't made space for that item yet
@@ -208,28 +232,32 @@ export const ArrangementEditor: React.FC<{
     };
 
     const handleDuplicateSelection = () => {
-        onSongChange((s) => {
-            if (s.songOrder.length >= maxPositions) return;
-            const selection = getSelectionRange();
-            const patterns = selection.map(idx => s.songOrder[idx]);
+        onSongChange({
+            description: 'Duplicate arrangement selection',
+            undoable: true,
+            mutator: (s) => {
+                if (s.songOrder.length >= maxPositions) return;
+                const selection = getSelectionRange();
+                const patterns = selection.map(idx => s.songOrder[idx]);
 
-            // Check if we have room
-            if (s.songOrder.length + patterns.length > maxPositions) return;
+                // Check if we have room
+                if (s.songOrder.length + patterns.length > maxPositions) return;
 
-            // Reserve all needed pattern indices upfront
-            const newPatternIndices = findUnusedPatternIndices(s, patterns.length);
-            if (newPatternIndices.length < patterns.length) return; // not enough unused patterns
+                // Reserve all needed pattern indices upfront
+                const newPatternIndices = findUnusedPatternIndices(s, patterns.length);
+                if (newPatternIndices.length < patterns.length) return; // not enough unused patterns
 
-            // Create new pattern copies
-            const duplicatedPatterns = patterns.map((patternIdx, i) => {
-                const newPatternIdx = newPatternIndices[i];
-                const sourcePattern = s.patterns[patternIdx];
-                s.patterns[newPatternIdx] = sourcePattern.clone();
-                return newPatternIdx;
-            });
+                // Create new pattern copies
+                const duplicatedPatterns = patterns.map((patternIdx, i) => {
+                    const newPatternIdx = newPatternIndices[i];
+                    const sourcePattern = s.patterns[patternIdx];
+                    s.patterns[newPatternIdx] = sourcePattern.clone();
+                    return newPatternIdx;
+                });
 
-            const insertPos = selection[selection.length - 1] + 1;
-            s.songOrder.splice(insertPos, 0, ...duplicatedPatterns);
+                const insertPos = selection[selection.length - 1] + 1;
+                s.songOrder.splice(insertPos, 0, ...duplicatedPatterns);
+            },
         });
         // move selection to the new items.
         // note that there's an issue if you duplicate the last item; state hasn't made space for that item yet
@@ -244,48 +272,52 @@ export const ArrangementEditor: React.FC<{
         const selection = getSelectionRange();
         if (selection.length === 0) return;
 
-        onSongChange((s) => {
-            if (s.songOrder.length === 0) return;
+        onSongChange({
+            description: 'Make arrangement selection unique',
+            undoable: true,
+            mutator: (s) => {
+                if (s.songOrder.length === 0) return;
 
-            // Count how many times each pattern index appears in the whole arrangement.
-            const patternUsageCount = new Map<number, number>();
-            for (const patIndex of s.songOrder) {
-                patternUsageCount.set(patIndex, (patternUsageCount.get(patIndex) ?? 0) + 1);
-            }
-
-            // Determine which selection positions need a unique clone
-            // (i.e. their pattern index is used more than once in the song).
-            const positionsNeedingClone: number[] = [];
-            for (const pos of selection) {
-                const patIndex = s.songOrder[pos];
-                const count = patternUsageCount.get(patIndex) ?? 0;
-                if (count > 1) {
-                    positionsNeedingClone.push(pos);
+                // Count how many times each pattern index appears in the whole arrangement.
+                const patternUsageCount = new Map<number, number>();
+                for (const patIndex of s.songOrder) {
+                    patternUsageCount.set(patIndex, (patternUsageCount.get(patIndex) ?? 0) + 1);
                 }
-            }
 
-            if (positionsNeedingClone.length === 0) return;
+                // Determine which selection positions need a unique clone
+                // (i.e. their pattern index is used more than once in the song).
+                const positionsNeedingClone: number[] = [];
+                for (const pos of selection) {
+                    const patIndex = s.songOrder[pos];
+                    const count = patternUsageCount.get(patIndex) ?? 0;
+                    if (count > 1) {
+                        positionsNeedingClone.push(pos);
+                    }
+                }
 
-            // Reserve enough unused pattern indices for all required clones.
-            const newPatternIndices = findUnusedPatternIndices(s, positionsNeedingClone.length);
-            if (newPatternIndices.length < positionsNeedingClone.length) {
-                // Not enough free pattern slots; abort without partial changes.
-                return;
-            }
+                if (positionsNeedingClone.length === 0) return;
 
-            // For each position that needs to be unique, clone its pattern to a new index
-            // and point this arrangement position at the clone.
-            for (let i = 0; i < positionsNeedingClone.length; i += 1) {
-                const pos = positionsNeedingClone[i];
-                const sourcePatternIndex = s.songOrder[pos];
-                const targetPatternIndex = newPatternIndices[i];
+                // Reserve enough unused pattern indices for all required clones.
+                const newPatternIndices = findUnusedPatternIndices(s, positionsNeedingClone.length);
+                if (newPatternIndices.length < positionsNeedingClone.length) {
+                    // Not enough free pattern slots; abort without partial changes.
+                    return;
+                }
 
-                const sourcePattern = s.patterns[sourcePatternIndex];
-                if (!sourcePattern) continue;
+                // For each position that needs to be unique, clone its pattern to a new index
+                // and point this arrangement position at the clone.
+                for (let i = 0; i < positionsNeedingClone.length; i += 1) {
+                    const pos = positionsNeedingClone[i];
+                    const sourcePatternIndex = s.songOrder[pos];
+                    const targetPatternIndex = newPatternIndices[i];
 
-                s.patterns[targetPatternIndex] = sourcePattern.clone();
-                s.songOrder[pos] = targetPatternIndex;
-            }
+                    const sourcePattern = s.patterns[sourcePatternIndex];
+                    if (!sourcePattern) continue;
+
+                    s.patterns[targetPatternIndex] = sourcePattern.clone();
+                    s.songOrder[pos] = targetPatternIndex;
+                }
+            },
         });
     };
 
@@ -293,13 +325,17 @@ export const ArrangementEditor: React.FC<{
         const selection = getSelectionRange();
         if (selection[0] === 0) return; // already at top
 
-        onSongChange((s) => {
-            // Move each selected position up by one
-            for (const idx of selection) {
-                const temp = s.songOrder[idx];
-                s.songOrder[idx] = s.songOrder[idx - 1];
-                s.songOrder[idx - 1] = temp;
-            }
+        onSongChange({
+            description: 'Move arrangement selection up',
+            undoable: true,
+            mutator: (s) => {
+                // Move each selected position up by one
+                for (const idx of selection) {
+                    const temp = s.songOrder[idx];
+                    s.songOrder[idx] = s.songOrder[idx - 1];
+                    s.songOrder[idx - 1] = temp;
+                }
+            },
         });
 
         // update selection to follow the moved items.
@@ -312,14 +348,18 @@ export const ArrangementEditor: React.FC<{
         const selection = getSelectionRange();
         if (selection[selection.length - 1] >= song.songOrder.length - 1) return; // already at bottom
 
-        onSongChange((s) => {
-            // Move in reverse order to avoid conflicts
-            for (let i = selection.length - 1; i >= 0; i--) {
-                const idx = selection[i];
-                const temp = s.songOrder[idx];
-                s.songOrder[idx] = s.songOrder[idx + 1];
-                s.songOrder[idx + 1] = temp;
-            }
+        onSongChange({
+            description: 'Move arrangement selection down',
+            undoable: true,
+            mutator: (s) => {
+                // Move in reverse order to avoid conflicts
+                for (let i = selection.length - 1; i >= 0; i--) {
+                    const idx = selection[i];
+                    const temp = s.songOrder[idx];
+                    s.songOrder[idx] = s.songOrder[idx + 1];
+                    s.songOrder[idx + 1] = temp;
+                }
+            },
         });
         // update selection to follow the moved items.
         if (editorState.selectedArrangementPositions) {

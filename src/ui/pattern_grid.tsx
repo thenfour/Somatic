@@ -69,7 +69,7 @@ type PatternGridProps = {
     musicState: MusicState;
     editorState: EditorState;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
-    onSongChange: (mutator: (song: Song) => void) => void;
+    onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
     advancedEditPanelOpen: boolean;
     onSetAdvancedEditPanelOpen: (open: boolean) => void;
 };
@@ -206,18 +206,22 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 pushToast({ message: 'Nothing to transpose in that scope.', variant: 'error' });
                 return;
             }
-            onSongChange((nextSong) => {
-                let mutated = false;
-                for (const patternIndex of patternIndices) {
-                    const targetPattern = nextSong.patterns[patternIndex];
-                    if (!targetPattern) continue;
-                    if (transposeCellsInPattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern, amount)) {
-                        mutated = true;
+            onSongChange({
+                description: amount > 0 ? 'Transpose selection up' : 'Transpose selection down',
+                undoable: true,
+                mutator: (nextSong) => {
+                    let mutated = false;
+                    for (const patternIndex of patternIndices) {
+                        const targetPattern = nextSong.patterns[patternIndex];
+                        if (!targetPattern) continue;
+                        if (transposeCellsInPattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern, amount)) {
+                            mutated = true;
+                        }
                     }
-                }
-                if (!mutated) {
-                    pushToast({ message: 'No notes found to transpose in that scope.', variant: 'info' });
-                }
+                    if (!mutated) {
+                        pushToast({ message: 'No notes found to transpose in that scope.', variant: 'info' });
+                    }
+                },
             });
         }, [onSongChange, pushToast, resolveScopeTargets]);
 
@@ -234,18 +238,22 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     pushToast({ message: 'Nothing to edit in that scope.', variant: 'error' });
                     return;
                 }
-                onSongChange((nextSong) => {
-                    let mutated = false;
-                    for (const patternIndex of patternIndices) {
-                        const targetPattern = nextSong.patterns[patternIndex];
-                        if (!targetPattern) continue;
-                        if (mutatePattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern)) {
-                            mutated = true;
+                onSongChange({
+                    description: 'Edit instruments in scope',
+                    undoable: true,
+                    mutator: (nextSong) => {
+                        let mutated = false;
+                        for (const patternIndex of patternIndices) {
+                            const targetPattern = nextSong.patterns[patternIndex];
+                            if (!targetPattern) continue;
+                            if (mutatePattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern)) {
+                                mutated = true;
+                            }
                         }
-                    }
-                    if (!mutated) {
-                        pushToast({ message: noMutatedMessage, variant: 'info' });
-                    }
+                        if (!mutated) {
+                            pushToast({ message: noMutatedMessage, variant: 'info' });
+                        }
+                    },
                 });
             },
             [onSongChange, pushToast, resolveScopeTargets],
@@ -306,14 +314,18 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
             let totalMutated = false;
             let totalAnchorPairs = 0;
-            onSongChange((nextSong) => {
-                for (const patternIndex of patternIndices) {
-                    const targetPattern = nextSong.patterns[patternIndex];
-                    if (!targetPattern) continue;
-                    const result = interpolatePatternValues(targetPattern, channels, rowRange, nextSong.rowsPerPattern, target);
-                    if (result.mutated) totalMutated = true;
-                    totalAnchorPairs += result.anchorPairs;
-                }
+            onSongChange({
+                description: 'Interpolate pattern values',
+                undoable: true,
+                mutator: (nextSong) => {
+                    for (const patternIndex of patternIndices) {
+                        const targetPattern = nextSong.patterns[patternIndex];
+                        if (!targetPattern) continue;
+                        const result = interpolatePatternValues(targetPattern, channels, rowRange, nextSong.rowsPerPattern, target);
+                        if (result.mutated) totalMutated = true;
+                        totalAnchorPairs += result.anchorPairs;
+                    }
+                },
             });
             if (!totalMutated) {
                 if (totalAnchorPairs === 0) {
@@ -363,15 +375,19 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const clearSelectionCells = () => {
             const bounds = editorState.patternSelection;
             if (!bounds) return;
-            onSongChange((s) => {
-                const pat = s.patterns[safePatternIndex];
-                const maxRow = Math.max(0, s.rowsPerPattern - 1);
-                const maxChannel = Tic80Caps.song.audioChannels - 1;
-                const allSelectedCells = bounds.getAllCells();
-                for (const cellCoord of allSelectedCells) {
-                    if (cellCoord.y > maxRow || cellCoord.x > maxChannel) continue;
-                    pat.setCell(ToTic80ChannelIndex(cellCoord.x), cellCoord.y, {});
-                }
+            onSongChange({
+                description: 'Clear pattern selection',
+                undoable: true,
+                mutator: (s) => {
+                    const pat = s.patterns[safePatternIndex];
+                    const maxRow = Math.max(0, s.rowsPerPattern - 1);
+                    const maxChannel = Tic80Caps.song.audioChannels - 1;
+                    const allSelectedCells = bounds.getAllCells();
+                    for (const cellCoord of allSelectedCells) {
+                        if (cellCoord.y > maxRow || cellCoord.x > maxChannel) continue;
+                        pat.setCell(ToTic80ChannelIndex(cellCoord.x), cellCoord.y, {});
+                    }
+                },
             });
         };
 
@@ -409,20 +425,24 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const startChannel = editorState.patternEditChannel ?? 0;
             const maxRow = Math.max(0, song.rowsPerPattern - 1);
             const maxChannel = Tic80Caps.song.audioChannels - 1;
-            onSongChange((s) => {
-                const pat = s.patterns[safePatternIndex];
-                for (let rowOffset = 0; rowOffset < payload.rows; rowOffset++) {
-                    const destRow = startRow + rowOffset;
-                    if (destRow > maxRow) break;
-                    const sourceRow = payload.cells[rowOffset] ?? [];
-                    for (let channelOffset = 0; channelOffset < payload.channels; channelOffset++) {
-                        const destChannel = startChannel + channelOffset;
-                        if (destChannel > maxChannel) break;
-                        const cell = sourceRow[channelOffset];
-                        if (!cell) continue;
-                        pat.setCell(ToTic80ChannelIndex(destChannel), destRow, { ...cell });
+            onSongChange({
+                description: 'Paste pattern block',
+                undoable: true,
+                mutator: (s) => {
+                    const pat = s.patterns[safePatternIndex];
+                    for (let rowOffset = 0; rowOffset < payload.rows; rowOffset++) {
+                        const destRow = startRow + rowOffset;
+                        if (destRow > maxRow) break;
+                        const sourceRow = payload.cells[rowOffset] ?? [];
+                        for (let channelOffset = 0; channelOffset < payload.channels; channelOffset++) {
+                            const destChannel = startChannel + channelOffset;
+                            if (destChannel > maxChannel) break;
+                            const cell = sourceRow[channelOffset];
+                            if (!cell) continue;
+                            pat.setCell(ToTic80ChannelIndex(destChannel), destRow, { ...cell });
+                        }
                     }
-                }
+                },
             });
 
             // set the selection to the pasted area
@@ -471,14 +491,18 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const handleNoteKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, e: KeyboardEvent<HTMLTableCellElement>) => {
             // shift+backspace = note cut (still handled locally)
             if (e.shiftKey && e.key === 'Backspace') {
-                onSongChange((s) => {
-                    const pat = s.patterns[safePatternIndex];
-                    const oldCell = pat.getCell(channelIndex, rowIndex);
-                    pat.setCell(channelIndex, rowIndex, {
-                        ...oldCell,
-                        midiNote: 69,
-                        instrumentIndex: SomaticCaps.noteCutInstrumentIndex,
-                    });
+                onSongChange({
+                    description: 'Insert note cut',
+                    undoable: true,
+                    mutator: (s) => {
+                        const pat = s.patterns[safePatternIndex];
+                        const oldCell = pat.getCell(channelIndex, rowIndex);
+                        pat.setCell(channelIndex, rowIndex, {
+                            ...oldCell,
+                            midiNote: 69,
+                            instrumentIndex: SomaticCaps.noteCutInstrumentIndex,
+                        });
+                    },
                 });
             }
             // note entry is now handled via global note input sources (MIDI/keyboard), so other keys are ignored here.
@@ -487,14 +511,18 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const handleInstrumentKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
             const idx = instrumentKeyMap.indexOf(key);
             if (idx === -1) return false;
-            onSongChange((s) => {
-                const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
-                const pat = s.patterns[patIndex];
-                const oldCell = pat.getCell(channelIndex, rowIndex);
-                pat.setCell(channelIndex, rowIndex, {
-                    ...oldCell,
-                    instrumentIndex: idx,
-                });
+            onSongChange({
+                description: 'Set instrument from key',
+                undoable: true,
+                mutator: (s) => {
+                    const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                    const pat = s.patterns[patIndex];
+                    const oldCell = pat.getCell(channelIndex, rowIndex);
+                    pat.setCell(channelIndex, rowIndex, {
+                        ...oldCell,
+                        instrumentIndex: idx,
+                    });
+                },
             });
             playRow(rowIndex);
             return true;
@@ -503,14 +531,18 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const handleCommandKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
             const idx = commandKeyMap.indexOf(key);
             if (idx === -1) return false;
-            onSongChange((s) => {
-                const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
-                const pat = s.patterns[patIndex];
-                const oldCell = pat.getCell(channelIndex, rowIndex);
-                pat.setCell(channelIndex, rowIndex, {
-                    ...oldCell,
-                    effect: idx,
-                });
+            onSongChange({
+                description: 'Set effect command from key',
+                undoable: true,
+                mutator: (s) => {
+                    const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                    const pat = s.patterns[patIndex];
+                    const oldCell = pat.getCell(channelIndex, rowIndex);
+                    pat.setCell(channelIndex, rowIndex, {
+                        ...oldCell,
+                        effect: idx,
+                    });
+                },
             });
             return true;
         };
@@ -518,23 +550,27 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const handleParamKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
             const idx = paramKeyMap.indexOf(key);
             if (idx === -1) return false;
-            onSongChange((s) => {
-                const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
-                const pat = s.patterns[patIndex];
-                const oldCell = pat.getCell(channelIndex, rowIndex);
-                //console.log(`oldxy=[${oldCell.effectX},${oldCell.effectY}]; idx=${idx}; typeof(oldCell.effectX)=${typeof (oldCell.effectX)}`);
-                const currentParam = oldCell.effectY ?? 0; // slide over Y to X
-                //console.log(`currentParam=${currentParam}`);
-                // Shift the current param left by 4 bits and add the new nibble
-                const newParam = ((currentParam << 4) | idx) & 0xFF;
-                const effectX = (newParam >> 4) & 0x0F;
-                const effectY = newParam & 0x0F;
-                //console.log(`newparam=${newParam}; XY=[${effectX}, ${effectY}]; currentParam=${currentParam}`);
-                pat.setCell(channelIndex, rowIndex, {
-                    ...oldCell,
-                    effectX,
-                    effectY,
-                });
+            onSongChange({
+                description: 'Set effect param from key',
+                undoable: true,
+                mutator: (s) => {
+                    const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                    const pat = s.patterns[patIndex];
+                    const oldCell = pat.getCell(channelIndex, rowIndex);
+                    //console.log(`oldxy=[${oldCell.effectX},${oldCell.effectY}]; idx=${idx}; typeof(oldCell.effectX)=${typeof (oldCell.effectX)}`);
+                    const currentParam = oldCell.effectY ?? 0; // slide over Y to X
+                    //console.log(`currentParam=${currentParam}`);
+                    // Shift the current param left by 4 bits and add the new nibble
+                    const newParam = ((currentParam << 4) | idx) & 0xFF;
+                    const effectX = (newParam >> 4) & 0x0F;
+                    const effectY = newParam & 0x0F;
+                    //console.log(`newparam=${newParam}; XY=[${effectX}, ${effectY}]; currentParam=${currentParam}`);
+                    pat.setCell(channelIndex, rowIndex, {
+                        ...oldCell,
+                        effectX,
+                        effectY,
+                    });
+                },
             });
             return true;
         };
@@ -868,15 +904,19 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             // Delete key: clear entire cell
             if (!e.altKey && !e.shiftKey && !e.ctrlKey && e.key === 'Delete' && !e.repeat) {
                 e.preventDefault();
-                onSongChange((s) => {
-                    const pat = s.patterns[safePatternIndex];
-                    pat.setCell(channelIndex, rowIndex, {
-                        midiNote: undefined,
-                        instrumentIndex: undefined,
-                        effect: undefined,
-                        effectX: undefined,
-                        effectY: undefined
-                    });
+                onSongChange({
+                    description: 'Clear entire cell',
+                    undoable: true,
+                    mutator: (s) => {
+                        const pat = s.patterns[safePatternIndex];
+                        pat.setCell(channelIndex, rowIndex, {
+                            midiNote: undefined,
+                            instrumentIndex: undefined,
+                            effect: undefined,
+                            effectX: undefined,
+                            effectY: undefined
+                        });
+                    },
                 });
                 return;
             }
@@ -884,20 +924,24 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             // Backspace: clear only the field under cursor
             if (!e.altKey && !e.shiftKey && !e.ctrlKey && e.key === 'Backspace' && !e.repeat) {
                 e.preventDefault();
-                onSongChange((s) => {
-                    const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
-                    const pat = s.patterns[patIndex];
-                    const oldCell = pat.getCell(channelIndex, rowIndex);
+                onSongChange({
+                    description: 'Clear field under cursor',
+                    undoable: true,
+                    mutator: (s) => {
+                        const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                        const pat = s.patterns[patIndex];
+                        const oldCell = pat.getCell(channelIndex, rowIndex);
 
-                    if (cellType === 'note') {
-                        pat.setCell(channelIndex, rowIndex, { ...oldCell, midiNote: undefined });
-                    } else if (cellType === 'instrument') {
-                        pat.setCell(channelIndex, rowIndex, { ...oldCell, instrumentIndex: undefined });
-                    } else if (cellType === 'command') {
-                        pat.setCell(channelIndex, rowIndex, { ...oldCell, effect: undefined });
-                    } else if (cellType === 'param') {
-                        pat.setCell(channelIndex, rowIndex, { ...oldCell, effectX: undefined, effectY: undefined });
-                    }
+                        if (cellType === 'note') {
+                            pat.setCell(channelIndex, rowIndex, { ...oldCell, midiNote: undefined });
+                        } else if (cellType === 'instrument') {
+                            pat.setCell(channelIndex, rowIndex, { ...oldCell, instrumentIndex: undefined });
+                        } else if (cellType === 'command') {
+                            pat.setCell(channelIndex, rowIndex, { ...oldCell, effect: undefined });
+                        } else if (cellType === 'param') {
+                            pat.setCell(channelIndex, rowIndex, { ...oldCell, effectX: undefined, effectY: undefined });
+                        }
+                    },
                 });
                 return;
             }
@@ -924,11 +968,15 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     e.preventDefault();
                 }
             } else if (e.key === '0' && cellType === 'note' && !e.repeat) {
-                onSongChange((s) => {
-                    const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
-                    const pat = s.patterns[patIndex];
-                    const oldCell = pat.getCell(channelIndex, rowIndex);
-                    pat.setCell(channelIndex, rowIndex, { ...oldCell, midiNote: undefined });
+                onSongChange({
+                    description: 'Clear note from key',
+                    undoable: true,
+                    mutator: (s) => {
+                        const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                        const pat = s.patterns[patIndex];
+                        const oldCell = pat.getCell(channelIndex, rowIndex);
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, midiNote: undefined });
+                    },
                 });
             }
         };
@@ -1070,11 +1118,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                 value={pattern.name}
                                 onChange={(e) => {
                                     const newName = e.target.value;
-                                    onSongChange((s) => {
-                                        const pat = s.patterns[safePatternIndex];
-                                        pat.name = newName;
-                                    }
-                                    )
+                                    onSongChange({
+                                        description: 'Rename pattern',
+                                        undoable: true,
+                                        mutator: (s) => {
+                                            const pat = s.patterns[safePatternIndex];
+                                            pat.name = newName;
+                                        },
+                                    })
                                 }}
                             //disabled={!editingEnabled} always allow this.
                             />

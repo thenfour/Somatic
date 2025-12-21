@@ -181,7 +181,7 @@ type InstrumentPanelProps = {
     song: Song;
     audio: AudioController;
     currentInstrument: number;
-    onSongChange: (mutator: (song: Song) => void) => void;
+    onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
     onClose: () => void;
 };
 
@@ -193,87 +193,127 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
 
     const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
-        onSongChange((s) => {
-            const inst = s.instruments[instrumentIndex];
-            inst.name = value;
+        onSongChange({
+            description: 'Rename instrument',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.name = value;
+            },
         });
     };
 
     const handleSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = TryParseInt(e.target.value);
         if (val === null) return;
-        onSongChange((s) => {
-            const inst = s.instruments[instrumentIndex];
-            inst.speed = clamp(val, 0, Tic80Caps.sfx.speedMax);
+        onSongChange({
+            description: 'Change instrument speed',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.speed = clamp(val, 0, Tic80Caps.sfx.speedMax);
+            },
         });
     };
 
     const handleStereoLeftChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
-        onSongChange((s) => {
-            const inst = s.instruments[instrumentIndex];
-            inst.stereoLeft = checked;
+        onSongChange({
+            description: 'Toggle stereo left',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.stereoLeft = checked;
+            },
         });
     };
 
     const handleStereoRightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
-        onSongChange((s) => {
-            const inst = s.instruments[instrumentIndex];
-            inst.stereoRight = checked;
+        onSongChange({
+            description: 'Toggle stereo right',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.stereoRight = checked;
+            },
         });
     };
 
     const handleArpeggioReverseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
-        onSongChange((s) => {
-            const inst = s.instruments[instrumentIndex];
-            inst.arpeggioDown = checked;
+        onSongChange({
+            description: 'Toggle arpeggio reverse',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.arpeggioDown = checked;
+            },
         });
     };
 
     const handlePitch16xChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
-        onSongChange((s) => {
-            const inst = s.instruments[instrumentIndex];
-            inst.pitch16x = checked;
+        onSongChange({
+            description: 'Toggle pitch 16x',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.pitch16x = checked;
+            },
         });
     };
 
     const handleVolumeEnvelopeChange = (frames: Int8Array, loopStart: number, loopLength: number) => {
-        onSongChange((s) => {
-            const inst = s.instruments[instrumentIndex];
-            inst.volumeFrames = new Int8Array(frames);
-            inst.volumeLoopStart = loopStart;
-            inst.volumeLoopLength = loopLength;
+        onSongChange({
+            description: 'Edit volume envelope',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.volumeFrames = new Int8Array(frames);
+                inst.volumeLoopStart = loopStart;
+                inst.volumeLoopLength = loopLength;
+            },
         });
     };
 
     const handleWaveEnvelopeChange = (frames: Int8Array, loopStart: number, loopLength: number) => {
-        onSongChange((s) => {
-            const inst = s.instruments[instrumentIndex];
-            inst.waveFrames = new Int8Array(frames);
-            inst.waveLoopStart = loopStart;
-            inst.waveLoopLength = loopLength;
+        onSongChange({
+            description: 'Edit wave envelope',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.waveFrames = new Int8Array(frames);
+                inst.waveLoopStart = loopStart;
+                inst.waveLoopLength = loopLength;
+            },
         });
     };
 
     const handleArpeggioEnvelopeChange = (frames: Int8Array, loopStart: number, loopLength: number) => {
-        onSongChange((s) => {
-            const inst = s.instruments[instrumentIndex];
-            inst.arpeggioFrames = new Int8Array(frames);
-            inst.arpeggioLoopStart = loopStart;
-            inst.arpeggioLoopLength = loopLength;
+        onSongChange({
+            description: 'Edit arpeggio envelope',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.arpeggioFrames = new Int8Array(frames);
+                inst.arpeggioLoopStart = loopStart;
+                inst.arpeggioLoopLength = loopLength;
+            },
         });
     };
 
     const handlePitchEnvelopeChange = (frames: Int8Array, loopStart: number, loopLength: number) => {
-        onSongChange((s) => {
-            const inst = s.instruments[instrumentIndex];
-            inst.pitchFrames = new Int8Array(frames);
-            inst.pitchLoopStart = loopStart;
-            inst.pitchLoopLength = loopLength;
-            //console.log('pitch envelope changed', frames, loopStart, loopLength);
+        onSongChange({
+            description: 'Edit pitch envelope',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.pitchFrames = new Int8Array(frames);
+                inst.pitchLoopStart = loopStart;
+                inst.pitchLoopLength = loopLength;
+                //console.log('pitch envelope changed', frames, loopStart, loopLength);
+            },
         });
     };
 
@@ -283,8 +323,12 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
 
     const handlePaste = async () => {
         const data = await clipboard.readObjectFromClipboard<Tic80InstrumentDto>();
-        onSongChange((s) => {
-            s.instruments[instrumentIndex] = Tic80Instrument.fromData(data);
+        onSongChange({
+            description: 'Paste instrument',
+            undoable: true,
+            mutator: (s) => {
+                s.instruments[instrumentIndex] = Tic80Instrument.fromData(data);
+            },
         });
     };
 
@@ -394,9 +438,13 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                         <WaveformSelect
                             onClickWaveform={(waveformId) => {
                                 // set whole env to this waveform
-                                onSongChange((s) => {
-                                    const inst = s.instruments[instrumentIndex];
-                                    inst.waveFrames = new Int8Array(inst.waveFrames.length).fill(waveformId);
+                                onSongChange({
+                                    description: 'Set waveform sequence',
+                                    undoable: true,
+                                    mutator: (s) => {
+                                        const inst = s.instruments[instrumentIndex];
+                                        inst.waveFrames = new Int8Array(inst.waveFrames.length).fill(waveformId);
+                                    },
                                 });
                             }}
                             song={song}

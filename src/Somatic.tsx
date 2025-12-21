@@ -43,6 +43,15 @@ import { MidiStatusIndicator } from './ui/MidiStatusIndicator';
 import { AboutSomaticDialog } from './ui/AboutSomaticDialog';
 
 type SongMutator = (song: Song) => void;
+type SongChangeArgs = {
+    mutator: SongMutator;
+    description: string;
+    /**
+     * Whether this change should record an undo point.
+     * Defaults to true; set to false for transient or programmatic changes.
+     */
+    undoable: boolean;
+};
 type EditorStateMutator = (state: EditorState) => void;
 type PatternCellType = 'note' | 'instrument' | 'command' | 'param';
 
@@ -171,12 +180,13 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         setEditorState(EditorState.fromData(snapshot.editor));
     }, [autoSave]);
 
-    const ensureUndoSnapshot = useCallback(() => {
-        undoStackRef.current?.record(getUndoSnapshot);
+    const ensureUndoSnapshot = useCallback((description: string) => {
+        undoStackRef.current?.record(description, getUndoSnapshot);
     }, [getUndoSnapshot]);
-
-    const updateSong = useCallback((mutator: SongMutator) => {
-        ensureUndoSnapshot();
+    const updateSong = useCallback(({ mutator, description, undoable = true }: SongChangeArgs) => {
+        if (undoable) {
+            ensureUndoSnapshot(description);
+        }
         setSong((prev) => {
             const next = prev.clone();
             mutator(next);
@@ -195,23 +205,23 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const handleUndo = useCallback(() => {
         const stack = undoStackRef.current;
         if (!stack) return;
-        const snapshot = stack.undo(getUndoSnapshot);
-        if (!snapshot) {
+        const entry = stack.undo(getUndoSnapshot);
+        if (!entry) {
             pushToast({ message: 'Nothing to undo.', variant: 'info' });
             return;
         }
-        applyUndoSnapshot(snapshot);
+        applyUndoSnapshot(entry.snapshot);
     }, [applyUndoSnapshot, getUndoSnapshot, pushToast]);
 
     const handleRedo = useCallback(() => {
         const stack = undoStackRef.current;
         if (!stack) return;
-        const snapshot = stack.redo(getUndoSnapshot);
-        if (!snapshot) {
+        const entry = stack.redo(getUndoSnapshot);
+        if (!entry) {
             pushToast({ message: 'Nothing to redo.', variant: 'info' });
             return;
         }
-        applyUndoSnapshot(snapshot);
+        applyUndoSnapshot(entry.snapshot);
     }, [applyUndoSnapshot, getUndoSnapshot, pushToast]);
 
     useEffect(() => {
@@ -221,8 +231,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     useEffect(() => {
         autoSave.enqueue(song);
-    }, [song]);
-
+    }, [song, autoSave]);
 
     const songRef = React.useRef(song);
     const editorRef = React.useRef(editorState);
@@ -243,11 +252,15 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             const currentPatternIndex = s.songOrder[currentPosition] ?? 0;
             const rowsPerPattern = s.rowsPerPattern;
             const patternEditStep = s.patternEditStep;
-            updateSong((newSong) => {
-                const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, newSong.patterns.length - 1));
-                const pat = newSong.patterns[safePatternIndex];
-                const existingCell = pat.getCell(channel, ed.patternEditRow);
-                pat.setCell(channel, ed.patternEditRow, { ...existingCell, midiNote: note, instrumentIndex: ed.currentInstrument });
+            updateSong({
+                description: 'Insert note',
+                undoable: true,
+                mutator: (newSong) => {
+                    const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, newSong.patterns.length - 1));
+                    const pat = newSong.patterns[safePatternIndex];
+                    const existingCell = pat.getCell(channel, ed.patternEditRow);
+                    pat.setCell(channel, ed.patternEditRow, { ...existingCell, midiNote: note, instrumentIndex: ed.currentInstrument });
+                },
             });
             setEditorState((prev) => {
                 const next = prev.clone();
@@ -398,7 +411,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         }
         const result = OptimizeSong(song);
         console.log(result);
-        ensureUndoSnapshot();
+        ensureUndoSnapshot('Optimize song');
         setSong(result.optimizedSong.clone());
     };
 
@@ -410,7 +423,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         try {
             const text = await clipboard.readTextFromClipboard();
             const loaded = Song.fromJSON(text);
-            ensureUndoSnapshot();
+            ensureUndoSnapshot('Paste song JSON');
             setSong(loaded);
             updateEditorState((s) => {
                 s.setActiveSongPosition(0);
@@ -473,12 +486,36 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("IncreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave + 1)));
     useActionHandler("DecreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument - 1)));
     useActionHandler("IncreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument + 1)));
-    useActionHandler("IncreaseEditStep", () => updateSong((s) => s.setPatternEditStep(s.patternEditStep + 1)));
-    useActionHandler("DecreaseEditStep", () => updateSong((s) => s.setPatternEditStep(Math.max(0, s.patternEditStep - 1))));
-    useActionHandler("IncreaseTempo", () => updateSong((s) => s.setTempo(Math.min(240, s.tempo + 1))));
-    useActionHandler("DecreaseTempo", () => updateSong((s) => s.setTempo(Math.max(1, s.tempo - 1))));
-    useActionHandler("IncreaseSpeed", () => updateSong((s) => s.setSpeed(Math.min(31, s.speed + 1))));
-    useActionHandler("DecreaseSpeed", () => updateSong((s) => s.setSpeed(Math.max(1, s.speed - 1))));
+    useActionHandler("IncreaseEditStep", () => updateSong({
+        description: 'Increase edit step',//
+        undoable: true,
+        mutator: (s) => s.setPatternEditStep(s.patternEditStep + 1)
+    }));
+    useActionHandler("DecreaseEditStep", () => updateSong({
+        description: 'Decrease edit step',
+        undoable: true,
+        mutator: (s) => s.setPatternEditStep(Math.max(0, s.patternEditStep - 1))
+    }));
+    useActionHandler("IncreaseTempo", () => updateSong({
+        description: 'Increase tempo',
+        undoable: true,
+        mutator: (s) => s.setTempo(Math.min(240, s.tempo + 1))
+    }));
+    useActionHandler("DecreaseTempo", () => updateSong({
+        description: 'Decrease tempo',
+        undoable: true,
+        mutator: (s) => s.setTempo(Math.max(1, s.tempo - 1))
+    }));
+    useActionHandler("IncreaseSpeed", () => updateSong({
+        description: 'Increase speed',
+        undoable: true,
+        mutator: (s) => s.setSpeed(Math.min(31, s.speed + 1))
+    }));
+    useActionHandler("DecreaseSpeed", () => updateSong({
+        description: 'Decrease speed',
+        undoable: true,
+        mutator: (s) => s.setSpeed(Math.max(1, s.speed - 1))
+    }));
     useActionHandler("NextSongOrder", () => {
         const nextPos = Math.min(song.songOrder.length - 1, editorState.activeSongPosition + 1);
         updateEditorState((s) => s.setActiveSongPosition(nextPos));
@@ -629,8 +666,26 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         <DesktopMenu.Root>
                             <DesktopMenu.Trigger caret={false}>Edit</DesktopMenu.Trigger>
                             <DesktopMenu.Content>
-                                <DesktopMenu.Item onSelect={handleUndo} shortcut={keyboardShortcutMgr.getActionBindingLabel("Undo")}>Undo</DesktopMenu.Item>
-                                <DesktopMenu.Item onSelect={handleRedo} shortcut={keyboardShortcutMgr.getActionBindingLabel("Redo")}>Redo</DesktopMenu.Item>
+                                <DesktopMenu.Item
+                                    onSelect={handleUndo}
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("Undo")}
+                                >
+                                    {(() => {
+                                        const stack = undoStackRef.current;
+                                        const entry = stack?.peekUndo();
+                                        return entry ? `Undo ${entry.description}` : 'Undo';
+                                    })()}
+                                </DesktopMenu.Item>
+                                <DesktopMenu.Item
+                                    onSelect={handleRedo}
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("Redo")}
+                                >
+                                    {(() => {
+                                        const stack = undoStackRef.current;
+                                        const entry = stack?.peekRedo();
+                                        return entry ? `Redo ${entry.description}` : 'Redo';
+                                    })()}
+                                </DesktopMenu.Item>
                                 <DesktopMenu.Divider />
                                 <DesktopMenu.Item onSelect={() => { void copyNative(); }}>Copy Song JSON</DesktopMenu.Item>
                                 <DesktopMenu.Item onSelect={() => { void pasteSong(); }}>Paste Song JSON</DesktopMenu.Item>
