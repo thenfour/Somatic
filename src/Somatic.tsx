@@ -364,7 +364,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     };
 
     const saveSongFile = () => {
-        saveSync(song.toJSON(), 'song.somatic');
+        saveSync(song.toJSON(), song.getFilename(".somatic"));
     };
 
     const exportCart = (variant: "debug" | "release") => {
@@ -377,7 +377,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'song.tic';
+        link.download = song.getFilename(".tic");
 
         // Trigger the download
         document.body.appendChild(link);

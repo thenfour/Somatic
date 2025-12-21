@@ -1,4 +1,4 @@
-import {clamp, IsNullOrWhitespace} from "../utils/utils";
+import {clamp, IsNullOrWhitespace, SanitizeFilename} from "../utils/utils";
 
 import {Tic80Instrument, Tic80InstrumentDto} from "./instruments";
 import {Pattern, PatternDto} from "./pattern";
@@ -139,6 +139,11 @@ export class Song {
       if (index < 0 || index >= this.instruments.length)
          return null;
       return this.instruments[index]!;
+   }
+
+   getFilename(extensionWithDot: string): string {
+      const safeName = SanitizeFilename(this.name, "untitled");
+      return `${safeName}${extensionWithDot}`;
    }
 
    toData(): Required<SongDto> {

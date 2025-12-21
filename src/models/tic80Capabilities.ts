@@ -8,6 +8,7 @@ export const SomaticCaps = {
    maxSongLength: 256,
    noteCutInstrumentIndex: 1, // 0 = reserved
    maxPatternLengthToBridge: 40000,
+   maxSongTitleLength: 200,
 } as const;
 
 export enum SomaticEffectCommand {

@@ -221,3 +221,11 @@ export const formatRelativeToNow = (value: Date, now: Date = new Date()): string
 
    return isFuture ? `in ${valueAbs} ${unit}` : `${valueAbs} ${unit} ago`;
 };
+
+
+export function SanitizeFilename(name: string, nameIfEmpty: string): string {
+   // make name work on all platforms
+   // https://stackoverflow.com/questions/1976007/what-characters-are-forbidden-in-windows-and-linux-directory-names
+   const sanitized = name.replace(/[\/\\?%*:|"<>]/g, "_").trim();
+   return sanitized.length > 0 ? sanitized : nameIfEmpty;
+}

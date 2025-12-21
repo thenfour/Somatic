@@ -5,7 +5,7 @@ import { EditorState } from '../models/editor_state';
 import { Song } from '../models/song';
 //import { PositionList } from './position_list';
 import { HelpTooltip } from './HelpTooltip';
-import { Tic80Caps } from '../models/tic80Capabilities';
+import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { TryParseInt } from '../utils/utils';
 import { Tooltip } from './tooltip';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
@@ -148,6 +148,15 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 /> */}
                 </label>
             </Tooltip>
+            <label>
+                Song title
+                <input
+                    type="text"
+                    maxLength={SomaticCaps.maxSongTitleLength}
+                    value={song.name}
+                    onChange={(e) => onSongChange((s) => s.name = e.target.value)}
+                />
+            </label>
         </div>
     );
 };
