@@ -126,6 +126,8 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
                     ref={iframeRef}
                     style={{ width: "100%", height: "100%", border: 0, display: "block" }}
                     sandbox="allow-scripts allow-same-origin"
+                    // more attempt to hint to the browser that this needs high-performance mode #56
+                    allow="autoplay; fullscreen; gamepad"
                 />
                 {portalTarget &&
                     createPortal(
