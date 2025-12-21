@@ -239,6 +239,55 @@ export const ArrangementEditor: React.FC<{
         }
     };
 
+    const handleMakeSelectionUnique = () => {
+        const selection = getSelectionRange();
+        if (selection.length === 0) return;
+
+        onSongChange((s) => {
+            if (s.songOrder.length === 0) return;
+
+            // Count how many times each pattern index appears in the whole arrangement.
+            const patternUsageCount = new Map<number, number>();
+            for (const patIndex of s.songOrder) {
+                patternUsageCount.set(patIndex, (patternUsageCount.get(patIndex) ?? 0) + 1);
+            }
+
+            // Determine which selection positions need a unique clone
+            // (i.e. their pattern index is used more than once in the song).
+            const positionsNeedingClone: number[] = [];
+            for (const pos of selection) {
+                const patIndex = s.songOrder[pos];
+                const count = patternUsageCount.get(patIndex) ?? 0;
+                if (count > 1) {
+                    positionsNeedingClone.push(pos);
+                }
+            }
+
+            if (positionsNeedingClone.length === 0) return;
+
+            // Reserve enough unused pattern indices for all required clones.
+            const newPatternIndices = findUnusedPatternIndices(s, positionsNeedingClone.length);
+            if (newPatternIndices.length < positionsNeedingClone.length) {
+                // Not enough free pattern slots; abort without partial changes.
+                return;
+            }
+
+            // For each position that needs to be unique, clone its pattern to a new index
+            // and point this arrangement position at the clone.
+            for (let i = 0; i < positionsNeedingClone.length; i += 1) {
+                const pos = positionsNeedingClone[i];
+                const sourcePatternIndex = s.songOrder[pos];
+                const targetPatternIndex = newPatternIndices[i];
+
+                const sourcePattern = s.patterns[sourcePatternIndex];
+                if (!sourcePattern) continue;
+
+                s.patterns[targetPatternIndex] = sourcePattern.clone();
+                s.songOrder[pos] = targetPatternIndex;
+            }
+        });
+    };
+
     const handleMoveUp = () => {
         const selection = getSelectionRange();
         if (selection[0] === 0) return; // already at top
@@ -622,6 +671,15 @@ export const ArrangementEditor: React.FC<{
                             aria-label="Duplicate selection"
                         >
                             ⧉
+                        </button>
+                    </Tooltip>
+                    <Tooltip title="Make selection unique">
+                        <button
+                            type="button"
+                            className="arrangement-editor__command"
+                            onClick={handleMakeSelectionUnique}
+                        >
+                            {CharMap.BoldSixPointedAsterisk}
                         </button>
                     </Tooltip>
                 </div>

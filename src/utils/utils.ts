@@ -117,6 +117,7 @@ export const CharMap = {
    Check: "✔",
    Cross: "✘",
    Bullet: "•",
+   BoldSixPointedAsterisk: "🞷",
 };
 
 
