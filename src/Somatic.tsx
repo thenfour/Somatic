@@ -585,15 +585,37 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         <DesktopMenu.Root>
                             <DesktopMenu.Trigger caret={false}>File</DesktopMenu.Trigger>
                             <DesktopMenu.Content>
-                                <DesktopMenu.Item onSelect={() => { void createNewSong(); }}>New Song…</DesktopMenu.Item>
-                                <DesktopMenu.Item onSelect={() => { void openSongFile(); }}>Open Song…</DesktopMenu.Item>
-                                <DesktopMenu.Item onSelect={saveSongFile}>Save Song</DesktopMenu.Item>
+                                <DesktopMenu.Item
+                                    onSelect={() => { void createNewSong(); }}
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("NewFile")}
+                                >
+                                    New Song…
+                                </DesktopMenu.Item>
+                                <DesktopMenu.Item
+                                    onSelect={() => { void openSongFile(); }}
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("OpenFile")}
+                                >
+                                    Open Song…
+                                </DesktopMenu.Item>
+                                <DesktopMenu.Item
+                                    onSelect={saveSongFile}
+                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("SaveFile")}
+                                >
+                                    Save Song
+                                </DesktopMenu.Item>
                                 <DesktopMenu.Divider />
                                 <DesktopMenu.Sub>
                                     <DesktopMenu.SubTrigger>Export Cart</DesktopMenu.SubTrigger>
                                     <DesktopMenu.SubContent>
-                                        <DesktopMenu.Item onSelect={() => exportCart('debug')}>Debug Build</DesktopMenu.Item>
-                                        <DesktopMenu.Item onSelect={() => exportCart('release')}>Release Build</DesktopMenu.Item>
+                                        <DesktopMenu.Item onSelect={() => exportCart('debug')}>
+                                            Debug Build
+                                        </DesktopMenu.Item>
+                                        <DesktopMenu.Item
+                                            onSelect={() => exportCart('release')}
+                                            shortcut={keyboardShortcutMgr.getActionBindingLabel("ExportCartRelease")}
+                                        >
+                                            Release Build
+                                        </DesktopMenu.Item>
                                     </DesktopMenu.SubContent>
                                 </DesktopMenu.Sub>
                                 <DesktopMenu.Divider />

@@ -49,9 +49,9 @@ export const Actions = {
    TransposeSelectionDownSemitone: "TransposeSelectionDownSemitone",
    TransposeSelectionUpOctave: "TransposeSelectionUpOctave",
    TransposeSelectionDownOctave: "TransposeSelectionDownOctave",
-
    IncrementInstrumentInSelection: "IncrementInstrumentInSelection",
    DecrementInstrumentInSelection: "DecrementInstrumentInSelection",
+
 
    ExportCartRelease: "ExportCartRelease",
 

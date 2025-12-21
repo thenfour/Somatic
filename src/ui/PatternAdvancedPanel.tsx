@@ -1,5 +1,7 @@
 import React, { useId, useState } from 'react';
 import { CharMap } from '../utils/utils';
+import { Tooltip } from './tooltip';
+import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
 
 export type PatternAdvancedPanelProps = {
     enabled?: boolean;
@@ -30,6 +32,7 @@ export type InterpolateTarget = (typeof interpolateOptions)[number]['value'];
 
 export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enabled = true, onTranspose, onSetInstrument, onChangeInstrument, onNudgeInstrument, onInterpolate }) => {
     const scopeGroupId = useId();
+    const keyboardShortcutMgr = useShortcutManager();
     const [scope, setScope] = useState<ScopeValue>('selection');
     const [setInstrumentValue, setSetInstrumentValue] = useState<number>(2);
     const [changeInstrumentFrom, setChangeInstrumentFrom] = useState<number>(2);
@@ -64,17 +67,27 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enab
                 <section className="pattern-advanced-panel__section">
                     <div className="pattern-advanced-panel__sectionTitle">Transpose</div>
                     <div className="pattern-advanced-panel__buttonRow">
-                        {[-12, -1, 1, 12].map((step) => (
-                            <button
-                                key={step}
-                                type="button"
-                                className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
-                                onClick={() => onTranspose(step, scope)}
-                                disabled={!enabled}
-                            >
-                                {step > 0 ? `+${step}` : step}
-                            </button>
-                        ))}
+                        {[-12, -1, 1, 12].map((step) => {
+                            const actionId =
+                                step === -12 ? "TransposeSelectionDownOctave" :
+                                    step === -1 ? "TransposeSelectionDownSemitone" :
+                                        step === 1 ? "TransposeSelectionUpSemitone" :
+                                            "TransposeSelectionUpOctave";
+                            const label = keyboardShortcutMgr.getActionBindingLabel(actionId);
+                            const title = label ? `Shortcut: ${label}` : undefined;
+                            return (
+                                <Tooltip key={step} title={title} disabled={!title}>
+                                    <button
+                                        type="button"
+                                        className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
+                                        onClick={() => onTranspose(step, scope)}
+                                        disabled={!enabled}
+                                    >
+                                        {step > 0 ? `+${step}` : step}
+                                    </button>
+                                </Tooltip>
+                            );
+                        })}
                     </div>
                 </section>
 
@@ -128,22 +141,32 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enab
                         </div>
                     </label>
                     <div className="pattern-advanced-panel__buttonRow">
-                        <button
-                            type="button"
-                            className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
-                            onClick={() => onNudgeInstrument(-1, scope)}
-                            disabled={!enabled}
+                        <Tooltip
+                            title={`Shortcut: ${keyboardShortcutMgr.getActionBindingLabel("DecrementInstrumentInSelection")}`}
+                            disabled={!keyboardShortcutMgr.getActionBindingLabel("DecrementInstrumentInSelection")}
                         >
-                            Inst-1
-                        </button>
-                        <button
-                            type="button"
-                            className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
-                            onClick={() => onNudgeInstrument(1, scope)}
-                            disabled={!enabled}
+                            <button
+                                type="button"
+                                className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
+                                onClick={() => onNudgeInstrument(-1, scope)}
+                                disabled={!enabled}
+                            >
+                                Inst-1
+                            </button>
+                        </Tooltip>
+                        <Tooltip
+                            title={`Shortcut: ${keyboardShortcutMgr.getActionBindingLabel("IncrementInstrumentInSelection")}`}
+                            disabled={!keyboardShortcutMgr.getActionBindingLabel("IncrementInstrumentInSelection")}
                         >
-                            Inst+1
-                        </button>
+                            <button
+                                type="button"
+                                className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
+                                onClick={() => onNudgeInstrument(1, scope)}
+                                disabled={!enabled}
+                            >
+                                Inst+1
+                            </button>
+                        </Tooltip>
                     </div>
                 </section>
 
