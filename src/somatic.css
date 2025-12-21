@@ -1767,3 +1767,10 @@ option {
     background-color: var(--bg);
     ;
 }
+
+.menu-transport .main-transport-time {
+    font-size: 22px;
+    background-color: var(--bg);
+    color: var(--accent);
+    margin: 0 12px;
+}

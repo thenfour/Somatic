@@ -2,13 +2,16 @@ import React, { useCallback, useState } from "react";
 import { MusicState } from "../audio/backend";
 import { Tooltip } from "./tooltip";
 import { AudioController } from "../audio/controller";
+import { Song } from "../models/song";
+import { calculateSongPositionInSeconds } from "../models/tic80Capabilities";
+import { TransportTime } from "./transportTime";
 
 const FPS_UPDATE_INTERVAL_MS = 500;
 const FPS_WARNING_THRESHOLD = 45; // below this and we show a warning
 
 // why accept musicState as a prop? to let the parent fetch it only when needed
 // and why not put fps in music state? because we expect it's updating constantly and don't want infinite re-renders
-export const MusicStateDisplay: React.FC<{ bridgeReady: boolean; audio: AudioController, musicState: MusicState }> = ({ bridgeReady, audio, musicState }) => {
+export const MusicStateDisplay: React.FC<{ song: Song, bridgeReady: boolean; audio: AudioController, musicState: MusicState }> = ({ song, bridgeReady, audio, musicState }) => {
 
     const [fps, setFps] = useState(0);
 
@@ -35,6 +38,13 @@ export const MusicStateDisplay: React.FC<{ bridgeReady: boolean; audio: AudioCon
     }
 
     const fpsWarning = fps < FPS_WARNING_THRESHOLD;
+
+    const currentRowInSong = song.rowsPerPattern * musicState.somaticSongPosition + musicState.tic80RowIndex;
+    const positionSeconds = calculateSongPositionInSeconds({
+        songTempo: song.tempo,
+        songSpeed: song.speed,
+        rowIndex: currentRowInSong,
+    });
 
     return <Tooltip title={<div>
         <div>TIC-80 playback status</div>
@@ -71,8 +81,11 @@ export const MusicStateDisplay: React.FC<{ bridgeReady: boolean; audio: AudioCon
                     <div className='value'>{fps}{fpsWarning ? ' ⚠️' : ''}</div>
                 </div>
                 {audio.getMusicState().isPlaying ? <>
-                    <div className='key'>Order:</div><div className='value'>{musicState.somaticSongPosition}</div>
-                    <div className='key'>Row:</div><div className='value'>{musicState.tic80RowIndex}</div>
+                    <div className='key order'>Order:</div><div className='value'>{musicState.somaticSongPosition}</div>
+                    <div className='key row'>Row:</div><div className='value'>{musicState.tic80RowIndex}</div>
+                    <div className="key time">Time:</div><div className='value'>
+                        <TransportTime positionSeconds={positionSeconds} />
+                    </div>
                 </> : <>Ready</>}
             </div>
         </div>

@@ -5,7 +5,7 @@ import { EditorState } from '../models/editor_state';
 import { Song } from '../models/song';
 //import { PositionList } from './position_list';
 import { HelpTooltip } from './HelpTooltip';
-import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
+import { calculateBpm, SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { TryParseInt } from '../utils/utils';
 import { Tooltip } from './tooltip';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
@@ -70,6 +70,8 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
         return mgr.getActionBindingLabel(actionId) || "Unbound";
     };
 
+    const bpm = calculateBpm({ songTempo: song.tempo, songSpeed: song.speed, rowsPerBeat: 4 });
+
     return (
         <div className="section">
             {/* <PositionList
@@ -79,13 +81,13 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 onEditorStateChange={onEditorStateChange}
                 audio={audio}
             /> */}
-            <Tooltip title={`Song tempo; ${getActionBindingLabel("IncreaseTempo")} / ${getActionBindingLabel("DecreaseTempo")} to adjust.`}>
+            <Tooltip title={`Song tempo (${bpm} BPM); ${getActionBindingLabel("IncreaseTempo")} / ${getActionBindingLabel("DecreaseTempo")} to adjust.`}>
                 <div className="field-row">
                     <label htmlFor="song-tempo">Tempo</label>
                     <input id="song-tempo" type="number" min={1} max={255} value={song.tempo} onChange={onTempoChange} />
                 </div>
             </Tooltip>
-            <Tooltip title={`Song speed (ticks per row). ${getActionBindingLabel("IncreaseSpeed")} / ${getActionBindingLabel("DecreaseSpeed")} to adjust.`}>
+            <Tooltip title={`Song speed (${bpm} BPM) (ticks per row). ${getActionBindingLabel("IncreaseSpeed")} / ${getActionBindingLabel("DecreaseSpeed")} to adjust.`}>
                 <div className="field-row">
                     <label htmlFor="song-speed">Speed</label>
                     <input id="song-speed" type="number" min={1} max={31} value={song.speed} onChange={onSpeedChange} />

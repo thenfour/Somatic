@@ -14,7 +14,7 @@ import { KeyboardNoteInput } from './midi/keyboard_input';
 import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
-import { gChannelsArray, ToTic80ChannelIndex } from './models/tic80Capabilities';
+import { calculateBpm, calculateSongPositionInSeconds, gChannelsArray, ToTic80ChannelIndex } from './models/tic80Capabilities';
 import { AppStatusBar } from './ui/AppStatusBar';
 import { ArrangementEditor } from './ui/ArrangementEditor';
 import { useConfirmDialog } from './ui/confirm_dialog';
@@ -41,6 +41,7 @@ import { useRenderAlarm } from './hooks/useRenderAlarm';
 import { MusicStateDisplay } from './ui/MusicStateDisplay';
 import { MidiStatusIndicator } from './ui/MidiStatusIndicator';
 import { AboutSomaticDialog } from './ui/AboutSomaticDialog';
+import { TransportTime } from './ui/transportTime';
 
 type SongMutator = (song: Song) => void;
 type SongChangeArgs = {
@@ -618,6 +619,19 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         setDisabledMidiDeviceIds((prev) => prev.filter((id) => id !== device.id));
     };
 
+    const currentAbsRow = song.rowsPerPattern * editorState.activeSongPosition + editorState.patternEditRow;
+    const cursorPositionSeconds = calculateSongPositionInSeconds({
+        songTempo: song.tempo,
+        songSpeed: song.speed,
+        rowIndex: currentAbsRow,
+    });
+
+    const totalSongSeconds = calculateSongPositionInSeconds({
+        songTempo: song.tempo,
+        songSpeed: song.speed,
+        rowIndex: song.songOrder.length * song.rowsPerPattern,
+    });
+
     return (
         <div className="app">
             <div className="stickyHeader appRow">
@@ -813,6 +827,15 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 {CharMap.RightTriangleOutlined}
                             </span>Pos</button>
                         </Tooltip>
+                        <Tooltip title={(<div>
+                            <div>Current position of cursor.</div>
+                            <div>Total song length: <TransportTime positionSeconds={totalSongSeconds} /></div>
+                        </div>)}
+                        >
+                            <div>
+                                <TransportTime className="main-transport-time" positionSeconds={cursorPositionSeconds} />
+                            </div>
+                        </Tooltip>
                     </div>
                     <div className="right-controls">
                         <Tooltip title={`Toggle editing (${keyboardShortcutMgr.getActionBindingLabel("ToggleEditMode")})`}>
@@ -849,7 +872,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             <span className="autoSaveIndicator__label">sync:{autoSave.state.status}</span>
                         </Tooltip>
                         <SongStats song={song} />
-                        <MusicStateDisplay bridgeReady={bridgeReady} audio={audio} musicState={musicState} />
+                        <MusicStateDisplay bridgeReady={bridgeReady} audio={audio} musicState={musicState} song={song} />
 
                     </div>
                 </div>
