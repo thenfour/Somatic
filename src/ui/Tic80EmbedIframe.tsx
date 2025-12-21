@@ -75,6 +75,11 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
                 mount.style.position = "relative";
                 doc.body.appendChild(mount);
 
+                // on boot, set keyboard focus to the iframe window
+                // so the browser knows we want high-performance mode.
+                // see #56
+                win.focus();
+
                 setFrameDoc(doc);
                 setFrameWin(win);
             };

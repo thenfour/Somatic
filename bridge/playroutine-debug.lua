@@ -43,6 +43,25 @@ local bufferBLocation = bufferALocation + PATTERN_BUFFER_BYTES -- pointer to pat
 -- base85 decode (ASCII85-style) for TIC-80 Lua
 -- Decodes 's' into memory starting at 'dst', writing exactly expectedLen bytes.
 -- Returns the number of bytes written (should equal expectedLen or error).
+
+-- BTW, justification for using this instead of typical tonumber() method:
+-- ASCII85 is 1.25 chars per byte
+-- HEX is 2 chars per byte
+-- the ascii85 lua decoder is about 600 bytes.
+-- so in lua,
+-- ascii85's payload is 600 + (1.25 * N) bytes
+-- hex's payload is 2 * N bytes, and probably some tiny amount of decoder like 30 bytes.
+-- the break-even point is @
+--      let d85 = ascii85 decoder size 600 bytes
+--      let d16 = hex decoder size / 30 bytes
+--      d85 + 1.25 * N < d16 + 2 * N
+--      2 N - 1.25 N > d85 - d16
+--      0.75 N > d85 - d16
+-- 	    N > (d85 - d16) / 0.75
+-- -> Break-even point = (ascii85 decoder size - hex decoder size) / 0.75
+-- -> (600 - 30) / 0.75 = 760 bytes
+-- So for patterns larger than that, ascii85 is more size-efficient.
+
 function base85_decode_to_mem(s, expectedLen, dst)
 	local BASE85_RADIX = 85
 	local BASE85_OFFSET = 33

@@ -555,6 +555,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const handleBridgeReady = React.useCallback((handle: Tic80BridgeHandle) => {
         //console.log('[App] Bridge ready, uploading current song');
         //audio.setSong(song, "Bridge ready; initial upload");
+        // focus the pattern grid.
+        patternGridRef.current?.focusPattern();
         setBridgeReady(true);
         autoSave.enqueue(song);
         autoSave.flush();
@@ -855,7 +857,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     <ThemeEditorPanel onClose={() => setThemePanelOpen(false)} />
                 )}
 
-                <div className={tic80PanelOpen ? "tic80-frame" : "tic80-frame hidden"}>
+                {/* When booting (bridge ! ready), we have to show it so it can take focus and convince the browser to make the iframe run in high-performance; see #56 */}
+                <div className={tic80PanelOpen || !bridgeReady ? "tic80-frame" : "tic80-frame hidden"}>
                     {/* <Tic80Iframe /> */}
                     <Tic80Bridge ref={bridgeRef} onReady={handleBridgeReady} />
                 </div>
