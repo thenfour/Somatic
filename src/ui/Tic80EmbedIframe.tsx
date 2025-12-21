@@ -92,10 +92,20 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
             return () => iframe.removeEventListener("load", onLoad);
         }, [mountId]);
 
-        useEffect(() => {
-            if (!hasStarted) return;
-            if (!frameDoc || !frameWin) return;
-            if (!canvasRef.current) return;
+        const portalTarget = frameDoc?.getElementById(mountId) ?? null;
+
+        const handleStartClick = () => {
+            if (!frameDoc || !frameWin || !canvasRef.current) {
+                console.warn("[tic80 iframe] start click before iframe ready");
+                return;
+            }
+
+            setHasStarted(true);
+
+            if (frameWin) {
+                frameWin.focus();
+            }
+
             if (injectedRef.current) return;
 
             console.log("[tic80 iframe] injecting Module", (frameWin as any).Module, canvasRef.current, args);
@@ -109,15 +119,6 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
             frameDoc.head.appendChild(script);
 
             injectedRef.current = true;
-        }, [frameDoc, frameWin, hasStarted, args]);
-
-        const portalTarget = frameDoc?.getElementById(mountId) ?? null;
-
-        const handleStartClick = () => {
-            setHasStarted(true);
-            if (frameWin) {
-                frameWin.focus();
-            }
         };
 
         return (
@@ -131,35 +132,37 @@ export const Tic80Iframe = forwardRef<Tic80IframeHandle, Tic80IframeProps>(
                 />
                 {portalTarget &&
                     createPortal(
-                        <canvas
-                            ref={canvasRef}
-                            id="canvas"
-                            style={{ width: "100%", height: "100%", display: "block", imageRendering: "pixelated" }}
-                            onContextMenu={(e) => e.preventDefault()}
-                            onMouseDown={() => frameWin?.focus()}
-                        />,
+                        <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                            <canvas
+                                ref={canvasRef}
+                                id="canvas"
+                                style={{ width: "100%", height: "100%", display: "block", imageRendering: "pixelated" }}
+                                onContextMenu={(e) => e.preventDefault()}
+                                onMouseDown={() => frameWin?.focus()}
+                            />
+                            {!hasStarted && (
+                                <button
+                                    type="button"
+                                    onClick={handleStartClick}
+                                    style={{
+                                        position: "absolute",
+                                        inset: 0,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        background: "rgba(0, 0, 0, 0.6)",
+                                        color: "white",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        fontSize: "16px",
+                                    }}
+                                >
+                                    Click to start the audio engine
+                                </button>
+                            )}
+                        </div>,
                         portalTarget
                     )}
-                {!hasStarted && (
-                    <button
-                        type="button"
-                        onClick={handleStartClick}
-                        style={{
-                            position: "absolute",
-                            inset: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background: "rgba(0, 0, 0, 0.6)",
-                            color: "white",
-                            border: "none",
-                            cursor: "pointer",
-                            fontSize: "16px",
-                        }}
-                    >
-                        Click to start the audio engine
-                    </button>
-                )}
             </div>
         );
     }
