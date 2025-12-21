@@ -39,6 +39,18 @@ export class Tic80Waveform {
       return new Tic80Waveform(data || {});
    }
 
+   isNoise(): boolean {
+      // all amplitudes are 0 or max
+      const maxAmp = Tic80Caps.waveform.amplitudeRange - 1;
+      for (let i = 0; i < this.amplitudes.length; i++) {
+         const amp = this.amplitudes[i]!;
+         if (amp !== 0 && amp !== maxAmp) {
+            return false;
+         }
+      }
+      return true;
+   }
+
    toData(): Tic80WaveformDto {
       return {
          name: this.name,

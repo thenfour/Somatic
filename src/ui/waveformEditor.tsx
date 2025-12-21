@@ -300,7 +300,8 @@ export const WaveformEditorPanel: React.FC<{
                     if (songUsage) {
                         used = songUsage.usedWaveforms.has(waveformIndex);
                     }
-                    return `${waveformIndex.toString(16).toUpperCase()}${used ? '*' : ''}`;
+                    const isNoise = song.waveforms[waveformIndex]?.isNoise() ?? false;
+                    return `${waveformIndex.toString(16).toUpperCase()}${used ? '*' : ''}${isNoise ? ' (Noise)' : ''}`;
                 }}
                 song={song}
             />

@@ -400,7 +400,10 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                                 });
                             }}
                             song={song}
-                            getOverlayText={(i) => i.toString(16).toUpperCase()}
+                            getOverlayText={(i) => {
+                                const isNoise = song.waveforms[i]?.isNoise() ?? false;
+                                return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
+                            }}
                             getWaveformDisplayStyle={(waveformId) => {
                                 if (hoveredWaveform === null) {
                                     // no hover; just highlight all the USED waveforms
