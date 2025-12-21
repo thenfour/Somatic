@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { MusicState } from "../audio/backend";
 import { SelectionRect2D, useRectSelection2D } from "../hooks/useRectSelection2D";
 import { EditorState } from "../models/editor_state";
@@ -8,6 +8,7 @@ import { SomaticCaps } from "../models/tic80Capabilities";
 import { CharMap, clamp } from "../utils/utils";
 import { useConfirmDialog } from "./confirm_dialog";
 import { Tooltip } from "./tooltip";
+import { useWheelNavigator } from "../hooks/useWheelNavigator";
 
 const PAGE_SIZE = 4;
 
@@ -24,6 +25,8 @@ export const ArrangementEditor: React.FC<{
 
     const [editingPatternNameIndex, setEditingPatternNameIndex] = useState<number | null>(null);
     const [editingPatternNameValue, setEditingPatternNameValue] = useState("");
+
+    const containerRef = useRef<HTMLDivElement>(null);
 
     // Create refs for all arrangement rows
     const rowRefs = useMemo(
@@ -357,15 +360,13 @@ export const ArrangementEditor: React.FC<{
         if (target) target.focus();
     };
 
-    const handleWheel = (e: React.WheelEvent) => {
+    useWheelNavigator(containerRef, (e) => {
         const positionIndex = editorState.activeSongPosition;
         const maxIndex = Math.max(0, song.songOrder.length - 1);
 
         // deltaY > 0 means scrolling down (move cursor down)
         // deltaY < 0 means scrolling up (move cursor up)
         if (e.deltaY === 0) return;
-
-        e.preventDefault();
 
         let next: number;
         if (e.deltaY < 0) {
@@ -377,11 +378,13 @@ export const ArrangementEditor: React.FC<{
             start: { x: 0, y: next },
             size: { width: 1, height: 1 },
         }));
+
         onEditorStateChange((state) => {
             state.setActiveSongPosition(next);
         });
+
         focusRow(next);
-    };
+    });
 
     const handleKeyDown = (e: React.KeyboardEvent, positionIndex: number) => {
         const maxIndex = Math.max(0, song.songOrder.length - 1);
@@ -510,7 +513,9 @@ export const ArrangementEditor: React.FC<{
             <div className="arrangement-editor__header">
             </div>
             <div className="arrangement-editor__content"
-                onWheel={(e) => handleWheel(e)}
+                ref={containerRef}
+            // style overflow auto.
+            //onWheel={(e) => handleWheel(e)}
             >
                 {song.songOrder.map((patternIndex, positionIndex) => {
                     const clampedPattern = clamp(patternIndex ?? 0, 0, maxPatterns - 1);
