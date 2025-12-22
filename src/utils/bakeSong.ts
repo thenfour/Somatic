@@ -5,21 +5,64 @@ import {Song} from "../models/song";
 import {Tic80ChannelIndex} from "../models/tic80Capabilities";
 
 export interface BakeSongArgs {
-   song: Song;
-   loopMode: LoopMode;
-   cursorSongOrder: number,                  //
-      cursorChannelIndex: Tic80ChannelIndex, //
-      cursorRowIndex: number,
-      patternSelection: SelectionRect2D|null, //
-      audibleChannels: Set<Tic80ChannelIndex>,
-      startPosition: number, //
-      startRow: number,
+   song: Song;              // the full song being edited
+   loopMode: LoopMode;      // the style of loop playback requested by the user
+   cursorSongOrder: number; // the "current pattern" is the one pointed to by this song order position.
+
+   // if loopMode is "selectionInSongOrder", this indicates the selected song order range (use only the Y(row) selection; there are no columns (x) selected.)
+   songOrderSelection: SelectionRect2D|null;
+
+   cursorChannelIndex: Tic80ChannelIndex; // which channel the cursor is on (i think this is ignored for baking)
+   cursorRowIndex: number;                // which row the cursor is on (used for half/quarter pattern loop modes)
+
+   // if loopMode is "selectionInPattern", this indicates the selected pattern range.
+   patternSelection: SelectionRect2D|null;
+
+   audibleChannels: Set<Tic80ChannelIndex>; // which channels are audible (not muted)
+
+   // the song order position the user is requesting to start from. this is populated when
+   // "play from this pattern" or "play from this row" is used.
+   // if you do that with a loop mode, the result is usually obvious.
+   // - off: start from here
+   // - song: start from here (and loop the whole song)
+   // - pattern: start from the start of the pattern containing this position
+   //    -> in this case we can bake a new pattern, and set result.startPosition to 0.
+   // - selectionInSongOrder: start from the start of the selected song order range
+   //   -> same: set result.startPosition to 0, because the baked song is a 1-pattern loop.
+   // - halfPattern: start from the start of the half-pattern containing this position
+   //   -> same.
+   // - quarterPattern: start from the start of the quarter-pattern containing this position
+   //   -> same.
+   // - selectionInPattern: start from the start of the selected pattern range
+   //   -> same.
+   startPosition: number; //
+
+   // user has selected "play from this row". let's see how this affects when combined with loop modes.
+   // - off: start from this row
+   // - song: start from this row
+   // - pattern: bake the 1-pattern song (result.startPosition = 0), and result.startRow = args.startRow.
+   // - selectionInSongOrder
+   //    -> set result.startRow = 0, because there's a chance your cursor is not even in the selected range. just do the simple thing.
+   // - halfPattern: start from the start of the half-pattern containing this row
+   //    -> set result.startRow = 0; don't get tricky with logic that's so buried it's hard to test.
+   // - quarterPattern: start from the start of the quarter-pattern containing this row
+   //    -> set result.startRow = 0; don't get tricky.
+   // - selectionInPattern: start from the start of the selected pattern range (row 0 of that pattern)
+   //    -> set result.startRow = 0.
+   startRow: number; //
 }
 
 export type BakedSong = {
-   bakedSong: Song;       //
-   wantSongLoop: boolean; // true in order to honor the song loop mode
+   // the song that will be transmitted to the TIC-80. the following play params will apply to THIS payload.
+   bakedSong: Song;
+
+   // true in order to honor the song loop mode (with baking, this will be true for all non-off loop modes)
+   wantSongLoop: boolean;
+
+   // the song order position (of the baked song) to start playback from; see above for details.
    startPosition: number;
+
+   // the pattern row (of the baked song) to start playback from; see above for details.
    startRow: number;
 };
 
