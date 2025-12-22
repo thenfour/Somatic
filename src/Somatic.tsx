@@ -218,7 +218,19 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     // auto-save to backend + localStorage
     const autoSave = useWriteBehindEffect<Song>(async (doc, { signal }) => {
-        //await audio.transmitSong(doc, "Auto-save", editorState.getAudibleChannels());
+        await audio.transmit({
+            song: doc,
+            reason: 'auto-save',
+            audibleChannels: editorState.getAudibleChannels(),
+            cursorChannelIndex: editorState.patternEditChannel,
+            cursorRowIndex: editorState.patternEditRow,
+            cursorSongOrder: editorState.activeSongPosition,
+            loopMode: editorState.loopMode,
+            patternSelection: editorState.patternSelection,
+            songOrderSelection: editorState.selectedArrangementPositions,
+            startPosition: editorState.activeSongPosition,
+            startRow: editorState.patternEditRow,
+        });
         localStorage.setItem('somatic-song', doc.toJSON());
     }, {
         debounceMs: 1000,//
@@ -391,7 +403,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     };
 
     const handleNoteOff = (midiNote: number) => {
-        autoSave.flush();
+        //autoSave.flush();
         audio.sfxNoteOff(midiNote);
     };
 
