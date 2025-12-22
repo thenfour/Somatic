@@ -110,8 +110,31 @@ npx serve
 
 ## changes to bridge.lua
 
-load it in a tic80 instance and save the cart to `/public/bridge.tic`. that's what gets loaded @ runtime.
+Used to be manual process: load it in a tic80 instance and save the cart to `/public/bridge.tic`. that's what gets loaded @ runtime.
+
+It's now an automated build process.
 
 ## sanity checks
 
 code is not so well organized in many places; lots of dependencies still cause confusion and unexpected effect loops. check for this before deploying.
+
+## Song's journey from UI to TIC80.
+
+You edit a `Song` in the UI that's mostly related to TIC-80's song format, but not necessarily. There is conversion to turn it into something
+the TIC-80 can play natively.
+
+When it gets passed to the TIC-80, it goes through some stages:
+
+- **Baking**: your play options (channel muting, looping, selection) change the song that gets played by the TIC-80. For example if you choose to loop a 4-row bit of song, it gets converted to a song with only those 4 rows, looped.
+- **Optimization**: detecting which instruments, waveforms, patterns are unused or duplicates, removing them and sliding them to be together.
+- **Transmission**:
+  - For Somatic tracker's live play, we `POKE` it into the TIC-80's memory in a way that the runtime playroutine can use.
+    - Waveform and sfx are placed directly in the standard WAVEFORM and SFX memory locations
+    - song order ("frames") & pattern data get stuffed in the large graphics memory area so the playroutine can blit from it.
+  - For exported carts, we do similar for waveform & sfx, however Pattern & frame data get exported an Lua strings, encoded & compressed.
+
+This can get confusing because for example `SongOrderPosition` can mean many things:
+
+- The one order you see in the UI (the top level)
+- the one that the playroutine is reporting as the "somatic play order" in its music state reporting.
+- the one the TIC-80 is reporting which is 0-15.

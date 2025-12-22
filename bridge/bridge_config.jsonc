@@ -11,6 +11,7 @@
         "TRANSMIT_AND_PLAY": 1,
         "STOP": 2,
         "PING": 3,
+        "TRANSMIT": 4,
         "PLAY_SFX_ON": 6,
         "PLAY_SFX_OFF": 7
     },

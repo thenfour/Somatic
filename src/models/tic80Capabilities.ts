@@ -135,6 +135,7 @@ export const TicBridge = {
    CMD_TRANSMIT_AND_PLAY: bridgeConfig.inboxCommands.TRANSMIT_AND_PLAY,
    CMD_STOP: bridgeConfig.inboxCommands.STOP,
    CMD_PING: bridgeConfig.inboxCommands.PING,
+   CMD_TRANSMIT: bridgeConfig.inboxCommands.TRANSMIT,
    CMD_PLAY_SFX_ON: bridgeConfig.inboxCommands.PLAY_SFX_ON,
    CMD_PLAY_SFX_OFF: bridgeConfig.inboxCommands.PLAY_SFX_OFF,
 

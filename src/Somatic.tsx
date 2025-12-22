@@ -43,7 +43,7 @@ import { OptimizeSong } from './utils/SongOptimizer';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
 import { CharMap } from './utils/utils';
-import { LoopMode } from './audio/backend';
+import { LoopMode, SomaticTransportState } from './audio/backend';
 
 const TIC80_FRAME_SIZES = [
 
@@ -122,13 +122,13 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [themePanelOpen, setThemePanelOpen] = useState(false);
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
-    const [musicState, setMusicState] = useState(() => audio.getMusicState());
+    const [somaticTransportState, setSomaticTransportState] = useState<SomaticTransportState>(() => audio.getSomaticTransportState());
     const [bridgeReady, setBridgeReady] = useState(false);
     const [aboutOpen, setAboutOpen] = useState(false);
     const [embedMode, setEmbedMode] = useState<"iframe" | "toplevel">("iframe");
     const clipboard = useClipboard();
 
-    // in order
+    // in order of cycle
     const LOOP_MODE_OPTIONS: { value: LoopMode; label: string }[] = [
         { value: "off", label: "Off" },
         { value: "song", label: "Song" },
@@ -204,7 +204,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         const poll = () => {
             // getMusicState() returns the same object instance when nothing changed,
             // so React will bail out of setState if the reference is unchanged.
-            setMusicState(audio.getMusicState());
+            setSomaticTransportState(audio.getSomaticTransportState());
             animationFrameId = requestAnimationFrame(poll);
         };
         animationFrameId = requestAnimationFrame(poll);
@@ -223,11 +223,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     }, {
         debounceMs: 1000,//
         maxWaitMs: 2500,//
-        // onSuccess: () => {
-        //     pushToast({
-        //         message: 'Song auto-saved.', variant: 'info', durationMs: 1000
-        //     });
-        // }
     });
 
     useRenderAlarm({
@@ -501,7 +496,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     };
 
     const playSongWithFlush = useCallback(async (reason: string, startPosition: number, startRow: number) => {
-        if (audio.getMusicState().isPlaying) {
+        if (somaticTransportState.isPlaying) {
             audio.panic();
         } else {
             audio.transmitAndPlay({
@@ -1015,7 +1010,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             <span className="autoSaveIndicator__label">sync:{autoSave.state.status}</span>
                         </Tooltip>
                         <SongStats song={song} />
-                        <MusicStateDisplay bridgeReady={bridgeReady} audio={audio} musicState={musicState} song={song} />
+                        <MusicStateDisplay bridgeReady={bridgeReady} audio={audio} musicState={somaticTransportState} song={song} />
 
                     </div>
                 </div>
@@ -1032,7 +1027,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 {showingArrangementEditor && <ArrangementEditor
                     song={song}
                     editorState={editorState}
-                    musicState={musicState}
+                    musicState={somaticTransportState}
                     onEditorStateChange={updateEditorState}
                     onSongChange={updateSong}
                 />}
@@ -1041,7 +1036,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         ref={patternGridRef}
                         song={song}
                         audio={audio}
-                        musicState={musicState}
+                        musicState={somaticTransportState}
                         editorState={editorState}
                         onEditorStateChange={updateEditorState}
                         onSongChange={updateSong}

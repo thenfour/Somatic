@@ -1,9 +1,8 @@
-import {LoopMode} from "../audio/backend";
-import {Tic80SerializeSongArgs} from "../audio/tic80_cart_serializer";
+import {LoopMode, SomaticTransportState, Tic80TransportState} from "../audio/backend";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
-import {gChannelsArray, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {Pattern, PatternCell} from "../models/pattern";
 import {Song} from "../models/song";
+import {gChannelsArray, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 
 export interface BakeSongArgs {
    song: Song;              // the full song being edited
@@ -65,6 +64,30 @@ export type BakedSong = {
 
    // the pattern row (of the baked song) to start playback from; see above for details.
    startRow: number;
+
+   // describes how to convert transport state from the TIC80 back to Somatic's editor state.
+   // for example, if we baked a single-pattern song from a multi-pattern song,
+   // we need to know how to map tic80 song position 0 back to the original somatic song position.
+   // similarly for pattern rows.
+   transportConversion: {
+      somaticSongOrderLoop: null |
+         {
+            beginSomaticSongOrder: number;
+            loopLength: number;
+         },
+      somaticPatternRowLoop: null |
+         {
+            beginSomaticPatternRow: number;
+            loopLength: number;
+         },
+      songOrderOffset: number;  // tic80 song order 0 maps to somatic song order (0 + offset)
+      patternRowOffset: number; // tic80 pattern row 0 maps to somatic pattern row (0 + offset)
+
+      // looping within a pattern gets expanded - repeated to fill a pattern. For example a 4-row loop will
+      // be repeated 16 times to fill a 64-row pattern. This field indicates how many somatic rows
+      // correspond to one tic80 pattern length.
+      somaticRowsPerTic80Pattern: number;
+   };
 };
 
 // basically takes a raw song + playback options (channel muting, loop mode and its dependencies)
@@ -342,4 +365,11 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
       startPosition: resultStartPosition,
       startRow: resultStartRow,
    };
+};
+
+
+
+export function convertTic80MusicStateToSomatic(
+   bakedSong: BakedSong, musicState: Tic80TransportState): SomaticTransportState{
+   // use the bakedSong.transportConversion to map tic80 state back to somatic state.
 };

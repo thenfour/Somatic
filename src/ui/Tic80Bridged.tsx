@@ -49,7 +49,11 @@ export type Tic80BridgeHandle = {
 export type Tic80BridgeTransaction = {
     playSfx: (opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; speed: number }) => Promise<void>;
     stopSfx: (opts: { channel: Tic80ChannelIndex; }) => Promise<void>;
-    uploadAndPlay: (opts: {
+    transmitAndPlay: (opts: {
+        data: Tic80SerializedSong,
+        reason: string,
+    }) => Promise<void>;
+    transmit: (opts: {
         data: Tic80SerializedSong,
         reason: string,
     }) => Promise<void>;
@@ -456,18 +460,22 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             });
         }
 
-        // Transaction API
-        // uses the serialized(baked/prepared) song data to
-        // - upload the song data to TIC-80 RAM
-        // - start playback at specified song position, row, loop mode
-        async function uploadAndPlayRaw(opts: { data: Tic80SerializedSong, reason: string }) {
-            assertReady();
+        // just does the poking
+        async function transmitInternal(opts: { data: Tic80SerializedSong, reason: string }) {
             pokeBlock(TicMemoryMap.WAVEFORMS_ADDR, opts.data.waveformData);
             pokeBlock(TicMemoryMap.SFX_ADDR, opts.data.sfxData);
             pokeBlock(TicMemoryMap.TRACKS_ADDR, opts.data.trackData);
             pokeBlock(TicMemoryMap.TF_ORDER_LIST, opts.data.songOrderData);
             pokeBlock(TicMemoryMap.TF_PATTERN_DATA, opts.data.patternData);
+        };
 
+        // Transaction API
+        // uses the serialized(baked/prepared) song data to
+        // - upload the song data to TIC-80 RAM
+        // - start playback at specified song position, row, loop mode
+        async function transmitAndPlayRaw(opts: { data: Tic80SerializedSong, reason: string }) {
+            assertReady();
+            await transmitInternal(opts);
             // Mailbox layout from the Lua:
             // 0 cmd, 1 songPosition, 2 row, 3 loopForever, 4 sustain (unused here), 5 tempo, 6 speed
             await sendMailboxCommandRaw([
@@ -478,6 +486,14 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                 0, // sustain: unused
             ], "Play");
         }
+
+        async function transmitRaw(opts: { data: Tic80SerializedSong, reason: string }) {
+            assertReady();
+            await transmitInternal(opts);
+            await sendMailboxCommandRaw([
+                TicBridge.CMD_TRANSMIT
+            ], "Transmit");
+        };
 
         // async function playRaw(opts: {
         //     songPosition: number;
@@ -521,7 +537,8 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         const transactionApi: Tic80BridgeTransaction = {
             playSfx: playSfxRaw,
             stopSfx: stopSfxRaw,
-            uploadAndPlay: uploadAndPlayRaw,
+            transmitAndPlay: transmitAndPlayRaw,
+            transmit: transmitRaw,
             stop: stopRaw,
             ping: pingRaw,
         };

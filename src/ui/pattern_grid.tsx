@@ -1,5 +1,5 @@
 import React, { forwardRef, KeyboardEvent, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import type { MusicState } from '../audio/backend';
+import type { SomaticTransportState, Tic80TransportState } from '../audio/backend';
 import { AudioController } from '../audio/controller';
 import { midiToName } from '../defs';
 import { useClipboard } from '../hooks/useClipboard';
@@ -66,7 +66,7 @@ const formatParams = (valX: number | undefined | null, valY: number | undefined 
 type PatternGridProps = {
     song: Song;
     audio: AudioController;
-    musicState: MusicState;
+    musicState: SomaticTransportState;
     editorState: EditorState;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
@@ -553,8 +553,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }));
         });
 
-        const playbackSongPosition = musicState.somaticSongPosition ?? -1;
-        const playbackRowIndexRaw = musicState.tic80RowIndex ?? -1;
+        const playbackSongPosition = musicState.currentSomaticSongPosition ?? -1;
+        const playbackRowIndexRaw = musicState.currentSomaticRowIndex ?? -1;
         const playbackPatternIndex = playbackSongPosition >= 0 && song.songOrder.length > 0
             ? song.songOrder[Math.min(playbackSongPosition, song.songOrder.length - 1)] ?? null
             : null;

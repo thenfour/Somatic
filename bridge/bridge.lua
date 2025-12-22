@@ -25,6 +25,7 @@ local CMD_NOP = BRIDGE_CONFIG.inboxCommands.NOP
 local CMD_TRANSMIT_AND_PLAY = BRIDGE_CONFIG.inboxCommands.TRANSMIT_AND_PLAY
 local CMD_STOP = BRIDGE_CONFIG.inboxCommands.STOP
 local CMD_PING = BRIDGE_CONFIG.inboxCommands.PING
+local CMD_TRANSMIT = BRIDGE_CONFIG.inboxCommands.TRANSMIT
 local CMD_PLAY_SFX_ON = BRIDGE_CONFIG.inboxCommands.PLAY_SFX_ON
 local CMD_PLAY_SFX_OFF = BRIDGE_CONFIG.inboxCommands.PLAY_SFX_OFF
 
@@ -209,6 +210,11 @@ end
 
 -- =========================
 -- Commands
+local function handle_transmit()
+	sync(24, 0, true)
+	publish_cmd(CMD_TRANSMIT, 0)
+end
+
 local function handle_play()
 	-- assumes host has uploaded music data already to RAM.
 
@@ -291,7 +297,9 @@ local function poll_inbox()
 		return false
 	end
 
-	if cmd == CMD_TRANSMIT_AND_PLAY then
+	if cmd == CMD_TRANSMIT then
+		handle_transmit()
+	elseif cmd == CMD_TRANSMIT_AND_PLAY then
 		handle_play()
 	elseif cmd == CMD_STOP then
 		handle_stop()

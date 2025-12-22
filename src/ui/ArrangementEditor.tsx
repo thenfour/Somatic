@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { MusicState } from "../audio/backend";
+import type { SomaticTransportState, Tic80TransportState } from "../audio/backend";
 import { SelectionRect2D, useRectSelection2D } from "../hooks/useRectSelection2D";
 import { EditorState } from "../models/editor_state";
 import { Pattern } from "../models/pattern";
@@ -15,7 +15,7 @@ const PAGE_SIZE = 4;
 export const ArrangementEditor: React.FC<{
     song: Song;
     editorState: EditorState;
-    musicState: MusicState;
+    musicState: SomaticTransportState;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
 }> = ({ song, editorState, musicState, onEditorStateChange, onSongChange }) => {
@@ -545,7 +545,7 @@ export const ArrangementEditor: React.FC<{
         }
     };
 
-    const activeSongPosition = musicState.somaticSongPosition ?? -1;
+    const activeSongPosition = musicState.currentSomaticSongPosition ?? -1;
 
     return (
         <div className="arrangement-editor">

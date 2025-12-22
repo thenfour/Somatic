@@ -10,18 +10,20 @@ import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
 // export type PatternData = ReturnType<Pattern['toData']>;
 
 export type SongDto = {
+   name: string; //
+
+   tempo: number; //
+   speed: number;
+   rowsPerPattern: number;
+
+   highlightRowCount: number;
+   patternEditStep: number;
+
    instruments: Tic80InstrumentDto[]; //
    waveforms: Tic80WaveformDto[];
    patterns: PatternDto[];
    songOrder: number[]; // index into patterns
 
-   tempo: number;
-   speed: number;
-   rowsPerPattern: number;
-
-   name: string;
-   highlightRowCount: number;
-   patternEditStep: number;
 };
 
 const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {

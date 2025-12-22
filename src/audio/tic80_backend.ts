@@ -5,8 +5,9 @@ import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {gChannelsArray, Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
 import type {Tic80BridgeHandle} from "../ui/Tic80Bridged";
-import {LoopMode, MakeEmptyMusicState, MusicState} from "./backend";
-import {serializeSongForTic80Bridge} from "./tic80_cart_serializer";
+import {convertTic80MusicStateToSomatic} from "../utils/bakeSong";
+import {LoopMode, MakeEmptySomaticTransportState, MakeEmptyTic80TransportState, SomaticTransportState, Tic80TransportState} from "./backend";
+import {serializeSongForTic80Bridge, Tic80SerializedSong} from "./tic80_cart_serializer";
 
 export type BackendPlaySongArgs = {
    reason: string;                           //
@@ -26,15 +27,11 @@ export type BackendPlaySongArgs = {
 // Minimal TIC-80 backend: delegates transport commands to the bridge.
 // Song/instrument upload is not implemented yet; this is a transport stub.
 export class Tic80Backend {
-   //private readonly emit: BackendContext["emit"];
    private readonly bridge: () => Tic80BridgeHandle | null;
-   //private song: Song|null = null;
-   //private serializedSong: Tic80SerializedSong|null = null;
-   private lastKnownMusicState: MusicState = MakeEmptyMusicState();
-   //private volume = 0.3;
+   private serializedSong: Tic80SerializedSong|null = null; // the last uploaded song.
+   private lastKnownTi80TransportState: Tic80TransportState = MakeEmptyTic80TransportState();
 
    constructor(bridgeGetter: () => Tic80BridgeHandle | null) {
-      //this.emit = ctx.emit;
       this.bridge = bridgeGetter;
    }
 
@@ -123,14 +120,11 @@ export class Tic80Backend {
       });
    }
 
-   async transmitAndPlay(args: BackendPlaySongArgs) //
+   prepareForTransmit(args: BackendPlaySongArgs): Tic80SerializedSong|null //
    {
       const b = this.bridge();
       if (!b || !b.isReady())
-         return;
-
-      // always serialize & transmit the up-to-date song.
-      // serialize will bake in looping to the output and can request forever looping.
+         return null;
 
       const serializedSong = serializeSongForTic80Bridge({
          song: args.song,
@@ -145,17 +139,54 @@ export class Tic80Backend {
          songOrderSelection: args.songOrderSelection,
       });
 
-      console.log("[Tic80Backend] transmitAndPlay uploading song:", serializedSong);
+      //console.log("[Tic80Backend] transmitAndPlay uploading song:", serializedSong);
+      this.serializedSong = serializedSong;
+      return serializedSong;
+   };
+
+   async transmit(args: BackendPlaySongArgs): Promise<Tic80SerializedSong|null> //
+   {
+      const b = this.bridge();
+      if (!b || !b.isReady())
+         return null;
+
+      const serializedSong = this.prepareForTransmit(args);
+      if (!serializedSong) {
+         return null;
+      }
 
       const reason = `transmitAndPlay: ${args.reason}`;
-
       await b.invokeExclusive(reason, async (tx) => {
-         //await tx.uploadSongData(serializedSong, "playing baked song");
-         await tx.uploadAndPlay({
+         await tx.transmit({
             data: serializedSong, //
             reason                //
          });
       });
+      return serializedSong;
+   };
+
+   async transmitAndPlay(args: BackendPlaySongArgs): Promise<Tic80SerializedSong|null> //
+   {
+      const b = this.bridge();
+      if (!b || !b.isReady())
+         return null;
+
+      // always serialize & transmit the up-to-date song.
+      // serialize will bake in looping to the output and can request forever looping.
+      const serializedSong = this.prepareForTransmit(args);
+      if (!serializedSong) {
+         return null;
+      }
+
+      const reason = `transmitAndPlay: ${args.reason}`;
+
+      await b.invokeExclusive(reason, async (tx) => {
+         await tx.transmitAndPlay({
+            data: serializedSong, //
+            reason                //
+         });
+      });
+      return serializedSong;
    }
 
    async panic() {
@@ -192,54 +223,44 @@ export class Tic80Backend {
       //this.emit.stop();
    }
 
-   getMusicState(): MusicState {
+   getTic80TransportState(): Tic80TransportState {
       const b = this.bridge();
       if (!b || !b.isReady())
-         return this.lastKnownMusicState;
+         return this.lastKnownTi80TransportState;
 
-      //const track = b.peekS8(TicMemoryMap.MUSIC_STATE_TRACK);
-      //const frame = b.peekU8(TicMemoryMap.MUSIC_STATE_FRAME);
       const row = b.peekU8(TicMemoryMap.MUSIC_STATE_ROW);
-      //const flags = b.peekU8(TicMemoryMap.MUSIC_STATE_FLAGS);
-      //const somaticPatternIndex = b.peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_PATTERN_ID);
       const somaticSongPosition = b.peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_SONG_POSITION);
 
-      //const isLooping = !!(flags & 0x1);
-      const next: MusicState = {
+      const next: Tic80TransportState = {
          tic80RowIndex: row,
-         //tic80FrameIndex: frame,
-         //tic80TrackIndex: track,
-         //somaticPatternIndex,
-         somaticSongPosition: somaticSongPosition === 255 ? -1 : somaticSongPosition,
+         reportedSongPosition: somaticSongPosition === 255 ? -1 : somaticSongPosition,
          isPlaying: somaticSongPosition !== 255,
-         //isLooping,
       };
 
-      // do not spam instances. check if it actually changed.
-      if (JSON.stringify(this.lastKnownMusicState) !== JSON.stringify(next)) {
-         console.log("[Tic80Backend] MusicState changed:", next);
-         this.lastKnownMusicState = next;
+      // do not spam new instances. check if it actually changed;
+      if (JSON.stringify(this.lastKnownTi80TransportState) !== JSON.stringify(next)) {
+         this.lastKnownTi80TransportState = next;
       }
 
-      return this.lastKnownMusicState;
+      return this.lastKnownTi80TransportState;
    }
+
+   getSomaticTransportState(): SomaticTransportState {
+      // uses last serialized song's baked info to map tic80 state back to somatic state.
+      // note that there's a potential desync here if the song was changed since last upload.
+      // instead of trying to detect that though (it's not trivial without clamping down a lot of stuff),
+      // just deal with the possibility of desync in the UI.
+      const tic80State = this.getTic80TransportState();
+      if (!this.serializedSong) {
+         return MakeEmptySomaticTransportState();
+      }
+      return convertTic80MusicStateToSomatic(this.serializedSong?.bakedSong, tic80State);
+   };
 
    getFPS(): number {
       const b = this.bridge();
       if (!b || !b.isReady())
          return 0;
       return b.peekU8(TicMemoryMap.FPS);
-   }
-
-   setChannelVolumes(volumes: [number, number, number, number]) {
-      // unfortunately this doesn't seem to work. my guess is that the music() system overrides it
-      console.error("Tic80Backend.setChannelVolumes is not supported by TIC-80 audio backend");
-      const b = this.bridge();
-      if (!b || !b.isReady())
-         return;
-      b.pokeU8(TicMemoryMap.CHANNEL_VOLUME_0, volumes[0]);
-      b.pokeU8(TicMemoryMap.CHANNEL_VOLUME_1, volumes[1]);
-      b.pokeU8(TicMemoryMap.CHANNEL_VOLUME_2, volumes[2]);
-      b.pokeU8(TicMemoryMap.CHANNEL_VOLUME_3, volumes[3]);
    }
 }

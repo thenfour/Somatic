@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { MusicState } from "../audio/backend";
+import { SomaticTransportState, Tic80TransportState } from "../audio/backend";
 import { Tooltip } from "./tooltip";
 import { AudioController } from "../audio/controller";
 import { Song } from "../models/song";
@@ -11,7 +11,7 @@ const FPS_WARNING_THRESHOLD = 45; // below this and we show a warning
 
 // why accept musicState as a prop? to let the parent fetch it only when needed
 // and why not put fps in music state? because we expect it's updating constantly and don't want infinite re-renders
-export const MusicStateDisplay: React.FC<{ song: Song, bridgeReady: boolean; audio: AudioController, musicState: MusicState }> = ({ song, bridgeReady, audio, musicState }) => {
+export const MusicStateDisplay: React.FC<{ song: Song, bridgeReady: boolean; audio: AudioController, musicState: SomaticTransportState }> = ({ song, bridgeReady, audio, musicState }) => {
 
     const [fps, setFps] = useState(0);
 
@@ -39,7 +39,9 @@ export const MusicStateDisplay: React.FC<{ song: Song, bridgeReady: boolean; aud
 
     const fpsWarning = fps < FPS_WARNING_THRESHOLD;
 
-    const currentRowInSong = song.rowsPerPattern * musicState.somaticSongPosition + musicState.tic80RowIndex;
+    const currentSomaticSongPositionIfPlaying = musicState.currentSomaticSongPosition || 0;
+    const currentSomaticRowIndexIfPlaying = musicState.currentSomaticRowIndex || 0;
+    const currentRowInSong = song.rowsPerPattern * currentSomaticSongPositionIfPlaying + currentSomaticRowIndexIfPlaying;
     const positionSeconds = calculateSongPositionInSeconds({
         songTempo: song.tempo,
         songSpeed: song.speed,
@@ -63,10 +65,10 @@ export const MusicStateDisplay: React.FC<{ song: Song, bridgeReady: boolean; aud
                     <td>Playing</td><td>{musicState.isPlaying ? 'Yes' : 'No'}</td>
                 </tr>
                 <tr>
-                    <td>Order</td><td>{musicState.somaticSongPosition}</td>
+                    <td>Order</td><td>{currentSomaticSongPositionIfPlaying}</td>
                 </tr>
                 <tr>
-                    <td>Row</td><td>{musicState.tic80RowIndex}</td>
+                    <td>Row</td><td>{musicState.backendState.tic80RowIndex}</td>
                 </tr>
                 {/* <tr>
                     <td>Looping?</td><td>{musicState.isLooping ? 'Yes' : 'No'}</td>
@@ -80,9 +82,9 @@ export const MusicStateDisplay: React.FC<{ song: Song, bridgeReady: boolean; aud
                     <div className={`key`}>FPS:</div>
                     <div className='value'>{fps}{fpsWarning ? ' ⚠️' : ''}</div>
                 </div>
-                {audio.getMusicState().isPlaying ? <>
-                    <div className='key order'>Order:</div><div className='value'>{musicState.somaticSongPosition}</div>
-                    <div className='key row'>Row:</div><div className='value'>{musicState.tic80RowIndex}</div>
+                {musicState.isPlaying ? <>
+                    <div className='key order'>t80:</div><div className='value'>{musicState.backendState.reportedSongPosition}:{musicState.backendState.tic80RowIndex}</div>
+                    <div className='key order'>som:</div><div className='value'>{currentSomaticSongPositionIfPlaying}:{currentSomaticRowIndexIfPlaying}</div>
                     <div className="key time">Time:</div><div className='value'>
                         <TransportTime positionSeconds={positionSeconds} />
                     </div>

@@ -18,10 +18,6 @@ export class AudioController {
       this.backend.stop();
    }
 
-   getMusicState() {
-      return this.backend.getMusicState();
-   }
-
    getFPS(): number {
       return this.backend.getFPS();
    }
@@ -42,16 +38,20 @@ export class AudioController {
       this.backend.playRow(song, pattern, rowNumber);
    }
 
-   transmitAndPlay(args: BackendPlaySongArgs) {
-      this.backend.transmitAndPlay(args);
+   getSomaticTransportState() {
+      return this.backend.getSomaticTransportState();
+   }
+
+   async transmitAndPlay(args: BackendPlaySongArgs) {
+      await this.backend.transmitAndPlay(args);
+   }
+
+   async transmit(args: BackendPlaySongArgs) {
+      await this.backend.transmit(args);
    }
 
    panic() {
       this.voiceManager.releaseAll();
       this.backend.panic();
-   }
-
-   setChannelVolumes(volumes: [number, number, number, number]) {
-      this.backend.setChannelVolumes(volumes);
    }
 }
