@@ -7,20 +7,28 @@ import './somatic.css';
 
 import { AudioController } from './audio/controller';
 import { serializeSongToCart } from './audio/tic80_cart_serializer';
+import { useAppInstancePresence } from './hooks/useAppPresence';
 import { useClipboard } from './hooks/useClipboard';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { useRenderAlarm } from './hooks/useRenderAlarm';
 import { useWriteBehindEffect } from './hooks/useWriteBehindEffect';
+import { useShortcutManager } from './keyb/KeyboardShortcutManager';
+import { ShortcutScopeProvider } from './keyb/KeyboardShortcutScope';
+import { useActionHandler } from './keyb/useActionHandler';
 import { KeyboardNoteInput } from './midi/keyboard_input';
 import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
-import { calculateBpm, calculateSongPositionInSeconds, gChannelsArray, ToTic80ChannelIndex } from './models/tic80Capabilities';
+import { calculateSongPositionInSeconds, gChannelsArray, ToTic80ChannelIndex } from './models/tic80Capabilities';
+import { AboutSomaticDialog } from './ui/AboutSomaticDialog';
 import { AppStatusBar } from './ui/AppStatusBar';
 import { ArrangementEditor } from './ui/ArrangementEditor';
 import { useConfirmDialog } from './ui/confirm_dialog';
 import { DesktopMenu } from './ui/DesktopMenu';
 import { InstrumentPanel } from './ui/instrument_editor';
 import { Keyboard } from './ui/keyboard';
+import { MidiStatusIndicator } from './ui/MidiStatusIndicator';
+import { MusicStateDisplay } from './ui/MusicStateDisplay';
 import { PatternGrid, PatternGridHandle } from './ui/pattern_grid';
 import { PreferencesPanel } from './ui/preferences_panel';
 import { SongEditor } from './ui/song_editor';
@@ -29,20 +37,12 @@ import { Theme, ThemeEditorPanel } from './ui/theme_editor_panel';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { useToasts } from './ui/toast_provider';
 import { Tooltip } from './ui/tooltip';
+import { TransportTime } from './ui/transportTime';
 import { WaveformEditorPanel } from './ui/waveformEditor';
 import { OptimizeSong } from './utils/SongOptimizer';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
-import { useActionHandler } from './keyb/useActionHandler';
-import { useShortcutManager } from './keyb/KeyboardShortcutManager';
 import { CharMap } from './utils/utils';
-import { ShortcutScopeProvider } from './keyb/KeyboardShortcutScope';
-import { useRenderAlarm } from './hooks/useRenderAlarm';
-import { MusicStateDisplay } from './ui/MusicStateDisplay';
-import { MidiStatusIndicator } from './ui/MidiStatusIndicator';
-import { AboutSomaticDialog } from './ui/AboutSomaticDialog';
-import { TransportTime } from './ui/transportTime';
-import { gLog } from './utils/logger';
 
 const TIC80_FRAME_SIZES = [
 
@@ -103,6 +103,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             deserialize: (raw) => Song.fromJSON(raw),
         }
     );
+
+    const appPresence = useAppInstancePresence("somatic");
+
     const [editorState, setEditorState] = useState(() => new EditorState());
 
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useLocalStorage("somatic-instrumentPanelOpen", false);
@@ -884,6 +887,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             </div>
                         </Tooltip>
                     </div>
+                    {appPresence.otherInstanceActive && <div className="app-presence-contention-warning">
+                        ⚠️You have multiple tabs open; that can cause conflicts
+                    </div>}
                     <div className="right-controls">
                         <Tooltip title={`Toggle editing (${keyboardShortcutMgr.getActionBindingLabel("ToggleEditMode")})`}>
                             <button

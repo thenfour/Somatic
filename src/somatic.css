@@ -1772,3 +1772,8 @@ option {
     outline: 2px solid red;
     outline-offset: 2px;
 }
+
+.app-presence-contention-warning {
+    background-color: var(--panel-strong);
+    padding: 8px 12px;
+}

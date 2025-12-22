@@ -17,7 +17,7 @@ export function useLocalStorage<T>(
    key: string,            //
    defaultValue: Lazy<T>,  //
    codec?: StorageCodec<T> //
-   ): [T, (value: SetStateAction<T>) => void] {
+   ): [T, (value: SetStateAction<T>) => void, StorageCodec<T>] {
    const codecUsed = useMemo<StorageCodec<T>>(() => (codec ?? (jsonCodec as StorageCodec<T>)), [codec]);
 
    const readValue = (): T => {
@@ -52,5 +52,5 @@ export function useLocalStorage<T>(
       }
    }, [key, value, codecUsed]);
 
-   return [value, setStoredValue];
+   return [value, setStoredValue, codecUsed];
 }
