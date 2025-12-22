@@ -733,6 +733,13 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         rowIndex: currentAbsRow,
     });
 
+    const currentAbsPlayheadRow = song.rowsPerPattern * (somaticTransportState.currentSomaticSongPosition || 0) + (somaticTransportState.currentSomaticRowIndex || 0);
+    const playheadPositionSeconds = calculateSongPositionInSeconds({
+        songTempo: song.tempo,
+        songSpeed: song.speed,
+        rowIndex: currentAbsPlayheadRow,
+    });
+
     const totalSongSeconds = calculateSongPositionInSeconds({
         songTempo: song.tempo,
         songSpeed: song.speed,
@@ -955,12 +962,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             </span>Pos</button>
                         </Tooltip>
                         <Tooltip title={(<div>
-                            <div>Current position of cursor.</div>
+                            <div>Current position of {somaticTransportState.isPlaying ? "playhead" : "cursor"}.</div>
                             <div>Total song length: <TransportTime positionSeconds={totalSongSeconds} /></div>
                         </div>)}
                         >
                             <div>
-                                <TransportTime className="main-transport-time" positionSeconds={cursorPositionSeconds} />
+                                <TransportTime className="main-transport-time" positionSeconds={somaticTransportState.isPlaying ? playheadPositionSeconds : cursorPositionSeconds} />
                             </div>
                         </Tooltip>
 
@@ -976,7 +983,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             </Tooltip>
                             <select
                                 className={`loop-mode-select ${editorState.loopMode !== "off" ? "loop-mode-select--on" : "loop-mode-select--off"}`}
-                                value={editorState.loopMode}
+                                value={editorState.loopMode == "off" ? editorState.lastNonOffLoopMode : editorState.loopMode}
                                 onChange={handleLoopModeChange}
                             >
                                 {LOOP_MODE_OPTIONS.filter(opt => opt.value !== "off").map((opt) => (

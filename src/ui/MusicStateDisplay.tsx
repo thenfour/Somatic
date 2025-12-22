@@ -40,14 +40,14 @@ export const MusicStateDisplay: React.FC<{ song: Song, bridgeReady: boolean; aud
 
     const fpsWarning = fps < FPS_WARNING_THRESHOLD;
 
-    const currentSomaticSongPositionIfPlaying = musicState.currentSomaticSongPosition || 0;
-    const currentSomaticRowIndexIfPlaying = musicState.currentSomaticRowIndex || 0;
-    const currentRowInSong = song.rowsPerPattern * currentSomaticSongPositionIfPlaying + currentSomaticRowIndexIfPlaying;
-    const positionSeconds = calculateSongPositionInSeconds({
-        songTempo: song.tempo,
-        songSpeed: song.speed,
-        rowIndex: currentRowInSong,
-    });
+    //const currentSomaticSongPositionIfPlaying = musicState.currentSomaticSongPosition || 0;
+    //const currentSomaticRowIndexIfPlaying = musicState.currentSomaticRowIndex || 0;
+    //const currentRowInSong = song.rowsPerPattern * currentSomaticSongPositionIfPlaying + currentSomaticRowIndexIfPlaying;
+    // const positionSeconds = calculateSongPositionInSeconds({
+    //     songTempo: song.tempo,
+    //     songSpeed: song.speed,
+    //     rowIndex: currentRowInSong,
+    // });
 
     return <Tooltip title={<div>
         <div>TIC-80 playback status</div>
@@ -63,13 +63,13 @@ export const MusicStateDisplay: React.FC<{ song: Song, bridgeReady: boolean; aud
                     <div className={`key`}>FPS:</div>
                     <div className='value'>{fps}{fpsWarning ? ' ⚠️' : ''}</div>
                 </div>
-                {musicState.isPlaying ? <>
+                {/* {musicState.isPlaying ? <>
                     <div className='key order'>t80:</div><div className='value'>{musicState.backendState.reportedSongPosition}:{musicState.backendState.tic80RowIndex}</div>
                     <div className='key order'>som:</div><div className='value'>{currentSomaticSongPositionIfPlaying}:{currentSomaticRowIndexIfPlaying}</div>
                     <div className="key time">Time:</div><div className='value'>
                         <TransportTime positionSeconds={positionSeconds} />
                     </div>
-                </> : <>Ready</>}
+                </> : <>Ready</>} */}
             </div>
         </div>
     </Tooltip>;
