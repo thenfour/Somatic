@@ -12,7 +12,8 @@ SOMATIC_MUSIC_DATA = {
 
 do
 	local initialized = false
-	local currentSongOrder = 0
+	local currentSongOrder = 0 -- the "back buffer"
+	local playingSongOrder = 0 -- the "front buffer"
 	local lastPlayingFrame = -1
 	local backBufferIsA = false
 	local stopPlayingOnNextFrame = false
@@ -20,40 +21,25 @@ do
 	local bufferALocation = 0x11164
 	local bufferBLocation = bufferALocation + PATTERN_BUFFER_BYTES
 
-	local function base85_decode_to_mem(s, expectedLen, dst)
-		local o, i = 0, 1
-		while o < expectedLen do
+	local function base85_decode_to_mem(s, n, d)
+		local i = 1
+		for o = 0, n - 1, 4 do
 			local v = 0
-			for j = 1, 5 do
-				v = v * 85 + s:byte(i) - 33
-				i = i + 1
+			for j = i, i + 4 do
+				v = v * 85 + s:byte(j) - 33
 			end
-			local b0 = v // 16777216 % 256
-			local b1 = v // 65536 % 256
-			local b2 = v // 256 % 256
-			local b3 = v % 256
-			if o < expectedLen then
-				poke(dst + o, b0)
-				o = o + 1
-			end
-			if o < expectedLen then
-				poke(dst + o, b1)
-				o = o + 1
-			end
-			if o < expectedLen then
-				poke(dst + o, b2)
-				o = o + 1
-			end
-			if o < expectedLen then
-				poke(dst + o, b3)
-				o = o + 1
+			i = i + 5
+			for k = 3, 0, -1 do
+				if o + k < n then
+					poke(d + o + k, v % 256)
+				end
+				v = v // 256
 			end
 		end
-		return o
+		return n
 	end
 
-	-- varint from memory (unsigned LEB128)
-	local function read_varint_mem(base, si, srcLen)
+	local function varint(base, si, srcLen)
 		local x, f = 0, 1
 		while true do
 			local b = peek(base + si)
@@ -66,8 +52,6 @@ do
 		end
 	end
 
-	-- Decompress from [src .. src+srcLen-1] into [dst ..), return bytes written.
-	-- assume compressed using gSomaticLZDefaultConfig settings
 	local function lzdec_mem(src, srcLen, dst)
 		local si, di = 0, 0
 		while si < srcLen do
@@ -75,7 +59,7 @@ do
 			si = si + 1
 			if t == 0 then
 				local l
-				l, si = read_varint_mem(src, si, srcLen)
+				l, si = varint(src, si, srcLen)
 				for j = 1, l do
 					poke(dst + di, peek(src + si))
 					si = si + 1
@@ -83,8 +67,8 @@ do
 				end
 			else
 				local l, d
-				l, si = read_varint_mem(src, si, srcLen)
-				d, si = read_varint_mem(src, si, srcLen)
+				l, si = varint(src, si, srcLen)
+				d, si = varint(src, si, srcLen)
 				for j = 1, l do
 					poke(dst + di, peek(dst + di - d))
 					di = di + 1
@@ -151,7 +135,7 @@ do
 		if track == 255 then
 			track = -1
 		end
-		return track, frame, row
+		return track, playingSongOrder, frame, row
 	end
 
 	function somatic_tick()
@@ -159,7 +143,7 @@ do
 			somatic_init(0, 0)
 			initialized = true
 		end
-		local track, currentFrame = somatic_get_state()
+		local track, _, currentFrame = somatic_get_state()
 		if track == -1 then
 			return
 		end
@@ -173,6 +157,7 @@ do
 		end
 		backBufferIsA = not backBufferIsA
 		lastPlayingFrame = currentFrame
+		playingSongOrder = currentSongOrder
 		currentSongOrder = currentSongOrder + 1
 		local destPointer = getBufferPointer()
 		local orderCount = getSongOrderCount()
@@ -192,6 +177,10 @@ function TIC()
 	local y = 2
 	print("PLAYROUTINE TEST", 52, y, 12)
 	y = y + 8
-	local track, currentFrame, currentRow = somatic_get_state()
-	print(string.format("t:%d f:%d r:%d", track, currentFrame, currentRow), 60, y, 6)
+	-- "track" is -1 otherwise kinda worthless
+	-- "playingSongOrder" is the song order index of the pattern currently being played (0-255)
+	-- "currentFrame" is the TIC-80 internal frame counter; kinda worthless.
+	-- "currentRow" is the current row within the pattern being played (0-63).
+	local track, playingSongOrder, currentFrame, currentRow = somatic_get_state()
+	print(string.format("t:%d ord:%d f:%d r:%d", track, playingSongOrder, currentFrame, currentRow), 60, y, 6)
 end
