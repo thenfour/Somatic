@@ -5,6 +5,8 @@ type Options = {
    staleMs?: number;     // default 8000
 };
 
+type PresenceMap = Record<string, number>;
+
 function safeParse<T>(raw: string|null): T|null {
    if (!raw)
       return null;
@@ -29,30 +31,46 @@ export function useAppInstancePresence(appId: string, opts: Options = {}) {
 
    const [otherInstanceActive, setOtherInstanceActive] = useState(false);
 
-   const readActive = useCallback((): {tabId: string; ts: number}|null => {
-      return safeParse<{tabId: string; ts: number}>(localStorage.getItem(ACTIVE_KEY));
+   const readPresence = useCallback((): PresenceMap => {
+      return safeParse<PresenceMap>(localStorage.getItem(ACTIVE_KEY)) ?? {};
    }, [ACTIVE_KEY]);
 
+   const pruneStalePresence = useCallback((presence: PresenceMap) => {
+      const now = Date.now();
+      const next: PresenceMap = {};
+      for (const [id, ts] of Object.entries(presence)) {
+         if ((now - ts) < staleMs) {
+            next[id] = ts;
+         }
+      }
+      return next;
+   }, [staleMs]);
+
    const computeOtherActive = useCallback(() => {
-      const a = readActive();
-      if (!a)
-         return false;
-      const alive = (Date.now() - a.ts) < staleMs;
-      return alive && a.tabId !== tabId;
-   }, [readActive, staleMs, tabId]);
+      const presence = pruneStalePresence(readPresence());
+      return Object.keys(presence).some(id => id !== tabId);
+   }, [pruneStalePresence, readPresence, tabId]);
 
    const heartbeat = useCallback(() => {
-      localStorage.setItem(ACTIVE_KEY, JSON.stringify({tabId, ts: Date.now()}));
-   }, [ACTIVE_KEY, tabId]);
+      const now = Date.now();
+      const presence = pruneStalePresence(readPresence());
+      presence[tabId] = now;
+      localStorage.setItem(ACTIVE_KEY, JSON.stringify(presence));
+      setOtherInstanceActive(Object.keys(presence).some(id => id !== tabId));
+   }, [ACTIVE_KEY, pruneStalePresence, readPresence, tabId]);
+
+   const removeSelf = useCallback(() => {
+      const presence = pruneStalePresence(readPresence());
+      delete presence[tabId];
+      localStorage.setItem(ACTIVE_KEY, JSON.stringify(presence));
+   }, [ACTIVE_KEY, pruneStalePresence, readPresence, tabId]);
 
    useEffect(() => {
       if (typeof window === "undefined")
          return;
 
       const tick = () => {
-         if (document.visibilityState === "visible")
-            heartbeat();
-         setOtherInstanceActive(computeOtherActive());
+         heartbeat();
       };
 
       tick();
@@ -60,13 +78,11 @@ export function useAppInstancePresence(appId: string, opts: Options = {}) {
 
       const onFocus = () => {
          heartbeat();
-         setOtherInstanceActive(computeOtherActive());
       };
       window.addEventListener("focus", onFocus);
 
       const onVis = () => {
-         if (document.visibilityState === "visible")
-            onFocus();
+         onFocus();
       };
       document.addEventListener("visibilitychange", onVis);
 
@@ -76,13 +92,19 @@ export function useAppInstancePresence(appId: string, opts: Options = {}) {
       };
       window.addEventListener("storage", onStorage);
 
+      window.addEventListener("beforeunload", removeSelf);
+      window.addEventListener("pagehide", removeSelf);
+
       return () => {
          window.clearInterval(id);
          window.removeEventListener("focus", onFocus);
          document.removeEventListener("visibilitychange", onVis);
          window.removeEventListener("storage", onStorage);
+         window.removeEventListener("beforeunload", removeSelf);
+         window.removeEventListener("pagehide", removeSelf);
+         removeSelf();
       };
-   }, [heartbeatMs, heartbeat, computeOtherActive, ACTIVE_KEY]);
+   }, [heartbeatMs, heartbeat, computeOtherActive, ACTIVE_KEY, removeSelf]);
 
    return useMemo(
       () => ({
