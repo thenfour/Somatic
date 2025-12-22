@@ -557,14 +557,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
                     const pat = s.patterns[patIndex];
                     const oldCell = pat.getCell(channelIndex, rowIndex);
-                    //console.log(`oldxy=[${oldCell.effectX},${oldCell.effectY}]; idx=${idx}; typeof(oldCell.effectX)=${typeof (oldCell.effectX)}`);
                     const currentParam = oldCell.effectY ?? 0; // slide over Y to X
-                    //console.log(`currentParam=${currentParam}`);
                     // Shift the current param left by 4 bits and add the new nibble
                     const newParam = ((currentParam << 4) | idx) & 0xFF;
                     const effectX = (newParam >> 4) & 0x0F;
                     const effectY = newParam & 0x0F;
-                    //console.log(`newparam=${newParam}; XY=[${effectX}, ${effectY}]; currentParam=${currentParam}`);
                     pat.setCell(channelIndex, rowIndex, {
                         ...oldCell,
                         effectX,

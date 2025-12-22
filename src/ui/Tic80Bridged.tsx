@@ -12,6 +12,7 @@ import { Tic80TopLevel, Tic80TopLevelHandle } from "./Tic80TopLevel";
 import { AsyncMutex } from "../utils/async_mutex";
 import { Tic80ChannelIndex, TicBridge, TicMemoryMap } from "../models/tic80Capabilities";
 import { Tic80SerializedSong } from "../audio/tic80_cart_serializer";
+import { gLog } from "../utils/logger";
 
 declare global {
     interface Window {
@@ -77,7 +78,6 @@ function findAllSubarrayIndices(haystack: Uint8Array, needle: Uint8Array): numbe
 
 function getHeapU8(Module: any): Uint8Array {
     const heap = Module?.HEAPU8;
-    //console.log(`heap : `, heap);
 
     if (!heap) {
         throw new Error("Module.HEAPU8 not available yet (or not exposed by this build).");
@@ -107,8 +107,6 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
 
         const [ready, setReady] = useState(false);
         const [embedMode, setEmbedMode] = useState<"iframe" | "toplevel">("iframe");
-
-        const log = (...args: any[]) => console.log("[Tic80Bridge]", ...args);
 
         useEffect(() => {
             if (typeof window === "undefined") return;
@@ -145,7 +143,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                     if (!Module) {
                         if (stageRef.current !== "waiting-module") {
                             stageRef.current = "waiting-module";
-                            log("waiting for Module in iframe...");
+                            gLog.info("waiting for Module in iframe...");
                         }
                         raf = requestAnimationFrame(tick);
                         return;
@@ -157,8 +155,6 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                     }
 
                     // Emscripten runtime is alive; HEAPU8 may still not be ready for a moment
-                    //console.log(Module);
-                    //console.log(Object.keys(Module));
                     const heap = getHeapU8(Module);
 
                     if (stageRef.current !== "heap-ready") {
@@ -175,7 +171,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                     if (candidates.length === 0) {
                         if (stageRef.current !== "waiting-marker") {
                             stageRef.current = "waiting-marker";
-                            log("waiting for marker bytes from bridge cart...");
+                            gLog.info("waiting for marker bytes from bridge cart...");
                         }
                         raf = requestAnimationFrame(tick);
                         return;
@@ -204,7 +200,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                         // stop polling.
                         pollingCancelledRef.current = true;
 
-                        log("bridge ready");
+                        gLog.info("bridge ready");
                         setReady(true);
                     }
 
@@ -223,7 +219,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
 
             return () => {
                 pollingCancelledRef.current = true;
-                log("bridge poll cancelled");
+                gLog.info("bridge poll cancelled");
                 cancelAnimationFrame(raf);
             };
         }, []);
@@ -243,7 +239,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                 hostLogReadPtrRef.current = peekU8(TicMemoryMap.LOG_WRITE_PTR_ADDR);
                 outboxSeqRef.current = peekU8(TicMemoryMap.OUTBOX_SEQ_ADDR);
             } catch (e) {
-                log("init outbox read ptr failed", e);
+                gLog.info("init outbox read ptr failed", e);
             }
 
             // Notify parent that bridge is ready
@@ -312,7 +308,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                         break;
                     }
                     default: {
-                        log(`unknown outbox cmd ${cmd} len=${len}`);
+                        gLog.info(`unknown outbox cmd ${cmd} len=${len}`);
                         break;
                     }
                 }
@@ -324,7 +320,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             hostLogReadPtrRef.current = readPtr;
 
             if (logs.length) {
-                logs.forEach((msg) => log(`[cart] ${msg}`));
+                logs.forEach((msg) => gLog.info(`[cart] ${msg}`));
             }
         }
 
@@ -399,7 +395,6 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             const sfxId = opts.sfxId & 0xff;
             const note = opts.tic80Note & 0xff;
             const speed = opts.speed & 0xff;
-            //console.log("playSfxRaw", { sfxId, note, channel, speed });
             const cmd = TicBridge.CMD_PLAY_SFX_ON;
             await sendMailboxCommandRaw([cmd, sfxId, note, channel, speed], "Play SFX");
         }
@@ -442,7 +437,6 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         async function sendMailboxCommandRaw(bytes: number[], description: string): Promise<void> {
             assertReady();
             const token = (cmdTokenRef.current = (cmdTokenRef.current + 1) & 0xff);
-            //console.log(`---------------- sendMailboxCommand: ${description} (token=${token})`, bytes);
             writeMailboxBytes(bytes, token);
 
             const start = performance.now();
@@ -457,19 +451,16 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                         }
                         const seenToken = peekU8(TicMemoryMap.OUTBOX_TOKEN_ADDR);
                         if (seenToken === token) {
-                            //console.log(`---------------- sendMailboxCommand: ${description} DONE`);
                             resolve();
                             return;
                         }
                         if (performance.now() - start > timeoutMs) {
-                            //console.log(`---------------- sendMailboxCommand: ${description} TIMEOUT`);
-                            //reject(new Error(`TIC-80 command timed out: ${description}`));
+                            gLog.error(`TIMEOUT: ${description}`);
                             resolve();
                             return;
                         }
                         requestAnimationFrame(poll);
                     } catch (err) {
-                        //console.log(`---------------- sendMailboxCommand: ${description} ERROR`, err);
                         reject(err as Error);
                     }
                 };
@@ -492,7 +483,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             const tempo = opts?.tempo ?? 0;
             const speed = opts?.speed ?? 0;
 
-            log("play() request", { songPosition, row, loop, sustain, tempo, speed });
+            gLog.info("play() request", { songPosition, row, loop, sustain, tempo, speed });
 
             // Mailbox layout from the Lua:
             // 0 cmd, 1 songPosition, 2 row, 3 loop, 4 sustain, 5 tempo, 6 speed
@@ -508,12 +499,12 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         }
 
         async function stopRaw() {
-            log("stop() request");
+            gLog.info("stop() request");
             await sendMailboxCommandRaw([TicBridge.CMD_STOP], "Stop");
         }
 
         async function pingRaw() {
-            log("ping()");
+            gLog.info("ping()");
             await sendMailboxCommandRaw([TicBridge.CMD_PING], "Ping");
         }
 
@@ -532,7 +523,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             try {
                 const ret = await fn(transactionApi);
                 const endTime = performance.now();
-                console.log(`invokeExclusive took ${endTime - startTime} ms`);
+                gLog.info(`invokeExclusive took ${endTime - startTime} ms`);
                 return ret;
             } finally {
                 release();

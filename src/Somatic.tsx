@@ -631,22 +631,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("NewFile", createNewSong);
 
     const handleBridgeReady = React.useCallback((handle: Tic80BridgeHandle) => {
-        //console.log('[App] Bridge ready, uploading current song');
-        //audio.setSong(song, "Bridge ready; initial upload");
         // focus the pattern grid.
         patternGridRef.current?.focusPattern();
         setBridgeReady(true);
         autoSave.enqueue(song);
         autoSave.flush();
     }, [audio, song]);
-
-    // useActionHandler("PlayStop", () => {
-    //     if (audio.getMusicState().isPlaying) {
-    //         onPanic();
-    //     } else {
-    //         onPlayFromPosition();
-    //     }
-    // });
 
     const handleDisconnectMidiDevice = (device: MidiDevice) => {
         setDisabledMidiDeviceIds((prev) => {

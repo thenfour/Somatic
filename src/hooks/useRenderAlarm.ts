@@ -1,4 +1,5 @@
 import {useRef} from "react";
+import {gLog} from "../utils/logger";
 
 type UseRenderAlarmOpts = {
    name?: string;
@@ -22,7 +23,7 @@ export function useRenderAlarm(opts: UseRenderAlarmOpts = {}) {
 
    if (logEachRender) {
       // NOTE: logging in render is intentionally loud use briefly.
-      console.log(`[render] ${name} #${countRef.current}`);
+      gLog.error(`[render] ${name} #${countRef.current}`);
    }
 
    // Keep a rolling window of render timestamps; warn if too many.

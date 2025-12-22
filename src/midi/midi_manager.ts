@@ -79,7 +79,6 @@ export class MidiManager implements NoteInputSource {
 
    setEnabled(enabled: boolean): void {
       this.enabled = enabled;
-      console.log(`[MidiManager] MIDI input ${enabled ? "enabled" : "disabled"}`);
    }
 
    isEnabled(): boolean {

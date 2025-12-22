@@ -230,7 +230,6 @@ export class Tic80Backend {
       const b = this.bridge();
       if (!b || !b.isReady())
          return;
-      console.log("Tic80Backend.setChannelVolumes", volumes);
       b.pokeU8(TicMemoryMap.CHANNEL_VOLUME_0, volumes[0]);
       b.pokeU8(TicMemoryMap.CHANNEL_VOLUME_1, volumes[1]);
       b.pokeU8(TicMemoryMap.CHANNEL_VOLUME_2, volumes[2]);
