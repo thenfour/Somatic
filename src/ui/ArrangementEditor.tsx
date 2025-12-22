@@ -56,11 +56,40 @@ export const ArrangementEditor: React.FC<{
     useEffect(() => {
         const sel = editorState.selectedArrangementPositions;
         if (!sel || sel.isNull()) {
-            //console.log("ArrangementEditor selection [] (empty)");
             return;
         }
-        //console.log(`ArrangementEditor selection [${sel.getAllCells().map(c => c.y).join(", ")}]`);
     }, [editorState.selectedArrangementPositions]);
+
+    const nudgeSelectionAndFocusAnchor = (amt: number) => {
+        const sel = editorState.selectedArrangementPositions;
+        if (!sel || sel.isNull()) return;
+        const newRect = sel.withNudge({ width: 0, height: amt });
+        selection2d.setSelection(newRect);
+        const newFocus = newRect.getAnchorPoint()?.y;
+        if (newFocus != null) {
+            focusRow(newFocus);
+        }
+    };
+
+    // Find multiple unused pattern indices
+    const findUnusedPatternIndices = (s: Song, count: number): number[] => {
+        const usedPatterns = new Set(s.songOrder);
+        const result: number[] = [];
+        for (let i = 0; i < maxPatterns && result.length < count; i++) {
+            if (!usedPatterns.has(i)) {
+                ensurePatternExists(s, i);
+                result.push(i);
+            }
+        }
+        return result;
+    };
+
+    const getSelectionRange = (): number[] => {
+        const sel = editorState.selectedArrangementPositions;
+        if (!sel || sel.isNull()) return [];
+        const ycoords = sel.getAllCells().map(c => c.y);
+        return ycoords;
+    };
 
     const changePatternAtPosition = (positionIndex: number, delta: number) => {
         onSongChange({
@@ -121,26 +150,6 @@ export const ArrangementEditor: React.FC<{
         deletePosition(positionIndex);
     };
 
-    // Find multiple unused pattern indices
-    const findUnusedPatternIndices = (s: Song, count: number): number[] => {
-        const usedPatterns = new Set(s.songOrder);
-        const result: number[] = [];
-        for (let i = 0; i < maxPatterns && result.length < count; i++) {
-            if (!usedPatterns.has(i)) {
-                ensurePatternExists(s, i);
-                result.push(i);
-            }
-        }
-        return result;
-    };
-
-    const getSelectionRange = (): number[] => {
-        const sel = editorState.selectedArrangementPositions;
-        if (!sel || sel.isNull()) return [];
-        const ycoords = sel.getAllCells().map(c => c.y);
-        return ycoords;
-    };
-
     const handleInsertAbove = () => {
         onSongChange({
             description: 'Insert pattern above',
@@ -155,6 +164,9 @@ export const ArrangementEditor: React.FC<{
                 }
             },
         });
+        // no selection tweaking necessary; inserting above put your cursor at the correct place.
+        // however, we do this to set focus.
+        focusRow(editorState.activeSongPosition);
     };
 
     const handleInsertBelow = () => {
@@ -171,6 +183,9 @@ export const ArrangementEditor: React.FC<{
                 }
             },
         });
+        // TODO: set selection to new item; set focus to new item.
+        // note: won't work if inserting at end, because that row doesn't exist yet and will get clamped.
+        nudgeSelectionAndFocusAnchor(1);
     };
 
     const handleDeleteSelected = async () => {
@@ -192,7 +207,10 @@ export const ArrangementEditor: React.FC<{
 
         if (!confirmed) return;
 
+        // Clear selection
         selection2d.setSelection(new SelectionRect2D(null));
+        // but set keyboard focus back to where you were.
+        focusRow(selection[0]);
 
         onSongChange({
             description: 'Delete arrangement selection',
@@ -222,13 +240,11 @@ export const ArrangementEditor: React.FC<{
                 s.songOrder.splice(insertPos, 0, ...patterns);
             },
         });
+        // TODO: make this work.
         // move selection to the new items.
         // note that there's an issue if you duplicate the last item; state hasn't made space for that item yet
         // the workaround would be to useEffect() but ... meh.
-        const sel = editorState.selectedArrangementPositions;
-        if (sel && !sel.isNull()) {
-            selection2d.setSelection(sel.withNudge({ width: 0, height: sel.getSignedSize()!.height }));
-        }
+        nudgeSelectionAndFocusAnchor(editorState.selectedArrangementPositions?.getSignedSize()?.height || 0);
     };
 
     const handleDuplicateSelection = () => {
@@ -259,13 +275,10 @@ export const ArrangementEditor: React.FC<{
                 s.songOrder.splice(insertPos, 0, ...duplicatedPatterns);
             },
         });
+        // TODO: make this work.
         // move selection to the new items.
         // note that there's an issue if you duplicate the last item; state hasn't made space for that item yet
-        // the workaround would be to useEffect() but ... meh.
-        const sel = editorState.selectedArrangementPositions;
-        if (sel && !sel.isNull()) {
-            selection2d.setSelection(sel.withNudge({ width: 0, height: sel.getSignedSize()!.height }));
-        }
+        nudgeSelectionAndFocusAnchor(editorState.selectedArrangementPositions?.getSignedSize()?.height || 0);
     };
 
     const handleMakeSelectionUnique = () => {
@@ -319,6 +332,8 @@ export const ArrangementEditor: React.FC<{
                 }
             },
         });
+        // set focus back to where it was.
+        focusRow(selection[0]);
     };
 
     const handleMoveUp = () => {
@@ -362,9 +377,7 @@ export const ArrangementEditor: React.FC<{
             },
         });
         // update selection to follow the moved items.
-        if (editorState.selectedArrangementPositions) {
-            selection2d.setSelection(editorState.selectedArrangementPositions?.withNudge({ width: 0, height: 1 }) || null);
-        }
+        nudgeSelectionAndFocusAnchor(1);
     };
 
     const patternDisplayName = (patternIndex: number) => {
@@ -372,27 +385,6 @@ export const ArrangementEditor: React.FC<{
         if (!pat) return "";
         return pat.name;
     };
-
-    // const startEditingPatternName = (patternIndex: number) => {
-    //     setEditingPatternNameIndex(patternIndex);
-    //     setEditingPatternNameValue(patternDisplayName(patternIndex));
-    // };
-
-    // const commitEditingPatternName = () => {
-    //     if (editingPatternNameIndex === null) return;
-    //     const index = editingPatternNameIndex;
-    //     const value = editingPatternNameValue.trim();
-    //     onSongChange((s) => {
-    //         const pat = s.patterns[index];
-    //         if (!pat) return;
-    //         pat.name = value;
-    //     });
-    //     setEditingPatternNameIndex(null);
-    // };
-
-    // const cancelEditingPatternName = () => {
-    //     setEditingPatternNameIndex(null);
-    // };
 
     const focusRow = (positionIndex: number) => {
         const target = rowRefs[positionIndex];
