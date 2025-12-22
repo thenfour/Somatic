@@ -249,3 +249,19 @@ export function matchesFilter(text: string, filter: string): boolean {
    }
    return true;
 }
+
+
+// Parse a memory address-like-value ("0x14e24" string, or number)
+export function parseAddress(value: string|number): number {
+   if (typeof value === "number")
+      return value;
+   const trimmed = value.trim();
+   if (/^0x[0-9a-f]+$/i.test(trimmed)) {
+      return parseInt(trimmed, 16);
+   }
+   const n = Number(trimmed);
+   if (!Number.isFinite(n)) {
+      throw new Error(`Invalid memory address: ${value}`);
+   }
+   return n;
+}

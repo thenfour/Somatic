@@ -1,26 +1,40 @@
 -- TIC-80 orchestration bridge
+-- a build step injects configuration constants
+-- and builds bridge.tic from the generated source automatically.
 
+-- BRIDGE_AUTOGEN_START
+
+-- injected at build time.
+
+-- BRIDGE_AUTOGEN_END
+
+-- Derived constants from BRIDGE_CONFIG (Lua view bridge_config.json)
 local ADDR = {
-	-- NB: KEEP IN SYNC WITH HOST (search FOR "BRIDGE_MEMORY_MAP")
-	-- https://tic80.com/learn <-- memory map of tic80
-	-- another candidate is at 0x14004 which is 1kb of "persistent memory"
-	MARKER = 0x14E24, -- beginning of reserved region; 12764 bytes free
-	REGISTERS = 0x14E40, -- 0x40 bytes for internal registers
-	INBOX = 0x14E80, -- 0x40 bytes for incoming args
-	OUTBOX = 0x14EC0, -- for strings, this is bigger than inbox (~256 bytes)
+	MARKER = BRIDGE_CONFIG.memory.MARKER_ADDR,
+	REGISTERS = BRIDGE_CONFIG.memory.REGISTERS_ADDR,
+	INBOX = BRIDGE_CONFIG.memory.INBOX_ADDR,
+	OUTBOX = BRIDGE_CONFIG.memory.OUTBOX_ADDR,
 
-	TF_ORDER_LIST_COUNT = 0x4000, --   // TILE_BASE + 0
-	TF_ORDER_LIST_ENTRIES = 0x4001, -- // TILE_BASE + 1 -- max 256 entries
-	TF_PATTERN_DATA = 0x4101, --       // TILE_BASE + 256 // theoretically you can support the whole tile+sprite+map area for pattern data (8192+8192+32640 bytes = 49024).
+	TF_ORDER_LIST_COUNT = BRIDGE_CONFIG.memory.TF_ORDER_LIST_COUNT,
+	TF_ORDER_LIST_ENTRIES = BRIDGE_CONFIG.memory.TF_ORDER_LIST_ENTRIES,
+	TF_PATTERN_DATA = BRIDGE_CONFIG.memory.TF_PATTERN_DATA,
 }
 
-local CMD_PLAY = 1
-local CMD_STOP = 2
-local CMD_PING = 3
-local CMD_BEGIN_UPLOAD = 4
-local CMD_END_UPLOAD = 5
-local CMD_PLAY_SFX_ON = 6
-local CMD_PLAY_SFX_OFF = 7
+-- Inbox command IDs (host -> cart)
+local CMD_NOP = BRIDGE_CONFIG.inboxCommands.NOP
+local CMD_PLAY = BRIDGE_CONFIG.inboxCommands.PLAY
+local CMD_STOP = BRIDGE_CONFIG.inboxCommands.STOP
+local CMD_PING = BRIDGE_CONFIG.inboxCommands.PING
+local CMD_BEGIN_UPLOAD = BRIDGE_CONFIG.inboxCommands.BEGIN_UPLOAD
+local CMD_END_UPLOAD = BRIDGE_CONFIG.inboxCommands.END_UPLOAD
+local CMD_PLAY_SFX_ON = BRIDGE_CONFIG.inboxCommands.PLAY_SFX_ON
+local CMD_PLAY_SFX_OFF = BRIDGE_CONFIG.inboxCommands.PLAY_SFX_OFF
+
+-- Outbox commands (cart -> host)
+local LOG_CMD_LOG = BRIDGE_CONFIG.outboxCommands.LOG
+
+-- Marker string written into RAM for host detection
+local MARKER = BRIDGE_CONFIG.markerText
 
 -- Host->cart synchronization registers (mutex-ish)
 -- The host sets BUSY=1 while writing a payload, then bumps SEQ and clears BUSY.
@@ -50,6 +64,7 @@ local function ch_set_playroutine_regs(songPosition)
 end
 
 -- Cart->host synchronization registers (mirrors the above for OUTBOX)
+
 local OUTBOX = {
 	MAGIC = ADDR.OUTBOX + 0,
 	VERSION = ADDR.OUTBOX + 1,
@@ -69,8 +84,6 @@ local OUTBOX = {
 	LOG_BASE = ADDR.OUTBOX + 16,
 	LOG_SIZE = 240, -- keep small & simple (fits in reserved region)
 }
-
-local MARKER = "SOMATIC_TIC80_V1" -- 17 bytes; host scans for this at MARKER
 
 -- =========================
 -- OUTBOX layout (cart -> host)
@@ -93,7 +106,7 @@ local MARKER = "SOMATIC_TIC80_V1" -- 17 bytes; host scans for this at MARKER
 -- OUTBOX.LOG_BASE .. LOG_BASE+LOG_SIZE-1 : outbox command ring buffer
 --
 -- Entry format: [cmd][len][payload...]; wrap marker is cmd=0,len=0.
-local LOG_CMD_LOG = 1 -- log message to host
+-- LOG_CMD_LOG is defined in the autogen block above.
 
 -- Log stream format (ring buffer):
 -- Each entry: [len][ascii bytes...]
@@ -151,43 +164,6 @@ end
 
 local function log_write_ascii(s)
 	trace("TIC80: " .. s)
-	-- out_set(OUTBOX.MUTEX, 1)
-
-	-- -- Clamp payload so entries stay small and parsing is trivial
-	-- local n = #s
-	-- if n > 31 then
-	-- 	n = 31
-	-- end
-
-	-- local wp = out_get(OUTBOX.LOG_WRITE_PTR)
-
-	-- local needed = 2 + n -- cmd + len + payload
-
-	-- -- If we would wrap across end, write wrap marker and reset
-	-- if wp + needed >= OUTBOX.LOG_SIZE then
-	-- 	poke(OUTBOX.LOG_BASE + wp + 0, 0) -- cmd=0 wrap marker
-	-- 	poke(OUTBOX.LOG_BASE + wp + 1, 0)
-	-- 	wp = 0
-	-- end
-
-	-- -- If still no room (LOG_SIZE too small), drop
-	-- if needed >= OUTBOX.LOG_SIZE then
-	-- 	out_set(OUTBOX.MUTEX, 0)
-	-- 	log_drop()
-	-- 	return
-	-- end
-
-	-- -- write entry
-	-- poke(OUTBOX.LOG_BASE + wp + 0, LOG_CMD_LOG)
-	-- poke(OUTBOX.LOG_BASE + wp + 1, n)
-	-- for i = 1, n do
-	-- 	poke(OUTBOX.LOG_BASE + wp + 1 + i, string.byte(s, i))
-	-- end
-
-	-- wp = wp + needed
-	-- out_set(OUTBOX.LOG_WRITE_PTR, wp & 0xFF)
-	-- out_set(OUTBOX.SEQ, (out_get(OUTBOX.SEQ) + 1) & 0xFF)
-	-- out_set(OUTBOX.MUTEX, 0)
 end
 
 -- Also show some recent logs on-screen for sanity

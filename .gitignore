@@ -1,5 +1,6 @@
 node_modules
 TIC-80
 dist
+temp
 .env.local
 public/bridge.tic

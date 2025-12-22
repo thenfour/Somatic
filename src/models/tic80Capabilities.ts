@@ -1,7 +1,8 @@
 // here we specify actual capabilities of TIC-80.
 // avoid hardcoding these values elsewhere in the codebase.
 
-import {clamp} from "../utils/utils";
+import {clamp, parseAddress} from "../utils/utils";
+import bridgeConfig from "../../bridge/bridge_config.json";
 
 export const SomaticCaps = {
    maxPatternCount: 256,
@@ -77,82 +78,67 @@ export const gChannelsArray =
 
 export const gAllChannelsAudible = new Set<Tic80ChannelIndex>(gChannelsArray);
 
+const mem = bridgeConfig.memory as Record<string, string|number>;
+
 export const TicMemoryMap = {
-   // BRIDGE_MEMORY_MAP
-   MARKER_ADDR: 0x14e24,
-   REGISTERS_ADDR: 0x14e40,
-   INBOX_ADDR: 0x14e80,
-   OUTBOX_ADDR: 0x14ec0,
+   // BRIDGE_MEMORY_MAP (shared with bridge.lua via bridge_config.json)
+   MARKER_ADDR: parseAddress(mem.MARKER_ADDR),
+   REGISTERS_ADDR: parseAddress(mem.REGISTERS_ADDR),
+   INBOX_ADDR: parseAddress(mem.INBOX_ADDR),
+   OUTBOX_ADDR: parseAddress(mem.OUTBOX_ADDR),
 
-   MAILBOX_MUTEX_ADDR: 0x14e80 + 12,
-   MAILBOX_SEQ_ADDR: 0x14e80 + 13,
-   MAILBOX_TOKEN_ADDR: 0x14e80 + 14,
+   MAILBOX_MUTEX_ADDR: parseAddress(mem.INBOX_ADDR) + 12,
+   MAILBOX_SEQ_ADDR: parseAddress(mem.INBOX_ADDR) + 13,
+   MAILBOX_TOKEN_ADDR: parseAddress(mem.INBOX_ADDR) + 14,
+   OUTBOX_MUTEX_ADDR: parseAddress(mem.OUTBOX_ADDR) + 12,
+   OUTBOX_SEQ_ADDR: parseAddress(mem.OUTBOX_ADDR) + 13,
+   OUTBOX_TOKEN_ADDR: parseAddress(mem.OUTBOX_ADDR) + 14,
 
-   OUTBOX_MUTEX_ADDR: 0x14ec0 + 12,
-   OUTBOX_SEQ_ADDR: 0x14ec0 + 13,
-   OUTBOX_TOKEN_ADDR: 0x14ec0 + 14,
+   LOG_WRITE_PTR_ADDR: parseAddress(mem.OUTBOX_ADDR) + 7,
 
-   LOG_WRITE_PTR_ADDR: 0x14ec0 + 7,
+   LOG_BASE: parseAddress(mem.OUTBOX_ADDR) + 16,
+   LOG_SIZE: mem.LOG_SIZE as number,
 
-   LOG_BASE: 0x14ec0 + 16,
-   LOG_SIZE: 240,
-
-   CHANNEL_VOLUME_0: 0x14000,
-   CHANNEL_VOLUME_1: 0x14001,
-   CHANNEL_VOLUME_2: 0x14002,
-   CHANNEL_VOLUME_3: 0x14003,
+   CHANNEL_VOLUME_0: parseAddress(mem.CHANNEL_VOLUME_0),
+   CHANNEL_VOLUME_1: parseAddress(mem.CHANNEL_VOLUME_1),
+   CHANNEL_VOLUME_2: parseAddress(mem.CHANNEL_VOLUME_2),
+   CHANNEL_VOLUME_3: parseAddress(mem.CHANNEL_VOLUME_3),
 
    // NB: IF THIS CHANGES YOU HAVE TO UPDATE maxPatternLengthToBridge IN SomaticCaps
-   TILE_BASE: 0x4000,
-   TF_ORDER_LIST: 0x4000, // TILE_BASE: 1 length byte + 256 entries.
-   TF_PATTERN_DATA:
-      0x4101, //theoretically you can support the whole tile+sprite+map area for pattern data (8192+8192+32640 bytes = 49024).
-
-   // TIC cartridge chunk IDs (subset)
-   // CHUNK_WAVEFORMS: 10,
-   // CHUNK_SFX: 9,
-   // CHUNK_MUSIC_TRACKS: 14,
-   // CHUNK_MUSIC_PATTERNS: 15,
+   TILE_BASE: parseAddress(mem.TILE_BASE),
+   TF_ORDER_LIST: parseAddress(mem.TF_ORDER_LIST), // TILE_BASE: 1 length byte + 256 entries.
+   TF_PATTERN_DATA: parseAddress(
+      mem.TF_PATTERN_DATA), // theoretically you can support the whole tile+sprite+map area for pattern data.
 
    // RAM destinations for the chunk payloads (bank 0)
-   WAVEFORMS_ADDR: 0x0ffe4,
-   // WAVEFORMS_SIZE: 0x100, // 256 bytes
-   SFX_ADDR: 0x100e4,
-   // SFX_SIZE: 66 * 64, // 64 sfx slots * 66 bytes
-   PATTERNS_ADDR: 0x11164,
-   // PATTERNS_SIZE: 0x2d00, // 11520 bytes
-   TRACKS_ADDR: 0x13e64,
-   // TRACKS_SIZE: 51 * 8, // 8 tracks * 51 bytes
+   WAVEFORMS_ADDR: parseAddress(mem.WAVEFORMS_ADDR),
+   SFX_ADDR: parseAddress(mem.SFX_ADDR),
+   PATTERNS_ADDR: parseAddress(mem.PATTERNS_ADDR),
+   TRACKS_ADDR: parseAddress(mem.TRACKS_ADDR),
 
-   // local track = peek(0x13FFC)
-   // local frame = peek(0x13FFD)
-   // local row = peek(0x13FFE)
-   // local flags = peek(0x13FFF)
-
-   MUSIC_STATE_TRACK: 0x13ffc,
-   MUSIC_STATE_FRAME: 0x13ffd,
-   MUSIC_STATE_ROW: 0x13ffe,
-   MUSIC_STATE_FLAGS: 0x13fff,
-   MUSIC_STATE_SOMATIC_SONG_POSITION: 0x14e40 /*REGISTERS_ADDR*/ + 0,
-   FPS: 0x14e40 /*REGISTERS_ADDR*/ + 1,
-   //MUSIC_STATE_SOMATIC_PATTERN_ID: 0x14e40 /*REGISTERS_ADDR*/ + 1,
+   MUSIC_STATE_TRACK: parseAddress(mem.MUSIC_STATE_TRACK),
+   MUSIC_STATE_FRAME: parseAddress(mem.MUSIC_STATE_FRAME),
+   MUSIC_STATE_ROW: parseAddress(mem.MUSIC_STATE_ROW),
+   MUSIC_STATE_FLAGS: parseAddress(mem.MUSIC_STATE_FLAGS),
+   MUSIC_STATE_SOMATIC_SONG_POSITION: parseAddress(mem.MUSIC_STATE_SOMATIC_SONG_POSITION),
+   FPS: parseAddress(mem.FPS),
 } as const;
 
 export const TicBridge = {
-   MARKER_TEXT: "SOMATIC_TIC80_V1",
+   MARKER_TEXT: bridgeConfig.markerText,
 
    // outbox commands are from tic->host
-   OUT_CMD_LOG: 1,
+   OUT_CMD_LOG: bridgeConfig.outboxCommands.LOG,
 
    // inbox cmd IDs
-   CMD_NOP: 0,
-   CMD_PLAY: 1,
-   CMD_STOP: 2,
-   CMD_PING: 3,
-   CMD_BEGIN_UPLOAD: 4,
-   CMD_END_UPLOAD: 5,
-   CMD_PLAY_SFX_ON: 6,
-   CMD_PLAY_SFX_OFF: 7,
+   CMD_NOP: bridgeConfig.inboxCommands.NOP,
+   CMD_PLAY: bridgeConfig.inboxCommands.PLAY,
+   CMD_STOP: bridgeConfig.inboxCommands.STOP,
+   CMD_PING: bridgeConfig.inboxCommands.PING,
+   CMD_BEGIN_UPLOAD: bridgeConfig.inboxCommands.BEGIN_UPLOAD,
+   CMD_END_UPLOAD: bridgeConfig.inboxCommands.END_UPLOAD,
+   CMD_PLAY_SFX_ON: bridgeConfig.inboxCommands.PLAY_SFX_ON,
+   CMD_PLAY_SFX_OFF: bridgeConfig.inboxCommands.PLAY_SFX_OFF,
 
 } as const;
 
