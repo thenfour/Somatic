@@ -46,13 +46,22 @@ export const Actions = {
    ToggleSoloChannel4: "ToggleSoloChannel4",
    UnmuteUnsoloAllChannels: "UnmuteUnsoloAllChannels",
 
+   SetLoopOff: "SetLoopOff",
+   SetLoopSong: "SetLoopSong",
+   SetLoopSelection: "SetLoopSelection",
+   SetLoopPattern: "SetLoopPattern",
+   SetLoopWholePattern: "SetLoopWholePattern",
+   SetLoopHalfPattern: "SetLoopHalfPattern",
+   SetLoopQuarterPattern: "SetLoopQuarterPattern",
+   NextLoopMode: "NextLoopMode",
+   PreviousLoopMode: "PreviousLoopMode",
+
    TransposeSelectionUpSemitone: "TransposeSelectionUpSemitone",
    TransposeSelectionDownSemitone: "TransposeSelectionDownSemitone",
    TransposeSelectionUpOctave: "TransposeSelectionUpOctave",
    TransposeSelectionDownOctave: "TransposeSelectionDownOctave",
    IncrementInstrumentInSelection: "IncrementInstrumentInSelection",
    DecrementInstrumentInSelection: "DecrementInstrumentInSelection",
-
 
    ExportCartRelease: "ExportCartRelease",
 

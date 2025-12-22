@@ -1,8 +1,11 @@
+import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {Tic80BridgeHandle} from "../ui/Tic80Bridged";
-import {Tic80Backend} from "./tic80_backend";
+import {Rect2D} from "../utils/utils";
+import {LoopMode} from "./backend";
+import {BackendPlaySongArgs, Tic80Backend} from "./tic80_backend";
 import {VoiceManager} from "./voice_manager";
 
 // type RowListener = (rowNumber: number, pattern: Pattern) => void;
@@ -28,9 +31,9 @@ export class AudioController {
       this.backend = new Tic80Backend(opts.bridgeGetter);
    }
 
-   async transmitSong(song: Song|null, reason: string, audibleChannels: Set<Tic80ChannelIndex>) {
+   async transmitSong(song: Song, reason: string, audibleChannels: Set<Tic80ChannelIndex>) {
       //this.song = song;
-      await this.backend.transmitSong(song, reason, audibleChannels);
+      await this.backend.transmitSong(song, reason, audibleChannels, "off");
    }
 
    stop() {
@@ -67,14 +70,8 @@ export class AudioController {
       this.backend.playRow(song, pattern, rowNumber);
    }
 
-   // playPattern(pattern: Pattern) {
-   //    this.backend.playPattern(pattern);
-   //    this.isPlaying = true;
-   // }
-
-   playSong(startPosition: number, startRow: number) {
-      this.backend.playSong(startPosition, startRow);
-      //this.isPlaying = true;
+   playSong(args: BackendPlaySongArgs) {
+      this.backend.playSong(args);
    }
 
    panic() {

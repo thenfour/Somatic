@@ -13,6 +13,7 @@ import { AsyncMutex } from "../utils/async_mutex";
 import { Tic80ChannelIndex, TicBridge, TicMemoryMap } from "../models/tic80Capabilities";
 import { Tic80SerializedSong } from "../audio/tic80_cart_serializer";
 import { gLog } from "../utils/logger";
+import { LoopMode } from "../audio/backend";
 
 declare global {
     interface Window {
@@ -49,9 +50,10 @@ export type Tic80BridgeTransaction = {
     uploadSongData: (data: Tic80SerializedSong, reason: string) => Promise<void>;
     playSfx: (opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; speed: number }) => Promise<void>;
     stopSfx: (opts: { channel: Tic80ChannelIndex; }) => Promise<void>;
-    play: (opts?: {
-        songPosition?: number;
-        row?: number;
+    play: (opts: {
+        songPosition: number;
+        row: number;
+        loopForever: boolean;
     }) => Promise<void>;
     stop: () => Promise<void>;
     ping: () => Promise<void>;
@@ -470,33 +472,25 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             });
         }
 
-        async function playRaw(opts?: {
-            songPosition?: number;
-            row?: number;
-            loop?: boolean;
-            sustain?: boolean;
-            tempo?: number;
-            speed?: number;
+        async function playRaw(opts: {
+            songPosition: number;
+            row: number;
+            loopForever: boolean;
         }) {
             const songPosition = opts?.songPosition ?? 0;
             const row = opts?.row ?? 0;
-            const loop = opts?.loop ?? true;
-            const sustain = opts?.sustain ?? false;
-            const tempo = opts?.tempo ?? 0;
-            const speed = opts?.speed ?? 0;
+            const loopForever = opts?.loopForever ?? false;
 
-            gLog.info("play() request", { songPosition, row, loop, sustain, tempo, speed });
+            gLog.info("play() request", { songPosition, row, loopForever });
 
             // Mailbox layout from the Lua:
-            // 0 cmd, 1 songPosition, 2 row, 3 loop, 4 sustain, 5 tempo, 6 speed
+            // 0 cmd, 1 songPosition, 2 row, 3 loopForever, 4 sustain (unused here), 5 tempo, 6 speed
             await sendMailboxCommandRaw([
                 TicBridge.CMD_PLAY,
                 songPosition & 0xff,
                 row & 0xff,
-                loop ? 1 : 0,
-                sustain ? 1 : 0,
-                tempo & 0xff,
-                speed & 0xff,
+                loopForever ? 1 : 0,
+                0, // sustain: unused
             ], "Play");
         }
 

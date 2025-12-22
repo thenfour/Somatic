@@ -119,7 +119,8 @@ local OUTBOX = {
 -- INBOX.SONG_POSITION: overloaded by several commands;
 --                      used as song order position for PLAY, and as sfx id for PLAY_SFX_ON.
 -- INBOX.ROW          : overloaded by several commands; used as row index for PLAY, and as note for PLAY_SFX_ON.
--- INBOX.LOOP         : boolean loop flag for PLAY; low 2 bits used as channel index (0..3) for PLAY_SFX_ON/PLAY_SFX_OFF.
+-- INBOX.LOOP         : for PLAY, non-zero means "loop forever" (wrap to order 0 instead of stopping at end);
+--                      for PLAY_SFX_ON/OFF, low 2 bits used as channel index (0..3).
 -- INBOX.SUSTAIN      : boolean sustain flag for PLAY; signed speed offset ([-4..+3]) for PLAY_SFX_ON.
 -- INBOX.TEMPO        : optional tempo override for PLAY (0 = default).
 -- INBOX.SPEED        : optional speed override for PLAY (0 = default).
@@ -213,6 +214,8 @@ end
 local function handle_play()
 	local songPosition = peek(INBOX.SONG_POSITION)
 	local startRow = peek(INBOX.ROW)
+	local loopFlag = peek(INBOX.LOOP)
+	loopSongForever = loopFlag ~= 0
 	tf_music_init(songPosition, startRow)
 	publish_cmd(CMD_PLAY, 0)
 end
@@ -380,6 +383,7 @@ currentSongOrder = 0
 lastPlayingFrame = -1
 backBufferIsA = false -- A means patterns 0,1,2,3; B = 4,5,6,7
 stopPlayingOnNextFrame = false
+loopSongForever = false
 local PATTERN_BUFFER_BYTES = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
 local bufferALocation = 0x11164 -- pointer to first pattern https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
 local bufferBLocation = bufferALocation + PATTERN_BUFFER_BYTES -- pointer to pattern 4
@@ -572,6 +576,7 @@ tf_music_reset_state = function()
 	lastPlayingFrame = -1
 	backBufferIsA = false
 	stopPlayingOnNextFrame = false
+	loopSongForever = false
 	log("tf_music_reset_state: Music state reset.")
 	ch_set_playroutine_regs(0xFF)
 end
@@ -637,10 +642,21 @@ function tf_music_tick()
 	log("tf_music_tick: Advancing to song order " .. tostring(currentSongOrder))
 	log("             : Song order count is " .. tostring(orderCount))
 
-	if orderCount == 0 or currentSongOrder >= orderCount then
+	if orderCount == 0 then
 		clearPatternBuffer(destPointer)
 		stopPlayingOnNextFrame = true
 		return
+	end
+
+	if currentSongOrder >= orderCount then
+		if loopSongForever then
+			log("tf_music_tick: Looping back to start of order list.")
+			currentSongOrder = 0
+		else
+			clearPatternBuffer(destPointer)
+			stopPlayingOnNextFrame = true
+			return
+		end
 	end
 
 	swapInPlayorder(currentSongOrder, destPointer)

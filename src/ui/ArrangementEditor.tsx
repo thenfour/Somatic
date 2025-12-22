@@ -715,7 +715,7 @@ export const ArrangementEditor: React.FC<{
                             disabled={song.songOrder.length >= maxPositions}
                             aria-label="Repeat selection"
                         >
-                            ↻
+                            {CharMap.Refresh}
                         </button>
                     </Tooltip>
                     <Tooltip title="Duplicate selection (copy patterns)">
@@ -726,7 +726,7 @@ export const ArrangementEditor: React.FC<{
                             disabled={song.songOrder.length >= maxPositions}
                             aria-label="Duplicate selection"
                         >
-                            ⧉
+                            {CharMap.OverlappingSquares}
                         </button>
                     </Tooltip>
                     <Tooltip title="Make selection unique">
@@ -748,7 +748,7 @@ export const ArrangementEditor: React.FC<{
                             disabled={getSelectionRange().length >= song.songOrder.length}
                             aria-label="Delete selected"
                         >
-                            ×
+                            {CharMap.Mul}
                         </button>
                     </Tooltip>
                     <Tooltip title="Move selection up">
@@ -759,7 +759,7 @@ export const ArrangementEditor: React.FC<{
                             disabled={getSelectionRange()[0] === 0}
                             aria-label="Move up"
                         >
-                            ⬆
+                            {CharMap.UpArrow}
                         </button>
                     </Tooltip>
                     <Tooltip title="Move selection down">
@@ -770,7 +770,7 @@ export const ArrangementEditor: React.FC<{
                             disabled={getSelectionRange()[getSelectionRange().length - 1] >= song.songOrder.length - 1}
                             aria-label="Move down"
                         >
-                            ⬇
+                            {CharMap.DownArrow}
                         </button>
                     </Tooltip>
                 </div>

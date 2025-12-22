@@ -7,6 +7,7 @@ import type {Song} from "../models/song";
 import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {getMaxPatternUsedIndex, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong} from "../utils/SongOptimizer";
 import {assert, clamp, getBufferFingerprint, toLuaStringLiteral} from "../utils/utils";
+import {LoopMode} from "./backend";
 import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
@@ -341,7 +342,7 @@ function encodeSfx(song: Song, count: number): Uint8Array {
 // copy pattern data ourselves to work around tic80 length limitations.
 export interface Tic80SerializedSong {
    optimizeResult: OptimizeResult;
-   //memory_0FFE4: Uint8Array;
+   requireSongLoop: boolean;
    waveformData: Uint8Array;
    sfxData: Uint8Array;
    trackData: Uint8Array;
@@ -353,7 +354,8 @@ export interface Tic80SerializedSong {
    patternData: Uint8Array;
 }
 
-export function serializeSongForTic80Bridge(song: Song, audibleChannels: Set<Tic80ChannelIndex>): Tic80SerializedSong {
+export function serializeSongForTic80Bridge(
+   song: Song, audibleChannels: Set<Tic80ChannelIndex>, loopMode: LoopMode): Tic80SerializedSong {
    //const parts: Uint8Array[] = [];
 
    // NB: do not optimize the song because
@@ -415,7 +417,7 @@ export function serializeSongForTic80Bridge(song: Song, audibleChannels: Set<Tic
    const realPatternData = encodeRealPatterns(song, audibleChannels); // separate pattern data for playback use
 
    return {
-      //memory_0FFE4: out,
+      requireSongLoop: loopMode === "song",
       optimizeResult: {
          ...MakeOptimizeResultEmpty(song),
          usedPatternCount: getMaxPatternUsedIndex(song) + 1,

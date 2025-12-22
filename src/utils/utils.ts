@@ -118,6 +118,12 @@ export const CharMap = {
    Cross: "✘",
    Bullet: "•",
    BoldSixPointedAsterisk: "🞷",
+   Refresh: "↻",
+   OverlappingSquares: "⧉",
+   UpArrow: "⬆",
+   DownArrow: "⬇",
+   LeftArrow: "⬅",
+   RightArrow: "➡",
 };
 
 

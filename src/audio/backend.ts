@@ -1,4 +1,6 @@
 
+export type LoopMode =|"off"|"song"|"selection"|"pattern"|"wholePattern"|"halfPattern"|"quarterPattern";
+
 export type MusicState = {
    //somaticPatternIndex: number; //
    somaticSongPosition: number; //
@@ -11,7 +13,6 @@ export type MusicState = {
 
 export function MakeEmptyMusicState(): MusicState{
    return {
-      //somaticPatternIndex: 0,    //
       somaticSongPosition: 0, //
          isPlaying: false,    //
          tic80TrackIndex: -1, //
@@ -20,17 +21,3 @@ export function MakeEmptyMusicState(): MusicState{
          isLooping: false,    //
    }
 };
-
-// export interface AudioBackend {
-//    setSong(song: Song|null, reason: string): void|Promise<void>;
-//    getMusicState(): MusicState;
-//    sfxNoteOn(instrumentIndex: number, instrument: Tic80Instrument, midiNote: number, channel: Tic80ChannelIndex):
-//       void|Promise<void>;
-//    sfxNoteOff(channel: Tic80ChannelIndex): void|Promise<void>;
-//    playRow(pattern: Pattern, rowNumber: number): void|Promise<void>;
-//    //playPattern(pattern: Pattern): void|Promise<void>;
-//    playSong(startPosition: number, startRow: number): void|Promise<void>;
-//    panic(): void|Promise<void>;
-//    stop(): void|Promise<void>;
-//    setChannelVolumes(volumes: [number, number, number, number]): void|Promise<void>;
-// }

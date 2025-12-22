@@ -1,3 +1,4 @@
+import {LoopMode} from "../audio/backend";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {clamp, CoalesceBoolean, Rect2D} from "../utils/utils";
 import {Pattern, PatternCell} from "./pattern";
@@ -22,6 +23,7 @@ export interface EditorStateDto {
    patternSelection: Rect2D|null;
    mutedChannels: Tic80ChannelIndex[];
    soloedChannels: Tic80ChannelIndex[];
+   loopMode: LoopMode;
 }
 ;
 
@@ -36,6 +38,7 @@ export class EditorState {
    patternSelection: SelectionRect2D|null;
    mutedChannels: Set<Tic80ChannelIndex> = new Set<Tic80ChannelIndex>();
    soloedChannels: Set<Tic80ChannelIndex> = new Set<Tic80ChannelIndex>();
+   loopMode: LoopMode;
 
    constructor({
       octave = Math.floor(Tic80Caps.pattern.octaveCount / 2),
@@ -48,6 +51,7 @@ export class EditorState {
       patternSelection = null,
       mutedChannels = [],
       soloedChannels = [],
+      loopMode = "off",
    }: Partial<EditorStateDto> = {}) {
       this.octave = clamp(octave, 1, Tic80Caps.pattern.octaveCount);
       this.activeSongPosition = clamp(activeSongPosition, 0, 255);
@@ -60,6 +64,7 @@ export class EditorState {
       this.patternSelection = patternSelection ? new SelectionRect2D(patternSelection) : null;
       this.mutedChannels = new Set(mutedChannels);
       this.soloedChannels = new Set(soloedChannels);
+      this.loopMode = loopMode as LoopMode;
    }
 
    setOctave(nextOctave: number) {
@@ -89,6 +94,10 @@ export class EditorState {
 
    setPatternSelection(selection: SelectionRect2D|null) {
       this.patternSelection = selection;
+   }
+
+   setLoopMode(mode: LoopMode) {
+      this.loopMode = mode;
    }
 
    advancePatternEditRow(step: number, rowsPerPattern: number = Tic80Caps.pattern.maxRows) {
@@ -182,6 +191,7 @@ export class EditorState {
          patternSelection: this.patternSelection ? this.patternSelection.toData() : null,
          mutedChannels: [...this.mutedChannels],
          soloedChannels: [...this.soloedChannels],
+         loopMode: this.loopMode,
       };
    }
 

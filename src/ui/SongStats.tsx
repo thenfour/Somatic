@@ -47,7 +47,7 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
         const cartDetails = serializeSongToCartDetailed(doc, true, 'release', gAllChannelsAudible);
 
         const optimizedDoc = OptimizeSong(doc).optimizedSong;
-        const bridge = serializeSongForTic80Bridge(optimizedDoc, gAllChannelsAudible);
+        const bridge = serializeSongForTic80Bridge(optimizedDoc, gAllChannelsAudible, "off");
         return { cartridge: cartDetails, bridge };
     }, {
         debounceMs: 1200,

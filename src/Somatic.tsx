@@ -43,6 +43,7 @@ import { OptimizeSong } from './utils/SongOptimizer';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
 import { CharMap } from './utils/utils';
+import { LoopMode } from './audio/backend';
 
 const TIC80_FRAME_SIZES = [
 
@@ -126,6 +127,26 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [aboutOpen, setAboutOpen] = useState(false);
     const [embedMode, setEmbedMode] = useState<"iframe" | "toplevel">("iframe");
     const clipboard = useClipboard();
+
+    // in order
+    const LOOP_MODE_OPTIONS: { value: LoopMode; label: string }[] = [
+        { value: "off", label: "Off" },
+        { value: "song", label: "Song" },
+        { value: "pattern", label: "Pattern" },
+        { value: "wholePattern", label: "Whole pattern" },
+        { value: "halfPattern", label: "1/2 pattern" },
+        { value: "quarterPattern", label: "1/4 pattern" },
+        { value: "selection", label: "Selection" },
+    ];
+
+    const handleToggleLoop = () => {
+        const current = editorRef.current.loopMode;
+        if (current === "off") {
+            setLoopMode("pattern");
+        } else {
+            setLoopMode("off");
+        }
+    };
 
     if (!undoStackRef.current) {
         undoStackRef.current = new UndoStack(200);
@@ -491,7 +512,17 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             audio.panic();
         } else {
             await autoSave.flush();
-            audio.playSong(startPosition, startRow);
+            audio.playSong({
+                song: songRef.current,
+                cursorSongOrder: editorRef.current.activeSongPosition,
+                cursorChannelIndex: editorRef.current.patternEditChannel,
+                cursorRowIndex: editorRef.current.patternEditRow,
+                patternSelection: editorRef.current.patternSelection,
+                audibleChannels: editorRef.current.getAudibleChannels(),
+                startPosition,
+                startRow,
+                loopMode: editorRef.current.loopMode,
+            });
         }
     }, [audio, autoSave]);
 
@@ -509,6 +540,29 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         void playSongWithFlush(ed.activeSongPosition, ed.patternEditRow);
     };
 
+    const setLoopMode = (mode: LoopMode) => {
+        updateEditorState((s) => s.setLoopMode(mode));
+    };
+
+    const handleLoopModeChange: React.ChangeEventHandler<HTMLSelectElement> = (evt) => {
+        const next = evt.target.value as LoopMode;
+        setLoopMode(next);
+    };
+
+    const handleNextLoopMode = () => {
+        const current = editorRef.current.loopMode;
+        const idx = LOOP_MODE_OPTIONS.findIndex(option => option.value === current);
+        const nextIdx = (idx + 1) % LOOP_MODE_OPTIONS.length;
+        setLoopMode(LOOP_MODE_OPTIONS[nextIdx].value);
+    };
+
+    const handlePreviousLoopMode = () => {
+        const current = editorRef.current.loopMode;
+        const idx = LOOP_MODE_OPTIONS.findIndex(option => option.value === current);
+        const prevIdx = (idx - 1 + LOOP_MODE_OPTIONS.length) % LOOP_MODE_OPTIONS.length;
+        setLoopMode(LOOP_MODE_OPTIONS[prevIdx].value);
+    };
+
 
     useActionHandler("Panic", onPanic);
     useActionHandler("Undo", handleUndo);
@@ -524,6 +578,15 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("PlaySong", onPlayAll);
     useActionHandler("PlayFromPosition", onPlayFromPosition);
     useActionHandler("PlayPattern", onPlayPattern);
+    useActionHandler("SetLoopOff", () => setLoopMode("off"));
+    useActionHandler("SetLoopSong", () => setLoopMode("song"));
+    useActionHandler("SetLoopSelection", () => setLoopMode("selection"));
+    useActionHandler("SetLoopPattern", () => setLoopMode("pattern"));
+    useActionHandler("SetLoopWholePattern", () => setLoopMode("wholePattern"));
+    useActionHandler("SetLoopHalfPattern", () => setLoopMode("halfPattern"));
+    useActionHandler("SetLoopQuarterPattern", () => setLoopMode("quarterPattern"));
+    useActionHandler("NextLoopMode", handleNextLoopMode);
+    useActionHandler("PreviousLoopMode", handlePreviousLoopMode);
     useActionHandler("ToggleEditMode", toggleEditingEnabled);
     useActionHandler("DecreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave - 1)));
     useActionHandler("IncreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave + 1)));
@@ -888,6 +951,28 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <TransportTime className="main-transport-time" positionSeconds={cursorPositionSeconds} />
                             </div>
                         </Tooltip>
+
+                        <div className="loop-controls">
+                            <Tooltip title="Toggle loop">
+                                <button
+                                    type="button"
+                                    className={editorState.loopMode !== "off" ? "button-toggle button-toggle--on" : "button-toggle button-toggle--off"}
+                                    onClick={handleToggleLoop}
+                                >
+                                    {CharMap.Refresh}
+                                </button>
+                            </Tooltip>
+                            <select
+                                className="loop-mode-select"
+                                value={editorState.loopMode}
+                                onChange={handleLoopModeChange}
+                            >
+                                {LOOP_MODE_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+
                     </div>
                     {appPresence.otherInstanceActive && <div className="app-presence-contention-warning">
                         ⚠️You have multiple tabs open; that can cause conflicts

@@ -296,10 +296,13 @@ option {
 }
 
 .menu-transport {
+    border-radius: 6px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
     margin-left: 16px;
+    margin-right: 16px;
+    padding: 0 12px;
     flex-shrink: 0;
 }
 
@@ -1776,4 +1779,17 @@ option {
 .app-presence-contention-warning {
     background-color: var(--panel-strong);
     padding: 8px 12px;
+}
+
+#root .app .button-toggle {
+    background: var(--panel);
+    font-size: 24px;
+}
+
+#root .app .button-toggle.button-toggle--off {
+    color: var(--muted);
+}
+
+#root .app .button-toggle.button-toggle--on {
+    color: var(--accent);
 }

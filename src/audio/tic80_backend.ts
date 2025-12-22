@@ -1,11 +1,24 @@
 import {getNoteInfo} from "../defs";
+import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {Tic80Instrument} from "../models/instruments";
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {gChannelsArray, Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
 import type {Tic80BridgeHandle} from "../ui/Tic80Bridged";
-import {MakeEmptyMusicState, MusicState} from "./backend";
-import {serializeSongForTic80Bridge, Tic80SerializedSong} from "./tic80_cart_serializer";
+import {LoopMode, MakeEmptyMusicState, MusicState} from "./backend";
+import {serializeSongForTic80Bridge} from "./tic80_cart_serializer";
+
+export type BackendPlaySongArgs = {
+   song: Song,
+   cursorSongOrder: number,
+   cursorChannelIndex: Tic80ChannelIndex,
+   cursorRowIndex: number,
+   patternSelection: SelectionRect2D|null,
+   audibleChannels: Set<Tic80ChannelIndex>,
+   startPosition: number,
+   startRow: number,
+   loopMode: LoopMode,
+};
 
 // Minimal TIC-80 backend: delegates transport commands to the bridge.
 // Song/instrument upload is not implemented yet; this is a transport stub.
@@ -13,7 +26,7 @@ export class Tic80Backend {
    //private readonly emit: BackendContext["emit"];
    private readonly bridge: () => Tic80BridgeHandle | null;
    //private song: Song|null = null;
-   private serializedSong: Tic80SerializedSong|null = null;
+   //private serializedSong: Tic80SerializedSong|null = null;
    private lastKnownMusicState: MusicState = MakeEmptyMusicState();
    //private volume = 0.3;
 
@@ -22,27 +35,16 @@ export class Tic80Backend {
       this.bridge = bridgeGetter;
    }
 
-   async transmitSong(song: Song|null, reason: string, audibleChannels: Set<Tic80ChannelIndex>) {
-      //this.song = song;
-      if (song) {
-         this.serializedSong = serializeSongForTic80Bridge(song, audibleChannels);
+   async transmitSong(song: Song, reason: string, audibleChannels: Set<Tic80ChannelIndex>, loopMode: LoopMode) {
+      const b = this.bridge();
+      if (!b || !b.isReady())
+         return;
+      const serializedSong = serializeSongForTic80Bridge(song, audibleChannels, loopMode);
 
-         const b = this.bridge();
-         if (!b || !b.isReady())
-            return;
-
-         await b.invokeExclusive("transmitSong", async tx => {
-            await tx.uploadSongData(this.serializedSong!, "Song has been modified.");
-         });
-      } else {
-         this.serializedSong = null;
-      }
+      await b.invokeExclusive("transmitSong", async tx => {
+         await tx.uploadSongData(serializedSong, "Song has been modified.");
+      });
    }
-
-   //    async setVolume(vol: number) {
-   //       this.volume = vol;
-   //       // TODO: route to cart when mixer control exists
-   //    }
 
    async sfxNoteOn(instrumentIndex: number, instrument: Tic80Instrument, midiNote: number, channel: Tic80ChannelIndex) {
       const b = this.bridge();
@@ -129,27 +131,22 @@ export class Tic80Backend {
       });
    }
 
-   // async playPattern(_pattern: Pattern) {
-   //    const b = this.bridge();
-   //    if (!b || !b.isReady())
-   //       return;
-   //    b.invokeExclusive(
-   //       async (tx) => {
-   //          //await this.tryUploadSong(tx);
-   //          // todo: proper pattern playback support
-   //          //await tx.play({songPosition: 0, row: 0, loop: true});
-   //       });
-   //    //this.emit.row(0, _pattern);
-   // }
-
-   async playSong(startPosition: number, startRow: number) {
+   async playSong(args: BackendPlaySongArgs) //
+   {
       const b = this.bridge();
       if (!b || !b.isReady())
          return;
+
+      // always serialize & transmit the up-to-date song.
+      // serialize will bake in looping to the output and can request forever looping.
+
+      const serializedSong = serializeSongForTic80Bridge(args.song, args.audibleChannels, args.loopMode);
+
       await b.invokeExclusive("playSong", async (tx) => {
-         await tx.play({songPosition: startPosition, row: startRow});
+         await tx.uploadSongData(serializedSong, "playing baked song");
+         await tx.play(
+            {songPosition: args.startPosition, row: args.startRow, loopForever: serializedSong.requireSongLoop});
       });
-      //this.emit.position(startPosition);
    }
 
    async panic() {

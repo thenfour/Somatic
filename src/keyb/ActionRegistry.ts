@@ -529,6 +529,70 @@ export const gActionRegistry: ActionRegistry = {
          {kind: "character", key: "ArrowDown", alt: true, shift: true},
       ],
    },
+
+   "NextLoopMode": {
+      id: "NextLoopMode",
+      title: "next loop mode",
+      description: "switch to the next loop mode.",
+      category: "Transport",
+      defaultBindings: [],
+   },
+   "PreviousLoopMode": {
+      id: "PreviousLoopMode",
+      title: "previous loop mode",
+      description: "switch to the previous loop mode.",
+      category: "Transport",
+      defaultBindings: [],
+   },
+   "SetLoopOff": {
+      id: "SetLoopOff",
+      title: "set loop off",
+      description: "disable looping.",
+      category: "Transport",
+      defaultBindings: [],
+   },
+   "SetLoopSelection": {
+      id: "SetLoopSelection",
+      title: "set loop to selection",
+      description: "set the loop to the current selection.",
+      category: "Transport",
+      defaultBindings: [],
+   },
+   "SetLoopWholePattern": {
+      id: "SetLoopWholePattern",
+      title: "set loop to whole pattern",
+      description: "set the loop to the entire pattern.",
+      category: "Transport",
+      defaultBindings: [],
+   },
+   "SetLoopHalfPattern": {
+      id: "SetLoopHalfPattern",
+      title: "set loop to half pattern",
+      description: "set the loop to half of the pattern (at the cursor).",
+      category: "Transport",
+      defaultBindings: [],
+   },
+   "SetLoopQuarterPattern": {
+      id: "SetLoopQuarterPattern",
+      title: "set loop to quarter pattern",
+      description: "set the loop to a quarter of the pattern (at the cursor).",
+      category: "Transport",
+      defaultBindings: [],
+   },
+   "SetLoopSong": {
+      id: "SetLoopSong",
+      title: "set loop to song",
+      description: "set the loop to the entire song.",
+      category: "Transport",
+      defaultBindings: [],
+   },
+   "SetLoopPattern": {
+      id: "SetLoopPattern",
+      title: "set loop to pattern",
+      description: "set the loop to the current pattern.",
+      category: "Transport",
+      defaultBindings: [],
+   },
 } as const;
 
 export const kAllActions = Object.values(gActionRegistry);
