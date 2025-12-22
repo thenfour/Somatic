@@ -4,6 +4,7 @@
   "description": "a playground for creating samples for TIC-80 music",
   "main": "src/index.tsx",
   "scripts": {
+    "build-bridge": "node scripts/build-bridge.js",
     "build": "webpack --mode production",
     "deploy-prod": "node ./scripts/deploy-prod.mjs",
     "watch": "webpack --watch",

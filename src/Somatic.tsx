@@ -847,6 +847,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <DesktopMenu.Divider />
                                 <DesktopMenu.Item onSelect={() => window.open('https://reverietracker.github.io/chromatic/', '_blank', 'noopener')}>This project was based on Chromatic by Gasman</DesktopMenu.Item>
                                 <DesktopMenu.Item onSelect={() => window.open('https://github.com/nesbox/TIC-80/wiki/Music-Editor', '_blank', 'noopener')}>TIC-80 Music Editor</DesktopMenu.Item>
+                                <DesktopMenu.Item onSelect={() => window.open('https://github.com/nesbox/TIC-80/wiki/ram', '_blank', 'noopener')}>TIC-80 memory map</DesktopMenu.Item>
+
                                 <DesktopMenu.Divider />
                                 <DesktopMenu.Divider />
                                 <DesktopMenu.Item onSelect={() => setAboutOpen(true)}>About Somatic…</DesktopMenu.Item>

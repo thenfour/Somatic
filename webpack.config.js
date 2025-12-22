@@ -5,6 +5,7 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const webpack = require('webpack');
 const childProcess = require('child_process');
+const { BridgeWatchPlugin } = require('./scripts/bridge-watch-plugin');
 
 function safeExec(command) {
   try {
@@ -107,6 +108,9 @@ module.exports = {
     }),
     new webpack.DefinePlugin({
       BUILD_INFO: JSON.stringify(BUILD_INFO),
+    }),
+    new BridgeWatchPlugin({
+      bridgeDir: path.resolve(__dirname, 'bridge'),
     }),
   ],
 
