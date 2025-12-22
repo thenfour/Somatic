@@ -2,7 +2,7 @@
 // avoid hardcoding these values elsewhere in the codebase.
 
 import {clamp, parseAddress} from "../utils/utils";
-import bridgeConfig from "../../bridge/bridge_config.json";
+import bridgeConfig from "../../bridge/bridge_config.jsonc";
 
 export const SomaticCaps = {
    maxPatternCount: 256,
@@ -81,7 +81,7 @@ export const gAllChannelsAudible = new Set<Tic80ChannelIndex>(gChannelsArray);
 const mem = bridgeConfig.memory as Record<string, string|number>;
 
 export const TicMemoryMap = {
-   // BRIDGE_MEMORY_MAP (shared with bridge.lua via bridge_config.json)
+   // BRIDGE_MEMORY_MAP (shared with bridge.lua via bridge_config.jsonc)
    MARKER_ADDR: parseAddress(mem.MARKER_ADDR),
    REGISTERS_ADDR: parseAddress(mem.REGISTERS_ADDR),
    INBOX_ADDR: parseAddress(mem.INBOX_ADDR),

@@ -69,6 +69,13 @@ module.exports = {
         use: 'raw-loader',
       },
       {
+        test: /\.jsonc$/,
+        type: 'javascript/auto',
+        use: {
+          loader: path.resolve(__dirname, 'scripts/jsonc-loader.js'),
+        },
+      },
+      {
         test: /\.([jt])sx?$/,
         exclude: /node_modules/,
         use: {

@@ -35,3 +35,8 @@ declare module "*.lua" {
    const content: string;
    export default content;
 }
+
+declare module "*.jsonc" {
+   const value: any;
+   export default value;
+}

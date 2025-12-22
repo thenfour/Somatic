@@ -88,41 +88,43 @@ local OUTBOX = {
 -- =========================
 -- OUTBOX layout (cart -> host)
 -- =========================
--- OUTBOX.MAGIC        : 'B' (0x42) magic
--- OUTBOX.VERSION      : version (1)
--- OUTBOX.HEARTBEAT    : heartbeat (increments every TIC)
--- OUTBOX.STATE_FLAGS  : stateFlags (bit0 = isPlaying)
--- OUTBOX.PLAYING_TRACK: playingTrack (0..7)
--- OUTBOX.LAST_CMD     : lastCmd (0..255)
--- OUTBOX.LAST_CMD_RESULT : lastCmdResult (0=ok, nonzero=error-ish)
--- OUTBOX.LOG_WRITE_PTR: logWritePtr (0..LOG_SIZE-1)
--- OUTBOX.LOG_DROPPED  : logDroppedCount (0..255 wraps)
--- OUTBOX.RESERVED_9   : reserved
--- OUTBOX.RESERVED_10  : reserved
--- OUTBOX.RESERVED_11  : reserved
--- OUTBOX.MUTEX        : OUTBOX mutex (cart sets non-zero while writing an entry)
--- OUTBOX.SEQ          : OUTBOX seq (increments on each entry written)
--- OUTBOX.TOKEN        : echoed host token when finishing a command
--- OUTBOX.LOG_BASE .. LOG_BASE+LOG_SIZE-1 : outbox command ring buffer
+-- Fields and base address are defined in bridge_config.json (memory.OUTBOX_ADDR).
+-- This section documents how the cart currently uses them:
+-- OUTBOX.MAGIC        : magic byte; set to 'B' (0x42) at boot so the host can detect the bridge.
+-- OUTBOX.VERSION      : protocol version; currently hard-coded to 1 at boot.
+-- OUTBOX.HEARTBEAT    : increments every TIC once booted; used by the host as a liveness check.
+-- OUTBOX.STATE_FLAGS  : reserved; currently always 0.
+-- OUTBOX.PLAYING_TRACK: reserved; not written by the cart (host reads music state directly).
+-- OUTBOX.LAST_CMD     : last inbox command ID that completed (copied from INBOX.CMD).
+-- OUTBOX.LAST_CMD_RESULT : result code for LAST_CMD (0 = ok, non‑zero = error-ish).
+-- OUTBOX.LOG_WRITE_PTR: reserved; initialized to 0 but not updated.
+-- OUTBOX.LOG_DROPPED  : count of dropped log entries; increments when the cart would overflow logging.
+-- OUTBOX.RESERVED_9   : reserved.
+-- OUTBOX.RESERVED_10  : reserved.
+-- OUTBOX.RESERVED_11  : reserved.
+-- OUTBOX.MUTEX        : reserved for a future cart->host log mutex; currently initialized to 0 and unused.
+-- OUTBOX.SEQ          : reserved for a future cart->host log sequence; currently initialized to 0 and unused.
+-- OUTBOX.TOKEN        : echoed host token when finishing a command (copied from INBOX.TOKEN in publish_cmd).
+-- OUTBOX.LOG_BASE .. LOG_BASE+LOG_SIZE-1 : reserved region for a future outbox command ring buffer.
 --
--- Entry format: [cmd][len][payload...]; wrap marker is cmd=0,len=0.
--- LOG_CMD_LOG is defined in the autogen block above.
-
--- Log stream format (ring buffer):
--- Each entry: [len][ascii bytes...]
--- len is 0..31 (we clamp). Host can decode by walking from its own readPtr to current writePtr.
+-- Note: LOG_CMD_LOG and the LOG_* ring-buffer protocol are specified in bridge_config.json
+-- and are not currently implemented on the cart side.
 
 -- =========================
+-- INBOX layout (host -> cart)
 -- =========================
--- INBOX.CMD          : cmd  (0=NOP, 1=PLAY, 2=STOP, 3=PING/FX)
--- INBOX.SONG_POSITION: song order position (0..255)
--- INBOX.ROW          : row   (0..63)
--- INBOX.LOOP         : loop (0/1)
--- INBOX.SUSTAIN      : sustain (0/1)
--- INBOX.TEMPO        : tempo (0=default)
--- INBOX.SPEED        : speed (0=default)
--- INBOX.HOST_ACK     : hostAck (optional; host may write its logReadPtr here)
--- INBOX + 8..        : reserved
+-- Fields and base address are defined in bridge_config.json (memory.INBOX_ADDR).
+-- This section documents how the cart currently interprets them:
+-- INBOX.CMD          : inbox command code; numeric IDs are defined in bridge_config.json.inboxCommands.
+-- INBOX.SONG_POSITION: overloaded by several commands;
+--                      used as song order position for PLAY, and as sfx id for PLAY_SFX_ON.
+-- INBOX.ROW          : overloaded by several commands; used as row index for PLAY, and as note for PLAY_SFX_ON.
+-- INBOX.LOOP         : boolean loop flag for PLAY; low 2 bits used as channel index (0..3) for PLAY_SFX_ON/PLAY_SFX_OFF.
+-- INBOX.SUSTAIN      : boolean sustain flag for PLAY; signed speed offset ([-4..+3]) for PLAY_SFX_ON.
+-- INBOX.TEMPO        : optional tempo override for PLAY (0 = default).
+-- INBOX.SPEED        : optional speed override for PLAY (0 = default).
+-- INBOX.HOST_ACK     : reserved; currently unused (intended for host log read pointer or similar acknowledgements).
+-- INBOX + 8..        : reserved; INBOX.MUTEX/SEQ/TOKEN live at offsets 12/13/14 for host->cart mailbox sync.
 
 -- =========================
 -- Marker

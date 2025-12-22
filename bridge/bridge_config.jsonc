@@ -1,8 +1,11 @@
 {
+    // Marker string written into RAM for host detection
     "markerText": "SOMATIC_TIC80_V1",
+    // Outbox command IDs (cart -> host)
     "outboxCommands": {
         "LOG": 1
     },
+    // Inbox command IDs (host -> cart)
     "inboxCommands": {
         "NOP": 0,
         "PLAY": 1,
@@ -13,29 +16,38 @@
         "PLAY_SFX_ON": 6,
         "PLAY_SFX_OFF": 7
     },
+    // Shared memory layout for bridge (cart + host)
     "memory": {
+        // Waveforms/sfx/patterns/tracks payload destinations (TIC-80 layout)
+        "WAVEFORMS_ADDR": "0x0ffe4",
+        "SFX_ADDR": "0x100e4",
+        "PATTERNS_ADDR": "0x11164",
+        "TRACKS_ADDR": "0x13e64",
+        //
+        //
+        //
         "MARKER_ADDR": "0x14e24",
         "REGISTERS_ADDR": "0x14e40",
         "INBOX_ADDR": "0x14e80",
         "OUTBOX_ADDR": "0x14ec0",
         "LOG_SIZE": 240,
+        // host->cart volume control
         "CHANNEL_VOLUME_0": "0x14000",
         "CHANNEL_VOLUME_1": "0x14001",
         "CHANNEL_VOLUME_2": "0x14002",
         "CHANNEL_VOLUME_3": "0x14003",
+        // Tracker-format (Somatic) song data encoded into TIC-80 RAM
         "TILE_BASE": "0x4000",
         "TF_ORDER_LIST": "0x4000",
         "TF_ORDER_LIST_COUNT": "0x4000",
         "TF_ORDER_LIST_ENTRIES": "0x4001",
         "TF_PATTERN_DATA": "0x4101",
-        "WAVEFORMS_ADDR": "0x0ffe4",
-        "SFX_ADDR": "0x100e4",
-        "PATTERNS_ADDR": "0x11164",
-        "TRACKS_ADDR": "0x13e64",
+        // Music state snapshot written by TIC-80 runtime
         "MUSIC_STATE_TRACK": "0x13ffc",
         "MUSIC_STATE_FRAME": "0x13ffd",
         "MUSIC_STATE_ROW": "0x13ffe",
         "MUSIC_STATE_FLAGS": "0x13fff",
+        // Somatic playroutine state
         "MUSIC_STATE_SOMATIC_SONG_POSITION": "0x14e40",
         "FPS": "0x14e41"
     }

@@ -10,9 +10,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const { parseJSONWithComments } = require('./jsonc-utils');
 
 const BRIDGE_LUA_PATH = path.resolve(__dirname, '../bridge/bridge.lua');
-const BRIDGE_CONFIG_PATH = path.resolve(__dirname, '../bridge/bridge_config.json');
+const BRIDGE_CONFIG_JSONC_PATH = path.resolve(__dirname, '../bridge/bridge_config.jsonc');
 const OUTPUT_GENERATED_BRIDGE_LUA_PATH = path.resolve(__dirname, '../temp/bridge-generated.lua');
 const OUTPUT_TIC_PATH = path.resolve(__dirname, '../public/bridge.tic');
 
@@ -20,11 +21,11 @@ const OUTPUT_TIC_PATH = path.resolve(__dirname, '../public/bridge.tic');
 const CHUNK_CODE = 5;
 
 function loadBridgeConfig() {
-    if (!fs.existsSync(BRIDGE_CONFIG_PATH)) {
-        throw new Error(`bridge_config.json not found at ${BRIDGE_CONFIG_PATH}`);
+    if (!fs.existsSync(BRIDGE_CONFIG_JSONC_PATH)) {
+        throw new Error(`bridge_config.jsonc not found at ${BRIDGE_CONFIG_JSONC_PATH}`);
     }
-    const raw = fs.readFileSync(BRIDGE_CONFIG_PATH, 'utf8');
-    return JSON.parse(raw);
+    const raw = fs.readFileSync(BRIDGE_CONFIG_JSONC_PATH, 'utf8');
+    return parseJSONWithComments(raw);
 }
 
 function escapeLuaString(str) {
@@ -74,7 +75,7 @@ function jsonToLua(value, indent) {
 function generateLuaAutogenBlock(config) {
     const luaTable = jsonToLua(config, 0);
     const lines = [];
-    lines.push('-- AUTO-GENERATED FROM bridge_config.json. DO NOT EDIT BY HAND.');
+    lines.push('-- AUTO-GENERATED FROM bridge_config.jsonc. DO NOT EDIT BY HAND.');
     lines.push('');
     lines.push('local BRIDGE_CONFIG = ' + luaTable);
     lines.push('');
