@@ -10,14 +10,31 @@ interface MidiDeviceChipProps {
 };
 
 export const MidiDeviceChip: React.FC<MidiDeviceChipProps> = ({ device, isEnabled, onDisconnect, onEnabled }) => {
+    // const connected = device.state === "connected";
+    // const statusText = isEnabled
+    //     ? (connected ? "Connected" : "Disconnected")
+    //     : "Disabled";
 
-
-    const statusText = isEnabled ? device.state === "connected" ? 'Connected' : '?' : 'Disabled';
-
-    return <div className="midi-device-chip">
-        <strong>{device.name}</strong> {device.manufacturer ? `(${device.manufacturer})` : ''} - {statusText}
-        {isEnabled ? <button onClick={onDisconnect}>Disconnect</button> : <button onClick={onEnabled}>Enable</button>}
-    </div>
+    return (
+        <div className="midi-device-chip">
+            <div className="midi-device-chip__main">
+                <div>
+                    <strong>{device.name}</strong>
+                    {device.manufacturer ? ` (${device.manufacturer})` : ''}
+                </div>
+                <div className="midi-device-chip__meta">
+                    <span className={`badge ${isEnabled ? 'badge--ok' : 'badge--muted'}`}>{isEnabled ? 'listening' : 'disabled'}</span>
+                </div>
+            </div>
+            <div className="midi-device-chip__actions">
+                {isEnabled ? (
+                    <button type="button" onClick={onDisconnect}>Disable</button>
+                ) : (
+                    <button type="button" onClick={onEnabled}>Enable</button>
+                )}
+            </div>
+        </div>
+    );
 };
 
 type PreferencesPanelProps = {
@@ -36,20 +53,24 @@ export const PreferencesPanel: React.FC<PreferencesPanelProps> = ({ midiStatus, 
 
         <section>
             <h3>MIDI</h3>
-            <p>Status: {midiStatus}</p>
-            <ul>
-                {midiDevices.length === 0 && <li>No MIDI devices detected.</li>}
+            <div className="preferences-panel__summary">
+                <div><strong>Status:</strong> {midiStatus}</div>
+                <div><strong>Devices detected:</strong> {midiDevices.length}</div>
+                <div><strong>Listening:</strong> {midiDevices.filter(d => !disabledMidiDeviceIds.includes(d.id)).length}</div>
+                <div><strong>Disabled:</strong> {midiDevices.filter(d => disabledMidiDeviceIds.includes(d.id)).length}</div>
+            </div>
+            <div className="midi-device-list">
+                {midiDevices.length === 0 && <div className="midi-device-list__empty">No MIDI devices detected.</div>}
                 {midiDevices.map((d) => (
-                    <li key={d.id}>
-                        <MidiDeviceChip
-                            device={d}
-                            isEnabled={!disabledMidiDeviceIds.includes(d.id)}
-                            onDisconnect={() => onDisconnectMidiDevice(d)}
-                            onEnabled={() => onEnableMidiDevice(d)}
-                        />
-                    </li>
+                    <MidiDeviceChip
+                        key={d.id}
+                        device={d}
+                        isEnabled={!disabledMidiDeviceIds.includes(d.id)}
+                        onDisconnect={() => onDisconnectMidiDevice(d)}
+                        onEnabled={() => onEnableMidiDevice(d)}
+                    />
                 ))}
-            </ul>
+            </div>
         </section>
 
         <KeyboardShortcutConfigurator />

@@ -19,63 +19,87 @@ export const MidiStatusIndicator: React.FC<MidiStatusIndicatorProps> = ({
     onToggleMidiEnabled,
     shortcutLabel,
 }) => {
-    const connectedMidiInputs = useMemo(() => {
-        return midiDevices.filter((d) => d.state === 'connected' && !disabledMidiDeviceIds.includes(d.id)).length;
-    }, [midiDevices, disabledMidiDeviceIds]);
+    const { connected, listening, connectedButDisabled } = useMemo(() => {
+        const connectedDevices = midiDevices.filter((d) => d.state === 'connected');
+        const connectedListening = midiEnabled
+            ? connectedDevices.filter((d) => !disabledMidiDeviceIds.includes(d.id))
+            : [];
+        const connectedDisabled = connectedDevices.filter((d) => disabledMidiDeviceIds.includes(d.id));
+        return {
+            connected: connectedDevices,
+            listening: connectedListening,
+            connectedButDisabled: connectedDisabled,
+        };
+    }, [midiDevices, disabledMidiDeviceIds, midiEnabled]);
 
-    const midiIndicatorState = midiStatus === 'ready'
-        ? (midiEnabled ? (connectedMidiInputs > 0 ? 'ok' : 'warn') : 'off')
-        : 'off';
+    const midiIndicatorState = midiStatus !== 'ready'
+        ? 'off'
+        : !midiEnabled
+            ? 'off'
+            : listening.length > 0
+                ? 'ok'
+                : 'warn';
 
-    const midiIndicatorLabel = midiStatus === 'ready'
-        ? (midiEnabled
-            ? (connectedMidiInputs > 0 ? `MIDI (${connectedMidiInputs})` : 'MIDI ready (no devices)')
-            : 'MIDI off')
-        : midiStatus === 'pending'
-            ? 'MIDI initializing'
-            : midiStatus === 'unsupported'
-                ? 'MIDI unsupported'
-                : midiStatus === 'denied'
-                    ? 'MIDI access denied'
-                    : 'MIDI error';
-
-    const connectedDevices = useMemo(() => {
-        return midiDevices.filter((d) => d.state === 'connected' && !disabledMidiDeviceIds.includes(d.id));
-    }, [midiDevices, disabledMidiDeviceIds]);
+    const midiIndicatorLabel = (() => {
+        if (midiStatus === 'pending') return 'MIDI initializing';
+        if (midiStatus === 'unsupported') return 'MIDI unsupported';
+        if (midiStatus === 'denied') return 'MIDI access denied';
+        if (midiStatus === 'error') return 'MIDI error';
+        if (!midiEnabled) return 'MIDI off';
+        if (listening.length > 0) return `MIDI listening (${listening.length}/${connected.length})`;
+        if (connected.length > 0) return `MIDI ready (${connected.length} available, none listening)`;
+        return 'MIDI ready (no devices)';
+    })();
 
     const tooltipContent = (
-        <div>
+        <div style={{ maxWidth: 360 }}>
             <div>
                 <strong>{midiIndicatorLabel}</strong>
-                {shortcutLabel && <span>({shortcutLabel})</span>}
+                {shortcutLabel && <span> ({shortcutLabel})</span>}
             </div>
-            {midiStatus === 'ready' && midiEnabled && (
-                <>
-                    {connectedDevices.length > 0 ? (
-                        <div>
-                            <div>Connected devices:</div>
+
+            {midiStatus === 'ready' ? (
+                <div style={{ marginTop: 6 }}>
+                    <div>Listening: {midiEnabled ? listening.length : 0}</div>
+                    <div>Available: {connected.length}</div>
+                    <div>Available but disabled: {connectedButDisabled.length}</div>
+                    <div>MIDI globally: {midiEnabled ? 'enabled' : 'disabled'}</div>
+                    {connected.length === 0 && <div>No MIDI devices reported by the OS.</div>}
+                    {connected.length > 0 && (
+                        <div style={{ marginTop: 6 }}>
+                            <div>Devices:</div>
                             <ul>
-                                {connectedDevices.map((device) => (
-                                    <li key={device.id}>
-                                        {device.name}
-                                        {device.manufacturer && ` (${device.manufacturer})`}
-                                    </li>
-                                ))}
+                                {midiDevices.map((device) => {
+                                    const isDisabled = disabledMidiDeviceIds.includes(device.id);
+                                    return (
+                                        <li key={device.id}>
+                                            {device.name}{device.manufacturer ? ` (${device.manufacturer})` : ''}
+                                            {` - ${isDisabled ? 'disabled in prefs' : (midiEnabled ? 'listening' : 'muted (global off)')}`}
+                                            {!isDisabled && !midiEnabled && ' (muted)'}
+                                        </li>
+                                    );
+                                })}
                             </ul>
                         </div>
-                    ) : (
-                        <div>No devices connected</div>
                     )}
-                </>
+                </div>
+            ) : (
+                <div style={{ marginTop: 6 }}>
+                    {midiStatus === 'pending' && 'Waiting for MIDI access...'}
+                    {midiStatus === 'unsupported' && 'Web MIDI API not supported in this browser.'}
+                    {midiStatus === 'denied' && 'Permission to use MIDI was denied.'}
+                    {midiStatus === 'error' && 'An error occurred while initializing MIDI.'}
+                </div>
             )}
-            <div>
+
+            <div style={{ marginTop: 8 }}>
                 Click to {midiEnabled ? 'disable' : 'enable'}
             </div>
         </div>
     );
 
-    const ariaLabel = midiEnabled && connectedMidiInputs > 0
-        ? `${midiIndicatorLabel}: ${connectedMidiInputs} input${connectedMidiInputs === 1 ? '' : 's'} connected. Click to disable.`
+    const ariaLabel = midiEnabled && listening.length > 0
+        ? `${midiIndicatorLabel}: ${listening.length} input${listening.length === 1 ? '' : 's'} listening. Click to disable.`
         : midiEnabled
             ? `${midiIndicatorLabel}. Click to disable.`
             : `${midiIndicatorLabel}. Click to enable.`;
