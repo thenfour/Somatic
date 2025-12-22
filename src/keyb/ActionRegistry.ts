@@ -171,15 +171,55 @@ export const gActionRegistry: ActionRegistry = {
       ],
    },
 
-   // "PlayStop": {
-   //    id: "PlayStop",
-   //    title: "play or stop playback",
-   //    description: "stops playback if playing, otherwise starts playback from the current position.",
-   //    category: "Transport",
-   //    defaultBindings: [
-   //       {kind: "physical", code: "Space"},
-   //    ],
-   // },
+   "PlayRow": {
+      id: "PlayRow",
+      title: "play current row",
+      description: "play the notes in the row under the cursor.",
+      category: "Transport",
+      defaultBindings: [
+         {kind: "character", key: "Enter"},
+      ],
+   },
+
+   "InsertNoteCut": {
+      id: "InsertNoteCut",
+      title: "insert note cut",
+      description: "insert a note cut (^^^) at the current cell.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "Backspace", shift: true},
+      ],
+   },
+
+   "ClearCell": {
+      id: "ClearCell",
+      title: "clear cell",
+      description: "clear the entire cell (note, instrument, and effect).",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "Delete"},
+      ],
+   },
+
+   "ClearField": {
+      id: "ClearField",
+      title: "clear field",
+      description: "clear the field under the cursor.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "Backspace"},
+      ],
+   },
+
+   "SelectAll": {
+      id: "SelectAll",
+      title: "select all",
+      description: "select all cells in the current pattern.",
+      category: "Edit",
+      defaultBindings: [
+         {kind: "character", key: "a", primary: true},
+      ],
+   },
 
    "ToggleEditMode": {
       id: "ToggleEditMode",

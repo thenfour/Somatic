@@ -474,6 +474,85 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             void handleCutSelection();
         });
 
+        useActionHandler("PlayRow", () => {
+            const rowIndex = editorState.patternEditRow;
+            playRow(rowIndex);
+        });
+
+        useActionHandler("InsertNoteCut", () => {
+            if (!editingEnabled) return;
+            const rowIndex = editorState.patternEditRow;
+            const channelIndex = editorState.patternEditChannel;
+            onSongChange({
+                description: 'Insert note cut',
+                undoable: true,
+                mutator: (s) => {
+                    const pat = s.patterns[safePatternIndex];
+                    const oldCell = pat.getCell(channelIndex, rowIndex);
+                    pat.setCell(channelIndex, rowIndex, {
+                        ...oldCell,
+                        midiNote: 69,
+                        instrumentIndex: SomaticCaps.noteCutInstrumentIndex,
+                    });
+                },
+            });
+        });
+
+        useActionHandler("ClearCell", () => {
+            if (!editingEnabled) return;
+            const rowIndex = editorState.patternEditRow;
+            const channelIndex = editorState.patternEditChannel;
+            onSongChange({
+                description: 'Clear entire cell',
+                undoable: true,
+                mutator: (s) => {
+                    const pat = s.patterns[safePatternIndex];
+                    pat.setCell(channelIndex, rowIndex, {
+                        midiNote: undefined,
+                        instrumentIndex: undefined,
+                        effect: undefined,
+                        effectX: undefined,
+                        effectY: undefined
+                    });
+                },
+            });
+        });
+
+        useActionHandler("ClearField", () => {
+            if (!editingEnabled) return;
+            const rowIndex = editorState.patternEditRow;
+            const channelIndex = editorState.patternEditChannel;
+            const columnIndex = currentColumnIndex;
+            const cellTypeOffset = columnIndex % CELLS_PER_CHANNEL;
+            const cellType: CellType = cellTypeOffset === 0 ? 'note' : cellTypeOffset === 1 ? 'instrument' : cellTypeOffset === 2 ? 'command' : 'param';
+            onSongChange({
+                description: 'Clear field under cursor',
+                undoable: true,
+                mutator: (s) => {
+                    const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                    const pat = s.patterns[patIndex];
+                    const oldCell = pat.getCell(channelIndex, rowIndex);
+
+                    if (cellType === 'note') {
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, midiNote: undefined });
+                    } else if (cellType === 'instrument') {
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, instrumentIndex: undefined });
+                    } else if (cellType === 'command') {
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, effect: undefined });
+                    } else if (cellType === 'param') {
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, effectX: undefined, effectY: undefined });
+                    }
+                },
+            });
+        });
+
+        useActionHandler("SelectAll", () => {
+            selection2d.setSelection(new SelectionRect2D({
+                start: { x: 0, y: 0 },
+                size: { width: Tic80Caps.song.audioChannels, height: song.rowsPerPattern },
+            }));
+        });
+
         const playbackSongPosition = musicState.somaticSongPosition ?? -1;
         const playbackRowIndexRaw = musicState.tic80RowIndex ?? -1;
         const playbackPatternIndex = playbackSongPosition >= 0 && song.songOrder.length > 0
@@ -488,24 +567,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             audio.playRow(song, pattern, rowIndex);
         };
 
-        const handleNoteKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, e: KeyboardEvent<HTMLTableCellElement>) => {
-            // shift+backspace = note cut (still handled locally)
-            if (e.shiftKey && e.key === 'Backspace') {
-                onSongChange({
-                    description: 'Insert note cut',
-                    undoable: true,
-                    mutator: (s) => {
-                        const pat = s.patterns[safePatternIndex];
-                        const oldCell = pat.getCell(channelIndex, rowIndex);
-                        pat.setCell(channelIndex, rowIndex, {
-                            ...oldCell,
-                            midiNote: 69,
-                            instrumentIndex: SomaticCaps.noteCutInstrumentIndex,
-                        });
-                    },
-                });
-            }
-            // note entry is now handled via global note input sources (MIDI/keyboard), so other keys are ignored here.
+        const handleNoteKey = (_channelIndex: Tic80ChannelIndex, _rowIndex: number, _e: KeyboardEvent<HTMLTableCellElement>) => {
+            // Note entry is handled via global note input sources (MIDI/keyboard)
+            // InsertNoteCut is now handled via useActionHandler
         };
 
         const handleInstrumentKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
@@ -890,58 +954,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 return;
             }
 
-            if (e.key === 'Enter' && !e.repeat) {
-                e.preventDefault();
-                playRow(rowIndex);
-                return;
-            }
-
             if (!editingEnabled) return;
-
-            // Delete key: clear entire cell
-            if (!e.altKey && !e.shiftKey && !e.ctrlKey && e.key === 'Delete' && !e.repeat) {
-                e.preventDefault();
-                onSongChange({
-                    description: 'Clear entire cell',
-                    undoable: true,
-                    mutator: (s) => {
-                        const pat = s.patterns[safePatternIndex];
-                        pat.setCell(channelIndex, rowIndex, {
-                            midiNote: undefined,
-                            instrumentIndex: undefined,
-                            effect: undefined,
-                            effectX: undefined,
-                            effectY: undefined
-                        });
-                    },
-                });
-                return;
-            }
-
-            // Backspace: clear only the field under cursor
-            if (!e.altKey && !e.shiftKey && !e.ctrlKey && e.key === 'Backspace' && !e.repeat) {
-                e.preventDefault();
-                onSongChange({
-                    description: 'Clear field under cursor',
-                    undoable: true,
-                    mutator: (s) => {
-                        const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
-                        const pat = s.patterns[patIndex];
-                        const oldCell = pat.getCell(channelIndex, rowIndex);
-
-                        if (cellType === 'note') {
-                            pat.setCell(channelIndex, rowIndex, { ...oldCell, midiNote: undefined });
-                        } else if (cellType === 'instrument') {
-                            pat.setCell(channelIndex, rowIndex, { ...oldCell, instrumentIndex: undefined });
-                        } else if (cellType === 'command') {
-                            pat.setCell(channelIndex, rowIndex, { ...oldCell, effect: undefined });
-                        } else if (cellType === 'param') {
-                            pat.setCell(channelIndex, rowIndex, { ...oldCell, effectX: undefined, effectY: undefined });
-                        }
-                    },
-                });
-                return;
-            }
 
             if (cellType === 'note' && !e.repeat) {
                 handleNoteKey(channelIndex, rowIndex, e);

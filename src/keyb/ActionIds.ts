@@ -18,6 +18,7 @@ export const Actions = {
    PlayFromPosition: "PlayFromPosition",
    PlayPattern: "PlayPattern",
    PlaySong: "PlaySong",
+   PlayRow: "PlayRow",
    //PlayStop: "PlayStop",
    ToggleEditMode: "ToggleEditMode",
    DecreaseOctave: "DecreaseOctave",
@@ -58,6 +59,11 @@ export const Actions = {
    Copy: "Copy",
    Paste: "Paste",
    Cut: "Cut",
+
+   InsertNoteCut: "InsertNoteCut",
+   ClearCell: "ClearCell",
+   ClearField: "ClearField",
+   SelectAll: "SelectAll",
 } as const;
 
 export const kAllActionIds = Object.values(Actions);
