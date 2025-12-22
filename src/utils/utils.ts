@@ -230,3 +230,22 @@ export function SanitizeFilename(name: string, nameIfEmpty: string): string {
    const sanitized = name.replace(/[\/\\?%*:|"<>]/g, "_").trim();
    return sanitized.length > 0 ? sanitized : nameIfEmpty;
 }
+
+
+// Matches if all space-separated tokens appear sequentially (case-insensitive) in the text.
+// e.g., "y ow" matches "PLAY CURRENT ROW" because "y" appears, then later "ow" appears.
+// all tokens much match to return true.
+export function matchesFilter(text: string, filter: string): boolean {
+   if (!filter.trim())
+      return true;
+   const tokens = filter.toLowerCase().split(/\s+/).filter(t => t.length > 0);
+   const lowerText = text.toLowerCase();
+   let pos = 0;
+   for (const token of tokens) {
+      const idx = lowerText.indexOf(token, pos);
+      if (idx === -1)
+         return false;
+      pos = idx + token.length;
+   }
+   return true;
+}

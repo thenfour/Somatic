@@ -1,6 +1,6 @@
 import React from "react";
 import { Tooltip } from "../ui/tooltip";
-import { assert, CharMap } from "../utils/utils";
+import { assert, CharMap, matchesFilter } from "../utils/utils";
 import { ActionId, kAllActionIds } from "./ActionIds";
 import { gActionRegistry, kAllActions } from "./ActionRegistry";
 import { formatChord } from "./format";
@@ -178,6 +178,7 @@ export const KeyboardShortcutConfigurator: React.FC<{}> = () => {
     const clipboard = useClipboard();
     const toast = useToasts();
     const mgr = useShortcutManager();
+    const [filter, setFilter] = React.useState("");
     const allCategories = new Set(kAllActions.map(action => action.category));
 
     const onResetAllToDefaults = React.useCallback(async () => {
@@ -201,24 +202,60 @@ export const KeyboardShortcutConfigurator: React.FC<{}> = () => {
         toast.pushToast({ variant: "success", message: "Keyboard shortcuts pasted from clipboard." });
     }, [clipboard, mgr]);
 
+    // Filter actions by matching against id, title, and description
+    const filteredActions = React.useMemo(() => {
+        return kAllActions.filter(action => {
+            const searchText = `${action.id} ${action.title} ${action.description || ""}`;
+            return matchesFilter(searchText, filter);
+        });
+    }, [filter]);
+
+    const filteredCategories = React.useMemo(() => {
+        const cats = new Set(filteredActions.map(action => action.category));
+        return Array.from(allCategories).filter(cat => cats.has(cat));
+    }, [filteredActions, allCategories]);
+
     return <div className="keyboard-shortcut-configurator">
         <section>
             <h3>Keyboard Shortcuts</h3>
-            <div style={{ display: "flex" }}>
+            <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={onResetAllToDefaults}>Reset to defaults</button>
                 <button onClick={onCopyCurrentShortcutsToClipboard}>Copy config</button>
                 <button onClick={onPasteShortcutsFromClipboard}>Paste</button>
             </div>
+            <div className="keyboard-shortcut-filter">
+                <input
+                    type="text"
+                    placeholder="Filter shortcuts..."
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    className="keyboard-shortcut-filter__input"
+                />
+                {filter && (
+                    <button
+                        className="keyboard-shortcut-filter__clear"
+                        onClick={() => setFilter("")}
+                        title="Clear filter"
+                    >
+                        {CharMap.Mul}
+                    </button>
+                )}
+            </div>
         </section>
         <section>
-            {Array.from(allCategories).map(category => (
+            {filteredCategories.map(category => (
                 <div key={category} className="keyboard-shortcut-category">
                     <h4>{category}</h4>
-                    {kAllActions.filter(action => action.category === category).map(action => (
+                    {filteredActions.filter(action => action.category === category).map(action => (
                         <BindingEditorRow key={action.id} actionId={action.id} />
                     ))}
                 </div>
             ))}
+            {filteredActions.length === 0 && filter && (
+                <div className="keyboard-shortcut-no-results">
+                    No shortcuts match "{filter}"
+                </div>
+            )}
         </section>
     </div>;
 };

@@ -10,6 +10,54 @@
     letter-spacing: 0.2px;
 }
 
+.keyboard-shortcut-filter {
+    display: flex;
+    align-items: center;
+    margin-top: 8px;
+    position: relative;
+}
+
+.keyboard-shortcut-filter__input {
+    flex: 1;
+    padding: 8px 32px 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--panel);
+    color: var(--text);
+    font-size: 14px;
+}
+
+.keyboard-shortcut-filter__input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.keyboard-shortcut-filter__input::placeholder {
+    color: var(--muted);
+}
+
+.keyboard-shortcut-filter__clear {
+    position: absolute;
+    right: 4px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 14px;
+}
+
+.keyboard-shortcut-filter__clear:hover {
+    color: var(--text);
+}
+
+.keyboard-shortcut-no-results {
+    padding: 16px;
+    text-align: center;
+    color: var(--muted);
+    font-style: italic;
+}
+
 .keyboard-shortcut-category {
     margin-bottom: 16px;
 }
