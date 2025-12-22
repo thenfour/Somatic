@@ -5,6 +5,7 @@ import { AudioController } from "../audio/controller";
 import { Song } from "../models/song";
 import { calculateSongPositionInSeconds } from "../models/tic80Capabilities";
 import { TransportTime } from "./transportTime";
+import { KeyValueTable } from "./KeyValueTable";
 
 const FPS_UPDATE_INTERVAL_MS = 500;
 const FPS_WARNING_THRESHOLD = 45; // below this and we show a warning
@@ -53,28 +54,8 @@ export const MusicStateDisplay: React.FC<{ song: Song, bridgeReady: boolean; aud
         {fpsWarning && <div style={{ color: 'orange' }}>
             <div>⚠️ Low FPS detected ({fps} FPS)</div>
             <div>It means the tic80 won't keep up well and the audio will be glitchy / unstable.</div>
-            <div>See: <a href="https://github.com/thenfour/Somatic/issues/56" target="_blank" rel="noopener noreferrer">github issue #56</a> for details about this issue.</div>
-            <div>As a workaround, interact with the tic80 window at startup so the browser knows it's active</div>
         </div>}
-        <table>
-            <tbody>
-                <tr>
-                    <td>FPS</td><td>{fps}</td>
-                </tr>
-                <tr>
-                    <td>Playing</td><td>{musicState.isPlaying ? 'Yes' : 'No'}</td>
-                </tr>
-                <tr>
-                    <td>Order</td><td>{currentSomaticSongPositionIfPlaying}</td>
-                </tr>
-                <tr>
-                    <td>Row</td><td>{musicState.backendState.tic80RowIndex}</td>
-                </tr>
-                {/* <tr>
-                    <td>Looping?</td><td>{musicState.isLooping ? 'Yes' : 'No'}</td>
-                </tr> */}
-            </tbody>
-        </table>
+        <KeyValueTable value={musicState} />
     </div>}>
         <div className='musicState-panel'>
             <div className='flags'>

@@ -3,15 +3,15 @@ import {gLog} from "../utils/logger";
 
 type UseRenderAlarmOpts = {
    name?: string;
-   warnAfterRenders?: number; // e.g. 30 renders…
-   withinMs?: number;         // …within this time window
+   warnAfterRenders?: number; // e.g. 30 renders...
+   withinMs?: number;         // ...within this time window
    logEachRender?: boolean;   // noisy, but useful briefly
 };
 
 export function useRenderAlarm(opts: UseRenderAlarmOpts = {}) {
    const {
       name = "Component",
-      warnAfterRenders = 30,
+      warnAfterRenders = 70, // rendering a light component every animation frame is common.
       withinMs = 1000,
       logEachRender = false,
    } = opts;

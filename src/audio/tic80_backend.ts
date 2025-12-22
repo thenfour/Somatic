@@ -29,7 +29,8 @@ export type BackendPlaySongArgs = {
 export class Tic80Backend {
    private readonly bridge: () => Tic80BridgeHandle | null;
    private serializedSong: Tic80SerializedSong|null = null; // the last uploaded song.
-   private lastKnownTi80TransportState: Tic80TransportState = MakeEmptyTic80TransportState();
+   //private lastKnownTi80TransportState: Tic80TransportState = MakeEmptyTic80TransportState();
+   private lastKnownSomaticTransportState: SomaticTransportState = MakeEmptySomaticTransportState();
 
    constructor(bridgeGetter: () => Tic80BridgeHandle | null) {
       this.bridge = bridgeGetter;
@@ -223,10 +224,8 @@ export class Tic80Backend {
       //this.emit.stop();
    }
 
-   getTic80TransportState(): Tic80TransportState {
-      const b = this.bridge();
-      if (!b || !b.isReady())
-         return this.lastKnownTi80TransportState;
+   private getTic80TransportState(): Tic80TransportState {
+      const b = this.bridge()!;
 
       const row = b.peekU8(TicMemoryMap.MUSIC_STATE_ROW);
       const somaticSongPosition = b.peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_SONG_POSITION);
@@ -236,25 +235,36 @@ export class Tic80Backend {
          reportedSongPosition: somaticSongPosition === 255 ? -1 : somaticSongPosition,
          isPlaying: somaticSongPosition !== 255,
       };
+      return next;
 
-      // do not spam new instances. check if it actually changed;
-      if (JSON.stringify(this.lastKnownTi80TransportState) !== JSON.stringify(next)) {
-         this.lastKnownTi80TransportState = next;
-      }
+      // // do not spam new instances. check if it actually changed;
+      // if (JSON.stringify(this.lastKnownTi80TransportState) !== JSON.stringify(next)) {
+      //    this.lastKnownTi80TransportState = next;
+      // }
 
-      return this.lastKnownTi80TransportState;
+      // return this.lastKnownTi80TransportState;
    }
 
    getSomaticTransportState(): SomaticTransportState {
+      const b = this.bridge();
+      if (!b || !b.isReady()) {
+         return this.lastKnownSomaticTransportState;
+      }
+
       // uses last serialized song's baked info to map tic80 state back to somatic state.
       // note that there's a potential desync here if the song was changed since last upload.
       // instead of trying to detect that though (it's not trivial without clamping down a lot of stuff),
       // just deal with the possibility of desync in the UI.
       const tic80State = this.getTic80TransportState();
       if (!this.serializedSong) {
-         return MakeEmptySomaticTransportState();
+         return this.lastKnownSomaticTransportState;
       }
-      return convertTic80MusicStateToSomatic(this.serializedSong?.bakedSong, tic80State);
+      const somaticState = convertTic80MusicStateToSomatic(this.serializedSong?.bakedSong, tic80State);
+      // avoid spamming new instances.
+      if (JSON.stringify(somaticState) !== JSON.stringify(this.lastKnownSomaticTransportState)) {
+         this.lastKnownSomaticTransportState = somaticState;
+      }
+      return this.lastKnownSomaticTransportState;
    };
 
    getFPS(): number {

@@ -7,13 +7,12 @@ import React, {
     useRef,
     useState,
 } from "react";
+import { Tic80SerializedSong } from "../audio/tic80_cart_serializer";
+import { Tic80ChannelIndex, TicBridge, TicMemoryMap } from "../models/tic80Capabilities";
+import { AsyncMutex } from "../utils/async_mutex";
+import { gLog } from "../utils/logger";
 import { Tic80Iframe, Tic80IframeHandle } from "./Tic80EmbedIframe";
 import { Tic80TopLevel, Tic80TopLevelHandle } from "./Tic80TopLevel";
-import { AsyncMutex } from "../utils/async_mutex";
-import { Tic80ChannelIndex, TicBridge, TicMemoryMap } from "../models/tic80Capabilities";
-import { Tic80SerializedSong } from "../audio/tic80_cart_serializer";
-import { gLog } from "../utils/logger";
-import { LoopMode } from "../audio/backend";
 
 declare global {
     interface Window {

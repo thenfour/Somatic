@@ -5,6 +5,7 @@ import { saveSync } from 'save-file';
 import './AppStatusBar.css';
 import './somatic.css';
 
+import { LoopMode, SomaticTransportState } from './audio/backend';
 import { AudioController } from './audio/controller';
 import { serializeSongToCart } from './audio/tic80_cart_serializer';
 import { useAppInstancePresence } from './hooks/useAppPresence';
@@ -39,11 +40,11 @@ import { useToasts } from './ui/toast_provider';
 import { Tooltip } from './ui/tooltip';
 import { TransportTime } from './ui/transportTime';
 import { WaveformEditorPanel } from './ui/waveformEditor';
+import { gLog } from './utils/logger';
 import { OptimizeSong } from './utils/SongOptimizer';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
 import { CharMap } from './utils/utils';
-import { LoopMode, SomaticTransportState } from './audio/backend';
 
 const TIC80_FRAME_SIZES = [
 
@@ -508,6 +509,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     };
 
     const playSongWithFlush = useCallback(async (reason: string, startPosition: number, startRow: number) => {
+        gLog.info(`playSongWithFlush: song is ${somaticTransportState.isPlaying ? 'playing' : 'stopped'}`);
         if (somaticTransportState.isPlaying) {
             audio.panic();
         } else {
@@ -525,7 +527,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 songOrderSelection: editorRef.current.selectedArrangementPositions,
             });
         }
-    }, [audio]);
+    }, [audio, somaticTransportState]);
 
     const onPlayPattern = () => {
         const ed = editorRef.current;

@@ -215,6 +215,14 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
    let resultStartPosition = startPosition;
    let resultStartRow = startRow;
 
+   // default transport conversion assumes a 1:1 mapping between the baked song
+   // and the original song, with no special looping beyond what TIC-80 does.
+   let somaticSongOrderLoop: BakedSong["transportConversion"]["somaticSongOrderLoop"] = null;
+   let somaticPatternRowLoop: BakedSong["transportConversion"]["somaticPatternRowLoop"] = null;
+   let songOrderOffset = 0;  // tic80 song order 0 maps to somatic song order 0 by default
+   let patternRowOffset = 0; // tic80 row 0 maps to somatic row 0 by default
+   let somaticRowsPerTic80Pattern = originalSong.rowsPerPattern;
+
    switch (loopMode) {
       case "off": {
          wantSongLoop = false;
@@ -223,6 +231,10 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
 
       case "song": {
          wantSongLoop = true;
+         somaticSongOrderLoop = {
+            beginSomaticSongOrder: 0,
+            loopLength: originalSong.songOrder.length,
+         };
          break;
       }
 
@@ -240,7 +252,13 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
             bakedSong.rowsPerPattern = computeRepeatedRowCount(sliceLength);
          }
          resultStartPosition = 0;
-         // Keep startRow as requested (user may have clicked "play from row")
+         // Loop the single pattern at the current song-order position.
+         somaticSongOrderLoop = {
+            beginSomaticSongOrder: cursorSongOrder,
+            loopLength: 1,
+         };
+         songOrderOffset = cursorSongOrder;
+         somaticRowsPerTic80Pattern = originalSong.rowsPerPattern;
          break;
       }
 
@@ -273,6 +291,12 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          bakedSong.songOrder = newSongOrder;
          resultStartPosition = 0;
          resultStartRow = 0;
+         somaticSongOrderLoop = {
+            beginSomaticSongOrder: rangeStart,
+            loopLength: rangeSize,
+         };
+         songOrderOffset = rangeStart;
+         somaticRowsPerTic80Pattern = originalSong.rowsPerPattern;
          break;
       }
 
@@ -296,6 +320,19 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          }
          resultStartPosition = 0;
          resultStartRow = 0;
+         somaticSongOrderLoop = {
+            beginSomaticSongOrder: cursorSongOrder,
+            loopLength: 1,
+         };
+         somaticPatternRowLoop = {
+            beginSomaticPatternRow:
+               Math.max(0, cursorRowIndex - (cursorRowIndex % Math.max(1, Math.floor(bakedSong.rowsPerPattern / 2)))),
+            loopLength: Math.floor(bakedSong.rowsPerPattern / 2) || originalSong.rowsPerPattern,
+         };
+         // For half-pattern we loop over a contiguous block starting at halfStart with length halfLength.
+         songOrderOffset = cursorSongOrder;
+         patternRowOffset = somaticPatternRowLoop.beginSomaticPatternRow;
+         somaticRowsPerTic80Pattern = somaticPatternRowLoop.loopLength;
          break;
       }
 
@@ -319,12 +356,25 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          }
          resultStartPosition = 0;
          resultStartRow = 0;
+         somaticSongOrderLoop = {
+            beginSomaticSongOrder: cursorSongOrder,
+            loopLength: 1,
+         };
+         somaticPatternRowLoop = {
+            beginSomaticPatternRow:
+               Math.max(0, cursorRowIndex - (cursorRowIndex % Math.max(1, Math.floor(bakedSong.rowsPerPattern / 4)))),
+            loopLength: Math.floor(bakedSong.rowsPerPattern / 4) || originalSong.rowsPerPattern,
+         };
+         songOrderOffset = cursorSongOrder;
+         patternRowOffset = somaticPatternRowLoop.beginSomaticPatternRow;
+         somaticRowsPerTic80Pattern = somaticPatternRowLoop.loopLength;
          break;
       }
 
       case "selectionInPattern": {
          // Loop the selected rows within the pattern
          wantSongLoop = true;
+         songOrderOffset = cursorSongOrder;
 
          const patternIndex = bakedSong.songOrder[cursorSongOrder] ?? 0;
          const srcPattern = bakedSong.patterns[patternIndex];
@@ -339,6 +389,12 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
             bakedSong.patterns = [newPattern];
             bakedSong.songOrder = [0];
             bakedSong.rowsPerPattern = computeRepeatedRowCount(selectionRowCount);
+            somaticPatternRowLoop = {
+               beginSomaticPatternRow: selTop,
+               loopLength: selectionRowCount,
+            };
+            patternRowOffset = selTop;
+            somaticRowsPerTic80Pattern = selectionRowCount;
          } else {
             // No selection - fall back to current pattern
             if (srcPattern) {
@@ -351,6 +407,10 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          }
          resultStartPosition = 0;
          resultStartRow = 0;
+         somaticSongOrderLoop = {
+            beginSomaticSongOrder: cursorSongOrder,
+            loopLength: 1,
+         };
          break;
       }
 
@@ -364,12 +424,64 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
       wantSongLoop,
       startPosition: resultStartPosition,
       startRow: resultStartRow,
+      transportConversion: {
+         somaticSongOrderLoop,
+         somaticPatternRowLoop,
+         songOrderOffset,
+         patternRowOffset,
+         somaticRowsPerTic80Pattern,
+      },
    };
 };
 
 
 
 export function convertTic80MusicStateToSomatic(
-   bakedSong: BakedSong, musicState: Tic80TransportState): SomaticTransportState{
-   // use the bakedSong.transportConversion to map tic80 state back to somatic state.
+   bakedSong: BakedSong, musicState: Tic80TransportState): SomaticTransportState {
+   const backendState = musicState;
+   const conv = bakedSong.transportConversion;
+
+   const somaticState: SomaticTransportState = {
+      backendState,
+      isPlaying: backendState.isPlaying,
+      somaticSongOrderLoop: conv.somaticSongOrderLoop ? {
+         beginSongOrder: conv.somaticSongOrderLoop.beginSomaticSongOrder,
+         length: conv.somaticSongOrderLoop.loopLength,
+      } :
+                                                        null,
+      somaticPatternRowLoop: conv.somaticPatternRowLoop ? {
+         beginPatternRow: conv.somaticPatternRowLoop.beginSomaticPatternRow,
+         length: conv.somaticPatternRowLoop.loopLength,
+      } :
+                                                          null, // clang-format why?
+      currentSomaticSongPosition: null,
+      currentSomaticRowIndex: null,
+   };
+
+   if (!backendState.isPlaying) {
+      return somaticState;
+   }
+
+   const totalOrders = bakedSong.bakedSong.songOrder.length;
+   const rowsPerPattern = bakedSong.bakedSong.rowsPerPattern;
+
+   // Map TIC-80 song position back to somatic song order.
+   const orderIdx = backendState.reportedSongPosition;
+   somaticState.currentSomaticSongPosition = conv.songOrderOffset + orderIdx;
+
+   // Map TIC-80 row index back to somatic pattern row.
+   let rowIdx = backendState.tic80RowIndex;
+   rowIdx = ((rowIdx % rowsPerPattern) + rowsPerPattern) % rowsPerPattern;
+
+   if (conv.somaticPatternRowLoop) {
+      const loopLen = conv.somaticPatternRowLoop.loopLength || conv.somaticRowsPerTic80Pattern || rowsPerPattern;
+      const posInLoop = rowIdx % loopLen;
+      somaticState.currentSomaticRowIndex = conv.somaticPatternRowLoop.beginSomaticPatternRow + posInLoop;
+   } else {
+      const baseLen = conv.somaticRowsPerTic80Pattern || rowsPerPattern;
+      const posInBase = rowIdx % baseLen;
+      somaticState.currentSomaticRowIndex = conv.patternRowOffset + posInBase;
+   }
+
+   return somaticState;
 };
