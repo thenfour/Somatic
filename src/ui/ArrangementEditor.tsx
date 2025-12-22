@@ -34,6 +34,27 @@ export const ArrangementEditor: React.FC<{
         [maxPositions]
     );
 
+    // Pending selection/focus to apply after song mutations propagate
+    const pendingSelectionRef = useRef<{
+        selection: SelectionRect2D | null;
+        focusRow: number | null;
+    } | null>(null);
+
+    // Apply pending selection after song order changes
+    useEffect(() => {
+        if (pendingSelectionRef.current) {
+            const pending = pendingSelectionRef.current;
+            pendingSelectionRef.current = null;
+
+            if (pending.selection) {
+                selection2d.setSelection(pending.selection);
+            }
+            if (pending.focusRow !== null) {
+                focusRow(pending.focusRow);
+            }
+        }
+    }, [song.songOrder.length]);
+
     const selection2d = useRectSelection2D({
         selection: editorState.selectedArrangementPositions,
         onChange: (rect) => {
@@ -69,6 +90,11 @@ export const ArrangementEditor: React.FC<{
         if (newFocus != null) {
             focusRow(newFocus);
         }
+    };
+
+    // Schedule selection/focus to be applied after song mutation propagates through state
+    const schedulePendingSelection = (selection: SelectionRect2D | null, focusRowIndex: number | null) => {
+        pendingSelectionRef.current = { selection, focusRow: focusRowIndex };
     };
 
     // Find multiple unused pattern indices
@@ -170,22 +196,26 @@ export const ArrangementEditor: React.FC<{
     };
 
     const handleInsertBelow = () => {
+        const selection = getSelectionRange();
+        const insertPos = selection[selection.length - 1] + 1;
+
         onSongChange({
             description: 'Insert pattern below',
             undoable: true,
             mutator: (s) => {
                 if (s.songOrder.length >= maxPositions) return;
-                const selection = getSelectionRange();
-                const insertPos = selection[selection.length - 1] + 1;
                 const newPatterns = findUnusedPatternIndices(s, 1);
                 if (newPatterns.length > 0) {
                     s.songOrder.splice(insertPos, 0, newPatterns[0]);
                 }
             },
         });
-        // TODO: set selection to new item; set focus to new item.
-        // note: won't work if inserting at end, because that row doesn't exist yet and will get clamped.
-        nudgeSelectionAndFocusAnchor(1);
+
+        // Schedule selection to new item after song state propagates
+        schedulePendingSelection(
+            new SelectionRect2D({ start: { x: 0, y: insertPos }, size: { width: 1, height: 1 } }),
+            insertPos
+        );
     };
 
     const handleDeleteSelected = async () => {
@@ -225,14 +255,16 @@ export const ArrangementEditor: React.FC<{
     };
 
     const handleRepeatSelection = () => {
+        const selection = getSelectionRange();
+        const selectionCount = selection.length;
+        const insertPos = selection[selection.length - 1] + 1;
+
         onSongChange({
             description: 'Repeat arrangement selection',
             undoable: true,
             mutator: (s) => {
                 if (s.songOrder.length >= maxPositions) return;
-                const selection = getSelectionRange();
                 const patterns = selection.map(idx => s.songOrder[idx]);
-                const insertPos = selection[selection.length - 1] + 1;
 
                 // Check if we have room
                 if (s.songOrder.length + patterns.length > maxPositions) return;
@@ -240,20 +272,24 @@ export const ArrangementEditor: React.FC<{
                 s.songOrder.splice(insertPos, 0, ...patterns);
             },
         });
-        // TODO: make this work.
-        // move selection to the new items.
-        // note that there's an issue if you duplicate the last item; state hasn't made space for that item yet
-        // the workaround would be to useEffect() but ... meh.
-        nudgeSelectionAndFocusAnchor(editorState.selectedArrangementPositions?.getSignedSize()?.height || 0);
+
+        // Schedule selection to the new repeated items after song state propagates
+        schedulePendingSelection(
+            new SelectionRect2D({ start: { x: 0, y: insertPos }, size: { width: 1, height: selectionCount } }),
+            insertPos
+        );
     };
 
     const handleDuplicateSelection = () => {
+        const selection = getSelectionRange();
+        const selectionCount = selection.length;
+        const insertPos = selection[selection.length - 1] + 1;
+
         onSongChange({
             description: 'Duplicate arrangement selection',
             undoable: true,
             mutator: (s) => {
                 if (s.songOrder.length >= maxPositions) return;
-                const selection = getSelectionRange();
                 const patterns = selection.map(idx => s.songOrder[idx]);
 
                 // Check if we have room
@@ -271,14 +307,15 @@ export const ArrangementEditor: React.FC<{
                     return newPatternIdx;
                 });
 
-                const insertPos = selection[selection.length - 1] + 1;
                 s.songOrder.splice(insertPos, 0, ...duplicatedPatterns);
             },
         });
-        // TODO: make this work.
-        // move selection to the new items.
-        // note that there's an issue if you duplicate the last item; state hasn't made space for that item yet
-        nudgeSelectionAndFocusAnchor(editorState.selectedArrangementPositions?.getSignedSize()?.height || 0);
+
+        // Schedule selection to the new duplicated items after song state propagates
+        schedulePendingSelection(
+            new SelectionRect2D({ start: { x: 0, y: insertPos }, size: { width: 1, height: selectionCount } }),
+            insertPos
+        );
     };
 
     const handleMakeSelectionUnique = () => {
