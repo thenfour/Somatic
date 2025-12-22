@@ -23,13 +23,19 @@
         "SFX_ADDR": "0x100e4",
         "PATTERNS_ADDR": "0x11164",
         "TRACKS_ADDR": "0x13e64",
+        // Somatic bridge state lives in the top of MAP (0x8000..0x0ff7f),
+        // above all tracker-format pattern data.
         //
-        //
-        //
-        "MARKER_ADDR": "0x14e24",
-        "REGISTERS_ADDR": "0x14e40",
-        "INBOX_ADDR": "0x14e80",
-        "OUTBOX_ADDR": "0x14ec0",
+        // Layout within MAP:
+        //   0x0f000..0x0f01f : marker & small header region
+        //   0x0f020..0x0f03f : Somatic registers (song position, FPS, etc.)
+        //   0x0f040..0x0f07f : INBOX (host -> cart mailbox)
+        //   0x0f080..0x0f08f : OUTBOX header (cart -> host mailbox)
+        //   0x0f090..0x0f17f : OUTBOX log ring buffer (LOG_SIZE bytes)
+        "MARKER_ADDR": "0x0f000",
+        "REGISTERS_ADDR": "0x0f020",
+        "INBOX_ADDR": "0x0f040",
+        "OUTBOX_ADDR": "0x0f080",
         "LOG_SIZE": 240,
         // host->cart volume control
         "CHANNEL_VOLUME_0": "0x14000",
@@ -47,8 +53,8 @@
         "MUSIC_STATE_FRAME": "0x13ffd",
         "MUSIC_STATE_ROW": "0x13ffe",
         "MUSIC_STATE_FLAGS": "0x13fff",
-        // Somatic playroutine state
-        "MUSIC_STATE_SOMATIC_SONG_POSITION": "0x14e40",
-        "FPS": "0x14e41"
+        // Somatic playroutine state (kept in REGISTERS_ADDR region above)
+        "MUSIC_STATE_SOMATIC_SONG_POSITION": "0x0f020",
+        "FPS": "0x0f021"
     }
 }
