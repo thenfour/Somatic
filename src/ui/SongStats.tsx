@@ -6,7 +6,7 @@ import { Tooltip } from "./tooltip";
 import { compareBuffers, formatBytes } from "../utils/utils";
 import { useClipboard } from "../hooks/useClipboard";
 import { base85Encode, lzCompress, lzDecompress } from "../audio/encoding";
-import { OptimizeSong } from "../utils/SongOptimizer";
+import { OptimizeSong, analyzePatternColumns, PatternColumnAnalysisResult } from "../utils/SongOptimizer";
 import { gAllChannelsAudible, SomaticCaps } from "../models/tic80Capabilities";
 import { useRenderAlarm } from "../hooks/useRenderAlarm";
 
@@ -16,11 +16,16 @@ type ChunkInfo = {
     color: string;
 };
 
+type PayloadSizeReport = {
+    rawBytes: number;
+    compressedBytes: number;
+    luaStringBytes: number;
+};
+
 type Stats = {
     chunks: ChunkInfo[];
-    patternUncompressedSize: number;
-    patternCompressedSize: number;
-    patternCompressionRatio: number;
+    patternPayload: PayloadSizeReport;
+    patternColumnStats: PatternColumnAnalysisResult;
     roundTripStatus: string;
 };
 
@@ -41,9 +46,8 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
     });
 
     const clipboard = useClipboard();
-    //const [data, setData] = useState<SongStatsData>({ cartSize: 0, breakdown: [] });
 
-    const cartWriter = useNopWriteBehindEffect<Song, SongSerialized>(async (doc) => {
+    const cartWriter = useWriteBehindEffect<Song, SongSerialized>(async (doc) => {
         const cartDetails = serializeSongToCartDetailed(doc, true, 'release', gAllChannelsAudible);
 
         const optimizedDoc = OptimizeSong(doc).optimizedSong;
@@ -75,18 +79,23 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
         cartWriter.enqueue(song);
     }, [song]);
 
-    // refresh when compression settings change
-    // useEffect(() => {
-    //     cartWriter.enqueue(song);
-    //     cartWriter.flush();
-    // }, [minMatchLength, maxMatchLength, windowSize, useRLE]);
-
     const breakdown = useMemo<Stats>(() => {
         if (!input) return {
             chunks: [],
-            patternCompressedSize: 0,
-            patternUncompressedSize: 0,
-            patternCompressionRatio: 1,
+            patternPayload: {
+                rawBytes: 0,
+                compressedBytes: 0,
+                luaStringBytes: 0,
+            },
+            patternColumnStats: {
+                totalColumns: 0,
+                distinctColumns: 0,
+                columnPayload: {
+                    rawBytes: 0,
+                    compressedBytes: 0,
+                    luaStringBytes: 0,
+                },
+            },
             roundTripStatus: "no data",
         };
         const result: ChunkInfo[] = [];
@@ -97,8 +106,9 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
         result.push({ name: 'Patterns', size: input.cartridge.patternChunk.length, color: 'var(--tic-5)' });
         result.push({ name: 'Tracks', size: input.cartridge.trackChunk.length, color: 'var(--tic-6)' });
 
-        let patternCompressedSize = 0;
-        let patternUncompressedSize = 0;
+        let rawBytes = 0;
+        let compressedBytes = 0;
+        let luaStringBytes = 0;
         let status = "ok";
         try {
             for (const patternData of input.cartridge.realPatternChunks) {
@@ -119,21 +129,24 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
                     status = `Roundtrip error: ${compareResult.description}`;
                 }
 
-                patternCompressedSize += base85Encode(patternCompressed).length;
-                patternUncompressedSize += base85Encode(patternData).length;
+                rawBytes += patternData.length;
+                compressedBytes += patternCompressed.length;
+                luaStringBytes += base85Encode(patternCompressed).length;
             }
         } catch (e) {
             console.error("Error calculating pattern compression stats:", e);
             status = `Exception thrown`;
         }
-
-        const patternCompressionRatio = patternUncompressedSize > 0 ? (patternCompressedSize / patternUncompressedSize) : 1;
+        const patternColumnStats = analyzePatternColumns(input.cartridge.optimizeResult.optimizedSong);
 
         return {
             chunks: result,
-            patternCompressedSize,
-            patternUncompressedSize,
-            patternCompressionRatio,
+            patternPayload: {
+                rawBytes,
+                compressedBytes,
+                luaStringBytes,
+            },
+            patternColumnStats,
             roundTripStatus: status,
         };
     }, [input]);
@@ -144,6 +157,10 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
         console.log(input?.cartridge.generatedCode);
         await clipboard.copyTextToClipboard(input?.cartridge.generatedCode || "");
     };
+
+    const patternCompressionRatio = breakdown.patternPayload.rawBytes > 0
+        ? (breakdown.patternPayload.compressedBytes / breakdown.patternPayload.rawBytes)
+        : 1;
 
     const tooltipContent = !input ? (<>No data</>) : (
         <div style={{ minWidth: 320 }}>
@@ -167,11 +184,22 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
                 {/* display more fields */}
                 <div>Serialization took: {input.cartridge.elapsedMillis} ms</div>
                 <div>Patterns: {input.cartridge.optimizeResult.usedPatternCount}</div>
+                <div>Columns used/distinct: {breakdown.patternColumnStats.totalColumns} / {breakdown.patternColumnStats.distinctColumns}</div>
                 <div>SFX: {input.cartridge.optimizeResult.usedSfxCount}</div>
                 <div>Waveforms: {input.cartridge.optimizeResult.usedWaveformCount}</div>
-                <div>Pattern uncompressed size: {formatBytes(breakdown.patternUncompressedSize)}</div>
-                <div>Pattern compressed size  : {formatBytes(breakdown.patternCompressedSize)}</div>
-                <div>Pattern compression ratio: {(breakdown.patternCompressionRatio * 100).toFixed(1)}%</div>
+                <div>---</div>
+                <div>Pattern payload sizes:</div>
+
+                <div>RAW pattern-based: {formatBytes(breakdown.patternPayload.rawBytes)}</div>
+                <div>RAW column-based: {formatBytes(breakdown.patternColumnStats.columnPayload.rawBytes)}</div>
+
+                <div>LZ pattern-based: {formatBytes(breakdown.patternPayload.compressedBytes)}</div>
+                <div>LZ column-based: {formatBytes(breakdown.patternColumnStats.columnPayload.compressedBytes)}</div>
+
+                <div>Lua pattern data: {formatBytes(breakdown.patternPayload.luaStringBytes)}</div>
+                <div>Lua column data: {formatBytes(breakdown.patternColumnStats.columnPayload.luaStringBytes)}</div>
+                <div>---</div>
+                <div>Pattern compression ratio: {(patternCompressionRatio * 100).toFixed(1)}%</div>
                 <div>status: {breakdown.roundTripStatus}</div>
                 <div>---</div>
                 <div>Bridge:</div>

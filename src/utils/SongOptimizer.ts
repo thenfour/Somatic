@@ -1,7 +1,9 @@
-import {Song} from "../models/song";
-import {Pattern} from "../models/pattern";
-import {Tic80Caps} from "../models/tic80Capabilities";
+import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "../audio/encoding";
+import {encodePatternChannel} from "../audio/pattern_encoding";
 import {Tic80Instrument} from "../models/instruments";
+import {Pattern, PatternCell} from "../models/pattern";
+import {Song} from "../models/song";
+import {Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {Tic80Waveform} from "../models/waveform";
 import {clamp} from "./utils";
 
@@ -76,6 +78,67 @@ export function getMaxPatternUsedIndex(song: Song): number {
    return calculateSongUsage(song).maxPattern;
 }
 
+export interface PatternPayloadEstimate {
+   rawBytes: number;
+   compressedBytes: number;
+   luaStringBytes: number;
+}
+
+export interface PatternColumnAnalysisResult {
+   totalColumns: number;
+   distinctColumns: number;
+   columnPayload: PatternPayloadEstimate;
+}
+;
+
+export function analyzePatternColumns(song: Song): PatternColumnAnalysisResult {
+   // each pattern has 4 columns (channels).
+   // currently we serilaize patterns as one atomic unit.
+   // the idea is to analyze how much space we can save if we serialize pattern-columns
+   // separately and dedupe by column.
+   //
+   // NB: do this only for USED patterns in the song.
+   // use contentSignatureForColumn for per-column signature.
+   const usage = calculateSongUsage(song);
+   const usedPatterns = usage.usedPatterns;
+   const totalColumns = usedPatterns.size * Tic80Caps.song.audioChannels;
+
+   const columnDataBySignature = new Map<string, Uint8Array>();
+   usedPatterns.forEach((patternIdx) => {
+      const pattern = song.patterns[patternIdx];
+      if (!pattern)
+         return;
+
+      for (let channel = 0; channel < Tic80Caps.song.audioChannels; channel++) {
+         const ticChannel = channel as Tic80ChannelIndex;
+         const sig = pattern.contentSignatureForColumn(ticChannel);
+         if (columnDataBySignature.has(sig))
+            continue;
+         columnDataBySignature.set(sig, encodePatternChannel(pattern, ticChannel));
+      }
+   });
+
+   let rawBytes = 0;
+   let compressedBytes = 0;
+   let luaStringBytes = 0;
+
+   columnDataBySignature.forEach((columnData) => {
+      rawBytes += columnData.length;
+      const compressed = lzCompress(columnData, gSomaticLZDefaultConfig);
+      compressedBytes += compressed.length;
+      luaStringBytes += base85Encode(compressed).length;
+   });
+
+   return {
+      totalColumns,
+      distinctColumns: columnDataBySignature.size,
+      columnPayload: {
+         rawBytes,
+         compressedBytes,
+         luaStringBytes,
+      },
+   };
+};
 
 export interface OptimizeResult {
    optimizedSong: Song;

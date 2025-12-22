@@ -118,4 +118,9 @@ export class Pattern implements PatternDto {
       const dto = this.toData();
       return JSON.stringify({channels: dto.channels});
    }
+
+   contentSignatureForColumn(channelIndex: Tic80ChannelIndex): string {
+      const dto = this.toData();
+      return JSON.stringify({channel: dto.channels[channelIndex]});
+   }
 }
