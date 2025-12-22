@@ -68,9 +68,9 @@ export const MusicStateDisplay: React.FC<{ song: Song, bridgeReady: boolean; aud
                 <tr>
                     <td>Row</td><td>{musicState.tic80RowIndex}</td>
                 </tr>
-                <tr>
+                {/* <tr>
                     <td>Looping?</td><td>{musicState.isLooping ? 'Yes' : 'No'}</td>
-                </tr>
+                </tr> */}
             </tbody>
         </table>
     </div>}>

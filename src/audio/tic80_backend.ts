@@ -197,26 +197,27 @@ export class Tic80Backend {
       if (!b || !b.isReady())
          return this.lastKnownMusicState;
 
-      const track = b.peekS8(TicMemoryMap.MUSIC_STATE_TRACK);
-      const frame = b.peekU8(TicMemoryMap.MUSIC_STATE_FRAME);
+      //const track = b.peekS8(TicMemoryMap.MUSIC_STATE_TRACK);
+      //const frame = b.peekU8(TicMemoryMap.MUSIC_STATE_FRAME);
       const row = b.peekU8(TicMemoryMap.MUSIC_STATE_ROW);
-      const flags = b.peekU8(TicMemoryMap.MUSIC_STATE_FLAGS);
+      //const flags = b.peekU8(TicMemoryMap.MUSIC_STATE_FLAGS);
       //const somaticPatternIndex = b.peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_PATTERN_ID);
       const somaticSongPosition = b.peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_SONG_POSITION);
 
-      const isLooping = !!(flags & 0x1);
+      //const isLooping = !!(flags & 0x1);
       const next: MusicState = {
          tic80RowIndex: row,
-         tic80FrameIndex: frame,
-         tic80TrackIndex: track,
+         //tic80FrameIndex: frame,
+         //tic80TrackIndex: track,
          //somaticPatternIndex,
          somaticSongPosition: somaticSongPosition === 255 ? -1 : somaticSongPosition,
          isPlaying: somaticSongPosition !== 255,
-         isLooping,
+         //isLooping,
       };
 
       // do not spam instances. check if it actually changed.
       if (JSON.stringify(this.lastKnownMusicState) !== JSON.stringify(next)) {
+         console.log("[Tic80Backend] MusicState changed:", next);
          this.lastKnownMusicState = next;
       }
 

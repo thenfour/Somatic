@@ -202,6 +202,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useEffect(() => {
         let animationFrameId: number;
         const poll = () => {
+            // getMusicState() returns the same object instance when nothing changed,
+            // so React will bail out of setState if the reference is unchanged.
             setMusicState(audio.getMusicState());
             animationFrameId = requestAnimationFrame(poll);
         };
@@ -516,7 +518,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 songOrderSelection: editorRef.current.selectedArrangementPositions,
             });
         }
-    }, [audio, autoSave]);
+    }, [audio]);
 
     const onPlayPattern = () => {
         const ed = editorRef.current;
