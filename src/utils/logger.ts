@@ -91,7 +91,7 @@ export class Logger {
    //       log.scope("user pressed key", () => {});
    //    });
    scope<T>(name: string, fn: () => T | Promise<T>): T|Promise<T> {
-      this.info(name);
+      this.info(`{ ${name}`);
       this.incIndent();
 
       const start = performance.now();

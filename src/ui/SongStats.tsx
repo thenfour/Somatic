@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Song } from "../models/song";
-import { useWriteBehindEffect } from "../hooks/useWriteBehindEffect";
+import { useNopWriteBehindEffect, useWriteBehindEffect } from "../hooks/useWriteBehindEffect";
 import { serializeSongForTic80Bridge, serializeSongToCart, serializeSongToCartDetailed, SongCartDetails, Tic80SerializedSong } from "../audio/tic80_cart_serializer";
 import { Tooltip } from "./tooltip";
 import { compareBuffers, formatBytes } from "../utils/utils";
@@ -43,7 +43,7 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
     const clipboard = useClipboard();
     //const [data, setData] = useState<SongStatsData>({ cartSize: 0, breakdown: [] });
 
-    const cartWriter = useWriteBehindEffect<Song, SongSerialized>(async (doc) => {
+    const cartWriter = useNopWriteBehindEffect<Song, SongSerialized>(async (doc) => {
         const cartDetails = serializeSongToCartDetailed(doc, true, 'release', gAllChannelsAudible);
 
         const optimizedDoc = OptimizeSong(doc).optimizedSong;

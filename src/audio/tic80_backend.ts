@@ -31,8 +31,8 @@ export class Tic80Backend {
          if (!b || !b.isReady())
             return;
 
-         await b.invokeExclusive(async tx => {
-            tx.uploadSongData(this.serializedSong!, "Song has been modified.");
+         await b.invokeExclusive("transmitSong", async tx => {
+            await tx.uploadSongData(this.serializedSong!, "Song has been modified.");
          });
       } else {
          this.serializedSong = null;
@@ -49,7 +49,7 @@ export class Tic80Backend {
       if (!b || !b.isReady())
          return;
 
-      await b.invokeExclusive(async (tx) => {
+      await b.invokeExclusive("sfxNoteOn", async (tx) => {
          const note = getNoteInfo(midiNote)!.ticAbsoluteNoteIndex;
          const speed = instrument.speed;
 
@@ -64,7 +64,7 @@ export class Tic80Backend {
       if (!b || !b.isReady())
          return;
 
-      await b.invokeExclusive(async (tx) => {
+      await b.invokeExclusive("sfxNoteOff", async (tx) => {
          await tx.stopSfx({channel}).catch((err) => {
             console.warn("[Tic80Backend] sfxNoteOff failed", err);
          });
@@ -110,7 +110,7 @@ export class Tic80Backend {
          });
       }
 
-      await b.invokeExclusive(async (tx) => {
+      await b.invokeExclusive("playRow", async (tx) => {
          for (const channel of gChannelsArray) {
             try {
                await tx.stopSfx({channel});
@@ -146,7 +146,7 @@ export class Tic80Backend {
       const b = this.bridge();
       if (!b || !b.isReady())
          return;
-      await b.invokeExclusive(async (tx) => {
+      await b.invokeExclusive("playSong", async (tx) => {
          await tx.play({songPosition: startPosition, row: startRow});
       });
       //this.emit.position(startPosition);
@@ -158,7 +158,7 @@ export class Tic80Backend {
          return;
       }
 
-      await b.invokeExclusive(async (tx) => {
+      await b.invokeExclusive("panic", async (tx) => {
          for (const channel of gChannelsArray) {
             try {
                await tx.stopSfx({channel});
@@ -180,7 +180,7 @@ export class Tic80Backend {
    async stop() {
       const b = this.bridge();
       if (b && b.isReady())
-         await b.invokeExclusive(async (tx) => {
+         await b.invokeExclusive("stop", async (tx) => {
             await tx.stop();
          });
       //this.emit.stop();

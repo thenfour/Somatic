@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { gLog } from "../utils/logger";
 
 // so the idea is to basically make autosave behave better.
 // example:
@@ -245,27 +246,41 @@ export function useWriteBehindEffect<T, R = unknown>(
 
     const enqueue = useCallback(
         (value: T) => {
-            if (!opts.enabled) return;
+            if (!opts.enabled) {
+                //gLog.info("useWriteBehindEffect: enqueue ignored, not enabled");
+                return;
+            }
 
             latestValueRef.current = value;
             dirtyRef.current = true;
             updateState({ isDirty: true, error: null });
 
             if (opts.cancelInFlightOnNewer && abortCtrlRef.current) {
+                //gLog.info("useWriteBehindEffect: enqueue aborting in-flight run due to newer value");
                 abortCtrlRef.current.abort();
             }
 
+            //gLog.info("useWriteBehindEffect: enqueue scheduling run");
             schedule();
         },
         [opts.enabled, opts.cancelInFlightOnNewer, schedule, updateState]
     );
 
     const flush = useCallback(async () => {
-        if (!opts.enabled) return;
+        if (!opts.enabled) {
+            //gLog.info("useWriteBehindEffect: flush ignored, not enabled");
+            return;
+        }
 
         // If there’s pending work, schedule an immediate attempt.
-        if (dirtyRef.current) schedule(0);
-        if (!inFlightRef.current && dirtyRef.current) runNow();
+        if (dirtyRef.current) {
+            //gLog.info("useWriteBehindEffect: flush scheduling immediate run");
+            schedule(0);
+        }
+        if (!inFlightRef.current && dirtyRef.current) {
+            //gLog.info("useWriteBehindEffect: flush running now");
+            runNow();
+        }
 
         await new Promise<void>((resolve) => {
             // If already idle, resolve immediately
@@ -275,8 +290,14 @@ export function useWriteBehindEffect<T, R = unknown>(
                 maxWaitTimerRef.current == null &&
                 inFlightRef.current == null;
 
-            if (isIdle) resolve();
-            else flushWaitersRef.current.push(resolve);
+            if (isIdle) {
+                //gLog.info("useWriteBehindEffect: flush already idle, resolving");
+                resolve();
+            }
+            else {
+                //gLog.info("useWriteBehindEffect: flush waiting for idle");
+                flushWaitersRef.current.push(resolve);
+            }
         });
     }, [opts.enabled, runNow, schedule]);
 
@@ -311,4 +332,30 @@ export function useWriteBehindEffect<T, R = unknown>(
     }, [enqueue, flush, cancel, state]);
 
     return api;
+}
+
+
+
+export function useNopWriteBehindEffect<T, R = unknown>(
+    effect: WriteBehindEffect<T, R>,
+    options?: UseWriteBehindEffectOptions<T, R>
+) {
+    const noopApi = useMemo(() => {
+        return {
+            enqueue: (_: T) => { },
+            flush: async () => { },
+            cancel: (_?: { abortInFlight?: boolean }) => { },
+            state: {
+                status: "idle" as WriteBehindStatus,
+                isDirty: false,
+                isScheduled: false,
+                isRunning: false,
+
+                lastRunAt: null,
+                lastSuccessAt: null,
+                error: null,
+            } as WriteBehindState,
+        };
+    }, []);
+    return noopApi;
 }

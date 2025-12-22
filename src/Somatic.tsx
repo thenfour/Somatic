@@ -42,6 +42,7 @@ import { MusicStateDisplay } from './ui/MusicStateDisplay';
 import { MidiStatusIndicator } from './ui/MidiStatusIndicator';
 import { AboutSomaticDialog } from './ui/AboutSomaticDialog';
 import { TransportTime } from './ui/transportTime';
+import { gLog } from './utils/logger';
 
 const TIC80_FRAME_SIZES = [
 
@@ -289,7 +290,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         const ed = editorRef.current;
         const channel = ToTic80ChannelIndex(ed.patternEditChannel);
         const skipNoteEntry = isEditingCommandOrParamCell();
-        autoSave.flush();
+        autoSave.flush(); // immediately apply changes to instrument; user is playing a note maybe testing their tweaks.
         audio.sfxNoteOn(s, ed.currentInstrument, note, ed.patternEditChannel);
 
         if (ed.editingEnabled !== false && !skipNoteEntry) {
@@ -297,6 +298,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             const currentPatternIndex = s.songOrder[currentPosition] ?? 0;
             const rowsPerPattern = s.rowsPerPattern;
             const patternEditStep = s.patternEditStep;
+
             updateSong({
                 description: 'Insert note',
                 undoable: true,
@@ -317,7 +319,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     }, [audio, autoSave, updateSong]);
 
     const handleIncomingNoteOff = useCallback((note: number) => {
-        autoSave.flush();
+        //autoSave.flush();
         audio.sfxNoteOff(note);
     }, [audio, autoSave]);
 

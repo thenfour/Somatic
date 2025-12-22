@@ -39,7 +39,7 @@ export type Tic80BridgeHandle = {
     peekBlock: (addr: number, length: number) => Uint8Array;
 
     /** Run a set of mailbox operations atomically to avoid interleaving */
-    invokeExclusive: <T>(fn: (tx: Tic80BridgeTransaction) => Promise<T>) => Promise<T>;
+    invokeExclusive: <T>(description: string, fn: (tx: Tic80BridgeTransaction) => Promise<T>) => Promise<T>;
 
     // stop: () => Promise<void>;
     ping: () => Promise<void>;
@@ -435,6 +435,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         }
 
         async function sendMailboxCommandRaw(bytes: number[], description: string): Promise<void> {
+            //return await gLog.scope(`sendMailboxCommand: ${description}`, () => {
             assertReady();
             const token = (cmdTokenRef.current = (cmdTokenRef.current + 1) & 0xff);
             writeMailboxBytes(bytes, token);
@@ -455,7 +456,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                             return;
                         }
                         if (performance.now() - start > timeoutMs) {
-                            gLog.error(`TIMEOUT: ${description}`);
+                            gLog.error(`sendMailboxCommand TIMEOUT: ${description}`);
                             resolve();
                             return;
                         }
@@ -465,6 +466,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                     }
                 };
                 poll();
+                //});
             });
         }
 
@@ -517,21 +519,20 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             ping: pingRaw,
         };
 
-        async function invokeExclusive<T>(fn: (tx: Tic80BridgeTransaction) => Promise<T>): Promise<T> {
-            const startTime = performance.now();
-            const release = await commandMutexRef.current.acquire();
-            try {
-                const ret = await fn(transactionApi);
-                const endTime = performance.now();
-                gLog.info(`invokeExclusive took ${endTime - startTime} ms`);
-                return ret;
-            } finally {
-                release();
-            }
+        async function invokeExclusive<T>(description: string, fn: (tx: Tic80BridgeTransaction) => Promise<T>): Promise<T> {
+            return await gLog.scope(`invokeExclusive ${description}`, async () => {
+                const release = await commandMutexRef.current.acquire();
+                try {
+                    const ret = await fn(transactionApi);
+                    return ret;
+                } finally {
+                    release();
+                }
+            });
         }
 
         async function ping() {
-            return invokeExclusive((tx) => tx.ping());
+            return invokeExclusive("ping", (tx) => tx.ping());
         }
 
         useImperativeHandle(
