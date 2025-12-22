@@ -47,7 +47,18 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
         const cartDetails = serializeSongToCartDetailed(doc, true, 'release', gAllChannelsAudible);
 
         const optimizedDoc = OptimizeSong(doc).optimizedSong;
-        const bridge = serializeSongForTic80Bridge(optimizedDoc, gAllChannelsAudible, "off");
+        const bridge = serializeSongForTic80Bridge({
+            song: optimizedDoc,
+            loopMode: "off",
+            cursorSongOrder: 0,
+            cursorChannelIndex: 0,
+            cursorRowIndex: 0,
+            patternSelection: null,
+            audibleChannels: gAllChannelsAudible,
+            startPosition: 0,
+            startRow: 0,
+            songOrderSelection: null,
+        });
         return { cartridge: cartDetails, bridge };
     }, {
         debounceMs: 1200,

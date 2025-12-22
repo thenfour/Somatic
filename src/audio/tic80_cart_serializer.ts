@@ -342,7 +342,8 @@ export interface Tic80SerializeSongArgs {
       patternSelection: SelectionRect2D|null, //
       audibleChannels: Set<Tic80ChannelIndex>,
       startPosition: number, //
-      startRow: number,
+      startRow: number,      //
+      songOrderSelection: SelectionRect2D|null,
 }
 
 // upon sending to the tic80, we send a payload which includes all the song data in a single chunk.

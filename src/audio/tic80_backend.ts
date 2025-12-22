@@ -19,6 +19,7 @@ export type BackendPlaySongArgs = {
    startPosition: number,                    //
    startRow: number,                         //
    loopMode: LoopMode,                       //
+   songOrderSelection: SelectionRect2D | null,
 };
 
 
@@ -141,6 +142,7 @@ export class Tic80Backend {
          startPosition: args.startPosition,
          startRow: args.startRow,
          loopMode: args.loopMode,
+         songOrderSelection: args.songOrderSelection,
       });
 
       console.log("[Tic80Backend] transmitAndPlay uploading song:", serializedSong);

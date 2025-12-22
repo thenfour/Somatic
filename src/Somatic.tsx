@@ -139,15 +139,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         { value: "selectionInPattern", label: "Selection in Pattern" },
     ];
 
-    const handleToggleLoop = () => {
-        const current = editorRef.current.loopMode;
-        if (current === "off") {
-            setLoopMode(editorRef.current.lastNonOffLoopMode);
-        } else {
-            setLoopMode("off");
-        }
-    };
-
     if (!undoStackRef.current) {
         undoStackRef.current = new UndoStack(200);
     }
@@ -522,6 +513,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 startPosition,
                 startRow,
                 loopMode: editorRef.current.loopMode,
+                songOrderSelection: editorRef.current.selectedArrangementPositions,
             });
         }
     }, [audio, autoSave]);
@@ -563,6 +555,14 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         setLoopMode(LOOP_MODE_OPTIONS[prevIdx].value);
     };
 
+    const handleToggleLoop = () => {
+        const current = editorRef.current.loopMode;
+        if (current === "off") {
+            setLoopMode(editorRef.current.lastNonOffLoopMode);
+        } else {
+            setLoopMode("off");
+        }
+    };
 
     useActionHandler("Panic", onPanic);
     useActionHandler("Undo", handleUndo);
