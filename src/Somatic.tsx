@@ -95,17 +95,14 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const audio = useMemo(() => new AudioController({ bridgeGetter: () => bridgeRef.current }), []);
     const { pushToast } = useToasts();
     const { confirm } = useConfirmDialog();
-    const [song, setSong] = useState(() => {
-        try {
-            const saved = localStorage.getItem('somatic-song');
-            if (saved) {
-                return Song.fromJSON(saved);
-            }
-        } catch (err) {
-            console.error('Failed to load song from localStorage', err);
+    const [song, setSong] = useLocalStorage<Song>(
+        "somatic-song",
+        () => new Song(),
+        {
+            serialize: (s) => s.toJSON(),
+            deserialize: (raw) => Song.fromJSON(raw),
         }
-        return new Song();
-    });
+    );
     const [editorState, setEditorState] = useState(() => new EditorState());
 
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useLocalStorage("somatic-instrumentPanelOpen", false);
