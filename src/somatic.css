@@ -1793,3 +1793,11 @@ option {
 #root .app .button-toggle.button-toggle--on {
     color: var(--accent);
 }
+
+.loop-mode-select {
+    color: var(--text);
+}
+
+.loop-mode-select--off {
+    color: var(--muted);
+}

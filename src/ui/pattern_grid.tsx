@@ -1003,15 +1003,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             });
         };
 
-        useEffect(() => {
-            // const volumes = gChannelsArray.map(ch => editorState.isChannelAudible(ch) ? 15 : 0) as [number, number, number, number];
-            //audio.setChannelVolumes(volumes); <-- doesn't work sadly.
-            // so we have to upload the song with baked-in muting.
-
-            audio.transmitSong(song, "mutes changed", editorState.getAudibleChannels());
-
-        }, [editorState.getAudibleChannelSignature()]);
-
         const onCellFocus = (rowIndex: number, channelIndex: Tic80ChannelIndex, col: number) => {
             updateEditTarget({ rowIndex, channelIndex });
             setCurrentColumnIndex(col);

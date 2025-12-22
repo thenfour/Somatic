@@ -8,11 +8,9 @@
     // Inbox command IDs (host -> cart)
     "inboxCommands": {
         "NOP": 0,
-        "PLAY": 1,
+        "TRANSMIT_AND_PLAY": 1,
         "STOP": 2,
         "PING": 3,
-        "BEGIN_UPLOAD": 4,
-        "END_UPLOAD": 5,
         "PLAY_SFX_ON": 6,
         "PLAY_SFX_OFF": 7
     },

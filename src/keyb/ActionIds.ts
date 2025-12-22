@@ -48,11 +48,12 @@ export const Actions = {
 
    SetLoopOff: "SetLoopOff",
    SetLoopSong: "SetLoopSong",
-   SetLoopSelection: "SetLoopSelection",
+   SetLoopSelectionInSongOrder: "SetLoopSelectionInSongOrder",
    SetLoopPattern: "SetLoopPattern",
-   SetLoopWholePattern: "SetLoopWholePattern",
    SetLoopHalfPattern: "SetLoopHalfPattern",
    SetLoopQuarterPattern: "SetLoopQuarterPattern",
+   SetLoopSelectionInPattern: "SetLoopSelectionInPattern",
+   ToggleLoopModeOff: "ToggleLoopModeOff",
    NextLoopMode: "NextLoopMode",
    PreviousLoopMode: "PreviousLoopMode",
 

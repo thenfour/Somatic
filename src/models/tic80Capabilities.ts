@@ -132,11 +132,9 @@ export const TicBridge = {
 
    // inbox cmd IDs
    CMD_NOP: bridgeConfig.inboxCommands.NOP,
-   CMD_PLAY: bridgeConfig.inboxCommands.PLAY,
+   CMD_TRANSMIT_AND_PLAY: bridgeConfig.inboxCommands.TRANSMIT_AND_PLAY,
    CMD_STOP: bridgeConfig.inboxCommands.STOP,
    CMD_PING: bridgeConfig.inboxCommands.PING,
-   CMD_BEGIN_UPLOAD: bridgeConfig.inboxCommands.BEGIN_UPLOAD,
-   CMD_END_UPLOAD: bridgeConfig.inboxCommands.END_UPLOAD,
    CMD_PLAY_SFX_ON: bridgeConfig.inboxCommands.PLAY_SFX_ON,
    CMD_PLAY_SFX_OFF: bridgeConfig.inboxCommands.PLAY_SFX_OFF,
 

@@ -132,17 +132,17 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const LOOP_MODE_OPTIONS: { value: LoopMode; label: string }[] = [
         { value: "off", label: "Off" },
         { value: "song", label: "Song" },
+        { value: "selectionInSongOrder", label: "Selection in Song Order" },
         { value: "pattern", label: "Pattern" },
-        { value: "wholePattern", label: "Whole pattern" },
         { value: "halfPattern", label: "1/2 pattern" },
         { value: "quarterPattern", label: "1/4 pattern" },
-        { value: "selection", label: "Selection" },
+        { value: "selectionInPattern", label: "Selection in Pattern" },
     ];
 
     const handleToggleLoop = () => {
         const current = editorRef.current.loopMode;
         if (current === "off") {
-            setLoopMode("pattern");
+            setLoopMode(editorRef.current.lastNonOffLoopMode);
         } else {
             setLoopMode("off");
         }
@@ -225,7 +225,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     // auto-save to backend + localStorage
     const autoSave = useWriteBehindEffect<Song>(async (doc, { signal }) => {
-        await audio.transmitSong(doc, "Auto-save", editorState.getAudibleChannels());
+        //await audio.transmitSong(doc, "Auto-save", editorState.getAudibleChannels());
         localStorage.setItem('somatic-song', doc.toJSON());
     }, {
         debounceMs: 1000,//
@@ -507,12 +507,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         audio.panic();
     };
 
-    const playSongWithFlush = useCallback(async (startPosition: number, startRow: number) => {
+    const playSongWithFlush = useCallback(async (reason: string, startPosition: number, startRow: number) => {
         if (audio.getMusicState().isPlaying) {
             audio.panic();
         } else {
-            await autoSave.flush();
-            audio.playSong({
+            audio.transmitAndPlay({
+                reason,
                 song: songRef.current,
                 cursorSongOrder: editorRef.current.activeSongPosition,
                 cursorChannelIndex: editorRef.current.patternEditChannel,
@@ -528,16 +528,16 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const onPlayPattern = () => {
         const ed = editorRef.current;
-        void playSongWithFlush(ed.activeSongPosition, 0);
+        void playSongWithFlush("play pattern", ed.activeSongPosition, 0);
     };
 
     const onPlayAll = () => {
-        void playSongWithFlush(0, 0);
+        void playSongWithFlush("play all", 0, 0);
     };
 
     const onPlayFromPosition = () => {
         const ed = editorRef.current;
-        void playSongWithFlush(ed.activeSongPosition, ed.patternEditRow);
+        void playSongWithFlush("play from position", ed.activeSongPosition, ed.patternEditRow);
     };
 
     const setLoopMode = (mode: LoopMode) => {
@@ -580,13 +580,14 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("PlayPattern", onPlayPattern);
     useActionHandler("SetLoopOff", () => setLoopMode("off"));
     useActionHandler("SetLoopSong", () => setLoopMode("song"));
-    useActionHandler("SetLoopSelection", () => setLoopMode("selection"));
+    useActionHandler("SetLoopSelectionInSongOrder", () => setLoopMode("selectionInSongOrder"));
+    useActionHandler("SetLoopSelectionInPattern", () => setLoopMode("selectionInPattern"));
     useActionHandler("SetLoopPattern", () => setLoopMode("pattern"));
-    useActionHandler("SetLoopWholePattern", () => setLoopMode("wholePattern"));
     useActionHandler("SetLoopHalfPattern", () => setLoopMode("halfPattern"));
     useActionHandler("SetLoopQuarterPattern", () => setLoopMode("quarterPattern"));
     useActionHandler("NextLoopMode", handleNextLoopMode);
     useActionHandler("PreviousLoopMode", handlePreviousLoopMode);
+    useActionHandler("ToggleLoopModeOff", handleToggleLoop);
     useActionHandler("ToggleEditMode", toggleEditingEnabled);
     useActionHandler("DecreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave - 1)));
     useActionHandler("IncreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave + 1)));
@@ -953,7 +954,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         </Tooltip>
 
                         <div className="loop-controls">
-                            <Tooltip title="Toggle loop">
+                            <Tooltip title={`Toggle loop mode (${keyboardShortcutMgr.getActionBindingLabel("ToggleLoopModeOff")})`}>
                                 <button
                                     type="button"
                                     className={editorState.loopMode !== "off" ? "button-toggle button-toggle--on" : "button-toggle button-toggle--off"}
@@ -963,11 +964,11 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 </button>
                             </Tooltip>
                             <select
-                                className="loop-mode-select"
+                                className={`loop-mode-select ${editorState.loopMode !== "off" ? "loop-mode-select--on" : "loop-mode-select--off"}`}
                                 value={editorState.loopMode}
                                 onChange={handleLoopModeChange}
                             >
-                                {LOOP_MODE_OPTIONS.map((opt) => (
+                                {LOOP_MODE_OPTIONS.filter(opt => opt.value !== "off").map((opt) => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                                 ))}
                             </select>

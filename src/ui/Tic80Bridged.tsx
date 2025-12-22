@@ -47,13 +47,11 @@ export type Tic80BridgeHandle = {
 };
 
 export type Tic80BridgeTransaction = {
-    uploadSongData: (data: Tic80SerializedSong, reason: string) => Promise<void>;
     playSfx: (opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; speed: number }) => Promise<void>;
     stopSfx: (opts: { channel: Tic80ChannelIndex; }) => Promise<void>;
-    play: (opts: {
-        songPosition: number;
-        row: number;
-        loopForever: boolean;
+    uploadAndPlay: (opts: {
+        data: Tic80SerializedSong,
+        reason: string,
     }) => Promise<void>;
     stop: () => Promise<void>;
     ping: () => Promise<void>;
@@ -378,20 +376,6 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             return heapRef.current!.slice(start, start + length);
         }
 
-        async function uploadSongDataRaw(data: Tic80SerializedSong, reason: string) {
-            assertReady();
-            await sendMailboxCommandRaw([TicBridge.CMD_BEGIN_UPLOAD], `Begin song Upload: ${reason}`);
-            pokeBlock(TicMemoryMap.WAVEFORMS_ADDR, data.waveformData);
-            pokeBlock(TicMemoryMap.SFX_ADDR, data.sfxData);
-            pokeBlock(TicMemoryMap.TRACKS_ADDR, data.trackData);
-
-            pokeBlock(TicMemoryMap.TF_ORDER_LIST, data.songOrderData);
-            pokeBlock(TicMemoryMap.TF_PATTERN_DATA, data.patternData);
-
-            // write pattern data
-            await sendMailboxCommandRaw([TicBridge.CMD_END_UPLOAD], "End song Upload");
-        }
-
         async function playSfxRaw(opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; speed: number }) {
             const channel = (opts.channel ?? 0) & 0xff;
             const sfxId = opts.sfxId & 0xff;
@@ -472,27 +456,57 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             });
         }
 
-        async function playRaw(opts: {
-            songPosition: number;
-            row: number;
-            loopForever: boolean;
-        }) {
-            const songPosition = opts?.songPosition ?? 0;
-            const row = opts?.row ?? 0;
-            const loopForever = opts?.loopForever ?? false;
-
-            gLog.info("play() request", { songPosition, row, loopForever });
+        // Transaction API
+        // uses the serialized(baked/prepared) song data to
+        // - upload the song data to TIC-80 RAM
+        // - start playback at specified song position, row, loop mode
+        async function uploadAndPlayRaw(opts: { data: Tic80SerializedSong, reason: string }) {
+            assertReady();
+            pokeBlock(TicMemoryMap.WAVEFORMS_ADDR, opts.data.waveformData);
+            pokeBlock(TicMemoryMap.SFX_ADDR, opts.data.sfxData);
+            pokeBlock(TicMemoryMap.TRACKS_ADDR, opts.data.trackData);
+            pokeBlock(TicMemoryMap.TF_ORDER_LIST, opts.data.songOrderData);
+            pokeBlock(TicMemoryMap.TF_PATTERN_DATA, opts.data.patternData);
 
             // Mailbox layout from the Lua:
             // 0 cmd, 1 songPosition, 2 row, 3 loopForever, 4 sustain (unused here), 5 tempo, 6 speed
             await sendMailboxCommandRaw([
-                TicBridge.CMD_PLAY,
-                songPosition & 0xff,
-                row & 0xff,
-                loopForever ? 1 : 0,
+                TicBridge.CMD_TRANSMIT_AND_PLAY,
+                opts.data.bakedSong.startPosition & 0xff,
+                opts.data.bakedSong.startRow & 0xff,
+                opts.data.bakedSong.wantSongLoop ? 1 : 0,
                 0, // sustain: unused
             ], "Play");
         }
+
+        // async function playRaw(opts: {
+        //     songPosition: number;
+        //     row: number;
+        //     loopForever: boolean;
+        // }) {
+        //     const songPosition = opts?.songPosition ?? 0;
+        //     const row = opts?.row ?? 0;
+        //     const loopForever = opts?.loopForever ?? false;
+
+        //     gLog.info("play() request", { songPosition, row, loopForever });
+
+        //     // Mailbox layout from the Lua:
+        //     // 0 cmd, 1 songPosition, 2 row, 3 loopForever, 4 sustain (unused here), 5 tempo, 6 speed
+        //     await sendMailboxCommandRaw([
+        //         TicBridge.CMD_PLAY,
+        //         songPosition & 0xff,
+        //         row & 0xff,
+        //         loopForever ? 1 : 0,
+        //         0, // sustain: unused
+        //     ], "Play");
+        // }
+
+        // async function uploadAndPlayRaw(opts: {
+        //     data: Tic80SerializedSong,
+        //     reason: string,
+        // }) {
+
+        // }
 
         async function stopRaw() {
             gLog.info("stop() request");
@@ -505,10 +519,9 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         }
 
         const transactionApi: Tic80BridgeTransaction = {
-            uploadSongData: uploadSongDataRaw,
             playSfx: playSfxRaw,
             stopSfx: stopSfxRaw,
-            play: playRaw,
+            uploadAndPlay: uploadAndPlayRaw,
             stop: stopRaw,
             ping: pingRaw,
         };

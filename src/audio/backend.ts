@@ -1,5 +1,13 @@
 
-export type LoopMode =|"off"|"song"|"selection"|"pattern"|"wholePattern"|"halfPattern"|"quarterPattern";
+export type LoopMode =     //
+   |"off"                  //
+   |"song"                 //
+   |"selectionInPattern"   //
+   |"selectionInSongOrder" //
+   |"pattern"              //
+   |"halfPattern"          //
+   |"quarterPattern"       //
+   ;
 
 export type MusicState = {
    //somaticPatternIndex: number; //

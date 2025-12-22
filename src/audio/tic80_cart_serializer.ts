@@ -1,10 +1,12 @@
 import playroutineDebug from "../../bridge/playroutine-debug.lua";
 import playroutineRelease from "../../bridge/playroutine-release.lua";
 import {NOTE_INFOS} from "../defs";
+import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import type {Tic80Instrument} from "../models/instruments";
 import {MakeEmptyPatternCell, Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
+import {BakedSong, BakeSong} from "../utils/bakeSong";
 import {getMaxPatternUsedIndex, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong} from "../utils/SongOptimizer";
 import {assert, clamp, getBufferFingerprint, toLuaStringLiteral} from "../utils/utils";
 import {LoopMode} from "./backend";
@@ -44,8 +46,7 @@ function encodePatternCellTriplet(
 }
 
 // outputs 4 patterns (one for each channel)
-export function encodePatternChannel(
-   pattern: Pattern, channelIndex: Tic80ChannelIndex, audibleChannels: Set<Tic80ChannelIndex>): Uint8Array {
+export function encodePatternChannel(pattern: Pattern, channelIndex: Tic80ChannelIndex): Uint8Array {
    // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#music-patterns
    // chunk type 15
    // RAM at 0x11164...0x13E63
@@ -66,7 +67,7 @@ export function encodePatternChannel(
    const buf = new Uint8Array(Tic80Caps.pattern.maxRows * 3);
 
    for (let row = 0; row < Tic80Caps.pattern.maxRows; row++) {
-      const cellData = audibleChannels.has(channelIndex) ? pattern.getCell(channelIndex, row) : MakeEmptyPatternCell();
+      const cellData = pattern.getCell(channelIndex, row);
       const inst = cellData.instrumentIndex ?? 0;
       const commandArgX = cellData.effectX ?? 0;
       const commandArgY = cellData.effectY ?? 0;
@@ -82,17 +83,16 @@ export function encodePatternChannel(
    return buf;
 }
 
-export function encodePattern(
-   pattern: Pattern, audibleChannels: Set<Tic80ChannelIndex>): [Uint8Array, Uint8Array, Uint8Array, Uint8Array] {
-   const encoded0 = encodePatternChannel(pattern, 0, audibleChannels);
-   const encoded1 = encodePatternChannel(pattern, 1, audibleChannels);
-   const encoded2 = encodePatternChannel(pattern, 2, audibleChannels);
-   const encoded3 = encodePatternChannel(pattern, 3, audibleChannels);
+export function encodePattern(pattern: Pattern): [Uint8Array, Uint8Array, Uint8Array, Uint8Array] {
+   const encoded0 = encodePatternChannel(pattern, 0);
+   const encoded1 = encodePatternChannel(pattern, 1);
+   const encoded2 = encodePatternChannel(pattern, 2);
+   const encoded3 = encodePatternChannel(pattern, 3);
    return [encoded0, encoded1, encoded2, encoded3];
 };
 
-export function encodePatternCombined(pattern: Pattern, audibleChannels: Set<Tic80ChannelIndex>): Uint8Array {
-   const [encoded0, encoded1, encoded2, encoded3] = encodePattern(pattern, audibleChannels);
+export function encodePatternCombined(pattern: Pattern): Uint8Array {
+   const [encoded0, encoded1, encoded2, encoded3] = encodePattern(pattern);
    const combined = new Uint8Array(encoded0.length + encoded1.length + encoded2.length + encoded3.length);
    let offset = 0;
    combined.set(encoded0, offset);
@@ -108,12 +108,12 @@ export function encodePatternCombined(pattern: Pattern, audibleChannels: Set<Tic
 // each of OUR internal patterns is actually 4 tic80 patterns (channel A, B, C, D) in series.
 // so for double-buffering, the front buffer for the 4 channels is [0,1,2,3], and the back buffer is [4,5,6,7], etc.
 // we output as a 4-channel pattern quad in order so it can just be copied directly to TIC-80 memory.
-function encodeRealPatterns(song: Song, audibleChannels: Set<Tic80ChannelIndex>): Uint8Array[] {
+function encodeRealPatterns(song: Song): Uint8Array[] {
    const ret: Uint8Array[] = [];
    const patternCount = getMaxPatternUsedIndex(song) + 1;
    for (let p = 0; p < patternCount; p++) {
       const pattern = song.patterns[p]!;
-      const combined = encodePatternCombined(pattern, audibleChannels);
+      const combined = encodePatternCombined(pattern);
 
       // compress
       const compressed = lzCompress(combined, gSomaticLZDefaultConfig);
@@ -331,6 +331,20 @@ function encodeSfx(song: Song, count: number): Uint8Array {
    return buf;
 }
 
+// bakes some things into a copy of the song for playback.
+
+export interface Tic80SerializeSongArgs {
+   song: Song;
+   loopMode: LoopMode;
+   cursorSongOrder: number,                  //
+      cursorChannelIndex: Tic80ChannelIndex, //
+      cursorRowIndex: number,
+      patternSelection: SelectionRect2D|null, //
+      audibleChannels: Set<Tic80ChannelIndex>,
+      startPosition: number, //
+      startRow: number,
+}
+
 // upon sending to the tic80, we send a payload which includes all the song data in a single chunk.
 // that chunk is meant to be copied to RAM at 0x0FFE4, and includes the following data:
 // | 0FFE4 | WAVEFORMS            | 256   |
@@ -341,8 +355,8 @@ function encodeSfx(song: Song, count: number): Uint8Array {
 // but we also pass a separate pattern data chunk which is used for playback because we
 // copy pattern data ourselves to work around tic80 length limitations.
 export interface Tic80SerializedSong {
+   bakedSong: BakedSong;
    optimizeResult: OptimizeResult;
-   requireSongLoop: boolean;
    waveformData: Uint8Array;
    sfxData: Uint8Array;
    trackData: Uint8Array;
@@ -354,75 +368,38 @@ export interface Tic80SerializedSong {
    patternData: Uint8Array;
 }
 
-export function serializeSongForTic80Bridge(
-   song: Song, audibleChannels: Set<Tic80ChannelIndex>, loopMode: LoopMode): Tic80SerializedSong {
-   //const parts: Uint8Array[] = [];
+export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80SerializedSong {
+   // first, bake loop info into the song.
+   const bakedSong = BakeSong(args);
 
-   // NB: do not optimize the song because
-   // it changes indices that the editor is using.
-
+   // NB: do not optimize waveforms / instruments.
+   // it changes indices that the editor is using. so for example we optimize out an instrument that's not used in the song,
+   // and the user can't hear any changes made to that instrument.
+   // but we are free to optimize pattern data, because it gets ALWAYS updated whenever it's invoked from the playroutine.
    //const optimizeResult = OptimizeSong(song);
    //song = optimizeResult.optimizedSong;
 
-   // should follow this:
-   // | 0FFE4 | WAVEFORMS            | 256   |
-   // | 100E4 | SFX                  | 4224  |
-   // | 11164 | MUSIC PATTERNS       | 11520 |
-   // | 13E64 | MUSIC TRACKS         | 408   | <-- for the 8 tracks. but we only need 1, so size=51
-   // total of 16408 bytes of music data.
+   const waveformData = encodeWaveforms(
+      bakedSong.bakedSong, bakedSong.bakedSong.waveforms.length); // always send all waveforms even if unused
+   const sfxData = encodeSfx(bakedSong.bakedSong, bakedSong.bakedSong.instruments.length);
+   const trackData = encodeTrack(bakedSong.bakedSong);
 
-   const waveformData = encodeWaveforms(song, song.waveforms.length); // always send all waveforms even if unused
-   const sfxData = encodeSfx(song, song.instruments.length);
-   //const nullPatternData = encodeNullPatterns();
-   const trackData = encodeTrack(song);
-
-   //    // overwrite nullPatternData with real patterns for testing
-   //    for (let i = 0; i < realPatternData.length; i++) {
-   //       const patternBytes = realPatternData[i]!;
-   //       nullPatternData.set(patternBytes, i * patternBytes.length);
-   //    }
-
-   // assert(waveformData.length == 256, `Unexpected waveform chunk size: ${waveformData.length}; expected 256`);
-   // assert(sfxData.length == 4224, `Unexpected SFX chunk size: ${sfxData.length}; expected 4224`);
-   // assert(nullPatternData.length == 11520, `Unexpected patterns chunk size: ${nullPatternData.length}; expected 11520`);
-   // //assert(realPatternData.length == 408, `Unexpected realPatternData size: ${realPatternData.length}; expected 408`);
-   // assert(trackData.length == 51, `Unexpected track chunk size: ${trackData.length}; expected 51`);
-
-   // parts.push(waveformData);
-   // parts.push(sfxData);
-   // parts.push(nullPatternData);
-   // parts.push(trackData);
-
-   // const stats = calculateSongUsage(song);
-   // console.log(`serializeSongForTic80Bridge: used waveforms: ${stats.maxWaveform + 1}/${
-   //    Tic80Caps.waveform.count}, instruments: ${stats.maxInstrument + 1}/${Tic80Caps.sfx.count}, patterns: ${
-   //    stats.maxPattern + 1}/${Tic80Caps.pattern.count}`);
-
-   // const total = parts.reduce((sum, p) => sum + p.length, 0);
-   // const out = new Uint8Array(total);
-   // let offset = 0;
-   // for (const p of parts) {
-   //    out.set(p, offset);
-   //    offset += p.length;
-   // }
-
-   // serialize song order data
    const songOrderData = new Uint8Array(1 + SomaticCaps.maxSongLength);
-   songOrderData[0] = song.songOrder.length;
+   songOrderData[0] = bakedSong.bakedSong.songOrder.length;
    for (let i = 0; i < SomaticCaps.maxSongLength; i++) {
-      const patternIndex = song.songOrder[i] ?? 0;
+      const patternIndex = bakedSong.bakedSong.songOrder[i] ?? 0;
       songOrderData[1 + i] = patternIndex & 0xff;
    }
 
-   const realPatternData = encodeRealPatterns(song, audibleChannels); // separate pattern data for playback use
-
+   const realPatternData = encodeRealPatterns(bakedSong.bakedSong); // separate pattern data for playback use
    return {
-      requireSongLoop: loopMode === "song",
+      bakedSong,
+      //requireSongLoop: bakedSong.wantSongLoop,
       optimizeResult: {
-         ...MakeOptimizeResultEmpty(song),
-         usedPatternCount: getMaxPatternUsedIndex(song) + 1,
-         usedSfxCount: getMaxSfxUsedIndex(song) + 1,
-         usedWaveformCount: getMaxWaveformUsedIndex(song) + 1,
+         ...MakeOptimizeResultEmpty(bakedSong.bakedSong),
+         usedPatternCount: getMaxPatternUsedIndex(bakedSong.bakedSong) + 1,
+         usedSfxCount: getMaxSfxUsedIndex(bakedSong.bakedSong) + 1,
+         usedWaveformCount: getMaxWaveformUsedIndex(bakedSong.bakedSong) + 1,
       },
       waveformData,
       sfxData,
@@ -529,7 +506,7 @@ function getCode(song: Song, variant: "debug"|"release", audibleChannels: Set<Ti
    const patternLengths: number[] = []; // size of the base85-decoded (still compressed) pattern data
 
    const patternStringContents = song.patterns.slice(0, maxPattern + 1).map((pattern, patternIndex) => {
-      const encodedPattern = encodePatternCombined(pattern, audibleChannels);
+      const encodedPattern = encodePatternCombined(pattern);
       patternChunks.push(encodedPattern);
 
       //const fingerprint = getBufferFingerprint(encodedPattern);

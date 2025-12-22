@@ -9,16 +9,18 @@ import {LoopMode, MakeEmptyMusicState, MusicState} from "./backend";
 import {serializeSongForTic80Bridge} from "./tic80_cart_serializer";
 
 export type BackendPlaySongArgs = {
-   song: Song,
-   cursorSongOrder: number,
-   cursorChannelIndex: Tic80ChannelIndex,
-   cursorRowIndex: number,
-   patternSelection: SelectionRect2D|null,
-   audibleChannels: Set<Tic80ChannelIndex>,
-   startPosition: number,
-   startRow: number,
-   loopMode: LoopMode,
+   reason: string;                           //
+   song: Song,                               //
+   cursorSongOrder: number,                  //
+   cursorChannelIndex: Tic80ChannelIndex,    //
+   cursorRowIndex: number,                   //
+   patternSelection: SelectionRect2D | null, //
+   audibleChannels: Set<Tic80ChannelIndex>,  //
+   startPosition: number,                    //
+   startRow: number,                         //
+   loopMode: LoopMode,                       //
 };
+
 
 // Minimal TIC-80 backend: delegates transport commands to the bridge.
 // Song/instrument upload is not implemented yet; this is a transport stub.
@@ -33,17 +35,6 @@ export class Tic80Backend {
    constructor(bridgeGetter: () => Tic80BridgeHandle | null) {
       //this.emit = ctx.emit;
       this.bridge = bridgeGetter;
-   }
-
-   async transmitSong(song: Song, reason: string, audibleChannels: Set<Tic80ChannelIndex>, loopMode: LoopMode) {
-      const b = this.bridge();
-      if (!b || !b.isReady())
-         return;
-      const serializedSong = serializeSongForTic80Bridge(song, audibleChannels, loopMode);
-
-      await b.invokeExclusive("transmitSong", async tx => {
-         await tx.uploadSongData(serializedSong, "Song has been modified.");
-      });
    }
 
    async sfxNoteOn(instrumentIndex: number, instrument: Tic80Instrument, midiNote: number, channel: Tic80ChannelIndex) {
@@ -131,7 +122,7 @@ export class Tic80Backend {
       });
    }
 
-   async playSong(args: BackendPlaySongArgs) //
+   async transmitAndPlay(args: BackendPlaySongArgs) //
    {
       const b = this.bridge();
       if (!b || !b.isReady())
@@ -140,12 +131,28 @@ export class Tic80Backend {
       // always serialize & transmit the up-to-date song.
       // serialize will bake in looping to the output and can request forever looping.
 
-      const serializedSong = serializeSongForTic80Bridge(args.song, args.audibleChannels, args.loopMode);
+      const serializedSong = serializeSongForTic80Bridge({
+         song: args.song,
+         cursorSongOrder: args.cursorSongOrder,
+         cursorChannelIndex: args.cursorChannelIndex,
+         cursorRowIndex: args.cursorRowIndex,
+         patternSelection: args.patternSelection,
+         audibleChannels: args.audibleChannels,
+         startPosition: args.startPosition,
+         startRow: args.startRow,
+         loopMode: args.loopMode,
+      });
 
-      await b.invokeExclusive("playSong", async (tx) => {
-         await tx.uploadSongData(serializedSong, "playing baked song");
-         await tx.play(
-            {songPosition: args.startPosition, row: args.startRow, loopForever: serializedSong.requireSongLoop});
+      console.log("[Tic80Backend] transmitAndPlay uploading song:", serializedSong);
+
+      const reason = `transmitAndPlay: ${args.reason}`;
+
+      await b.invokeExclusive(reason, async (tx) => {
+         //await tx.uploadSongData(serializedSong, "playing baked song");
+         await tx.uploadAndPlay({
+            data: serializedSong, //
+            reason                //
+         });
       });
    }
 

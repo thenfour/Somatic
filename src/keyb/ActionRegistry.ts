@@ -551,17 +551,17 @@ export const gActionRegistry: ActionRegistry = {
       category: "Transport",
       defaultBindings: [],
    },
-   "SetLoopSelection": {
-      id: "SetLoopSelection",
-      title: "set loop to selection",
+   "SetLoopSelectionInPattern": {
+      id: "SetLoopSelectionInPattern",
+      title: "set loop to selection in pattern",
       description: "set the loop to the current selection.",
       category: "Transport",
       defaultBindings: [],
    },
-   "SetLoopWholePattern": {
-      id: "SetLoopWholePattern",
-      title: "set loop to whole pattern",
-      description: "set the loop to the entire pattern.",
+   "SetLoopSelectionInSongOrder": {
+      id: "SetLoopSelectionInSongOrder",
+      title: "set loop to selection in song order",
+      description: "set the loop to the selection in the song order.",
       category: "Transport",
       defaultBindings: [],
    },
@@ -590,6 +590,13 @@ export const gActionRegistry: ActionRegistry = {
       id: "SetLoopPattern",
       title: "set loop to pattern",
       description: "set the loop to the current pattern.",
+      category: "Transport",
+      defaultBindings: [],
+   },
+   "ToggleLoopModeOff": {
+      id: "ToggleLoopModeOff",
+      title: "toggle loop mode off",
+      description: "toggle looping off/on.",
       category: "Transport",
       defaultBindings: [],
    },

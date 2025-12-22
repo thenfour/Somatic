@@ -22,11 +22,9 @@ local ADDR = {
 
 -- Inbox command IDs (host -> cart)
 local CMD_NOP = BRIDGE_CONFIG.inboxCommands.NOP
-local CMD_PLAY = BRIDGE_CONFIG.inboxCommands.PLAY
+local CMD_TRANSMIT_AND_PLAY = BRIDGE_CONFIG.inboxCommands.TRANSMIT_AND_PLAY
 local CMD_STOP = BRIDGE_CONFIG.inboxCommands.STOP
 local CMD_PING = BRIDGE_CONFIG.inboxCommands.PING
-local CMD_BEGIN_UPLOAD = BRIDGE_CONFIG.inboxCommands.BEGIN_UPLOAD
-local CMD_END_UPLOAD = BRIDGE_CONFIG.inboxCommands.END_UPLOAD
 local CMD_PLAY_SFX_ON = BRIDGE_CONFIG.inboxCommands.PLAY_SFX_ON
 local CMD_PLAY_SFX_OFF = BRIDGE_CONFIG.inboxCommands.PLAY_SFX_OFF
 
@@ -212,12 +210,21 @@ end
 -- =========================
 -- Commands
 local function handle_play()
+	-- assumes host has uploaded music data already to RAM.
+
+	-- Force reload of music data
+	-- https://github.com/nesbox/TIC-80/wiki/sync
+	-- flags = 8 (sfx) + 16 (music) = 24
+	-- bank = 0 (default)
+	-- true means sync from runtime -> cart.
+	sync(24, 0, true)
+
 	local songPosition = peek(INBOX.SONG_POSITION)
 	local startRow = peek(INBOX.ROW)
 	local loopFlag = peek(INBOX.LOOP)
 	loopSongForever = loopFlag ~= 0
 	tf_music_init(songPosition, startRow)
-	publish_cmd(CMD_PLAY, 0)
+	publish_cmd(CMD_TRANSMIT_AND_PLAY, 0)
 end
 
 local function handle_stop()
@@ -267,25 +274,6 @@ local function handle_play_sfx_off()
 	log(string.format("PLAY_SFX_OFF ch=%d", channel))
 end
 
-local function handle_begin_upload()
-	-- Stop any playback before host overwrites music data
-	music()
-	-- set_playing(playingTrack, false)
-	publish_cmd(CMD_BEGIN_UPLOAD, 0)
-	log("BEGIN_UPLOAD")
-end
-
-local function handle_end_upload()
-	-- Force reload of music data
-	-- https://github.com/nesbox/TIC-80/wiki/sync
-	-- flags = 8 (sfx) + 16 (music) = 24
-	-- bank = 0 (default)
-	-- true means sync from runtime -> cart.
-	sync(24, 0, true)
-	publish_cmd(CMD_END_UPLOAD, 0)
-	log("END_UPLOAD")
-end
-
 local function poll_inbox()
 	-- If host is mid-write, ignore to avoid tearing
 	if peek(INBOX.MUTEX) ~= 0 then
@@ -303,16 +291,12 @@ local function poll_inbox()
 		return false
 	end
 
-	if cmd == CMD_PLAY then
+	if cmd == CMD_TRANSMIT_AND_PLAY then
 		handle_play()
 	elseif cmd == CMD_STOP then
 		handle_stop()
 	elseif cmd == CMD_PING then
 		handle_ping_fx()
-	elseif cmd == CMD_BEGIN_UPLOAD then
-		handle_begin_upload()
-	elseif cmd == CMD_END_UPLOAD then
-		handle_end_upload()
 	elseif cmd == CMD_PLAY_SFX_ON then
 		handle_play_sfx_on()
 	elseif cmd == CMD_PLAY_SFX_OFF then

@@ -24,6 +24,7 @@ export interface EditorStateDto {
    mutedChannels: Tic80ChannelIndex[];
    soloedChannels: Tic80ChannelIndex[];
    loopMode: LoopMode;
+   lastNonOffLoopMode: LoopMode;
 }
 ;
 
@@ -39,6 +40,7 @@ export class EditorState {
    mutedChannels: Set<Tic80ChannelIndex> = new Set<Tic80ChannelIndex>();
    soloedChannels: Set<Tic80ChannelIndex> = new Set<Tic80ChannelIndex>();
    loopMode: LoopMode;
+   lastNonOffLoopMode: LoopMode;
 
    constructor({
       octave = Math.floor(Tic80Caps.pattern.octaveCount / 2),
@@ -52,6 +54,7 @@ export class EditorState {
       mutedChannels = [],
       soloedChannels = [],
       loopMode = "off",
+      lastNonOffLoopMode = "pattern",
    }: Partial<EditorStateDto> = {}) {
       this.octave = clamp(octave, 1, Tic80Caps.pattern.octaveCount);
       this.activeSongPosition = clamp(activeSongPosition, 0, 255);
@@ -65,6 +68,7 @@ export class EditorState {
       this.mutedChannels = new Set(mutedChannels);
       this.soloedChannels = new Set(soloedChannels);
       this.loopMode = loopMode as LoopMode;
+      this.lastNonOffLoopMode = lastNonOffLoopMode;
    }
 
    setOctave(nextOctave: number) {
@@ -97,6 +101,9 @@ export class EditorState {
    }
 
    setLoopMode(mode: LoopMode) {
+      if (mode !== "off") {
+         this.lastNonOffLoopMode = mode;
+      }
       this.loopMode = mode;
    }
 
@@ -192,6 +199,7 @@ export class EditorState {
          mutedChannels: [...this.mutedChannels],
          soloedChannels: [...this.soloedChannels],
          loopMode: this.loopMode,
+         lastNonOffLoopMode: this.lastNonOffLoopMode,
       };
    }
 
