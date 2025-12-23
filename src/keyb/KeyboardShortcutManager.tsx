@@ -28,6 +28,7 @@ type ShortcutManagerApi<TActionId extends string> = {
     setUserBindings: React.Dispatch<React.SetStateAction<UserBindings<TActionId>>>;
 
     registerHandler: (actionId: TActionId, handler: ActionHandler) => () => void;
+    useActionHandler: (actionId: TActionId, handler: ActionHandler) => void;
     getResolvedBindings: () => Record<TActionId, ShortcutChord[]>;
     getActionBindingLabel: (actionId: TActionId) => string | undefined;
     suspendShortcuts: () => () => void; // returns a release function
@@ -100,6 +101,16 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
             regsRef.current = regsRef.current.filter(r => r.id !== id);
         };
     }, []);
+
+    // Hook helper exposed on the manager so consumers can write mgr.useActionHandler("Close", ...) without re-specifying generics.
+    const useActionHandlerScoped = (actionId: TActionId, handler: ActionHandler) => {
+        const handlerRef = React.useRef(handler);
+        handlerRef.current = handler;
+
+        React.useEffect(() => {
+            return registerHandler(actionId, ctx => handlerRef.current(ctx));
+        }, [registerHandler, actionId]);
+    };
 
     const getResolvedBindings = React.useCallback(() => {
         return resolveBindingsForPlatform(actionsRef.current, userBindingsRef.current, platform);
@@ -218,6 +229,7 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
         userBindings,
         setUserBindings,
         registerHandler,
+        useActionHandler: useActionHandlerScoped,
         getResolvedBindings,
         getActionBindingLabel,
         suspendShortcuts,

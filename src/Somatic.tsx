@@ -44,6 +44,7 @@ import { OptimizeSong } from './utils/SongOptimizer';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
 import { CharMap } from './utils/utils';
+import { GlobalActionId } from './keyb/ActionIds';
 
 const TIC80_FRAME_SIZES = [
 
@@ -86,7 +87,7 @@ const isEditingCommandOrParamCell = () => {
 
 
 export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
-    const keyboardShortcutMgr = useShortcutManager();
+    const keyboardShortcutMgr = useShortcutManager<GlobalActionId>();
     const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
     const [disabledMidiDeviceIds, setDisabledMidiDeviceIds] = useLocalStorage<string[]>("somatic-disabledMidiDeviceIds", []);
     const midiRef = React.useRef<MidiManager | null>(new MidiManager(disabledMidiDeviceIds));

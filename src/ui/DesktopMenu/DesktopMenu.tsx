@@ -21,7 +21,7 @@ import React, {
 import { createPortal } from 'react-dom';
 import { CharMap } from '../../utils/utils';
 import './DesktopMenu.css';
-import { ShortcutManagerProvider } from '../../keyb/KeyboardShortcutManager';
+import { ShortcutManagerProvider, useShortcutManager } from '../../keyb/KeyboardShortcutManager';
 import { useActionHandler } from '../../keyb/useActionHandler';
 import { gMenuActionRegistry, MenuActionId } from './DesktopMenuActions';
 
@@ -318,8 +318,9 @@ type MenuContentBodyProps = {
 };
 
 const MenuContentBody: React.FC<MenuContentBodyProps> = ({ ctx, classes, contentStyle, combinedRef, children }) => {
+    const mgr = useShortcutManager<MenuActionId>();
     // Local shortcut: ESC closes menu and returns focus to trigger
-    useActionHandler<MenuActionId>('Close', () => {
+    mgr.useActionHandler('Close', () => {
         ctx.closeTree();
         ctx.triggerRef.current?.focus();
     });
