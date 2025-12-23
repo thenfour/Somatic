@@ -577,7 +577,9 @@ option {
 .main-editor-area {
     display: flex;
     gap: 20px;
-    overflow: auto;
+    /* Let internal panels own scrolling (e.g. arrangement-editor__content). */
+    overflow: hidden;
+    min-height: 0;
     box-sizing: border-box;
     padding: 12px;
 }
@@ -597,15 +599,6 @@ option {
     overflow: auto;
     ;
     box-sizing: border-box;
-}
-
-.tic80-frame {
-    width: var(--tic80-frame-width);
-    height: var(--tic80-frame-height);
-    flex-shrink: 0;
-    background: var(--panel-strong);
-    border: 1px solid var(--border);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
 }
 
 /* Toasts */
@@ -847,11 +840,30 @@ option {
     background: var(--accent-strong);
 }
 
+.leftAsideStack {
+    display: flex;
+    flex-direction: column;
+    border-right: 2px solid var(--border);
+    min-height: 0;
+}
+
+.tic80-frame {
+    width: var(--tic80-frame-width);
+    height: var(--tic80-frame-height);
+    /*
+    flex-shrink: 0;
+    background: var(--panel-strong);
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25); */
+    flex: 0 0 auto;
+}
+
 .arrangement-editor {
     display: flex;
     flex-direction: column;
-    height: 100%;
     border-right: 2px solid var(--border);
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .arrangement-editor__header {
@@ -861,10 +873,10 @@ option {
     flex-shrink: 0;
 }
 
+/* scrollable content area (not including footer with controls) */
 .arrangement-editor__content {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: auto;
+    flex: 1 1 auto;
     min-height: 0;
     padding: 8px;
     padding-bottom: 20vh;
@@ -917,7 +929,7 @@ option {
     padding: 1px 4px;
 }
 
-.arrangement-editor__toggle-names[aria-pressed="true"] {}
+
 
 .arrangement-editor button {
     border: 0;
@@ -945,10 +957,7 @@ option {
     outline: 0;
 }
 
-.arrangement-editor__row--selected {
-    /* background-color: var(--accent); */
-    /* color: var(--tic-0); */
-}
+
 
 .arrangement-editor__row--selection-container {
     border-left: 1px solid transparent;

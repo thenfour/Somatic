@@ -15,7 +15,6 @@ export const GlobalActions = {
    ToggleInstrumentPanel: "ToggleInstrumentPanel",
    CycleTic80PanelSize: "CycleTic80PanelSize",
    ToggleOnScreenKeyboard: "ToggleOnScreenKeyboard",
-   ToggleArrangementEditor: "ToggleArrangementEditor",
    ToggleAdvancedEditPanel: "ToggleAdvancedEditPanel",
    PlayFromPosition: "PlayFromPosition",
    PlayPattern: "PlayPattern",

@@ -121,16 +121,6 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       ],
    },
 
-   "ToggleArrangementEditor": {
-      id: "ToggleArrangementEditor",
-      title: "toggle arrangement editor",
-      description: "show or hide the arrangement editor.",
-      category: "View",
-      defaultBindings: [
-         {kind: "character", key: "/"},
-      ],
-   },
-
    "ToggleAdvancedEditPanel": {
       id: "ToggleAdvancedEditPanel",
       title: "toggle advanced edit panel",
