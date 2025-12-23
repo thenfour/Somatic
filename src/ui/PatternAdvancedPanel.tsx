@@ -2,6 +2,7 @@ import React, { useId, useState } from 'react';
 import { CharMap } from '../utils/utils';
 import { Tooltip } from './tooltip';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
+import { GlobalActionId } from '../keyb/ActionIds';
 
 export type PatternAdvancedPanelProps = {
     enabled?: boolean;
@@ -10,6 +11,7 @@ export type PatternAdvancedPanelProps = {
     onChangeInstrument: (fromInstrument: number, toInstrument: number, scope: ScopeValue) => void;
     onNudgeInstrument: (amount: number, scope: ScopeValue) => void;
     onInterpolate: (target: InterpolateTarget, scope: ScopeValue) => void;
+    onClose: () => void;
 };
 
 const scopeOptions = [
@@ -30,7 +32,7 @@ const interpolateOptions = [
 
 export type InterpolateTarget = (typeof interpolateOptions)[number]['value'];
 
-export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enabled = true, onTranspose, onSetInstrument, onChangeInstrument, onNudgeInstrument, onInterpolate }) => {
+export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enabled = true, onTranspose, onSetInstrument, onChangeInstrument, onNudgeInstrument, onInterpolate, onClose }) => {
     const scopeGroupId = useId();
     const keyboardShortcutMgr = useShortcutManager();
     const [scope, setScope] = useState<ScopeValue>('selection');
@@ -38,6 +40,9 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enab
     const [changeInstrumentFrom, setChangeInstrumentFrom] = useState<number>(2);
     const [changeInstrumentTo, setChangeInstrumentTo] = useState<number>(3);
     const [interpolateTarget, setInterpolateTarget] = useState<InterpolateTarget>('notes');
+    const mgr = useShortcutManager<GlobalActionId>();
+
+    const advancedEditPanelKeyshortcut = mgr.getActionBindingLabel("ToggleAdvancedEditPanel") || "Unbound";
 
     return (
         <aside
@@ -45,9 +50,17 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enab
             className={`pattern-advanced-panel`}
         >
             <header className="pattern-advanced-panel__header">Advanced Edit</header>
+            <Tooltip title={`Close (${advancedEditPanelKeyshortcut})`}>
+                <button
+                    className='aside-toggle-button pattern-advanced-panel-close-button'
+                    onClick={onClose}
+                >
+                    {CharMap.LeftTriangle}
+                </button>
+            </Tooltip>
             <div className="pattern-advanced-panel__body">
                 <fieldset className="pattern-advanced-panel__group" aria-labelledby={`${scopeGroupId}-legend`}>
-                    <legend id={`${scopeGroupId}-legend`}>Apply edits to</legend>
+                    <legend id={`${scopeGroupId}-legend`}>Apply to</legend>
                     <div className="pattern-advanced-panel__scope">
                         {scopeOptions.map((option) => (
                             <label key={option.value} className="pattern-advanced-panel__scopeOption">

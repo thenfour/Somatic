@@ -37,25 +37,8 @@
 }
 
 .pattern-advanced-handle {
-    position: absolute;
-    top: 0;
     left: 0;
-    border: 0;
-    background: var(--panel);
-    color: var(--text);
-    padding: 12px 6px;
-    cursor: pointer;
-    font-size: 14px;
     z-index: 100;
-}
-
-.pattern-advanced-handle:hover {
-    background: var(--panel-strong);
-}
-
-.pattern-advanced-handle--open {
-    background: var(--accent);
-    color: var(--tic-0);
 }
 
 .pattern-advanced-panel {
@@ -68,8 +51,29 @@
     overflow: auto;
     gap: 16px;
     flex: none;
-    border-right: 1px solid var(--border-strong);
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+    position: relative;
+}
+
+.aside-toggle-button {
+    position: absolute;
+    top: 0px;
+    height: 46px;
+    padding: 12px 6px;
+    border: 1px solid var(--border);
+    background: var(--accent);
+    color: var(--border);
+    cursor: pointer;
+    font-size: 14px;
+    border: 0;
+}
+
+.aside-toggle-button:hover {
+    background: var(--panel-strong);
+}
+
+.pattern-advanced-panel-close-button {
+    right: 0px;
 }
 
 .pattern-advanced-panel--open {
