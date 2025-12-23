@@ -31,6 +31,7 @@ export function useAppInstancePresence(appId: string, opts: Options = {}) {
    const ACTIVE_KEY = `__app_active__:${appId}`;
 
    const [otherInstanceActive, setOtherInstanceActive] = useState(false);
+   const [detectionEnabled, setDetectionEnabled] = useState(false);
 
    const readPresence = useCallback((): PresenceMap => {
       return safeParse<PresenceMap>(localStorage.getItem(ACTIVE_KEY)) ?? {};
@@ -48,17 +49,19 @@ export function useAppInstancePresence(appId: string, opts: Options = {}) {
    }, [staleMs]);
 
    const computeOtherActive = useCallback(() => {
+      if (!detectionEnabled)
+         return false;
       const presence = pruneStalePresence(readPresence());
       return typedKeys(presence).some(id => id !== tabId);
-   }, [pruneStalePresence, readPresence, tabId]);
+   }, [pruneStalePresence, readPresence, tabId, detectionEnabled]);
 
    const heartbeat = useCallback(() => {
       const now = Date.now();
       const presence = pruneStalePresence(readPresence());
       presence[tabId] = now;
       localStorage.setItem(ACTIVE_KEY, JSON.stringify(presence));
-      setOtherInstanceActive(typedKeys(presence).some(id => id !== tabId));
-   }, [ACTIVE_KEY, pruneStalePresence, readPresence, tabId]);
+      setOtherInstanceActive(detectionEnabled && typedKeys(presence).some(id => id !== tabId));
+   }, [ACTIVE_KEY, pruneStalePresence, readPresence, tabId, detectionEnabled]);
 
    const removeSelf = useCallback(() => {
       const presence = pruneStalePresence(readPresence());
@@ -69,6 +72,10 @@ export function useAppInstancePresence(appId: string, opts: Options = {}) {
    useEffect(() => {
       if (typeof window === "undefined")
          return;
+
+      // grace period so reloads (F5) don't flash a false warning
+      const graceMs = staleMs + heartbeatMs + 500; // a bit longer than the stale timeout
+      const graceId = window.setTimeout(() => setDetectionEnabled(true), graceMs);
 
       const tick = () => {
          heartbeat();
@@ -103,9 +110,10 @@ export function useAppInstancePresence(appId: string, opts: Options = {}) {
          window.removeEventListener("storage", onStorage);
          window.removeEventListener("beforeunload", removeSelf);
          window.removeEventListener("pagehide", removeSelf);
+         window.clearTimeout(graceId);
          removeSelf();
       };
-   }, [heartbeatMs, heartbeat, computeOtherActive, ACTIVE_KEY, removeSelf]);
+   }, [heartbeatMs, heartbeat, computeOtherActive, ACTIVE_KEY, removeSelf, staleMs]);
 
    return useMemo(
       () => ({
