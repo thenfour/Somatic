@@ -413,6 +413,13 @@ const MenuItem = React.forwardRef<HTMLDivElement, MenuItemProps>(({ children, di
         handleActivate(event);
     };
 
+    const handlePointerEnter = () => {
+        // When hovering over a regular menu item, close any open submenus at this level
+        // This is done by finding all sub menus that might be open and closing them
+        // Since we don't have direct access to sibling submenus, we rely on the parent menu
+        // to manage this through the content's event handling
+    };
+
     const classes = ['desktop-menu-item'];
     if (disabled) classes.push('desktop-menu-item--disabled');
     if (inset) classes.push('desktop-menu-item--inset');
@@ -426,6 +433,7 @@ const MenuItem = React.forwardRef<HTMLDivElement, MenuItemProps>(({ children, di
             aria-disabled={disabled || undefined}
             className={classes.join(' ')}
             onClick={handleClick}
+            onPointerEnter={handlePointerEnter}
             ref={combinedRef}
             data-menu-item="true"
         >
@@ -464,6 +472,7 @@ type MenuSubTriggerProps = {
 const MenuSubTrigger = React.forwardRef<HTMLDivElement, MenuSubTriggerProps>(({ children, disabled }, forwardedRef) => {
     const ctx = useMenuContext('DesktopMenu.SubTrigger');
     const combinedRef = composeRefs<HTMLDivElement>(forwardedRef, (node) => { ctx.triggerRef.current = node; });
+    const timeoutRef = useRef<number | null>(null);
 
     const handleClick: React.MouseEventHandler<HTMLDivElement> = (event) => {
         event.preventDefault();
@@ -472,8 +481,37 @@ const MenuSubTrigger = React.forwardRef<HTMLDivElement, MenuSubTriggerProps>(({ 
     };
 
     const handlePointerEnter = () => {
+        if (timeoutRef.current) {
+            window.clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+        }
         if (!disabled) ctx.open();
     };
+
+    const handlePointerLeave = (event: React.PointerEvent<HTMLDivElement>) => {
+        // Only close if we're not moving into the submenu content
+        const relatedTarget = event.relatedTarget as HTMLElement | null;
+        const isMovingToContent = relatedTarget && ctx.contentRef.current?.contains(relatedTarget);
+
+        if (!isMovingToContent && !disabled) {
+            // Small delay to prevent flickering when moving between trigger and content
+            timeoutRef.current = window.setTimeout(() => {
+                // Check again if mouse is in content before closing
+                if (!ctx.contentRef.current?.matches(':hover')) {
+                    ctx.close();
+                }
+            }, 100);
+        }
+    };
+
+    // Cleanup timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) {
+                window.clearTimeout(timeoutRef.current);
+            }
+        };
+    }, []);
 
     const classes = ['desktop-menu-item', 'desktop-menu-item--submenu'];
     if (disabled) classes.push('desktop-menu-item--disabled');
@@ -487,6 +525,7 @@ const MenuSubTrigger = React.forwardRef<HTMLDivElement, MenuSubTriggerProps>(({ 
             className={classes.join(' ')}
             onClick={handleClick}
             onPointerEnter={handlePointerEnter}
+            onPointerLeave={handlePointerLeave}
             ref={combinedRef}
             data-menu-item="true"
         >
