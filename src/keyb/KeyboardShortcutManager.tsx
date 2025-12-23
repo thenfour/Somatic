@@ -56,6 +56,8 @@ export function ShortcutManagerProvider(props: {
     initialBindings?: UserBindings;
     onBindingsChange?: (b: UserBindings) => void;
     platform?: Platform; // override for tests
+    attachTo: Document | HTMLElement | React.RefObject<HTMLElement>;
+    eventPhase: "bubble" | "capture"; // bubble is for local handlers, capture is for global handlers
     eventPolicy?: ShortcutEventPolicy;
     children: React.ReactNode;
 }) {
@@ -107,15 +109,12 @@ export function ShortcutManagerProvider(props: {
     }, [getResolvedBindings, platform]);
 
     React.useEffect(() => {
-        const onKeyDown = (e: KeyboardEvent) => {
+        const onKeyDown = (e: Event) => {
+            if (!(e instanceof KeyboardEvent)) return;
             if (suspendCountRef.current > 0) return;
 
             if (props.eventPolicy?.ignoreEvent?.(e)) return;
             if (e.isComposing) return;
-
-            //const activeScopes = (window as any).__shortcut_activeScopes?.() as string[] | undefined;
-            // We'll fill this from a hook below. Fallback to ["global"].
-            //const scopes = activeScopes?.length ? activeScopes : ["global"];
 
             const ctx = buildShortcutContext(platform, e);
 
@@ -137,7 +136,7 @@ export function ShortcutManagerProvider(props: {
             }
             if (!candidates.length) return;
 
-            // For each candidate, find best handler in current scopes and pick best overall
+            // For each candidate, find best handler
             const regs = regsRef.current;
             let chosen: HandlerReg | null = null;
 
@@ -168,9 +167,22 @@ export function ShortcutManagerProvider(props: {
             chosen.handler(ctx);
         };
 
-        document.addEventListener("keydown", onKeyDown, true);
-        return () => document.removeEventListener("keydown", onKeyDown, true);
-    }, [platform, props.eventPolicy]);
+        // Resolve the attachment target
+        const attachTo = props.attachTo ?? document;
+
+        const target: Document | HTMLElement | null = attachTo && 'current' in attachTo
+            ? attachTo.current  // It's a ref
+            : attachTo;         // It's a Document or HTMLElement
+
+        if (!target) return; // Can't attach if ref is null
+
+        const useCapture = props.eventPhase === "bubble" ? false : true; // default to capture
+
+        target.addEventListener("keydown", onKeyDown, useCapture);
+        return () => {
+            target.removeEventListener("keydown", onKeyDown, useCapture);
+        };
+    }, [platform, props.eventPolicy, props.attachTo, props.eventPhase]);
 
     const api: ShortcutManagerApi = {
         platform,

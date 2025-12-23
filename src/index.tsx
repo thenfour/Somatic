@@ -74,7 +74,13 @@ const AppWrapper: React.FC = () => {
     const [keyBindings, setKeyBindings] = useLocalStorage('somatic-keybindings', {});
 
     return (
-        <ShortcutManagerProvider actions={gActionRegistry} initialBindings={keyBindings} onBindingsChange={setKeyBindings}>
+        <ShortcutManagerProvider
+            actions={gActionRegistry}
+            initialBindings={keyBindings}
+            onBindingsChange={setKeyBindings}
+            attachTo={document}
+            eventPhase="capture"
+        >
             <ToastProvider>
                 <ConfirmDialogProvider>
                     <ClipboardProvider>
