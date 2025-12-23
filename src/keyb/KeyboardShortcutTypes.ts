@@ -59,8 +59,7 @@ export type ActionDef = {
 };
 
 export type ShortcutContext = {
-   platform: Platform;     //
-   activeScopes: string[]; // top-most first, e.g. ["modal:cmdk", "panel:pianoRoll", "global"]
+   platform: Platform; //
    target: EventTarget | null;
    isEditableTarget: boolean;
 };

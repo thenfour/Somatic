@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ClipboardProvider } from "./hooks/useClipboard";
 import { useLocalStorage } from "./hooks/useLocalStorage";
-import { ShortcutManagerProvider, useExposeActiveScopesToWindow } from "./keyb/KeyboardShortcutManager";
+import { ShortcutManagerProvider } from "./keyb/KeyboardShortcutManager";
 import { ConfirmDialogProvider } from "./ui/confirm_dialog";
 import { Theme } from "./ui/theme_editor_panel";
 import { ToastProvider } from "./ui/toast_provider";
@@ -54,11 +54,6 @@ const SplashScreen: React.FC<{ onContinue: () => void }> = ({ onContinue }) => {
     </div>;
 };
 
-function ShortcutRuntimeBridge() {
-    useExposeActiveScopesToWindow();
-    return null;
-}
-
 // just wrapps <App /> to gate on user gesture via splash screen
 const AppWrapper: React.FC = () => {
     const [hasContinued, setHasContinued] = useState(false);
@@ -80,7 +75,6 @@ const AppWrapper: React.FC = () => {
 
     return (
         <ShortcutManagerProvider actions={gActionRegistry} initialBindings={keyBindings} onBindingsChange={setKeyBindings}>
-            <ShortcutRuntimeBridge />
             <ToastProvider>
                 <ConfirmDialogProvider>
                     <ClipboardProvider>

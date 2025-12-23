@@ -91,11 +91,10 @@ export function chordMatchesEvent(e: KeyboardEvent, chord: ShortcutChord, platfo
    return normalizeKeyForCharacterShortcut(e.key) === normalizeKeyForCharacterShortcut(chord.key);
 }
 
-export function buildShortcutContext(platform: Platform, activeScopes: string[], e: KeyboardEvent): ShortcutContext {
+export function buildShortcutContext(platform: Platform, e: KeyboardEvent): ShortcutContext {
    const target = e.target;
    return {
       platform,
-      activeScopes,
       target,
       isEditableTarget: isEditableTarget(target),
    };

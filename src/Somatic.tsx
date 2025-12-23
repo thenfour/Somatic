@@ -14,7 +14,6 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { useRenderAlarm } from './hooks/useRenderAlarm';
 import { useWriteBehindEffect } from './hooks/useWriteBehindEffect';
 import { useShortcutManager } from './keyb/KeyboardShortcutManager';
-import { ShortcutScopeProvider } from './keyb/KeyboardShortcutScope';
 import { useActionHandler } from './keyb/useActionHandler';
 import { KeyboardNoteInput } from './midi/keyboard_input';
 import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
@@ -1054,19 +1053,17 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     onEditorStateChange={updateEditorState}
                     onSongChange={updateSong}
                 />}
-                <ShortcutScopeProvider scope="PatternGrid">
-                    <PatternGrid
-                        ref={patternGridRef}
-                        song={song}
-                        audio={audio}
-                        musicState={somaticTransportState}
-                        editorState={editorState}
-                        onEditorStateChange={updateEditorState}
-                        onSongChange={updateSong}
-                        advancedEditPanelOpen={advancedEditPanelOpen}
-                        onSetAdvancedEditPanelOpen={open => setAdvancedEditPanelOpen(open)}
-                    />
-                </ShortcutScopeProvider>
+                <PatternGrid
+                    ref={patternGridRef}
+                    song={song}
+                    audio={audio}
+                    musicState={somaticTransportState}
+                    editorState={editorState}
+                    onEditorStateChange={updateEditorState}
+                    onSongChange={updateSong}
+                    advancedEditPanelOpen={advancedEditPanelOpen}
+                    onSetAdvancedEditPanelOpen={open => setAdvancedEditPanelOpen(open)}
+                />
                 {waveformEditorPanelOpen && (
                     <WaveformEditorPanel
                         song={song}

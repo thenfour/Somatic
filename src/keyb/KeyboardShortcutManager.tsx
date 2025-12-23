@@ -12,14 +12,12 @@ import type {
 import { detectPlatform } from "./KeyboardShortcutPlatform";
 import { buildShortcutContext, chordMatchesEvent } from "./Keyboard";
 import { resolveBindingsForPlatform } from "./KeyboardConflicts";
-import { useActiveScopes } from "./KeyboardShortcutScope";
 import { ActionId } from "./ActionIds";
 import { formatChord } from "./format";
 
 type HandlerReg = {
     id: string;
     actionId: ActionId;
-    scopesAtRegistration: string[]; // top-most first
     handler: ActionHandler;
 };
 
@@ -29,7 +27,7 @@ type ShortcutManagerApi = {
     userBindings: UserBindings;
     setUserBindings: React.Dispatch<React.SetStateAction<UserBindings>>;
 
-    registerHandler: (actionId: ActionId, scopes: string[], handler: ActionHandler) => () => void;
+    registerHandler: (actionId: ActionId, handler: ActionHandler) => () => void;
     getResolvedBindings: () => Record<ActionId, ShortcutChord[]>;
     getActionBindingLabel: (actionId: ActionId) => string | undefined;
     suspendShortcuts: () => () => void; // returns a release function
@@ -43,26 +41,8 @@ function defaultShouldHandleAction(def: ActionDef, ctx: ShortcutContext): boolea
     return true;
 }
 
-function chooseBestHandler(regs: HandlerReg[], activeScopes: string[]): HandlerReg | null {
-    if (regs.length === 0) return null;
-
-    // Score: lower is better.
-    // 1) earliest match in activeScopes
-    // 2) more specific registration (more scopes) wins ties
-    // 3) stable tie-break by insertion order (already preserved)
-    let best: { reg: HandlerReg; scoreA: number; scoreB: number } | null = null;
-
-    for (const reg of regs) {
-        const idx = activeScopes.findIndex(s => reg.scopesAtRegistration.includes(s));
-        const scoreA = idx >= 0 ? idx : Number.POSITIVE_INFINITY;
-        const scoreB = -reg.scopesAtRegistration.length;
-
-        if (!best || scoreA < best.scoreA || (scoreA === best.scoreA && scoreB < best.scoreB)) {
-            best = { reg, scoreA, scoreB };
-        }
-    }
-
-    return best?.reg ?? null;
+function chooseBestHandler(regs: HandlerReg[]): HandlerReg | null {
+    return regs[0] || null;
 }
 
 export function useShortcutManager(): ShortcutManagerApi {
@@ -106,9 +86,9 @@ export function ShortcutManagerProvider(props: {
         };
     }, []);
 
-    const registerHandler = React.useCallback((actionId: ActionId, scopes: string[], handler: ActionHandler) => {
+    const registerHandler = React.useCallback((actionId: ActionId, handler: ActionHandler) => {
         const id = `${actionId}:${Math.random().toString(36).slice(2)}`;
-        const reg: HandlerReg = { id, actionId, scopesAtRegistration: scopes, handler };
+        const reg: HandlerReg = { id, actionId, handler };
         regsRef.current = [...regsRef.current, reg];
 
         return () => {
@@ -133,11 +113,11 @@ export function ShortcutManagerProvider(props: {
             if (props.eventPolicy?.ignoreEvent?.(e)) return;
             if (e.isComposing) return;
 
-            const activeScopes = (window as any).__shortcut_activeScopes?.() as string[] | undefined;
+            //const activeScopes = (window as any).__shortcut_activeScopes?.() as string[] | undefined;
             // We'll fill this from a hook below. Fallback to ["global"].
-            const scopes = activeScopes?.length ? activeScopes : ["global"];
+            //const scopes = activeScopes?.length ? activeScopes : ["global"];
 
-            const ctx = buildShortcutContext(platform, scopes, e);
+            const ctx = buildShortcutContext(platform, e);
 
             // ignore repeats by default (per-action can allow)
             // we can’t know which action until we match; we’ll check allowRepeat once a candidate is found.
@@ -159,7 +139,7 @@ export function ShortcutManagerProvider(props: {
 
             // For each candidate, find best handler in current scopes and pick best overall
             const regs = regsRef.current;
-            let chosen: { actionId: ActionId; reg: HandlerReg; scoreA: number; scoreB: number } | null = null;
+            let chosen: HandlerReg | null = null;
 
             for (const actionId of candidates) {
                 const def = actions[actionId];
@@ -169,16 +149,10 @@ export function ShortcutManagerProvider(props: {
                 if (!defaultShouldHandleAction(def, ctx)) continue;
 
                 const matchingRegs = regs.filter(r => r.actionId === actionId);
-                const bestReg = chooseBestHandler(matchingRegs, scopes);
+                const bestReg = chooseBestHandler(matchingRegs);
                 if (!bestReg) continue;
-
-                const idx = scopes.findIndex(s => bestReg.scopesAtRegistration.includes(s));
-                const scoreA = idx >= 0 ? idx : Number.POSITIVE_INFINITY;
-                const scoreB = -bestReg.scopesAtRegistration.length;
-
-                if (!chosen || scoreA < chosen.scoreA || (scoreA === chosen.scoreA && scoreB < chosen.scoreB)) {
-                    chosen = { actionId, reg: bestReg, scoreA, scoreB };
-                }
+                chosen = bestReg;
+                break;
             }
 
             if (!chosen) return;
@@ -191,7 +165,7 @@ export function ShortcutManagerProvider(props: {
             if (prevent) e.preventDefault();
             if (stop) e.stopPropagation();
 
-            chosen.reg.handler(ctx);
+            chosen.handler(ctx);
         };
 
         document.addEventListener("keydown", onKeyDown, true);
@@ -210,21 +184,4 @@ export function ShortcutManagerProvider(props: {
     };
 
     return <ShortcutManagerContext.Provider value={api}>{props.children}</ShortcutManagerContext.Provider>;
-}
-
-/**
- * Bridge: expose active scopes to the global keydown handler without rerendering it.
- * This keeps the keydown listener fast and avoids dependency churn.
- */
-export function useExposeActiveScopesToWindow() {
-    const scopes = useActiveScopes();
-    const scopesRef = React.useRef(scopes);
-    scopesRef.current = scopes;
-
-    React.useEffect(() => {
-        (window as any).__shortcut_activeScopes = () => scopesRef.current;
-        return () => {
-            if ((window as any).__shortcut_activeScopes) delete (window as any).__shortcut_activeScopes;
-        };
-    }, []);
 }
