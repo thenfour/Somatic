@@ -1,5 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
 import { ModalDialog } from './ModalDialog';
+import { ShortcutManagerProvider, useShortcutManager } from '../keyb/KeyboardShortcutManager';
+import { useActionHandler } from '../keyb/useActionHandler';
+import type { ActionRegistry } from '../keyb/KeyboardShortcutTypes';
 
 export type ConfirmDialogOptions = {
     content: React.ReactNode;
@@ -11,6 +14,21 @@ export type ConfirmDialogOptions = {
 
 export type ConfirmDialogContextValue = {
     confirm: (options: ConfirmDialogOptions) => Promise<boolean>;
+};
+
+const ConfirmDialogActions = {
+    ConfirmDefault: 'ConfirmDefault',
+} as const;
+
+type ConfirmDialogActionId = keyof typeof ConfirmDialogActions;
+
+const gConfirmDialogActionRegistry: ActionRegistry<ConfirmDialogActionId> = {
+    ConfirmDefault: {
+        id: ConfirmDialogActions.ConfirmDefault,
+        defaultBindings: [
+            { kind: 'character', key: 'Enter' },
+        ],
+    },
 };
 
 const ConfirmDialogContext = createContext<ConfirmDialogContextValue | undefined>(undefined);
@@ -50,58 +68,60 @@ export const ConfirmDialogProvider: React.FC<{ children: React.ReactNode }> = ({
         });
     }, []);
 
-    useEffect(() => {
-        if (!isOpen) return;
-
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const def = options?.defaultAction ?? 'yes';
-                close(def === 'yes');
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                close(false);
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, options, close]);
-
     const handleYes = () => close(true);
     const handleNo = () => close(false);
+
+    const DialogContent: React.FC = () => {
+        const mgr = useShortcutManager<ConfirmDialogActionId>();
+        // Enter triggers the current default action; Escape closes.
+        mgr.useActionHandler('ConfirmDefault', () => {
+            const def = options?.defaultAction ?? 'yes';
+            close(def === 'yes');
+        });
+
+        return (
+            <ModalDialog
+                isOpen={isOpen}
+                onBackdropClick={() => close(false)}
+                ariaLabel="Confirmation dialog"
+            >
+                <div className="modal-dialog__body">
+                    {options?.content}
+                </div>
+                <div className="modal-dialog__footer">
+                    <button
+                        type="button"
+                        className="modal-dialog__button modal-dialog__button--primary"
+                        onClick={handleYes}
+                        autoFocus={options?.defaultAction !== 'no'}
+                    >
+                        {options?.yesLabel}
+                    </button>
+                    <button
+                        type="button"
+                        className="modal-dialog__button"
+                        onClick={handleNo}
+                        autoFocus={options?.defaultAction === 'no'}
+                    >
+                        {options?.noLabel}
+                    </button>
+                </div>
+            </ModalDialog>
+        );
+    };
 
     return (
         <ConfirmDialogContext.Provider value={{ confirm }}>
             {children}
             {options && (
-                <ModalDialog
-                    isOpen={isOpen}
-                    onBackdropClick={() => close(false)}
-                    ariaLabel="Confirmation dialog"
+                <ShortcutManagerProvider<ConfirmDialogActionId>
+                    name="ConfirmDialog"
+                    actions={gConfirmDialogActionRegistry}
+                    attachTo={document}
+                    eventPhase="capture"
                 >
-                    <div className="modal-dialog__body">
-                        {options.content}
-                    </div>
-                    <div className="modal-dialog__footer">
-                        <button
-                            type="button"
-                            className="modal-dialog__button modal-dialog__button--primary"
-                            onClick={handleYes}
-                            autoFocus={options.defaultAction !== 'no'}
-                        >
-                            {options.yesLabel}
-                        </button>
-                        <button
-                            type="button"
-                            className="modal-dialog__button"
-                            onClick={handleNo}
-                            autoFocus={options.defaultAction === 'no'}
-                        >
-                            {options.noLabel}
-                        </button>
-                    </div>
-                </ModalDialog>
+                    <DialogContent />
+                </ShortcutManagerProvider>
             )}
         </ConfirmDialogContext.Provider>
     );

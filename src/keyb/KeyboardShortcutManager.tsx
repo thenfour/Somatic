@@ -67,8 +67,6 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
     const platform = props.platform ?? detectPlatform();
     const [userBindings, setUserBindings] = React.useState<UserBindings<TActionId>>(props.initialBindings ?? {});
 
-    //console.log(`[${props.name}] ShortcutManagerProvider initialized on platform '${platform}'`);
-
     React.useEffect(() => {
         props.onBindingsChange?.(userBindings);
     }, [userBindings]);
@@ -124,7 +122,7 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
 
     React.useEffect(() => {
         const onKeyDown = (e: Event) => {
-            //console.log(`[${props.name}] KeyDown event:`, e);
+            console.log(`[${props.name}] KeyDown event:`, e);
             if (!(e instanceof KeyboardEvent)) return;
             if (suspendCountRef.current > 0) return;
 

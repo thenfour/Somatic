@@ -1,4 +1,23 @@
 import React from 'react';
+import { ActionRegistry } from '../keyb/KeyboardShortcutTypes';
+import { ShortcutManagerProvider, useShortcutManager } from '../keyb/KeyboardShortcutManager';
+
+const ModalActions = {
+    Close: 'Close',
+} as const;
+
+type ModalActionId = keyof typeof ModalActions;
+
+const gModalActionRegistry: ActionRegistry<ModalActionId> = {
+    Close: {
+        id: ModalActions.Close,
+        defaultBindings: [
+            { kind: 'character', key: 'Escape' },
+        ],
+    },
+};
+
+
 
 export type ModalDialogProps = {
     isOpen: boolean;
@@ -11,7 +30,7 @@ export type ModalDialogProps = {
     ariaLabelledBy?: string;
 };
 
-export const ModalDialog: React.FC<ModalDialogProps> = ({
+export const ModalDialogInner: React.FC<ModalDialogProps> = ({
     isOpen,
     children,
     onBackdropClick,
@@ -19,6 +38,11 @@ export const ModalDialog: React.FC<ModalDialogProps> = ({
     ariaLabelledBy,
 }) => {
     if (!isOpen) return null;
+    const mgr = useShortcutManager<ModalActionId>();
+
+    mgr.useActionHandler('Close', () => {
+        onBackdropClick?.();
+    });
 
     const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
         if (e.target === e.currentTarget) {
@@ -38,5 +62,21 @@ export const ModalDialog: React.FC<ModalDialogProps> = ({
                 {children}
             </div>
         </div>
+    );
+};
+
+
+export const ModalDialog: React.FC<ModalDialogProps> = (props) => {
+    if (!props.isOpen) return null;
+
+    return (
+        <ShortcutManagerProvider<ModalActionId>
+            name="ModalDialog"
+            actions={gModalActionRegistry}
+            attachTo={document}
+            eventPhase="capture"
+        >
+            <ModalDialogInner {...props} />
+        </ShortcutManagerProvider>
     );
 };
