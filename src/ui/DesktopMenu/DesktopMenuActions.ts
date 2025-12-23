@@ -15,7 +15,9 @@ export type MenuActionId = keyof typeof MenuActions;
 export const gMenuActionRegistry: ActionRegistry<MenuActionId> = {
    Close: {
       id: MenuActions.Close,
-      defaultBindings: [],
+      defaultBindings: [
+         {kind: "character", key: "Escape"},
+      ],
    },
 } as const;
 

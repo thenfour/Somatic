@@ -5,7 +5,7 @@ This module implements a **single-source-of-truth** keyboard shortcut system. It
 - Actions = semantic commands ("play", with descriptions)
 - Chords = a keyboard shortcut def ("Ctrl+V")
 - Bindings = ties actions to chords
-- Resolver = scope + focus + platform; where is a binding invokable in code
+- Resolver = focus + platform; where is a binding invokable in code
 - Dispatcher = connects bindings to resolver
 
 
@@ -60,49 +60,6 @@ Example:
 { kind: "physical", code: "KeyA" }
 ```
 
-### Scopes
-
-Scopes help decide which handler to call when multiple an action is handled at multiple levels of the react hierarchy.
-It's awkward and is a kind of heavy mechanism for what it solves, plus it's kinda incomplete.
-
-Simply put, it allows the difference between global shortcut handlers vs. per-component shortcuts. But with a lot of asterisks.
-
-Let's take for example, `"Copy"`. A global handler is installed which copies the whole song.
-
-Another handler is installed for copying just some pattern data.
-
-Scope lets the pattern copy handler take priority over the global handler.
-
-#### Caveats
-
-It does NOT intend to allow arbitrary components to act as shortcut handlers.
-
-If you have a waveform editor open and the pattern editor at the same time, maybe they both want to handle `"Copy"` individually.
-
-As-is, the "active" scope is the one with the **deepest hierarchy**; the idea is mostly to separate global from local handlers.
-
-But we can't make assumptions about a waveform editor or pattern editor's depth. Probably they're siblings and the contention still happens.
-
-```tsx
-<ShortcutScopeProvider scope="global">
-  <ShortcutScopeProvider scope="patternEditor">
-    <PatternEditor />
-  </ShortcutScopeProvider>
-  <ShortcutScopeProvider scope="waveformEditor">
-    <WaveformEditor />
-  </ShortcutScopeProvider>
-</ShortcutScopeProvider>
-```
-
-Right now there's no great way to handle that. But it's probably for the better; having multiple
-handlers is probably confusing to users too. Handlers can also be conditional so there's at least a workaround.
-
-I also don't really find a good way around this that's not going to open up a can of worms.
-For example if you just open the waveform editor panel, focus is likely to be set to `<body>`. So focus is just not
-a reliable way to know which panel should be prioritized.
-
-Another thing to consider is modal popups (confirm dialog)
-
 ### Editable targets (input text boxes)
 
 By default, shortcuts do **not** fire when the event target is:
@@ -120,25 +77,9 @@ allowInEditable: true
 
 ## Quirks
 
-### Scopes bridging (`useExposeActiveScopesToWindow`)
-
-The global keydown handler is installed once and should not churn with React re-renders.
-We expose active scopes via a stable window function:
-
-* `useExposeActiveScopesToWindow()` sets `window.__shortcut_activeScopes()`
-* the keydown handler calls it to get the current scope stack
-
-This avoids re-installing listeners on every scope update and only adds messiness in 1 place in your code.
-
 ### Reserved / OS/browser collisions
 
 Stuff like <kbd>F5</kbd> should not be used. We treat these kinds of reserved chords as a warning but still allow it because there's no way to know for sure. Just make a guess.
-
-### Put scopes AROUND the element
-
-```tsx
-... todo: show why
-```
 
 ### chars requiring shift and strictness
 
@@ -205,29 +146,11 @@ export const actions: ActionRegistry = {
 ### Install the manager at the app root
 
 ```tsx
-function ShortcutRuntimeBridge() {
-  useExposeActiveScopesToWindow();
-  return null;
-}
-
 export function App() {
   return (
     <ShortcutManagerProvider actions={actions}>
-      <ShortcutRuntimeBridge />
       {/* ...the rest of your app... */}
     </ShortcutManagerProvider>
-  );
-}
-```
-
-### Use scopes throughout the app
-
-```tsx
-export function App() {
-  return (
-    <ShortcutScopeProvider scope="PatternEditor">
-      <PatternEditor />
-    </ShortcutScopeProvider>
   );
 }
 ```
@@ -279,4 +202,3 @@ export function BindingsEditorRow({ actionId }: { actionId: string }) {
 
 - **Chord sequences** , e.g. `p x`, `Ctrl+K Ctrl+C` (vs code style)
 - **Keyup support**; current module is keydown-only; for piano we could use keyup for note-off
-- **Better scope system**; want arbitrary components to be able to handle the same action (`"Copy"` handled by various panels depending on which is focused).
