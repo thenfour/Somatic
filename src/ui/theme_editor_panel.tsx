@@ -2,12 +2,12 @@ import React from 'react';
 import { useToasts } from './toast_provider';
 import './theme_editor_panel.css';
 import { typedEntries, typedValues } from '../utils/utils';
+import { AppPanelShell } from './AppPanelShell';
 
 const PALETTE_KEYS = Array.from({ length: 16 }, (_, i) => `--tic-${i}`);
 const PALETTE_CONTRAST_KEYS = PALETTE_KEYS.map((k) => `${k}-contrast`);
 
 export type Theme = 'light' | 'dark';
-
 const THEME_VARS = {
     "General": [
         '--bg',
@@ -69,47 +69,43 @@ const THEME_VARS = {
 
 } as const;
 
-function readCssVar(name: string, target: HTMLElement = document.documentElement): string {
-    const val = getComputedStyle(target).getPropertyValue(name) || '';
-    return val.trim();
-}
+type PaletteSwatchProps = {
+    color: string;
+    contrast?: string;
+};
 
-export const PaletteSwatch: React.FC<{ color: string; }> = ({ color }) => {
-    const onDragStart = (event: React.DragEvent<HTMLDivElement>) => {
-        event.dataTransfer.setData('application/json', color);
-        event.dataTransfer.setData('text/plain', color);
-    };
-
-    const onDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-        // Allow dropping by preventing the default behavior
-        event.preventDefault();
+const PaletteSwatch: React.FC<PaletteSwatchProps> = ({ color, contrast }) => {
+    const onDragStart = (ev: React.DragEvent<HTMLButtonElement>) => {
+        ev.dataTransfer.effectAllowed = 'copy';
+        ev.dataTransfer.setData('application/x-somatic-color', color);
+        ev.dataTransfer.setData('text/plain', color);
     };
 
     return (
-        <div
+        <button
+            type="button"
             className="theme-panel__swatch"
-            style={{ background: color }}
             draggable
             onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            title={color}
-            aria-label={color}
-        />
+            style={{ background: color, color: contrast || '#000' }}
+            title={`Drag to apply ${color}`}
+        >
+            {/* {color} */}
+        </button>
     );
 };
+
+const readCssVar = (style: CSSStyleDeclaration, name: string) => style.getPropertyValue(name).trim();
 
 export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const { pushToast } = useToasts();
 
-    // get all the theme variable names
-    const themeKeys = typedValues(THEME_VARS).flat();
-
+    const themeKeys = React.useMemo(() => typedValues(THEME_VARS).flat(), []);
     const [values, setValues] = React.useState<Record<string, string>>(() => {
-        const obj: Record<string, string> = {};
-        for (const key of [...PALETTE_KEYS, ...PALETTE_CONTRAST_KEYS, ...themeKeys]) {
-            obj[key] = readCssVar(key);
-        }
-        return obj;
+        const style = getComputedStyle(document.documentElement);
+        const allVars = [...PALETTE_KEYS, ...PALETTE_CONTRAST_KEYS, ...themeKeys];
+        const entries = allVars.map((name) => [name, readCssVar(style, name)] as const);
+        return Object.fromEntries(entries);
     });
 
     const applyVar = React.useCallback((name: string, value: string) => {
@@ -147,28 +143,37 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
         try {
             await navigator.clipboard.writeText(css);
             pushToast({ message: 'Theme variables copied to clipboard', variant: 'success' });
-            console.log('Theme variables copied to clipboard');
         } catch (err) {
             pushToast({ message: 'Copy failed', variant: 'error' });
         }
     };
 
     return (
-        <div className="theme-panel app-panel" role="dialog" aria-label="Theme editor">
-            <h2>Theme Editor</h2>
+        <AppPanelShell
+            className="theme-panel"
+            role="dialog"
+            ariaLabel="Theme editor"
+            title="Theme Editor"
+            actions={(
+                <>
+                    <button type="button" onClick={handleCopy}>Export CSS vars</button>
+                    <button type="button" onClick={onClose}>Close</button>
+                </>
+            )}
+        >
             <p>Drag a palette swatch onto a variable to assign it. Export copies current vars.</p>
 
             <div className="theme-panel__palette" aria-label="TIC-80 palette">
-                {PALETTE_KEYS.map((key) => (
+                {PALETTE_KEYS.map((key, i) => (
                     <PaletteSwatch
                         key={key}
                         color={values[key]}
+                        contrast={values[PALETTE_CONTRAST_KEYS[i]]}
                     />
                 ))}
             </div>
 
             <div className="theme-panel__vars" aria-label="Theme variables">
-
                 {typedEntries(THEME_VARS).map(([sectionName, varNames]) => (
                     <div key={sectionName} className="theme-panel__var-section">
                         <h3>{sectionName}</h3>
@@ -186,31 +191,8 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
                             </button>
                         ))}
                     </div>
-                ))
-                }
-
-                {/* {THEME_VARS.map((name) => (
-                    <button
-                        key={name}
-                        className="theme-panel__var"
-                        onDragOver={handleDragOver}
-                        onDrop={(ev) => handleDrop(ev, name)}
-                        style={{ background: values[name], color: getForegroundForValue(values[name]) }}
-                        title={`${name} ${values[name]} (drop a swatch to change)`}
-                    >
-                        <span className="theme-panel__var-name">{name}</span>
-                        <span className="theme-panel__var-value">{values[name]}</span>
-                    </button>
-                ))} */}
+                ))}
             </div>
-
-            <div className="theme-panel__actions">
-                <button onClick={() => pushToast({ message: 'Example toast success', variant: 'success' })}>Example Toast success</button>
-                <button onClick={() => pushToast({ message: 'Example toast error', variant: 'error' })}>Example Toast error</button>
-                <span className='menu-separator'></span>
-                <button onClick={handleCopy}>Copy CSS</button>
-                <button onClick={onClose}>Close</button>
-            </div>
-        </div>
+        </AppPanelShell>
     );
 };

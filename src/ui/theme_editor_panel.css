@@ -14,10 +14,11 @@
 }
 
 .theme-panel__swatch {
-    width: 100%;
+    width: 80px;
     aspect-ratio: 1 / 1;
     cursor: grab;
     padding: 0;
+    border: 0;
 }
 
 .theme-panel__vars {

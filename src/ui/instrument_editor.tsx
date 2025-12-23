@@ -9,6 +9,7 @@ import { useClipboard } from '../hooks/useClipboard';
 import { WaveformSelect } from './waveformEditor';
 import { WaveformSwatch } from './waveformSwatch';
 import './instrument_editor.css';
+import { AppPanelShell } from './AppPanelShell';
 
 /*
 
@@ -363,14 +364,21 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
     }
 
     return (
-        <div className="instrument-panel app-panel">
+        <AppPanelShell
+            className="instrument-panel"
+            title="Instrument Editor"
+            actions={(
+                <>
+                    <button onClick={handleCopy}>Copy</button>
+                    <button onClick={handlePaste}>Paste</button>
+                    <button onClick={onClose}>Close</button>
+                </>
+            )}
+        >
             <div className="toolbar">
-                <label htmlFor="instrument">Instrument Editor</label>
+                <label htmlFor="instrument">Instrument</label>
                 {instrumentIndex === 0 && <div className='alertPanel'>!! instrument 0 is weird and should not be used.</div>}
                 {instrumentIndex === SomaticCaps.noteCutInstrumentIndex && <div className='alertPanel'>!! This is the note-off sfx and should not be edited.</div>}
-                <button onClick={handleCopy}>Copy</button>
-                <button onClick={handlePaste}>Paste</button>
-                <button onClick={onClose}>Close</button>
             </div>
             <div className="">
                 <div className="field-row">
@@ -544,6 +552,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                     </label>
                 </div>
             </div>
-        </div>
+        </AppPanelShell>
     );
 };

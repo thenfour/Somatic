@@ -1070,6 +1070,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         song={song}
                         editorState={editorState}
                         onSongChange={updateSong}
+                        onClose={() => setWaveformEditorPanelOpen(false)}
                     />
                 )}
                 {instrumentPanelOpen && (

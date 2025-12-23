@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useClipboard } from '../hooks/useClipboard';
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
@@ -8,37 +8,10 @@ import { WaveformCanvas } from "./waveform_canvas";
 import '/src/waveform.css';
 import { WaveformSwatch, WaveformSwatchDisplayStyle } from "./waveformSwatch";
 import './waveformEditor.css';
+import { AppPanelShell } from './AppPanelShell';
 import { calculateSongUsage, getMaxWaveformUsedIndex, SongUsage } from "../utils/SongOptimizer";
 
-// keep tied in with Tic80Caps.
-
-// refer to https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#waveforms
-// for a text description of the format.
-
-// but tic.h / sound.c is the real source of truth; here is the relevant struct:
-/*
-#define WAVES_COUNT 16
-#define WAVE_VALUES 32
-#define WAVE_VALUE_BITS 4
-#define WAVE_MAX_VALUE ((1 << WAVE_VALUE_BITS) - 1)
-#define WAVE_SIZE (WAVE_VALUES * WAVE_VALUE_BITS / BITS_IN_BYTE)
-
-...
-
-typedef struct
-{
-    u8 data[WAVE_SIZE];
-}tic_waveform;
-
-typedef struct
-{
-    tic_waveform items[WAVES_COUNT];
-} tic_waveforms;
-
-*/
-
 export const WaveformSelect: React.FC<{
-    //selectedWaveformId: number;
     song: Song;
     onClickWaveform: (waveformId: number) => void;
     getWaveformDisplayStyle: (waveformId: number) => WaveformSwatchDisplayStyle;
@@ -56,7 +29,6 @@ export const WaveformSelect: React.FC<{
                         key={index}
                         value={waveform}
                         scale={scale}
-                        //isSelected={index === selectedWaveformId}
                         displayStyle={getWaveformDisplayStyle(index)}
                         onClick={() => onClickWaveform(index)}
                         overlayText={getOverlayText(index)}
@@ -65,8 +37,7 @@ export const WaveformSelect: React.FC<{
             })}
         </div>
     );
-}
-
+};
 
 export const WaveformEditor: React.FC<{
     song: Song;
@@ -76,7 +47,6 @@ export const WaveformEditor: React.FC<{
 }> = ({ song, editingWaveformId, editorState, onSongChange }) => {
     const waveform = song.waveforms[editingWaveformId];
     if (!waveform) {
-        //console.log(`No waveform found at index ${editingWaveformId}`, song.waveforms);
         return (
             <div className="waveform-editor">
                 <p>No waveform selected.</p>
@@ -111,16 +81,15 @@ export const WaveformEditor: React.FC<{
             onChange={handleCanvasChange}
         />
     );
-
 };
-
-
 
 export const WaveformEditorPanel: React.FC<{
     song: Song;
     editorState: EditorState;
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
-}> = ({ song, editorState, onSongChange }) => {
+    onClose: () => void;
+
+}> = ({ song, editorState, onSongChange, onClose }) => {
 
     const [editingWaveformId, setEditingWaveformId] = useState<number>(0);
     const [mixPercent, setMixPercent] = useState<number>(100);
@@ -301,35 +270,34 @@ export const WaveformEditorPanel: React.FC<{
     };
 
     return (
-        <div className="waveform-editor-panel app-panel">
-            <h3>Waveform Editor</h3>
+        <AppPanelShell
+            className="waveform-editor-panel"
+            title="Waveform Editor"
+            actions={(
+                <>
+                    <button type="button" onClick={onClose}>Close</button>
+                </>
+            )}
+        >
             <WaveformSelect
                 onClickWaveform={setEditingWaveformId}
-                //selectedWaveformId={editingWaveformId}
                 getWaveformDisplayStyle={(waveformId) => {
-
                     if (waveformId === editingWaveformId) {
                         return "selected";
                     }
-
-                    if (songUsage) {
-                        if (songUsage.usedWaveforms.has(waveformId)) {
-                            return "normal";
-                        }
+                    if (songUsage && songUsage.usedWaveforms.has(waveformId)) {
+                        return "normal";
                     }
                     return "muted";
                 }}
                 getOverlayText={(waveformIndex) => {
-                    // show a * if the waveform is used in the song
-                    let used = false;
-                    if (songUsage) {
-                        used = songUsage.usedWaveforms.has(waveformIndex);
-                    }
+                    const used = songUsage ? songUsage.usedWaveforms.has(waveformIndex) : false;
                     const isNoise = song.waveforms[waveformIndex]?.isNoise() ?? false;
                     return `${waveformIndex.toString(16).toUpperCase()}${used ? '*' : ''}${isNoise ? ' (Noise)' : ''}`;
                 }}
                 song={song}
             />
+
 
             <WaveformEditor
                 song={song}
@@ -337,6 +305,7 @@ export const WaveformEditorPanel: React.FC<{
                 onSongChange={onSongChange}
                 editingWaveformId={editingWaveformId}
             />
+
             <div className="waveform-editor-controls">
                 <div className="waveform-editor-controls__row">
                     <button type="button" onClick={handleCopy}>Copy</button>
@@ -382,7 +351,7 @@ export const WaveformEditorPanel: React.FC<{
                     <button type="button" onClick={handleLowpass}>Lowpass</button>
                 </div>
             </div>
-        </div>);
-
+        </AppPanelShell>
+    );
 };
 

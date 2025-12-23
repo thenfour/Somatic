@@ -1,0 +1,45 @@
+.app-panel-shell.app-panel {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+}
+
+.app-panel-shell__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--panel-strong);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.app-panel-shell__title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.app-panel-shell__title {
+    margin: 0;
+    font-size: var(--ff-size-1-25x, 16px);
+    line-height: 1.2;
+}
+
+.app-panel-shell__subtitle {
+    font-size: var(--ff-size-1x, 14px);
+    color: var(--muted);
+}
+
+.app-panel-shell__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.app-panel-shell__content {
+    padding: 10px;
+    flex: 1 1 auto;
+    overflow: auto;
+}
