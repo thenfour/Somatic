@@ -19,7 +19,7 @@ import React, {
     type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { CharMap } from '../utils/utils';
+import { CharMap } from '../../utils/utils';
 import './DesktopMenu.css';
 
 const MENU_PORTAL_ID = 'desktop-menu-root';

@@ -1,5 +1,7 @@
+import {typedValues} from "../utils/utils";
+
 // a list of all keyboard shortcuts.
-export const Actions = {
+export const GlobalActions = {
    OpenFile: "OpenFile",
    SaveFile: "SaveFile",
    NewFile: "NewFile",
@@ -76,12 +78,11 @@ export const Actions = {
    SelectAll: "SelectAll",
 } as const;
 
-export const kAllActionIds = Object.values(Actions);
+export const kAllActionIds = typedValues(GlobalActions);
 
-export type ActionId = keyof typeof Actions;
+export type GlobalActionId = keyof typeof GlobalActions;
 
-
-export const ActionCategories = {
+export const GlobalActionCategories = {
    Transport: "Transport",
    File: "File",
    Edit: "Edit",
@@ -89,6 +90,6 @@ export const ActionCategories = {
    Navigation: "Navigation",
 } as const;
 
-export const kAllActionCategories = Object.values(ActionCategories);
+export const kAllActionCategories = typedValues(GlobalActionCategories);
 
-export type ActionCategory = keyof typeof ActionCategories;
+export type GlobalActionCategory = keyof typeof GlobalActionCategories;

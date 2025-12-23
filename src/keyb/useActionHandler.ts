@@ -2,9 +2,9 @@
 import React from "react";
 import type {ActionHandler} from "./KeyboardShortcutTypes";
 import {useShortcutManager} from "./KeyboardShortcutManager";
-import {ActionId} from "./ActionIds";
+import {GlobalActionId} from "./ActionIds";
 
-export function useActionHandler(actionId: ActionId, handler: ActionHandler) {
+export function useActionHandler(actionId: GlobalActionId, handler: ActionHandler) {
    const mgr = useShortcutManager();
    //const scopes = useActiveScopes();
 

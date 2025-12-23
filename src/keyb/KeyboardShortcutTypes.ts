@@ -1,4 +1,5 @@
-import {ActionCategory, ActionId} from "./ActionIds";
+import {typedKeys} from "../utils/utils";
+import {GlobalActionCategory, GlobalActionId} from "./ActionIds";
 
 export type Platform = "mac"|"win"|"linux";
 export type ShortcutKind = "character"|"physical";
@@ -40,11 +41,11 @@ export function isSameChord(a: ShortcutChord, b: ShortcutChord): boolean {
 
 //export type ActionId = string;
 
-export type ActionDef = {
-   id: ActionId; //
-   title: string;
+export type ActionDef<TActionId extends string = string> = {
+   id: TActionId; //
+   title?: string;
    description?: string;
-   category?: ActionCategory;
+   category?: GlobalActionCategory;
 
    // Defaults can be platform-specific (recommended)
    defaultBindings?: ShortcutChord[]; // | Partial<Record<Platform, ShortcutChord[]>>;
@@ -64,16 +65,16 @@ export type ShortcutContext = {
    isEditableTarget: boolean;
 };
 
-export type UserBindings = Partial<Record<ActionId, ShortcutChord[]|null>>;
+export type UserBindings<TActionId extends string = string> = Partial<Record<TActionId, ShortcutChord[]|null>>;
 
 export type UserBindigsDto = {
    [actionId: string]: ShortcutChord[]|null;
 };
 
-export function serializeUserBindings(bindings: UserBindings): UserBindigsDto {
+export function serializeUserBindings<TActionId extends string>(bindings: UserBindings<TActionId>): UserBindigsDto {
    const dto: UserBindigsDto = {};
    for (const actionId of Object.keys(bindings)) {
-      const b = bindings[actionId as ActionId];
+      const b = bindings[actionId as TActionId];
       if (b === undefined)
          continue;
       dto[actionId] = b;
@@ -81,15 +82,15 @@ export function serializeUserBindings(bindings: UserBindings): UserBindigsDto {
    return dto;
 }
 
-export function deserializeUserBindings(dto: UserBindigsDto): UserBindings {
-   const bindings: UserBindings = {};
-   for (const actionId of Object.keys(dto)) {
-      bindings[actionId as ActionId] = dto[actionId];
+export function deserializeUserBindings<TActionId extends string>(dto: UserBindigsDto): UserBindings<TActionId> {
+   const bindings: UserBindings<TActionId> = {};
+   for (const actionId of typedKeys(dto)) {
+      bindings[actionId as TActionId] = dto[actionId];
    }
    return bindings;
 };
 
-export type ActionRegistry = Record<ActionId, ActionDef>;
+export type ActionRegistry<TActionId extends string = string> = Record<TActionId, ActionDef<TActionId>>;
 
 export type ActionHandler = (ctx: ShortcutContext) => void;
 

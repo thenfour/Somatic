@@ -24,7 +24,7 @@ import { AboutSomaticDialog } from './ui/AboutSomaticDialog';
 import { AppStatusBar } from './ui/AppStatusBar';
 import { ArrangementEditor } from './ui/ArrangementEditor';
 import { useConfirmDialog } from './ui/confirm_dialog';
-import { DesktopMenu } from './ui/DesktopMenu';
+import { DesktopMenu } from './ui/DesktopMenu/DesktopMenu';
 import { InstrumentPanel } from './ui/instrument_editor';
 import { Keyboard } from './ui/keyboard';
 import { MidiStatusIndicator } from './ui/MidiStatusIndicator';

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useToasts } from './toast_provider';
 import './theme_editor_panel.css';
+import { typedEntries, typedValues } from '../utils/utils';
 
 const PALETTE_KEYS = Array.from({ length: 16 }, (_, i) => `--tic-${i}`);
 const PALETTE_CONTRAST_KEYS = PALETTE_KEYS.map((k) => `${k}-contrast`);
@@ -101,7 +102,7 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
     const { pushToast } = useToasts();
 
     // get all the theme variable names
-    const themeKeys = Object.values(THEME_VARS).flat();
+    const themeKeys = typedValues(THEME_VARS).flat();
 
     const [values, setValues] = React.useState<Record<string, string>>(() => {
         const obj: Record<string, string> = {};
@@ -168,7 +169,7 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
 
             <div className="theme-panel__vars" aria-label="Theme variables">
 
-                {Object.entries(THEME_VARS).map(([sectionName, varNames]) => (
+                {typedEntries(THEME_VARS).map(([sectionName, varNames]) => (
                     <div key={sectionName} className="theme-panel__var-section">
                         <h3>{sectionName}</h3>
                         {varNames.map((name) => (

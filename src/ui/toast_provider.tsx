@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { typedValues } from '../utils/utils';
 
 export type ToastVariant = 'info' | 'success' | 'error';
 
@@ -49,7 +50,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     useEffect(() => {
         return () => {
-            Object.values(timeoutsRef.current).forEach((id) => window.clearTimeout(id));
+            typedValues(timeoutsRef.current).forEach((id) => window.clearTimeout(id));
         };
     }, []);
 

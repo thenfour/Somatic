@@ -1,3 +1,5 @@
+import {typedEntries} from "./utils/utils";
+
 export const NOTE_NAMES = ["C-", "C#", "D-", "D#", "E-", "F-", "F#", "G-", "G#", "A-", "A#", "B-"] as const;
 export type NoteName = (typeof NOTE_NAMES)[number];
 
@@ -74,7 +76,7 @@ for (let midi = MIN_MIDI_NOTE; midi <= MAX_MIDI_NOTE; midi++) {
 
 export const NOTES_BY_NUM: Record<number, NoteInfo> = NOTE_REGISTRY;
 export const NOTE_NUMS_BY_NAME: Record<string, number> = Object.fromEntries(
-   Object.entries(NOTE_NAME_MAP).map(([k, v]) => [k, v.midi]),
+   typedEntries(NOTE_NAME_MAP).map(([k, v]) => [k, v.midi]),
 );
 
 export function getNoteInfo(midi: number): NoteInfo|undefined {

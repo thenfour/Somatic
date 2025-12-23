@@ -12,49 +12,49 @@ import type {
 import { detectPlatform } from "./KeyboardShortcutPlatform";
 import { buildShortcutContext, chordMatchesEvent } from "./Keyboard";
 import { resolveBindingsForPlatform } from "./KeyboardConflicts";
-import { ActionId } from "./ActionIds";
 import { formatChord } from "./format";
+import { typedEntries } from "../utils/utils";
 
-type HandlerReg = {
+type HandlerReg<TActionId extends string> = {
     id: string;
-    actionId: ActionId;
+    actionId: TActionId;
     handler: ActionHandler;
 };
 
-type ShortcutManagerApi = {
+type ShortcutManagerApi<TActionId extends string> = {
     platform: Platform;
-    actions: ActionRegistry;
-    userBindings: UserBindings;
-    setUserBindings: React.Dispatch<React.SetStateAction<UserBindings>>;
+    actions: ActionRegistry<TActionId>;
+    userBindings: UserBindings<TActionId>;
+    setUserBindings: React.Dispatch<React.SetStateAction<UserBindings<TActionId>>>;
 
-    registerHandler: (actionId: ActionId, handler: ActionHandler) => () => void;
-    getResolvedBindings: () => Record<ActionId, ShortcutChord[]>;
-    getActionBindingLabel: (actionId: ActionId) => string | undefined;
+    registerHandler: (actionId: TActionId, handler: ActionHandler) => () => void;
+    getResolvedBindings: () => Record<TActionId, ShortcutChord[]>;
+    getActionBindingLabel: (actionId: TActionId) => string | undefined;
     suspendShortcuts: () => () => void; // returns a release function
 };
 
-const ShortcutManagerContext = React.createContext<ShortcutManagerApi | null>(null);
+const ShortcutManagerContext = React.createContext<ShortcutManagerApi<any> | null>(null);
 
-function defaultShouldHandleAction(def: ActionDef, ctx: ShortcutContext): boolean {
+function defaultShouldHandleAction<TActionId extends string>(def: ActionDef<TActionId>, ctx: ShortcutContext): boolean {
     if (def.when && !def.when(ctx)) return false;
     if (!def.allowInEditable && ctx.isEditableTarget) return false;
     return true;
 }
 
-function chooseBestHandler(regs: HandlerReg[]): HandlerReg | null {
+function chooseBestHandler<TActionId extends string>(regs: HandlerReg<TActionId>[]): HandlerReg<TActionId> | null {
     return regs[0] || null;
 }
 
-export function useShortcutManager(): ShortcutManagerApi {
+export function useShortcutManager<TActionId extends string = string>(): ShortcutManagerApi<TActionId> {
     const v = React.useContext(ShortcutManagerContext);
     if (!v) throw new Error("useShortcutManager must be used inside <ShortcutManagerProvider>");
-    return v;
+    return v as ShortcutManagerApi<TActionId>;
 }
 
-export function ShortcutManagerProvider(props: {
-    actions: ActionRegistry;
-    initialBindings?: UserBindings;
-    onBindingsChange?: (b: UserBindings) => void;
+export function ShortcutManagerProvider<TActionId extends string = string>(props: {
+    actions: ActionRegistry<TActionId>;
+    initialBindings?: UserBindings<TActionId>;
+    onBindingsChange?: (b: UserBindings<TActionId>) => void;
     platform?: Platform; // override for tests
     attachTo: Document | HTMLElement | React.RefObject<HTMLElement>;
     eventPhase?: "bubble" | "capture"; // bubble is for global; capture is for local
@@ -63,14 +63,14 @@ export function ShortcutManagerProvider(props: {
 }) {
     const suspendCountRef = React.useRef(0);
     const platform = props.platform ?? detectPlatform();
-    const [userBindings, setUserBindings] = React.useState<UserBindings>(props.initialBindings ?? {});
+    const [userBindings, setUserBindings] = React.useState<UserBindings<TActionId>>(props.initialBindings ?? {});
 
     React.useEffect(() => {
         props.onBindingsChange?.(userBindings);
     }, [userBindings]);
 
     // Registrations stored in a ref so keydown handler sees latest without rerender-jank.
-    const regsRef = React.useRef<HandlerReg[]>([]);
+    const regsRef = React.useRef<HandlerReg<TActionId>[]>([]);
     const actionsRef = React.useRef(props.actions);
     actionsRef.current = props.actions;
 
@@ -88,9 +88,9 @@ export function ShortcutManagerProvider(props: {
         };
     }, []);
 
-    const registerHandler = React.useCallback((actionId: ActionId, handler: ActionHandler) => {
+    const registerHandler = React.useCallback((actionId: TActionId, handler: ActionHandler) => {
         const id = `${actionId}:${Math.random().toString(36).slice(2)}`;
-        const reg: HandlerReg = { id, actionId, handler };
+        const reg: HandlerReg<TActionId> = { id, actionId, handler };
         regsRef.current = [...regsRef.current, reg];
 
         return () => {
@@ -102,7 +102,7 @@ export function ShortcutManagerProvider(props: {
         return resolveBindingsForPlatform(actionsRef.current, userBindingsRef.current, platform);
     }, [platform]);
 
-    const getActionBindingLabel = React.useCallback((actionId: ActionId): string | undefined => {
+    const getActionBindingLabel = React.useCallback((actionId: TActionId): string | undefined => {
         const resolved = getResolvedBindings();
         const chords = resolved[actionId] ?? [];
         return chords.map(chord => formatChord(chord, platform)).join(", ") || undefined;
@@ -125,11 +125,12 @@ export function ShortcutManagerProvider(props: {
             const resolved = resolveBindingsForPlatform(actions, userBindingsRef.current, platform);
 
             // Find all actionIds whose binding matches this event
-            const candidates: ActionId[] = [];
-            for (const [actionId, chords] of Object.entries(resolved)) {
+            const candidates: TActionId[] = [];
+            const entries = typedEntries(resolved);//Object.entries(resolved);
+            for (const [actionId, chords] of entries) {
                 for (const chord of chords) {
                     if (chordMatchesEvent(e, chord, platform)) {
-                        candidates.push(actionId as ActionId);
+                        candidates.push(actionId as TActionId);
                         break;
                     }
                 }
@@ -138,7 +139,7 @@ export function ShortcutManagerProvider(props: {
 
             // For each candidate, find best handler
             const regs = regsRef.current;
-            let chosen: HandlerReg | null = null;
+            let chosen: HandlerReg<TActionId> | null = null;
 
             for (const actionId of candidates) {
                 const def = actions[actionId];
@@ -186,7 +187,7 @@ export function ShortcutManagerProvider(props: {
         };
     }, [platform, props.eventPolicy, props.attachTo, props.eventPhase]);
 
-    const api: ShortcutManagerApi = {
+    const api: ShortcutManagerApi<TActionId> = {
         platform,
         actions: props.actions,
         userBindings,

@@ -271,3 +271,33 @@ export function parseAddress(value: string|number): number {
    }
    return n;
 }
+
+
+export function typedEntries<K extends PropertyKey, V>( //
+   obj: Record<K, V>): Array<[K, V]> {                  //
+   return Object.entries(obj) as Array<[K, V]>;
+}
+
+export function typedKeys<K extends PropertyKey, V>(
+   //
+   obj: Record<K, V> //
+   ): K[] {
+   return Object.keys(obj) as K[];
+}
+
+export function typedValues<K extends PropertyKey, V>(
+   //
+   obj: Record<K, V> //
+   ): V[] {
+   return Object.values(obj) as V[];
+}
+
+// converts entries to a Record-ish object.
+export function typedFromEntries<K extends PropertyKey, V>(entries: readonly(readonly[K, V])[]): Record<K, V> {
+   return Object.fromEntries(entries as readonly(readonly[PropertyKey, unknown])[]) as Record<K, V>;
+}
+
+// gets a typed value from a Record-like; myobj[key] returns proper type.
+export function typedGet<K extends PropertyKey, V>(obj: Record<K, V>, key: K): V {
+   return obj[key];
+}

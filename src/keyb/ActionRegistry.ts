@@ -1,8 +1,10 @@
+import {typedValues} from "../utils/utils";
+import {GlobalActionId} from "./ActionIds";
 import {ActionRegistry} from "./KeyboardShortcutTypes";
 // when capturing chords, they always land as character kind.
 // so in order to detect duplicates, it's best to default to using character kind in these defaults.
 
-export const gActionRegistry: ActionRegistry = {
+export const gActionRegistry: ActionRegistry<GlobalActionId> = {
    "OpenFile": {
       id: "OpenFile",
       title: "open file",
@@ -602,4 +604,4 @@ export const gActionRegistry: ActionRegistry = {
    },
 } as const;
 
-export const kAllActions = Object.values(gActionRegistry);
+export const kAllActions = typedValues(gActionRegistry);

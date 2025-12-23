@@ -9,7 +9,7 @@ import { calculateBpm, SomaticCaps, Tic80Caps } from '../models/tic80Capabilitie
 import { TryParseInt } from '../utils/utils';
 import { Tooltip } from './tooltip';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
-import { ActionId } from '../keyb/ActionIds';
+import { GlobalActionId } from '../keyb/ActionIds';
 
 type SongEditorProps = {
     song: Song;
@@ -66,7 +66,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
         onSongChange({ description: 'Set edit step', undoable: true, mutator: (s) => s.setPatternEditStep(val) });
     };
 
-    const getActionBindingLabel = (actionId: ActionId) => {
+    const getActionBindingLabel = (actionId: GlobalActionId) => {
         return mgr.getActionBindingLabel(actionId) || "Unbound";
     };
 

@@ -1,4 +1,5 @@
 import React from "react";
+import { typedKeys } from "../utils/utils";
 
 type Primitive = string | number | boolean | null | undefined | bigint | symbol;
 
@@ -148,7 +149,7 @@ export function flattenToKeyValueRows(
         if (isPlainObject(v)) {
             pushRow(path, key, depth, v, false);
 
-            const keys = Object.keys(v);
+            const keys = typedKeys(v);
             if (sortKeys) keys.sort((a, b) => a.localeCompare(b));
             for (const k of keys) {
                 const childPath = joinPath(path, k);
@@ -184,7 +185,7 @@ export function flattenToKeyValueRows(
 
     // object root
     const rootObj = root as Record<string, unknown>;
-    const keys = Object.keys(rootObj);
+    const keys = typedKeys(rootObj);
     if (sortKeys) keys.sort((a, b) => a.localeCompare(b));
     for (const k of keys) {
         walk(rootObj[k], k, k, 0);

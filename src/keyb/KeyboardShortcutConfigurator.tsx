@@ -1,7 +1,7 @@
 import React from "react";
 import { Tooltip } from "../ui/tooltip";
 import { assert, CharMap, matchesFilter } from "../utils/utils";
-import { ActionId, kAllActionIds } from "./ActionIds";
+import { GlobalActionId, kAllActionIds } from "./ActionIds";
 import { gActionRegistry, kAllActions } from "./ActionRegistry";
 import { formatChord } from "./format";
 import "./KeyboardShortcutConfigurator.css";
@@ -14,7 +14,7 @@ import { useClipboard } from "../hooks/useClipboard";
 
 interface KeyboardChordRowProps {
     chord: ShortcutChord | null;
-    actionId: ActionId;
+    actionId: GlobalActionId;
     onRemove?: () => void;
 }
 
@@ -23,7 +23,7 @@ function KeyboardChordRow({ chord, actionId, onRemove }: KeyboardChordRowProps) 
 
     // find if this chord is used by another action.
     const allBindings = mgr.getResolvedBindings();
-    const conflicts: ActionId[] = [];
+    const conflicts: GlobalActionId[] = [];
     if (chord !== null) {
         for (const otherActionId of kAllActionIds) {
             if (otherActionId === actionId) continue;
@@ -58,7 +58,7 @@ function KeyboardChordRow({ chord, actionId, onRemove }: KeyboardChordRowProps) 
 }
 
 
-function BindingEditorRow({ actionId }: { actionId: ActionId }) {
+function BindingEditorRow({ actionId }: { actionId: GlobalActionId }) {
     const mgr = useShortcutManager();
     const toast = useToasts();
     const capture = useChordCapture({ kind: "character", platform: mgr.platform });
@@ -125,7 +125,7 @@ function BindingEditorRow({ actionId }: { actionId: ActionId }) {
 
     return (<div className="keyboard-binding-row">
         <Tooltip title={<>
-            <strong>{gActionRegistry[actionId].title}</strong><br />
+            <strong>{gActionRegistry[actionId].title || actionId}</strong><br />
             <p>{gActionRegistry[actionId].description || ""}</p>
         </>}>
             <span className="keyboard-binding-row__label">

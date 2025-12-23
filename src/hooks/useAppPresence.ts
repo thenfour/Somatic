@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {typedEntries, typedKeys} from "../utils/utils";
 
 type Options = {
    heartbeatMs?: number; // default 2000
@@ -38,7 +39,7 @@ export function useAppInstancePresence(appId: string, opts: Options = {}) {
    const pruneStalePresence = useCallback((presence: PresenceMap) => {
       const now = Date.now();
       const next: PresenceMap = {};
-      for (const [id, ts] of Object.entries(presence)) {
+      for (const [id, ts] of typedEntries(presence)) {
          if ((now - ts) < staleMs) {
             next[id] = ts;
          }
@@ -48,7 +49,7 @@ export function useAppInstancePresence(appId: string, opts: Options = {}) {
 
    const computeOtherActive = useCallback(() => {
       const presence = pruneStalePresence(readPresence());
-      return Object.keys(presence).some(id => id !== tabId);
+      return typedKeys(presence).some(id => id !== tabId);
    }, [pruneStalePresence, readPresence, tabId]);
 
    const heartbeat = useCallback(() => {
@@ -56,7 +57,7 @@ export function useAppInstancePresence(appId: string, opts: Options = {}) {
       const presence = pruneStalePresence(readPresence());
       presence[tabId] = now;
       localStorage.setItem(ACTIVE_KEY, JSON.stringify(presence));
-      setOtherInstanceActive(Object.keys(presence).some(id => id !== tabId));
+      setOtherInstanceActive(typedKeys(presence).some(id => id !== tabId));
    }, [ACTIVE_KEY, pruneStalePresence, readPresence, tabId]);
 
    const removeSelf = useCallback(() => {

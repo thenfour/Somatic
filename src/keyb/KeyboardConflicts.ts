@@ -1,7 +1,8 @@
-import {ActionId, kAllActionIds} from "./ActionIds";
+import {typedKeys} from "../utils/utils";
 import type {ActionDef, ActionRegistry, Platform, ShortcutChord, UserBindings} from "./KeyboardShortcutTypes";
 
-function getActionDefaultsForPlatform(def: ActionDef, platform: Platform): ShortcutChord[] {
+function getActionDefaultsForPlatform<TActionId extends string>(
+   def: ActionDef<TActionId>, platform: Platform): ShortcutChord[] {
    const d = def.defaultBindings;
    if (!d)
       return [];
@@ -10,14 +11,14 @@ function getActionDefaultsForPlatform(def: ActionDef, platform: Platform): Short
    return d[platform] ?? [];
 }
 
-export function resolveBindingsForPlatform(
-   actions: ActionRegistry,
-   user: UserBindings|undefined,
+export function resolveBindingsForPlatform<TActionId extends string>(
+   actions: ActionRegistry<TActionId>,
+   user: UserBindings<TActionId>|undefined,
    platform: Platform,
-   ): Record<ActionId, ShortcutChord[]> {
-   const out: Record<ActionId, ShortcutChord[]> = {} as any;
+   ): Record<TActionId, ShortcutChord[]> {
+   const out: Record<TActionId, ShortcutChord[]> = {} as any;
 
-   for (const id of kAllActionIds) {
+   for (const id of typedKeys(actions) as TActionId[]) {
       const u = user?.[id];
 
       if (u === null) {
