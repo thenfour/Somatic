@@ -57,7 +57,7 @@ export function ShortcutManagerProvider(props: {
     onBindingsChange?: (b: UserBindings) => void;
     platform?: Platform; // override for tests
     attachTo: Document | HTMLElement | React.RefObject<HTMLElement>;
-    eventPhase: "bubble" | "capture"; // bubble is for local handlers, capture is for global handlers
+    eventPhase?: "bubble" | "capture"; // bubble is for global; capture is for local
     eventPolicy?: ShortcutEventPolicy;
     children: React.ReactNode;
 }) {
@@ -176,7 +176,9 @@ export function ShortcutManagerProvider(props: {
 
         if (!target) return; // Can't attach if ref is null
 
-        const useCapture = props.eventPhase === "bubble" ? false : true; // default to capture
+        const eventPhase = props.eventPhase ?? (document === props.attachTo ? "bubble" : "capture");
+
+        const useCapture = eventPhase === "capture";
 
         target.addEventListener("keydown", onKeyDown, useCapture);
         return () => {

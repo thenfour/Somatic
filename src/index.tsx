@@ -79,7 +79,6 @@ const AppWrapper: React.FC = () => {
             initialBindings={keyBindings}
             onBindingsChange={setKeyBindings}
             attachTo={document}
-            eventPhase="capture"
         >
             <ToastProvider>
                 <ConfirmDialogProvider>
