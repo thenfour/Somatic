@@ -827,7 +827,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <DesktopMenu.Content>
                                     <DesktopMenu.Item
                                         checked={waveformEditorPanelOpen}
-                                        closeOnSelect={false}
                                         onSelect={() => setWaveformEditorPanelOpen(open => !open)}
                                         shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleWaveformEditor")}
                                     >
@@ -835,7 +834,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={instrumentPanelOpen}
-                                        closeOnSelect={false}
                                         onSelect={() => setInstrumentPanelOpen(open => !open)}
                                         shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleInstrumentPanel")}
                                     >
@@ -843,7 +841,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={showingOnScreenKeyboard}
-                                        closeOnSelect={false}
                                         onSelect={() => setShowingOnScreenKeyboard(open => !open)}
                                         shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleOnScreenKeyboard")}
                                     >
@@ -851,7 +848,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={showingArrangementEditor}
-                                        closeOnSelect={false}
                                         onSelect={() => setShowingArrangementEditor(open => !open)}
                                         shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleArrangementEditor")}
                                     >
@@ -859,7 +855,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={advancedEditPanelOpen}
-                                        closeOnSelect={false}
                                         onSelect={() => setAdvancedEditPanelOpen(open => !open)}
                                         shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleAdvancedEditPanel")}
                                     >
@@ -867,7 +862,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={preferencesPanelOpen}
-                                        closeOnSelect={false}
                                         onSelect={() => setPreferencesPanelOpen((open) => !open)}
                                         shortcut={keyboardShortcutMgr.getActionBindingLabel("TogglePreferencesPanel")}
                                     >
@@ -875,7 +869,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={themePanelOpen}
-                                        closeOnSelect={false}
                                         onSelect={() => setThemePanelOpen((open) => !open)}
                                     >
                                         Theme Editor
@@ -908,7 +901,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     <DesktopMenu.Divider />
                                     <DesktopMenu.Item
                                         checked={editorState.editingEnabled}
-                                        closeOnSelect={false}
                                         onSelect={toggleEditingEnabled}
                                         shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleEditMode")}
                                     >
@@ -916,7 +908,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={theme === 'dark'}
-                                        closeOnSelect={false}
                                         onSelect={onToggleTheme}
                                     >
                                         Dark Theme
