@@ -75,6 +75,7 @@ const AppWrapper: React.FC = () => {
 
     return (
         <ShortcutManagerProvider
+            name="GlobalShortcuts"
             actions={gActionRegistry}
             initialBindings={keyBindings}
             onBindingsChange={setKeyBindings}

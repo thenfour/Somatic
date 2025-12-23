@@ -21,6 +21,9 @@ import React, {
 import { createPortal } from 'react-dom';
 import { CharMap } from '../../utils/utils';
 import './DesktopMenu.css';
+import { ShortcutManagerProvider } from '../../keyb/KeyboardShortcutManager';
+import { useActionHandler } from '../../keyb/useActionHandler';
+import { gMenuActionRegistry, MenuActionId } from './DesktopMenuActions';
 
 const MENU_PORTAL_ID = 'desktop-menu-root';
 
@@ -306,6 +309,35 @@ type MenuContentProps = {
     autoFocus?: boolean;
 };
 
+type MenuContentBodyProps = {
+    ctx: MenuContextValue;
+    classes: string[];
+    contentStyle: CSSProperties;
+    combinedRef: React.Ref<HTMLDivElement>;
+    children: ReactNode;
+};
+
+const MenuContentBody: React.FC<MenuContentBodyProps> = ({ ctx, classes, contentStyle, combinedRef, children }) => {
+    // Local shortcut: ESC closes menu and returns focus to trigger
+    useActionHandler<MenuActionId>('Close', () => {
+        ctx.closeTree();
+        ctx.triggerRef.current?.focus();
+    });
+
+    return (
+        <div
+            role="menu"
+            className={classes.join(' ')}
+            style={contentStyle}
+            ref={combinedRef}
+            data-menu-root={ctx.rootId}
+            tabIndex={-1}
+        >
+            {children}
+        </div>
+    );
+};
+
 const MenuContent = React.forwardRef<HTMLDivElement, MenuContentProps>(({ children, className = '', minWidth, style, autoFocus = true }, forwardedRef) => {
     const ctx = useMenuContext('DesktopMenu.Content');
     const [position, setPosition] = useState(() => getMenuPosition(ctx.placement, ctx.triggerRef.current));
@@ -370,15 +402,22 @@ const MenuContent = React.forwardRef<HTMLDivElement, MenuContentProps>(({ childr
     if (className) classes.push(className);
 
     return createPortal(
-        <div
-            role="menu"
-            className={classes.join(' ')}
-            style={contentStyle}
-            ref={combinedRef}
-            data-menu-root={ctx.rootId}
+        <ShortcutManagerProvider<MenuActionId>
+            name="DesktopMenu"
+            actions={gMenuActionRegistry}
+            //attachTo={ctx.contentRef}
+            attachTo={document}
+            eventPhase="capture"
         >
-            {children}
-        </div>,
+            <MenuContentBody
+                ctx={ctx}
+                classes={classes}
+                contentStyle={contentStyle}
+                combinedRef={combinedRef}
+            >
+                {children}
+            </MenuContentBody>
+        </ShortcutManagerProvider>,
         portalHost,
     );
 });

@@ -52,6 +52,7 @@ export function useShortcutManager<TActionId extends string = string>(): Shortcu
 }
 
 export function ShortcutManagerProvider<TActionId extends string = string>(props: {
+    name: string; // for debugging
     actions: ActionRegistry<TActionId>;
     initialBindings?: UserBindings<TActionId>;
     onBindingsChange?: (b: UserBindings<TActionId>) => void;
@@ -64,6 +65,8 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
     const suspendCountRef = React.useRef(0);
     const platform = props.platform ?? detectPlatform();
     const [userBindings, setUserBindings] = React.useState<UserBindings<TActionId>>(props.initialBindings ?? {});
+
+    //console.log(`[${props.name}] ShortcutManagerProvider initialized on platform '${platform}'`);
 
     React.useEffect(() => {
         props.onBindingsChange?.(userBindings);
@@ -110,6 +113,7 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
 
     React.useEffect(() => {
         const onKeyDown = (e: Event) => {
+            //console.log(`[${props.name}] KeyDown event:`, e);
             if (!(e instanceof KeyboardEvent)) return;
             if (suspendCountRef.current > 0) return;
 
@@ -125,39 +129,56 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
             const resolved = resolveBindingsForPlatform(actions, userBindingsRef.current, platform);
 
             // Find all actionIds whose binding matches this event
-            const candidates: TActionId[] = [];
+            const candidates: { action: TActionId, chord: ShortcutChord }[] = [];
             const entries = typedEntries(resolved);//Object.entries(resolved);
             for (const [actionId, chords] of entries) {
                 for (const chord of chords) {
                     if (chordMatchesEvent(e, chord, platform)) {
-                        candidates.push(actionId as TActionId);
+                        candidates.push({ action: actionId as TActionId, chord });
                         break;
                     }
                 }
             }
             if (!candidates.length) return;
 
+            // for (const candidate of candidates) {
+            //     console.log(`[${props.name}] Candidate action '${candidate.action}' for chord ${formatChord(candidate.chord, platform)}`);
+            // };
+
             // For each candidate, find best handler
             const regs = regsRef.current;
             let chosen: HandlerReg<TActionId> | null = null;
+            let chosenChord: ShortcutChord | null = null;
 
-            for (const actionId of candidates) {
+            for (const { action: actionId } of candidates) {
                 const def = actions[actionId];
                 if (!def) continue;
 
                 if (e.repeat && !def.allowRepeat) continue;
-                if (!defaultShouldHandleAction(def, ctx)) continue;
+                if (!defaultShouldHandleAction(def, ctx)) {
+                    //console.log(`[${props.name}] Action '${actionId}' not allowed in current context.`);
+                    continue;
+                }
 
                 const matchingRegs = regs.filter(r => r.actionId === actionId);
                 const bestReg = chooseBestHandler(matchingRegs);
-                if (!bestReg) continue;
+                if (!bestReg) {
+                    //console.log(`[${props.name}] No handler registered for action '${actionId}'.`);
+                    continue;
+                }
                 chosen = bestReg;
+                chosenChord = candidates.find(c => c.action === actionId)?.chord || null;
                 break;
             }
 
-            if (!chosen) return;
+            if (!chosen) {
+                //console.log(`[${props.name}] No suitable handler found for candidates.`);
+                return;
+            }
 
             const def = actions[chosen.actionId];
+
+            //console.log(`[${props.name}] Handling shortcut for action '${chosen.actionId}' via chord ${formatChord(chosenChord!, platform)}`);
 
             // Apply event policy only when handled
             const prevent = def.preventDefault ?? true;
@@ -175,12 +196,16 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
             ? attachTo.current  // It's a ref
             : attachTo;         // It's a Document or HTMLElement
 
-        if (!target) return; // Can't attach if ref is null
+        if (!target) {
+            //console.error(`[${props.name}] attachTo is null; keyboard shortcuts will not be active.`);
+            return; // Can't attach if ref is null
+        }
 
         const eventPhase = props.eventPhase ?? (document === props.attachTo ? "bubble" : "capture");
 
         const useCapture = eventPhase === "capture";
 
+        //console.log(`[${props.name}] Attaching keydown listener to`, target, `in ${useCapture ? "capture" : "bubble"} phase`);
         target.addEventListener("keydown", onKeyDown, useCapture);
         return () => {
             target.removeEventListener("keydown", onKeyDown, useCapture);
