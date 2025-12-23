@@ -399,6 +399,11 @@
     background-color: var(--accent);
 }
 
+.pattern-grid-container--locked .pattern-grid td:focus {
+    /* still show a focus indicator otherwise it's confusing what's going on when navigating */
+    background-color: var(--bg);
+}
+
 .pattern-grid .row-number {
     background-color: var(--bg);
     color: var(--muted);
