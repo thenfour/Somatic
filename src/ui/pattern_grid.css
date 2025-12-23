@@ -1,0 +1,420 @@
+/* Pattern Grid Component Styles */
+
+.pattern-grid-top-controls {
+    margin-left: 50px;
+}
+
+.pattern-grid-top-controls .label-pattern-index {
+    color: var(--text);
+}
+
+.pattern-grid-top-controls .label-pattern-name {
+    color: var(--muted);
+    margin-right: 8px;
+}
+
+.pattern-grid-top-controls .input-pattern-name {
+    font-size: 14px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    color: var(--accent);
+    width: 400px;
+}
+
+.pattern-grid {
+    font-family: var(--ff-mono);
+    border-collapse: collapse;
+    margin: 15px;
+}
+
+.pattern-grid-shell {
+    flex-grow: 1;
+    position: relative;
+    display: flex;
+    gap: 0;
+}
+
+.pattern-advanced-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border: 0;
+    background: var(--panel);
+    color: var(--text);
+    padding: 12px 6px;
+    cursor: pointer;
+    font-size: 14px;
+    z-index: 100;
+}
+
+.pattern-advanced-handle:hover {
+    background: var(--panel-strong);
+}
+
+.pattern-advanced-handle--open {
+    background: var(--accent);
+    color: var(--tic-0);
+}
+
+.pattern-advanced-panel {
+    background: var(--panel);
+    color: var(--text);
+    width: 260px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    gap: 16px;
+    flex: none;
+    border-right: 1px solid var(--border-strong);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+}
+
+.pattern-advanced-panel--open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.pattern-advanced-panel__header {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.pattern-advanced-panel__body {
+    font-size: 13px;
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.pattern-advanced-panel__group {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pattern-advanced-panel__group legend {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+}
+
+.pattern-advanced-panel__scope {
+    display: flex;
+    flex-direction: column;
+}
+
+.pattern-advanced-panel__scopeOption {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 4px;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.pattern-advanced-panel__scopeOption span {
+    flex: 1;
+}
+
+.pattern-advanced-panel__scopeOption input:checked+span {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.pattern-advanced-panel__section {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pattern-advanced-panel__buttonRow,
+.pattern-advanced-panel__toggleRow {
+    display: flex;
+    gap: 8px;
+}
+
+.pattern-advanced-panel__button {
+    background: var(--panel-strong);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    font-size: 13px;
+    min-width: 0;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.pattern-advanced-panel__button:hover {
+    background: color-mix(in srgb, var(--panel-strong) 70%, var(--accent) 30%);
+    border-color: color-mix(in srgb, var(--border) 70%, var(--accent) 30%);
+}
+
+.pattern-advanced-panel__button:active {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: var(--tic-0);
+}
+
+.pattern-advanced-panel__button--primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--tic-0);
+}
+
+.pattern-advanced-panel__button--primary:hover {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+}
+
+.pattern-advanced-panel__stacked {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.pattern-advanced-panel__inputRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pattern-advanced-panel__inputRow input[type="number"] {
+    width: 48px;
+    background: var(--panel-strong);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 4px 6px;
+    font-family: var(--ff-mono);
+}
+
+.pattern-advanced-panel__chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.pattern-advanced-panel__chip input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pattern-advanced-panel__chip span {
+    border: 1px solid var(--border);
+    padding: 4px 12px;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.pattern-advanced-panel__chip input:checked+span {
+    background: var(--panel-strong);
+}
+
+.pattern-advanced-panel__hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin: 0;
+}
+
+.pattern-grid .channel {
+    border-left: 1px double var(--border-strong);
+}
+
+.pattern-grid tr.active-row {
+    background-color: var(--row-active);
+}
+
+.pattern-grid tr.row-section-a:not(.active-row) {
+    background-color: var(--row-a);
+}
+
+.pattern-grid tr.row-section-b:not(.active-row) {
+    background-color: var(--row-b);
+}
+
+.pattern-grid td {
+    cursor: default;
+    padding: 1px 6px;
+    position: relative;
+    user-select: none;
+}
+
+.pattern-grid td::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+.pattern-grid td.pattern-cell--selected::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.1);
+    pointer-events: none;
+}
+
+.pattern-grid td.pattern-cell--selection-top::before {
+    border-top: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.pattern-grid td.pattern-cell--selection-bottom::before {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.pattern-grid td.pattern-cell--selection-left::before {
+    border-left: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.pattern-grid td.pattern-cell--selection-right::before {
+    border-right: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.pattern-grid th.channel-header {
+    background-color: var(--bg);
+    color: var(--muted);
+}
+
+.pattern-grid .channel-header-cell-contents {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pattern-grid .channel-header-cell-contents .channel-header-label {
+    padding: 0 12px;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.pattern-grid th.channel-header .channel-header-controls-group {
+    display: flex;
+}
+
+.pattern-grid th.channel-header .channel-header-controls-group button {
+    background-color: var(--channel-header-button-bg);
+    cursor: pointer;
+    border: 0;
+    font-size: 13px;
+    border-radius: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.pattern-grid th.channel-header .channel-header-controls-group button:hover {
+    background-color: var(--channel-header-button-hover-bg);
+}
+
+.pattern-grid th.channel-header .channel-header-controls-group button.channel-header-control-btn-mute {
+    color: var(--mute-button-label);
+}
+
+.pattern-grid th.channel-header .channel-header-controls-group button.channel-header-control-btn--muted {
+    background-color: var(--mute-button-active-bg);
+    color: var(--mute-button-active-label);
+}
+
+.pattern-grid th.channel-header .channel-header-controls-group button.channel-header-control-btn-solo {
+    color: var(--solo-button-label);
+}
+
+.pattern-grid th.channel-header .channel-header-controls-group button.channel-header-control-btn--soloed {
+    background-color: var(--solo-button-active-bg);
+    color: var(--solo-button-active-label);
+}
+
+.pattern-grid th.channel-header.channel-header--selected {
+    background-color: rgba(255, 255, 255, 0.3);
+    color: var(--text);
+}
+
+.pattern-grid td.note-cell {
+    color: var(--cell-note);
+    white-space: nowrap;
+    border-left: 8px solid var(--bg);
+}
+
+.pattern-grid td.note-cell>div {
+    white-space: nowrap;
+}
+
+.pattern-grid td.instrument-cell {
+    color: var(--cell-instrument);
+    white-space: nowrap;
+}
+
+.pattern-grid td.command-cell {
+    color: var(--cell-command);
+}
+
+.pattern-grid td.param-cell {
+    color: var(--cell-param);
+    white-space: nowrap;
+}
+
+.pattern-grid td.empty-cell {
+    color: var(--muted);
+}
+
+.pattern-grid td.metaCellFocus {
+    outline: 1px solid var(--accent);
+}
+
+.pattern-grid td.note-cut-cell {
+    opacity: 0.5;
+}
+
+.pattern-grid td.error-cell {
+    background-color: var(--error-surface-bg);
+    color: var(--error-surface-text);
+}
+
+.pattern-grid td.muted-cell {
+    color: var(--muted);
+    opacity: 30%;
+}
+
+.pattern-grid-container--editMode .pattern-grid td:focus {
+    outline: 1px solid var(--border-strong);
+    background-color: var(--accent);
+}
+
+.pattern-grid .row-number {
+    background-color: var(--bg);
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.pattern-grid .row-number.row-number--selected {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: var(--text);
+}
+
+.pattern-grid-container {
+    flex-grow: 1;
+    padding-bottom: 50vh;
+    position: relative;
+    overflow: auto;
+}
+
+.pattern-grid-container--locked {
+    filter: grayscale(.3);
+}
+
+.pattern-grid-container--editMode {
+    box-shadow: 0 0 0 3px var(--edit-border) inset;
+}

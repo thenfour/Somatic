@@ -1,0 +1,28 @@
+/* Instrument Editor Component Styles */
+
+.instrument-panel,
+.waveform-editor-panel {
+    /* width: 800px; */
+    /* for comfort */
+}
+
+.instrument-panel .instrument-index {
+    font-size: 30px;
+}
+
+.instrument-panel .instrument-name {
+    font-size: 24px;
+}
+
+.instrument-envelope-editor {
+    padding-left: 8px;
+    margin-bottom: 32px;
+}
+
+.instrument-envelope-editor__header h4 {
+    margin-bottom: 4px;
+}
+
+.instrument-panel label {
+    padding-right: 4px;
+}

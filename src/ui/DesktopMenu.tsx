@@ -20,10 +20,24 @@ import React, {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { CharMap } from '../utils/utils';
+import './DesktopMenu.css';
 
 const MENU_PORTAL_ID = 'desktop-menu-root';
 
 type MenuPlacement = 'bottom-start' | 'right-start';
+
+// Context for tracking menu capture state across all top-level menus
+type MenuCaptureContextValue = {
+    isCaptured: boolean;
+    activeMenuId: string | null;
+    setActiveMenu: (menuId: string | null) => void;
+};
+
+const MenuCaptureContext = createContext<MenuCaptureContextValue | null>(null);
+
+const useMenuCapture = () => {
+    return useContext(MenuCaptureContext);
+};
 
 type MenuStateProps = {
     open?: boolean;
@@ -172,11 +186,46 @@ type MenuRootProps = MenuStateProps & {
     children: ReactNode;
 };
 
-const MenuRoot: React.FC<MenuRootProps> = ({ children, ...stateProps }) => (
-    <InternalMenuProvider placement="bottom-start" {...stateProps}>
-        {children}
-    </InternalMenuProvider>
-);
+const MenuRoot: React.FC<MenuRootProps> = ({ children, open, defaultOpen, onOpenChange, ...rest }) => {
+    const capture = useMenuCapture();
+    const menuId = useId();
+    const [internalOpen, setInternalOpen] = useState(defaultOpen ?? false);
+    const isControlled = typeof open === 'boolean';
+    const actualOpen = isControlled ? open : internalOpen;
+
+    // Auto-close when another menu becomes active
+    useEffect(() => {
+        if (capture && actualOpen && capture.activeMenuId !== menuId) {
+            if (!isControlled) {
+                setInternalOpen(false);
+            }
+            onOpenChange?.(false);
+        }
+    }, [capture, actualOpen, menuId, isControlled, onOpenChange]);
+
+    // Notify capture context when this menu opens/closes
+    const handleOpenChange = useCallback((isOpen: boolean) => {
+        if (!isControlled) {
+            setInternalOpen(isOpen);
+        }
+        if (capture) {
+            capture.setActiveMenu(isOpen ? menuId : null);
+        }
+        onOpenChange?.(isOpen);
+    }, [capture, menuId, isControlled, onOpenChange]);
+
+    return (
+        <InternalMenuProvider
+            placement="bottom-start"
+            open={isControlled ? open : internalOpen}
+            defaultOpen={undefined}
+            onOpenChange={handleOpenChange}
+            {...rest}
+        >
+            {children}
+        </InternalMenuProvider>
+    );
+};
 
 type MenuSubProps = MenuStateProps & {
     children: ReactNode;
@@ -203,6 +252,8 @@ type MenuTriggerProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const MenuTrigger = React.forwardRef<HTMLButtonElement, MenuTriggerProps>(({ caret = true, className = '', children, onClick, ...rest }, forwardedRef) => {
     const ctx = useMenuContext('DesktopMenu.Trigger');
+    const capture = useMenuCapture();
+    const [isHovered, setIsHovered] = useState(false);
     const combinedRef = composeRefs<HTMLButtonElement>(forwardedRef, (node) => { ctx.triggerRef.current = node; });
 
     const handleClick: React.MouseEventHandler<HTMLButtonElement> = (event) => {
@@ -211,8 +262,22 @@ const MenuTrigger = React.forwardRef<HTMLButtonElement, MenuTriggerProps>(({ car
         ctx.toggle();
     };
 
+    const handleMouseEnter: React.MouseEventHandler<HTMLButtonElement> = () => {
+        setIsHovered(true);
+        // If capture is active (any menu is open) and this menu isn't already open,
+        // open this menu automatically on hover
+        if (capture?.isCaptured && !ctx.isOpen && ctx.level === 0) {
+            ctx.open();
+        }
+    };
+
+    const handleMouseLeave: React.MouseEventHandler<HTMLButtonElement> = () => {
+        setIsHovered(false);
+    };
+
     const classes = ['desktop-menu-trigger'];
     if (ctx.isOpen) classes.push('desktop-menu-trigger--open');
+    if (isHovered && capture?.isCaptured) classes.push('desktop-menu-trigger--hover-captured');
     if (className) classes.push(className);
 
     return (
@@ -223,6 +288,8 @@ const MenuTrigger = React.forwardRef<HTMLButtonElement, MenuTriggerProps>(({ car
             aria-haspopup="menu"
             aria-expanded={ctx.isOpen}
             onClick={handleClick}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
         >
             <span className="desktop-menu-trigger__label">{children}</span>
             {caret && <span className="desktop-menu-trigger__caret">{CharMap.DownTriangle}</span>}
@@ -432,6 +499,27 @@ MenuSubTrigger.displayName = 'DesktopMenuSubTrigger';
 
 const MenuSubContent = MenuContent;
 
+type MenuBarProps = {
+    children: ReactNode;
+};
+
+// MenuBar provides the capture context for all top-level menus within it
+const MenuBar: React.FC<MenuBarProps> = ({ children }) => {
+    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+    const captureValue = useMemo<MenuCaptureContextValue>(() => ({
+        isCaptured: activeMenuId !== null,
+        activeMenuId,
+        setActiveMenu: setActiveMenuId,
+    }), [activeMenuId]);
+
+    return (
+        <MenuCaptureContext.Provider value={captureValue}>
+            {children}
+        </MenuCaptureContext.Provider>
+    );
+};
+
 export const DesktopMenu = {
     Root: MenuRoot,
     Trigger: MenuTrigger,
@@ -442,6 +530,7 @@ export const DesktopMenu = {
     Sub: MenuSub,
     SubTrigger: MenuSubTrigger,
     SubContent: MenuSubContent,
+    Bar: MenuBar,
 };
 
 type MenuFactory = typeof DesktopMenu;

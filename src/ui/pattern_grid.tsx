@@ -15,6 +15,7 @@ import { Tooltip } from './tooltip';
 import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D';
 import { changeInstrumentInPattern, interpolatePatternValues, RowRange, setInstrumentInPattern, transposeCellsInPattern, nudgeInstrumentInPattern } from '../utils/advancedPatternEdit';
 import { useRenderAlarm } from '../hooks/useRenderAlarm';
+import './pattern_grid.css';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 

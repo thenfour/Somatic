@@ -1,5 +1,6 @@
 import React from 'react';
 import { useToasts } from './toast_provider';
+import './theme_editor_panel.css';
 
 const PALETTE_KEYS = Array.from({ length: 16 }, (_, i) => `--tic-${i}`);
 const PALETTE_CONTRAST_KEYS = PALETTE_KEYS.map((k) => `${k}-contrast`);

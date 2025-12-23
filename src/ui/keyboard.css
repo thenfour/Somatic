@@ -1,0 +1,42 @@
+/* On-Screen Keyboard Component Styles */
+
+#keyboard {
+    position: relative;
+    /* allow vert size for a horiz scroll bar */
+    height: 115px;
+    overflow: auto;
+    margin: 0;
+}
+
+#keyboard .key {
+    position: absolute;
+    font-size: 12px;
+}
+
+#keyboard button.key {
+    align-items: flex-end;
+    justify-content: center;
+    border: 1px solid var(--border-strong);
+    /* push text up a bit*/
+    padding-bottom: 8px;
+}
+
+#keyboard .key.white {
+    height: 100px;
+    width: 32px;
+    z-index: 0;
+    background-color: var(--keyboard-white-key);
+    color: var(--keyboard-white-text);
+}
+
+#keyboard .key.black {
+    height: 50px;
+    width: 28px;
+    z-index: 1;
+    background-color: var(--keyboard-black-key);
+    color: var(--keyboard-black-text);
+}
+
+#keyboard .key.active {
+    background-color: var(--accent);
+}

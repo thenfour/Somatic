@@ -1,0 +1,50 @@
+/* Theme Editor Panel Component Styles */
+
+.app-panel.theme-panel {
+    margin: 8px;
+    gap: 12px;
+    display: flex;
+    flex-direction: column;
+    /* undo the "lot of padding at the bottom for comfort" effect, because we have internal scroller */
+    padding-bottom: 24px;
+}
+
+.theme-panel__palette {
+    display: flex;
+}
+
+.theme-panel__swatch {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    cursor: grab;
+    padding: 0;
+}
+
+.theme-panel__vars {
+    flex-shrink: 1;
+    overflow: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.theme-panel__var {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 0;
+    padding: 6px 8px;
+    cursor: grab;
+}
+
+.theme-panel__var-value {
+    font-family: var(--ff-mono);
+    font-size: 12px;
+}
+
+.theme-panel__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}

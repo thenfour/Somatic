@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AudioController } from "../audio/controller";
 import { NOTE_INFOS } from "../defs";
+import './keyboard.css';
 
 const KEY_POSITIONS = [0, 0.5, 1, 1.5, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6];
 

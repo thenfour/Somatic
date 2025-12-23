@@ -1,0 +1,37 @@
+/* Waveform Editor Component Styles */
+
+.waveform-editor-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.waveform-editor-controls__row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.waveform-editor-controls__label {
+    font-size: 11px;
+    opacity: 0.8;
+    margin-right: 4px;
+}
+
+.waveform-editor-controls__value {
+    font-size: 11px;
+    min-width: 32px;
+    text-align: right;
+}
+
+.waveform-editor-controls__button {
+    font-size: 11px;
+    padding: 2px 6px;
+}
+
+.waveform-editor-controls__button--active {
+    background: var(--accent);
+    color: var(--bg);
+}

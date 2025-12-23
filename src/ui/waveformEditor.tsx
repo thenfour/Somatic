@@ -7,6 +7,7 @@ import { Tic80Waveform, Tic80WaveformDto } from "../models/waveform";
 import { WaveformCanvas } from "./waveform_canvas";
 import '/src/waveform.css';
 import { WaveformSwatch, WaveformSwatchDisplayStyle } from "./waveformSwatch";
+import './waveformEditor.css';
 import { calculateSongUsage, getMaxWaveformUsedIndex, SongUsage } from "../utils/SongOptimizer";
 
 // keep tied in with Tic80Caps.

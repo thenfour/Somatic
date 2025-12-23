@@ -751,191 +751,193 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             <div className="stickyHeader appRow">
                 <div className="menu">
                     <nav className="desktop-menu-bar">
-                        <DesktopMenu.Root>
-                            <DesktopMenu.Trigger caret={false}>File</DesktopMenu.Trigger>
-                            <DesktopMenu.Content>
-                                <DesktopMenu.Item
-                                    onSelect={() => { void createNewSong(); }}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("NewFile")}
-                                >
-                                    New Song…
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Item
-                                    onSelect={() => { void openSongFile(); }}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("OpenFile")}
-                                >
-                                    Open Song…
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Item
-                                    onSelect={saveSongFile}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("SaveFile")}
-                                >
-                                    Save Song
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Divider />
-                                <DesktopMenu.Sub>
-                                    <DesktopMenu.SubTrigger>Export Cart</DesktopMenu.SubTrigger>
-                                    <DesktopMenu.SubContent>
-                                        <DesktopMenu.Item onSelect={() => exportCart('debug')}>
-                                            Debug Build
-                                        </DesktopMenu.Item>
-                                        <DesktopMenu.Item
-                                            onSelect={() => exportCart('release')}
-                                            shortcut={keyboardShortcutMgr.getActionBindingLabel("ExportCartRelease")}
-                                        >
-                                            Release Build
-                                        </DesktopMenu.Item>
-                                    </DesktopMenu.SubContent>
-                                </DesktopMenu.Sub>
-                                <DesktopMenu.Divider />
-                                <DesktopMenu.Item onSelect={() => { void optimizeSong(); }}>Optimize Song…</DesktopMenu.Item>
-                            </DesktopMenu.Content>
-                        </DesktopMenu.Root>
-                        <DesktopMenu.Root>
-                            <DesktopMenu.Trigger caret={false}>Edit</DesktopMenu.Trigger>
-                            <DesktopMenu.Content>
-                                <DesktopMenu.Item
-                                    onSelect={handleUndo}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("Undo")}
-                                    disabled={!undoStackRef.current || !undoStackRef.current.canUndo()}
-                                >
-                                    {(() => {
-                                        const stack = undoStackRef.current;
-                                        const entry = stack?.peekUndo();
-                                        return entry ? `Undo ${entry.description}` : 'Undo';
-                                    })()}
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Item
-                                    onSelect={handleRedo}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("Redo")}
-                                    disabled={!undoStackRef.current || !undoStackRef.current.canRedo()}
-                                >
-                                    {(() => {
-                                        const stack = undoStackRef.current;
-                                        const entry = stack?.peekRedo();
-                                        return entry ? `Redo ${entry.description}` : 'Redo';
-                                    })()}
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Divider />
-                                <DesktopMenu.Item onSelect={() => { void copyNative(); }}>Copy Song JSON</DesktopMenu.Item>
-                                <DesktopMenu.Item onSelect={() => { void pasteSong(); }}>Paste Song JSON</DesktopMenu.Item>
-                            </DesktopMenu.Content>
-                        </DesktopMenu.Root>
-                        <DesktopMenu.Root>
-                            <DesktopMenu.Trigger caret={false}>View</DesktopMenu.Trigger>
-                            <DesktopMenu.Content>
-                                <DesktopMenu.Item
-                                    checked={waveformEditorPanelOpen}
-                                    closeOnSelect={false}
-                                    onSelect={() => setWaveformEditorPanelOpen(open => !open)}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleWaveformEditor")}
-                                >
-                                    Waveform Editor
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Item
-                                    checked={instrumentPanelOpen}
-                                    closeOnSelect={false}
-                                    onSelect={() => setInstrumentPanelOpen(open => !open)}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleInstrumentPanel")}
-                                >
-                                    Instrument Panel
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Item
-                                    checked={showingOnScreenKeyboard}
-                                    closeOnSelect={false}
-                                    onSelect={() => setShowingOnScreenKeyboard(open => !open)}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleOnScreenKeyboard")}
-                                >
-                                    On-Screen Keyboard
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Item
-                                    checked={showingArrangementEditor}
-                                    closeOnSelect={false}
-                                    onSelect={() => setShowingArrangementEditor(open => !open)}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleArrangementEditor")}
-                                >
-                                    Arrangement Editor
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Item
-                                    checked={advancedEditPanelOpen}
-                                    closeOnSelect={false}
-                                    onSelect={() => setAdvancedEditPanelOpen(open => !open)}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleAdvancedEditPanel")}
-                                >
-                                    Advanced Edit Panel
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Item
-                                    checked={preferencesPanelOpen}
-                                    closeOnSelect={false}
-                                    onSelect={() => setPreferencesPanelOpen((open) => !open)}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("TogglePreferencesPanel")}
-                                >
-                                    Preferences Panel
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Item
-                                    checked={themePanelOpen}
-                                    closeOnSelect={false}
-                                    onSelect={() => setThemePanelOpen((open) => !open)}
-                                >
-                                    Theme Editor
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Item
-                                    checked={tic80FrameSizeIndex !== 0}
-                                    closeOnSelect={false}
-                                    onSelect={() => cycleTic80FrameSize()}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("CycleTic80PanelSize")}
-                                >
-                                    TIC-80 Bridge Size
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Sub>
-                                    <DesktopMenu.SubTrigger>TIC-80 Embed Variant</DesktopMenu.SubTrigger>
-                                    <DesktopMenu.SubContent>
-                                        <DesktopMenu.Item
-                                            checked={embedMode === "iframe"}
-                                            onSelect={() => switchEmbedMode("iframe")}
-                                        >
-                                            Iframe (default)
-                                        </DesktopMenu.Item>
-                                        <DesktopMenu.Item
-                                            checked={embedMode === "toplevel"}
-                                            onSelect={() => switchEmbedMode("toplevel")}
-                                        >
-                                            Top-level (experimental)
-                                        </DesktopMenu.Item>
-                                    </DesktopMenu.SubContent>
-                                </DesktopMenu.Sub>
-                                <DesktopMenu.Divider />
-                                <DesktopMenu.Item
-                                    checked={editorState.editingEnabled}
-                                    closeOnSelect={false}
-                                    onSelect={toggleEditingEnabled}
-                                    shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleEditMode")}
-                                >
-                                    Editing Mode Enabled
-                                </DesktopMenu.Item>
-                                <DesktopMenu.Item
-                                    checked={theme === 'dark'}
-                                    closeOnSelect={false}
-                                    onSelect={onToggleTheme}
-                                >
-                                    Dark Theme
-                                </DesktopMenu.Item>
-                            </DesktopMenu.Content>
-                        </DesktopMenu.Root>
-                        <DesktopMenu.Root>
-                            <DesktopMenu.Trigger caret={false}>Help</DesktopMenu.Trigger>
-                            <DesktopMenu.Content>
-                                <DesktopMenu.Item onSelect={() => window.open('https://github.com/thenfour/Somatic', '_blank', 'noopener')}>Visit Project on GitHub</DesktopMenu.Item>
-                                <DesktopMenu.Divider />
-                                <DesktopMenu.Item onSelect={() => window.open('https://reverietracker.github.io/chromatic/', '_blank', 'noopener')}>This project was based on Chromatic by Gasman</DesktopMenu.Item>
-                                <DesktopMenu.Item onSelect={() => window.open('https://github.com/nesbox/TIC-80/wiki/Music-Editor', '_blank', 'noopener')}>TIC-80 Music Editor</DesktopMenu.Item>
-                                <DesktopMenu.Item onSelect={() => window.open('https://github.com/nesbox/TIC-80/wiki/ram', '_blank', 'noopener')}>TIC-80 memory map</DesktopMenu.Item>
+                        <DesktopMenu.Bar>
+                            <DesktopMenu.Root>
+                                <DesktopMenu.Trigger caret={false}>File</DesktopMenu.Trigger>
+                                <DesktopMenu.Content>
+                                    <DesktopMenu.Item
+                                        onSelect={() => { void createNewSong(); }}
+                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("NewFile")}
+                                    >
+                                        New Song…
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        onSelect={() => { void openSongFile(); }}
+                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("OpenFile")}
+                                    >
+                                        Open Song…
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        onSelect={saveSongFile}
+                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("SaveFile")}
+                                    >
+                                        Save Song
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Divider />
+                                    <DesktopMenu.Sub>
+                                        <DesktopMenu.SubTrigger>Export Cart</DesktopMenu.SubTrigger>
+                                        <DesktopMenu.SubContent>
+                                            <DesktopMenu.Item onSelect={() => exportCart('debug')}>
+                                                Debug Build
+                                            </DesktopMenu.Item>
+                                            <DesktopMenu.Item
+                                                onSelect={() => exportCart('release')}
+                                                shortcut={keyboardShortcutMgr.getActionBindingLabel("ExportCartRelease")}
+                                            >
+                                                Release Build
+                                            </DesktopMenu.Item>
+                                        </DesktopMenu.SubContent>
+                                    </DesktopMenu.Sub>
+                                    <DesktopMenu.Divider />
+                                    <DesktopMenu.Item onSelect={() => { void optimizeSong(); }}>Optimize Song…</DesktopMenu.Item>
+                                </DesktopMenu.Content>
+                            </DesktopMenu.Root>
+                            <DesktopMenu.Root>
+                                <DesktopMenu.Trigger caret={false}>Edit</DesktopMenu.Trigger>
+                                <DesktopMenu.Content>
+                                    <DesktopMenu.Item
+                                        onSelect={handleUndo}
+                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("Undo")}
+                                        disabled={!undoStackRef.current || !undoStackRef.current.canUndo()}
+                                    >
+                                        {(() => {
+                                            const stack = undoStackRef.current;
+                                            const entry = stack?.peekUndo();
+                                            return entry ? `Undo ${entry.description}` : 'Undo';
+                                        })()}
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        onSelect={handleRedo}
+                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("Redo")}
+                                        disabled={!undoStackRef.current || !undoStackRef.current.canRedo()}
+                                    >
+                                        {(() => {
+                                            const stack = undoStackRef.current;
+                                            const entry = stack?.peekRedo();
+                                            return entry ? `Redo ${entry.description}` : 'Redo';
+                                        })()}
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Divider />
+                                    <DesktopMenu.Item onSelect={() => { void copyNative(); }}>Copy Song JSON</DesktopMenu.Item>
+                                    <DesktopMenu.Item onSelect={() => { void pasteSong(); }}>Paste Song JSON</DesktopMenu.Item>
+                                </DesktopMenu.Content>
+                            </DesktopMenu.Root>
+                            <DesktopMenu.Root>
+                                <DesktopMenu.Trigger caret={false}>View</DesktopMenu.Trigger>
+                                <DesktopMenu.Content>
+                                    <DesktopMenu.Item
+                                        checked={waveformEditorPanelOpen}
+                                        closeOnSelect={false}
+                                        onSelect={() => setWaveformEditorPanelOpen(open => !open)}
+                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleWaveformEditor")}
+                                    >
+                                        Waveform Editor
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={instrumentPanelOpen}
+                                        closeOnSelect={false}
+                                        onSelect={() => setInstrumentPanelOpen(open => !open)}
+                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleInstrumentPanel")}
+                                    >
+                                        Instrument Panel
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={showingOnScreenKeyboard}
+                                        closeOnSelect={false}
+                                        onSelect={() => setShowingOnScreenKeyboard(open => !open)}
+                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleOnScreenKeyboard")}
+                                    >
+                                        On-Screen Keyboard
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={showingArrangementEditor}
+                                        closeOnSelect={false}
+                                        onSelect={() => setShowingArrangementEditor(open => !open)}
+                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleArrangementEditor")}
+                                    >
+                                        Arrangement Editor
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={advancedEditPanelOpen}
+                                        closeOnSelect={false}
+                                        onSelect={() => setAdvancedEditPanelOpen(open => !open)}
+                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleAdvancedEditPanel")}
+                                    >
+                                        Advanced Edit Panel
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={preferencesPanelOpen}
+                                        closeOnSelect={false}
+                                        onSelect={() => setPreferencesPanelOpen((open) => !open)}
+                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("TogglePreferencesPanel")}
+                                    >
+                                        Preferences Panel
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={themePanelOpen}
+                                        closeOnSelect={false}
+                                        onSelect={() => setThemePanelOpen((open) => !open)}
+                                    >
+                                        Theme Editor
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={tic80FrameSizeIndex !== 0}
+                                        closeOnSelect={false}
+                                        onSelect={() => cycleTic80FrameSize()}
+                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("CycleTic80PanelSize")}
+                                    >
+                                        TIC-80 Bridge Size
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Sub>
+                                        <DesktopMenu.SubTrigger>TIC-80 Embed Variant</DesktopMenu.SubTrigger>
+                                        <DesktopMenu.SubContent>
+                                            <DesktopMenu.Item
+                                                checked={embedMode === "iframe"}
+                                                onSelect={() => switchEmbedMode("iframe")}
+                                            >
+                                                Iframe (default)
+                                            </DesktopMenu.Item>
+                                            <DesktopMenu.Item
+                                                checked={embedMode === "toplevel"}
+                                                onSelect={() => switchEmbedMode("toplevel")}
+                                            >
+                                                Top-level (experimental)
+                                            </DesktopMenu.Item>
+                                        </DesktopMenu.SubContent>
+                                    </DesktopMenu.Sub>
+                                    <DesktopMenu.Divider />
+                                    <DesktopMenu.Item
+                                        checked={editorState.editingEnabled}
+                                        closeOnSelect={false}
+                                        onSelect={toggleEditingEnabled}
+                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleEditMode")}
+                                    >
+                                        Editing Mode Enabled
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={theme === 'dark'}
+                                        closeOnSelect={false}
+                                        onSelect={onToggleTheme}
+                                    >
+                                        Dark Theme
+                                    </DesktopMenu.Item>
+                                </DesktopMenu.Content>
+                            </DesktopMenu.Root>
+                            <DesktopMenu.Root>
+                                <DesktopMenu.Trigger caret={false}>Help</DesktopMenu.Trigger>
+                                <DesktopMenu.Content>
+                                    <DesktopMenu.Item onSelect={() => window.open('https://github.com/thenfour/Somatic', '_blank', 'noopener')}>Visit Project on GitHub</DesktopMenu.Item>
+                                    <DesktopMenu.Divider />
+                                    <DesktopMenu.Item onSelect={() => window.open('https://reverietracker.github.io/chromatic/', '_blank', 'noopener')}>This project was based on Chromatic by Gasman</DesktopMenu.Item>
+                                    <DesktopMenu.Item onSelect={() => window.open('https://github.com/nesbox/TIC-80/wiki/Music-Editor', '_blank', 'noopener')}>TIC-80 Music Editor</DesktopMenu.Item>
+                                    <DesktopMenu.Item onSelect={() => window.open('https://github.com/nesbox/TIC-80/wiki/ram', '_blank', 'noopener')}>TIC-80 memory map</DesktopMenu.Item>
 
-                                <DesktopMenu.Divider />
-                                <DesktopMenu.Divider />
-                                <DesktopMenu.Item onSelect={() => setAboutOpen(true)}>About Somatic…</DesktopMenu.Item>
-                            </DesktopMenu.Content>
-                        </DesktopMenu.Root>
+                                    <DesktopMenu.Divider />
+                                    <DesktopMenu.Divider />
+                                    <DesktopMenu.Item onSelect={() => setAboutOpen(true)}>About Somatic…</DesktopMenu.Item>
+                                </DesktopMenu.Content>
+                            </DesktopMenu.Root>
+                        </DesktopMenu.Bar>
                     </nav>
                     <div className={`menu-transport ${bridgeReady ? 'menu-transport--ready' : 'menu-transport--not-ready'}`}>
                         <Tooltip title={keyboardShortcutMgr.getActionBindingLabel("Panic")}>

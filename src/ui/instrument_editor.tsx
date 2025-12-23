@@ -8,6 +8,7 @@ import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
 import { useClipboard } from '../hooks/useClipboard';
 import { WaveformSelect } from './waveformEditor';
 import { WaveformSwatch } from './waveformSwatch';
+import './instrument_editor.css';
 
 /*
 
