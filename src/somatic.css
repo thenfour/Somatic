@@ -1142,3 +1142,37 @@ option {
 .loop-mode-select--off {
     color: var(--muted);
 }
+
+.bar-value {
+    --bar-value-fill-percent: 0%;
+    --bar-value-border-radius: 3px;
+    min-width: 50px;
+    background-color: var(--bg);
+    border-radius: var(--bar-value-border-radius);
+}
+
+.bar-value--content {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 16px;
+    position: relative;
+}
+
+.bar-value--label {
+    color: var(--text);
+    font-size: 12px;
+    margin: 9px;
+    z-index: 5;
+}
+
+.bar-value--bar {
+    position: absolute;
+    width: var(--bar-value-fill-percent);
+    top: 0;
+    left: 0;
+    bottom: 0;
+    background-color: var(--accent);
+    border-radius: var(--bar-value-border-radius);
+    z-index: 1;
+}

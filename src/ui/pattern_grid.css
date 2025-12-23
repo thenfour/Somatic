@@ -1,6 +1,8 @@
 /* Pattern Grid Component Styles */
 
 .pattern-grid-top-controls {
+    /* avoid collision with edit mode border */
+    margin-top: 4px;
     margin-left: 50px;
 }
 

@@ -1,14 +1,39 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Song } from "../models/song";
-import { useNopWriteBehindEffect, useWriteBehindEffect } from "../hooks/useWriteBehindEffect";
-import { serializeSongForTic80Bridge, serializeSongToCart, serializeSongToCartDetailed, SongCartDetails, Tic80SerializedSong } from "../audio/tic80_cart_serializer";
-import { Tooltip } from "./tooltip";
+import { useWriteBehindEffect } from "../hooks/useWriteBehindEffect";
+import { serializeSongForTic80Bridge, serializeSongToCartDetailed, SongCartDetails, Tic80SerializedSong } from "../audio/tic80_cart_serializer";
 import { compareBuffers, formatBytes } from "../utils/utils";
 import { useClipboard } from "../hooks/useClipboard";
 import { base85Encode, lzCompress, lzDecompress } from "../audio/encoding";
 import { OptimizeSong, analyzePatternColumns, PatternColumnAnalysisResult } from "../utils/SongOptimizer";
 import { gAllChannelsAudible, SomaticCaps } from "../models/tic80Capabilities";
 import { useRenderAlarm } from "../hooks/useRenderAlarm";
+import { KeyValueTable } from "./KeyValueTable";
+import { AppPanelShell } from "./AppPanelShell";
+
+const BarValue: React.FC<{ value: number; max: number; label: string }> = ({ value, max, label }) => {
+    const safeMax = Math.max(1, max);
+    const pct = Math.max(0, Math.min(1, value / safeMax));
+    return (
+        <div className="bar-value" style={{
+            "--bar-value-fill-percent": `${(pct * 100).toFixed(1)}%`,
+        } as React.CSSProperties}>
+            <div
+                className="bar-value--content"
+                aria-hidden="true"
+            >
+                <span
+                    className="bar-value--label"
+                >
+                    {label}
+                </span>
+                <div
+                    className="bar-value--bar"
+                />
+            </div>
+        </div>
+    );
+};
 
 type ChunkInfo = {
     name: string; //
@@ -34,18 +59,22 @@ type SongSerialized = {
     bridge: Tic80SerializedSong;
 };
 
-export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
+export type SongStatsData = {
+    input: SongSerialized | null;
+    breakdown: Stats;
+    totalSize: number;
+    patternCompressionRatio: number;
+    error: boolean;
+};
+
+export const useSongStatsData = (song: Song): SongStatsData => {
     const [input, setInput] = useState<SongSerialized | null>(null);
-    const [windowSize, setWindowSize] = useState<number>(16);
-    const [minMatchLength, setMinMatchLength] = useState<number>(4);
-    const [maxMatchLength, setMaxMatchLength] = useState<number>(30);
-    const [useRLE, setUseRLE] = useState<boolean>(false);
 
-    useRenderAlarm({
-        name: 'SongStats',
-    });
-
-    const clipboard = useClipboard();
+    // These are tuning constants; we currently don't expose UI to tweak them.
+    const windowSize = 16;
+    const minMatchLength = 4;
+    const maxMatchLength = 30;
+    const useRLE = false;
 
     const cartWriter = useWriteBehindEffect<Song, SongSerialized>(async (doc) => {
         const cartDetails = serializeSongToCartDetailed(doc, true, 'release', gAllChannelsAudible);
@@ -67,8 +96,8 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
     }, {
         debounceMs: 1200,
         maxWaitMs: 5000,
-        onSuccess: (input) => {
-            setInput(input);
+        onSuccess: (next) => {
+            setInput(next);
         },
         onError: () => {
             setInput(null);
@@ -98,6 +127,7 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
             },
             roundTripStatus: "no data",
         };
+
         const result: ChunkInfo[] = [];
         result.push({ name: 'Code (playroutine)', size: input.cartridge.codeChunk.length - input.cartridge.generatedCode.length, color: 'var(--tic-1)' });
         result.push({ name: 'Code (songdata)', size: input.cartridge.generatedCode.length, color: 'var(--tic-2)' });
@@ -112,8 +142,6 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
         let status = "ok";
         try {
             for (const patternData of input.cartridge.realPatternChunks) {
-                // to truly compare pattern compression,
-                // for each pattern, compress it, base85 encode, and sum the sizes.
                 const patternCompressed = lzCompress(patternData, {
                     minMatchLength,
                     maxMatchLength,
@@ -121,7 +149,7 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
                     useRLE,
                 });
 
-                const decompressed = lzDecompress(patternCompressed); // sanity check
+                const decompressed = lzDecompress(patternCompressed);
                 const compareResult = compareBuffers(patternData, decompressed);
 
                 if (!compareResult.match) {
@@ -137,6 +165,7 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
             console.error("Error calculating pattern compression stats:", e);
             status = `Exception thrown`;
         }
+
         const patternColumnStats = analyzePatternColumns(input.cartridge.optimizeResult.optimizedSong);
 
         return {
@@ -152,84 +181,150 @@ export const SongStats: React.FC<{ song: Song }> = ({ song }) => {
     }, [input]);
 
     const totalSize = Math.max(1, input?.cartridge.cartridge.length || 0);
-
-    const handleClickGeneratedCode = async () => {
-        console.log(input?.cartridge.generatedCode);
-        await clipboard.copyTextToClipboard(input?.cartridge.generatedCode || "");
-    };
-
     const patternCompressionRatio = breakdown.patternPayload.rawBytes > 0
         ? (breakdown.patternPayload.compressedBytes / breakdown.patternPayload.rawBytes)
         : 1;
+    const error = (input?.bridge.patternData.length || 0) > SomaticCaps.maxPatternLengthToBridge;
 
-    const tooltipContent = !input ? (<>No data</>) : (
-        <div style={{ minWidth: 320 }}>
-            <div style={{ marginBottom: 8, fontWeight: 600 }}>Cart size: {formatBytes(input.cartridge.cartridge.length)}</div>
-            <div style={{ height: 12, display: 'flex', width: '100%', background: '#0ff', borderRadius: 4, overflow: 'hidden', marginBottom: 8 }}>
+    return { input, breakdown, totalSize, patternCompressionRatio, error };
+};
+
+export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => void }> = ({ data, onClose }) => {
+    const { input, breakdown, totalSize, patternCompressionRatio } = data;
+    const clipboard = useClipboard();
+
+    const handleCopyGeneratedCode = async () => {
+        await clipboard.copyTextToClipboard(input?.cartridge.generatedCode || "");
+    };
+
+    const body = !input ? (
+        <div>No data yet.</div>
+    ) : (
+        <div style={{ minWidth: 420 }}>
+            <div style={{ marginBottom: 8, fontWeight: 600 }}>
+                Cart size: {formatBytes(input.cartridge.cartridge.length)}
+            </div>
+
+            <div
+                style={{
+                    height: 12,
+                    display: 'flex',
+                    width: '100%',
+                    background: 'var(--panel-strong)',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                    marginBottom: 8,
+                    border: '1px solid var(--border)',
+                }}
+            >
                 {breakdown.chunks.length > 0 ? breakdown.chunks.map((c, idx) => (
                     <div key={idx} title={`${c.name}: ${c.size} bytes`} style={{ flex: c.size || 1, background: c.color }} />
-                )) : <div style={{ flex: 1, background: '#444' }} />}
+                )) : <div style={{ flex: 1, background: 'var(--border)' }} />}
             </div>
+
             <div>
                 {breakdown.chunks.map((c, idx) => (
                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                         <div style={{ width: 12, height: 12, background: c.color, borderRadius: 2 }} />
                         <div style={{ flex: 1 }}>{c.name}</div>
-                        <div style={{ color: '#aaa', minWidth: 80, textAlign: 'right' }}>{formatBytes(c.size)} · {((c.size / totalSize) * 100).toFixed(1)}%</div>
+                        <div style={{ color: 'var(--muted)', minWidth: 90, textAlign: 'right' }}>
+                            {formatBytes(c.size)} · {((c.size / totalSize) * 100).toFixed(1)}%
+                        </div>
                     </div>
                 ))}
 
-                Click to Copy generated code
+                {(() => {
+                    const rawMax = Math.max(
+                        breakdown.patternPayload.rawBytes,
+                        breakdown.patternColumnStats.columnPayload.rawBytes,
+                    );
+                    // const lzMax = Math.max(
+                    //     breakdown.patternPayload.compressedBytes,
+                    //     breakdown.patternColumnStats.columnPayload.compressedBytes,
+                    // );
+                    // const luaMax = Math.max(
+                    //     breakdown.patternPayload.luaStringBytes,
+                    //     breakdown.patternColumnStats.columnPayload.luaStringBytes,
+                    // );
+                    const bridgeMax = Math.max(
+                        input.bridge.waveformData.length,
+                        input.bridge.sfxData.length,
+                        input.bridge.patternData.length,
+                        input.bridge.trackData.length,
+                        input.bridge.songOrderData.length,
+                    );
 
-                {/* display more fields */}
-                <div>Serialization took: {input.cartridge.elapsedMillis} ms</div>
-                <div>Patterns: {input.cartridge.optimizeResult.usedPatternCount}</div>
-                <div>Columns used/distinct: {breakdown.patternColumnStats.totalColumns} / {breakdown.patternColumnStats.distinctColumns}</div>
-                <div>SFX: {input.cartridge.optimizeResult.usedSfxCount}</div>
-                <div>Waveforms: {input.cartridge.optimizeResult.usedWaveformCount}</div>
-                <div>---</div>
-                <div>Pattern payload sizes:</div>
+                    const kv = {
+                        Cart: {
+                            'Serialization took': `${input.cartridge.elapsedMillis} ms`,
+                            Patterns: input.cartridge.optimizeResult.usedPatternCount,
+                            'Columns used/distinct': `${breakdown.patternColumnStats.totalColumns} / ${breakdown.patternColumnStats.distinctColumns}`,
+                            SFX: input.cartridge.optimizeResult.usedSfxCount,
+                            Waveforms: input.cartridge.optimizeResult.usedWaveformCount,
+                        },
+                        'Pattern Payload Sizes': {
+                            'RAW (pattern-based)': <BarValue value={breakdown.patternPayload.rawBytes} max={rawMax} label={formatBytes(breakdown.patternPayload.rawBytes)} />,
+                            'RAW (column-based)': <BarValue value={breakdown.patternColumnStats.columnPayload.rawBytes} max={rawMax} label={formatBytes(breakdown.patternColumnStats.columnPayload.rawBytes)} />,
+                            'LZ (pattern-based)': <BarValue value={breakdown.patternPayload.compressedBytes} max={rawMax} label={formatBytes(breakdown.patternPayload.compressedBytes)} />,
+                            'LZ (column-based)': <BarValue value={breakdown.patternColumnStats.columnPayload.compressedBytes} max={rawMax} label={formatBytes(breakdown.patternColumnStats.columnPayload.compressedBytes)} />,
+                            'Lua (pattern data)': <BarValue value={breakdown.patternPayload.luaStringBytes} max={rawMax} label={formatBytes(breakdown.patternPayload.luaStringBytes)} />,
+                            'Lua (column data)': <BarValue value={breakdown.patternColumnStats.columnPayload.luaStringBytes} max={rawMax} label={formatBytes(breakdown.patternColumnStats.columnPayload.luaStringBytes)} />,
+                            'Pattern compression ratio': `${(patternCompressionRatio * 100).toFixed(1)}%`,
+                            Status: breakdown.roundTripStatus,
+                        },
+                        Bridge: {
+                            Waveforms: <BarValue value={input.bridge.waveformData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedWaveformCount} (${input.bridge.waveformData.length} bytes)`} />,
+                            SFX: <BarValue value={input.bridge.sfxData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedSfxCount} (${input.bridge.sfxData.length} bytes)`} />,
+                            Patterns: <BarValue value={input.bridge.patternData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedPatternCount} (${input.bridge.patternData.length} bytes)`} />,
+                            Tracks: <BarValue value={input.bridge.trackData.length} max={bridgeMax} label={`${input.bridge.trackData.length} bytes`} />,
+                            'Song order': <BarValue value={input.bridge.songOrderData.length} max={bridgeMax} label={`${input.bridge.songOrderData.length} bytes`} />,
+                        },
+                    };
 
-                <div>RAW pattern-based: {formatBytes(breakdown.patternPayload.rawBytes)}</div>
-                <div>RAW column-based: {formatBytes(breakdown.patternColumnStats.columnPayload.rawBytes)}</div>
-
-                <div>LZ pattern-based: {formatBytes(breakdown.patternPayload.compressedBytes)}</div>
-                <div>LZ column-based: {formatBytes(breakdown.patternColumnStats.columnPayload.compressedBytes)}</div>
-
-                <div>Lua pattern data: {formatBytes(breakdown.patternPayload.luaStringBytes)}</div>
-                <div>Lua column data: {formatBytes(breakdown.patternColumnStats.columnPayload.luaStringBytes)}</div>
-                <div>---</div>
-                <div>Pattern compression ratio: {(patternCompressionRatio * 100).toFixed(1)}%</div>
-                <div>status: {breakdown.roundTripStatus}</div>
-                <div>---</div>
-                <div>Bridge:</div>
-                <div>  Waveforms: {input.bridge.optimizeResult.usedWaveformCount} ({input.bridge.waveformData.length} bytes)</div>
-                <div>  SFX: {input.bridge.optimizeResult.usedSfxCount} ({input.bridge.sfxData.length} bytes)</div>
-                <div>  Patterns: {input.bridge.optimizeResult.usedPatternCount} ({input.bridge.patternData.length} bytes)</div>
-                <div>  Tracks: {input.bridge.trackData.length} bytes</div>
-                <div>  Song order: {input.bridge.songOrderData.length} bytes</div>
-
+                    return (
+                        <KeyValueTable
+                            value={kv}
+                            maxDepth={4}
+                            sortKeys={false}
+                            maxStringLength={200}
+                        />
+                    );
+                })()}
             </div>
         </div>
     );
 
-    const error = (input?.bridge.patternData.length || 0) > SomaticCaps.maxPatternLengthToBridge;
+    return (
+        <AppPanelShell
+            className="song-stats-panel"
+            title="Song Stats"
+            actions={(
+                <>
+                    <button type="button" onClick={handleCopyGeneratedCode} disabled={!input}>Copy generated code</button>
+                    <button type="button" onClick={onClose}>Close</button>
+                </>
+            )}
+        >
+            {body}
+        </AppPanelShell>
+    );
+};
+export const SongStats: React.FC<{ data: SongStatsData; onTogglePanel: () => void }> = ({ data, onTogglePanel }) => {
+    useRenderAlarm({
+        name: 'SongStats',
+    });
 
-    return (<div className={`songStatsPanel ${error ? 'error' : ''}`}>
-        <Tooltip title={tooltipContent} placement="bottom">
-            <div>
-                {/* <input type="number" value={windowSize} min={1} onChange={e => setWindowSize(parseInt(e.target.value) || 16)} style={{ width: 60, marginLeft: 8 }} /> window size
-                <input type="number" value={minMatchLength} min={2} onChange={e => setMinMatchLength(parseInt(e.target.value) || 3)} style={{ width: 60 }} /> min match length
-                <input type="number" value={maxMatchLength} onChange={e => setMaxMatchLength(parseInt(e.target.value) || 18)} style={{ width: 60, marginLeft: 8 }} /> max match length
-                <label style={{ marginLeft: 8 }}>
-                    <input type="checkbox" checked={useRLE} onChange={e => setUseRLE(e.target.checked)} /> use RLE
-                </label> */}
-                <div className="cartSize__label" style={{ cursor: 'default' }} onClick={() => handleClickGeneratedCode()}>
-                    cart: {formatBytes(totalSize)}
-                </div>
+    return (
+        <button
+            type="button"
+            className={`songStatsPanel ${data.error ? 'error' : ''}`}
+            onClick={onTogglePanel}
+            title="Toggle Song Stats panel"
+        >
+            <div className="cartSize__label" style={{ cursor: 'pointer' }}>
+                cart: {formatBytes(data.totalSize)}
             </div>
-        </Tooltip>
-    </div>
+        </button>
     );
 };
 

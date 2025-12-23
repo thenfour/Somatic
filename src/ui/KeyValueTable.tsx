@@ -49,6 +49,7 @@ function truncate(s: string, max: number): string {
 }
 
 function previewValue(v: unknown, maxStringLength: number): string {
+    if (React.isValidElement(v)) return '[ReactNode]';
     if (isPrimitive(v)) {
         if (typeof v === "string") return `"${truncate(v, maxStringLength)}"`;
         if (typeof v === "symbol") return v.toString();
@@ -106,7 +107,7 @@ export function flattenToKeyValueRows(
 
     const walk = (v: unknown, path: string, key: string, depth: number) => {
         // leaf conditions
-        if (isPrimitive(v) || v instanceof Date || v instanceof RegExp || typeof v === "function") {
+        if (React.isValidElement(v) || isPrimitive(v) || v instanceof Date || v instanceof RegExp || typeof v === "function") {
             pushRow(path, key, depth, v, true);
             return;
         }
@@ -247,6 +248,8 @@ export const KeyValueTable: React.FC<KeyValueTableProps> = ({
                             <td>
                                 {renderValue ? (
                                     renderValue(r)
+                                ) : React.isValidElement(r.value) ? (
+                                    r.value
                                 ) : (
                                     <span data-type={typeof r.value}>{r.preview}</span>
                                 )}

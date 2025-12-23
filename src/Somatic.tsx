@@ -32,7 +32,7 @@ import { MusicStateDisplay } from './ui/MusicStateDisplay';
 import { PatternGrid, PatternGridHandle } from './ui/pattern_grid';
 import { PreferencesPanel } from './ui/preferences_panel';
 import { SongEditor } from './ui/song_editor';
-import { SongStats } from './ui/SongStats';
+import { SongStats, SongStatsAppPanel, useSongStatsData } from './ui/SongStats';
 import { Theme, ThemeEditorPanel } from './ui/theme_editor_panel';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { useToasts } from './ui/toast_provider';
@@ -121,6 +121,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
+    const [songStatsPanelOpen, setSongStatsPanelOpen] = useState(false);
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
     const [somaticTransportState, setSomaticTransportState] = useState<SomaticTransportState>(() => audio.getSomaticTransportState());
@@ -128,6 +129,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [aboutOpen, setAboutOpen] = useState(false);
     const [embedMode, setEmbedMode] = useState<"iframe" | "toplevel">("iframe");
     const clipboard = useClipboard();
+
+    const songStatsData = useSongStatsData(song);
 
     // in order of cycle
     const LOOP_MODE_OPTIONS: { value: LoopMode; label: string }[] = [
@@ -1023,7 +1026,10 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         <Tooltip title="Sync status with TIC-80 (auto-save)">
                             <span className="autoSaveIndicator__label">sync:{autoSave.state.status}</span>
                         </Tooltip>
-                        <SongStats song={song} />
+                        <SongStats
+                            data={songStatsData}
+                            onTogglePanel={() => setSongStatsPanelOpen(open => !open)}
+                        />
                         <MusicStateDisplay bridgeReady={bridgeReady} audio={audio} musicState={somaticTransportState} song={song} />
 
                     </div>
@@ -1086,6 +1092,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 )}
                 {themePanelOpen && (
                     <ThemeEditorPanel onClose={() => setThemePanelOpen(false)} />
+                )}
+                {songStatsPanelOpen && (
+                    <SongStatsAppPanel
+                        data={songStatsData}
+                        onClose={() => setSongStatsPanelOpen(false)}
+                    />
                 )}
 
                 {/* When booting (bridge ! ready), force a visible size so it can take focus and convince the browser to make the iframe run in high-performance; see #56 */}
