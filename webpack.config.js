@@ -1,4 +1,3 @@
-// Webpack uses this to work with directories
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
@@ -6,6 +5,17 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 const webpack = require('webpack');
 const childProcess = require('child_process');
 const { BridgeWatchPlugin } = require('./scripts/bridge-watch-plugin');
+const fs = require('fs');
+const dotenv = require('dotenv');
+const { buildSeoConfig } = require('./scripts/buildSeoConfig');
+const { SeoAssetsWebpackPlugin } = require('./scripts/seo-assets-webpack-plugin');
+
+const envPath = path.join(__dirname, '.env');
+const envLocalPath = path.join(__dirname, '.env.local');
+if (fs.existsSync(envLocalPath)) dotenv.config({ path: envLocalPath });
+if (fs.existsSync(envPath)) dotenv.config({ path: envPath });
+
+const SEO = buildSeoConfig(process.env);
 
 function safeExec(command) {
   try {
@@ -101,8 +111,9 @@ module.exports = {
 
   plugins: [
     new HtmlWebpackPlugin({
-      title: 'Somatic',
+      title: SEO.title,
       template: 'index.html',
+      seo: SEO,
     }),
     new MiniCssExtractPlugin(),
     new CopyWebpackPlugin({
@@ -110,9 +121,16 @@ module.exports = {
         {
           from: "public", // source folder
           to: ".",        // copy into dist root (default output.path)
+          globOptions: {
+            ignore: [
+              '**/robots.txt',
+              '**/sitemap.xml',
+            ],
+          },
         },
       ],
     }),
+    new SeoAssetsWebpackPlugin(SEO),
     new webpack.DefinePlugin({
       BUILD_INFO: JSON.stringify(BUILD_INFO),
     }),
@@ -122,8 +140,5 @@ module.exports = {
   ],
 
   // Default mode for Webpack is production.
-  // Depending on mode Webpack will apply different things
-  // on the final bundle. For now, we don't need production's JavaScript 
-  // minifying and other things, so let's set mode to development
   mode: 'development'
 };

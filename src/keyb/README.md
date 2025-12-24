@@ -191,7 +191,7 @@ export function BindingsEditorRow({ actionId }: { actionId: string }) {
 
   return (
     <button onClick={() => capture.setCapturing(true)}>
-      Rebind…
+      Rebind...
     </button>
   );
 }

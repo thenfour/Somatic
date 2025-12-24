@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="<%= htmlWebpackPlugin.options.seo.lang %>">
 
 <head>
     <title>
@@ -7,6 +7,29 @@
     </title>
     <link rel="icon" type="image/png" href="favicon.png">
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta name="description" content="<%= htmlWebpackPlugin.options.seo.description %>">
+
+    <meta name="keywords" content="<%= htmlWebpackPlugin.options.seo.keywords %>">
+
+    <meta name="robots" content="<%= htmlWebpackPlugin.options.seo.robots %>">
+
+    <link rel="canonical" href="<%= htmlWebpackPlugin.options.seo.canonicalUrl %>">
+
+    <meta property="og:type" content="<%= htmlWebpackPlugin.options.seo.og.type %>">
+    <meta property="og:title" content="<%= htmlWebpackPlugin.options.seo.og.title %>">
+    <meta property="og:description" content="<%= htmlWebpackPlugin.options.seo.og.description %>">
+    <meta property="og:url" content="<%= htmlWebpackPlugin.options.seo.og.url %>">
+    <meta property="og:site_name" content="<%= htmlWebpackPlugin.options.seo.og.siteName %>">
+    <meta property="og:image" content="<%= htmlWebpackPlugin.options.seo.og.image %>">
+
+    <meta name="twitter:card" content="<%= htmlWebpackPlugin.options.seo.twitter.card %>">
+    <meta name="twitter:title" content="<%= htmlWebpackPlugin.options.seo.twitter.title %>">
+    <meta name="twitter:description" content="<%= htmlWebpackPlugin.options.seo.twitter.description %>">
+    <meta name="twitter:image" content="<%= htmlWebpackPlugin.options.seo.twitter.image %>">
+
+    <script type="application/ld+json"><%= JSON.stringify(htmlWebpackPlugin.options.seo.structuredData) %></script>
 
     <script>
         (function installWasmUnwindSuppressor() {

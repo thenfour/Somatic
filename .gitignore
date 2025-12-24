@@ -3,4 +3,7 @@ TIC-80
 dist
 temp
 .env.local
+.env
 public/bridge.tic
+public/robots.txt
+public/sitemap.xml

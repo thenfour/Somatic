@@ -760,13 +760,13 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         onSelect={() => { void createNewSong(); }}
                                         shortcut={keyboardShortcutMgr.getActionBindingLabel("NewFile")}
                                     >
-                                        New Song…
+                                        New Song...
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         onSelect={() => { void openSongFile(); }}
                                         shortcut={keyboardShortcutMgr.getActionBindingLabel("OpenFile")}
                                     >
-                                        Open Song…
+                                        Open Song...
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         onSelect={saveSongFile}
@@ -790,7 +790,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         </DesktopMenu.SubContent>
                                     </DesktopMenu.Sub>
                                     <DesktopMenu.Divider />
-                                    <DesktopMenu.Item onSelect={() => { void optimizeSong(); }}>Optimize Song…</DesktopMenu.Item>
+                                    <DesktopMenu.Item onSelect={() => { void optimizeSong(); }}>Optimize Song...</DesktopMenu.Item>
                                 </DesktopMenu.Content>
                             </DesktopMenu.Root>
                             <DesktopMenu.Root>
@@ -912,14 +912,22 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <DesktopMenu.Trigger caret={false}>Help</DesktopMenu.Trigger>
                                 <DesktopMenu.Content>
                                     <DesktopMenu.Item onSelect={() => window.open('https://github.com/thenfour/Somatic', '_blank', 'noopener')}>Visit Project on GitHub</DesktopMenu.Item>
+                                    <DesktopMenu.Item onSelect={() => window.open('https://discord.gg/kkf9gQfKAd', '_blank', 'noopener')}>The 7jam Discord</DesktopMenu.Item>
+
                                     <DesktopMenu.Divider />
                                     <DesktopMenu.Item onSelect={() => window.open('https://reverietracker.github.io/chromatic/', '_blank', 'noopener')}>This project was based on Chromatic by Gasman</DesktopMenu.Item>
                                     <DesktopMenu.Item onSelect={() => window.open('https://github.com/nesbox/TIC-80/wiki/Music-Editor', '_blank', 'noopener')}>TIC-80 Music Editor</DesktopMenu.Item>
                                     <DesktopMenu.Item onSelect={() => window.open('https://github.com/nesbox/TIC-80/wiki/ram', '_blank', 'noopener')}>TIC-80 memory map</DesktopMenu.Item>
 
                                     <DesktopMenu.Divider />
+                                    <DesktopMenu.Item onSelect={() => window.open('https://ko-fi.com/E1E71QVJ5Z', '_blank', 'noopener')}>
+                                        <div style={{ maxWidth: 300, marginBottom: 8 }}>Somatic is free; if you find it useful, please consider supporting me 🙏:</div>
+                                        <img height='36' style={{ border: 0, height: 36 }} src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' alt='Buy Me a Coffee at ko-fi.com' />
+                                    </DesktopMenu.Item>
+
                                     <DesktopMenu.Divider />
-                                    <DesktopMenu.Item onSelect={() => setAboutOpen(true)}>About Somatic…</DesktopMenu.Item>
+                                    <DesktopMenu.Item onSelect={() => setAboutOpen(true)}>About Somatic...</DesktopMenu.Item>
+
                                 </DesktopMenu.Content>
                             </DesktopMenu.Root>
                         </DesktopMenu.Bar>

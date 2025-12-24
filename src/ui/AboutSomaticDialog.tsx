@@ -57,6 +57,9 @@ export const AboutSomaticDialog: React.FC<AboutSomaticDialogProps> = ({ open, on
                         github.com/thenfour/Somatic
                     </a>
                 </p>
+                <p>
+                    <strong>Privacy:</strong> Somatic does not collect, store, or transmit any personal data.
+                </p>
                 <hr />
                 <h3>Version {versionString}</h3>
                 <ul className="about-dialog__build-info">

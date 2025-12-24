@@ -45,7 +45,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 
 function truncate(s: string, max: number): string {
     if (s.length <= max) return s;
-    return s.slice(0, Math.max(0, max - 1)) + "…";
+    return s.slice(0, Math.max(0, max - 1)) + "...";
 }
 
 function previewValue(v: unknown, maxStringLength: number): string {
@@ -139,7 +139,7 @@ export function flattenToKeyValueRows(
                 walk(v[i], childPath, childKey, depth + 1);
             }
             if (v.length > count) {
-                const childKey = `[… +${v.length - count}]`;
+                const childKey = `[... +${v.length - count}]`;
                 const childPath = joinPath(path, childKey);
                 pushRow(childPath, childKey, depth + 1, undefined, true);
                 rows[rows.length - 1]!.preview = "(truncated)";
