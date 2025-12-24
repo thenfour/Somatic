@@ -18,6 +18,7 @@ import {Tic80Caps} from "./tic80Capabilities";
 // u8 stereo_right:1;
 // u8 temp:2;
 
+export type SomaticInstrumentWaveEngine = "morph"|"native";
 
 //export const SFX_FRAME_COUNT = 30;
 
@@ -55,6 +56,12 @@ export interface Tic80InstrumentDto {
    pitchLoopStart: number;  // 0-29
    pitchLoopLength: number; // 0-29
    pitch16x: boolean;
+
+   waveEngine: SomaticInstrumentWaveEngine;
+   morphWaveA: number; // 0-15
+   morphWaveB: number; // 0-15
+   morphSlot: number;  // 0-15 -- which waveform slot to use for live morphing
+   morphDurationSeconds: number;
 }
 ;
 
@@ -89,6 +96,12 @@ export class Tic80Instrument {
    pitchLoopStart: number;  // 0-29
    pitchLoopLength: number; // 0-29
    pitch16x: boolean;
+
+   waveEngine: SomaticInstrumentWaveEngine;
+   morphWaveA: number; // 0-15
+   morphWaveB: number; // 0-15
+   morphSlot: number;  // 0-15 -- which waveform slot to use for live morphing
+   morphDurationSeconds: number;
 
    // editor-only...
    constructor(data: Partial<Tic80InstrumentDto> = {}) {
@@ -145,6 +158,12 @@ export class Tic80Instrument {
       this.pitchLoopStart = clamp(data.pitchLoopStart ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       this.pitchLoopLength = clamp(data.pitchLoopLength ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       this.pitch16x = CoalesceBoolean(data.pitch16x, false);
+
+      this.waveEngine = data.waveEngine ?? "native";
+      this.morphWaveA = clamp(data.morphWaveA ?? 0, 0, Tic80Caps.waveform.count - 1);
+      this.morphWaveB = clamp(data.morphWaveB ?? 1, 0, Tic80Caps.waveform.count - 1);
+      this.morphSlot = clamp(data.morphSlot ?? 15, 0, Tic80Caps.waveform.count - 1);
+      this.morphDurationSeconds = Math.max(0, data.morphDurationSeconds ?? 1.0);
    }
 
    static fromData(data?: Partial<Tic80InstrumentDto>): Tic80Instrument {
@@ -174,6 +193,11 @@ export class Tic80Instrument {
          pitchLoopStart: this.pitchLoopStart,
          pitchLoopLength: this.pitchLoopLength,
          pitch16x: this.pitch16x,
+         waveEngine: this.waveEngine,
+         morphWaveA: this.morphWaveA,
+         morphWaveB: this.morphWaveB,
+         morphSlot: this.morphSlot,
+         morphDurationSeconds: this.morphDurationSeconds,
       };
    };
 
@@ -189,5 +213,37 @@ export class Tic80Instrument {
 
    getCaption(myIndex: number): string {
       return `${myIndex.toString(16).toUpperCase()}: ${this.name}`;
+   }
+
+   getUsedWaveformIndices(): Set<number> {
+      const usedWaveforms = new Set<number>();
+      switch (this.waveEngine) {
+         case "morph":
+            usedWaveforms.add(this.morphWaveA);
+            usedWaveforms.add(this.morphWaveB);
+            usedWaveforms.add(this.morphSlot);
+            break;
+         case "native":
+            this.waveFrames.forEach((waveIdx) => {
+               usedWaveforms.add(waveIdx);
+            });
+            break;
+      };
+      return usedWaveforms;
+   }
+
+   remapWaveformIndices(waveformRemap: Map<number, number>) {
+      switch (this.waveEngine) {
+         case "morph":
+            this.morphWaveA = waveformRemap.get(this.morphWaveA) ?? this.morphWaveA;
+            this.morphWaveB = waveformRemap.get(this.morphWaveB) ?? this.morphWaveB;
+            this.morphSlot = waveformRemap.get(this.morphSlot) ?? this.morphSlot;
+            break;
+         case "native":
+            this.waveFrames = this.waveFrames.map((waveIdx) => {
+               return waveformRemap.get(waveIdx) ?? waveIdx;
+            });
+            break;
+      };
    }
 }

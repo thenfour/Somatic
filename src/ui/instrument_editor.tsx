@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AudioController } from '../audio/controller';
 import { Song } from '../models/song';
-import { Tic80Instrument, Tic80InstrumentDto } from '../models/instruments';
+import { SomaticInstrumentWaveEngine, Tic80Instrument, Tic80InstrumentDto } from '../models/instruments';
 import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { assert, clamp, TryParseInt } from '../utils/utils';
 import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
@@ -10,6 +10,9 @@ import { WaveformSelect } from './waveformEditor';
 import { WaveformSwatch } from './waveformSwatch';
 import './instrument_editor.css';
 import { AppPanelShell } from './AppPanelShell';
+import { RadioButton } from './RadioButton';
+import { Tooltip } from './tooltip';
+
 
 /*
 
@@ -334,9 +337,11 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
+    //  for NATIVE wave engine type, calculate sequence.
     // get a list of waveformIDs used in order, removing adjascent dupes
     const usedWaveformIDs: { waveformId: number, isHovered: boolean, minIndex: number, len: number }[] = [];
     let lastWaveformID = null;
+
     for (let i = 0; i < instrument.waveFrames.length; i++) {
         const waveformId = instrument.waveFrames[i];
         if (waveformId !== lastWaveformID) {
@@ -363,25 +368,27 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         }
     }
 
+    const handleSetWaveEngine = (engine: SomaticInstrumentWaveEngine) => {
+        onSongChange({
+            description: 'Set wave engine',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.waveEngine = engine;
+            },
+        });
+    };
+
     return (
         <AppPanelShell
             className="instrument-panel"
             title="Instrument Editor"
             actions={(
                 <>
-                    <button onClick={handleCopy}>Copy</button>
-                    <button onClick={handlePaste}>Paste</button>
-                    <button onClick={onClose}>Close</button>
-                </>
-            )}
-        >
-            <div className="toolbar">
-                <label htmlFor="instrument">Instrument</label>
-                {instrumentIndex === 0 && <div className='alertPanel'>!! instrument 0 is weird and should not be used.</div>}
-                {instrumentIndex === SomaticCaps.noteCutInstrumentIndex && <div className='alertPanel'>!! This is the note-off sfx and should not be edited.</div>}
-            </div>
-            <div className="">
-                <div className="field-row">
+                    <div className="toolbar">
+                        {instrumentIndex === 0 && <div className='alertPanel'>!! instrument 0 is weird and should not be used.</div>}
+                        {instrumentIndex === SomaticCaps.noteCutInstrumentIndex && <div className='alertPanel'>!! This is the note-off sfx and should not be edited.</div>}
+                    </div>
                     <div className='instrument-index'>{instrumentIndex.toString(16).toUpperCase()}:</div>
                     {/* <label htmlFor="instrument-name">Name</label> */}
                     <input
@@ -391,6 +398,14 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                         value={instrument.name}
                         onChange={handleNameChange}
                     />
+                    <button onClick={handleCopy}>Copy</button>
+                    <button onClick={handlePaste}>Paste</button>
+                    <button onClick={onClose}>Close</button>
+                </>
+            )}
+        >
+            <div className="">
+                <div className="field-row">
                 </div>
                 <div className="field-row">
                     <label htmlFor="instrument-speed">Speed</label>
@@ -431,60 +446,188 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                     maxValue={Tic80Caps.sfx.volumeMax}
                     onChange={handleVolumeEnvelopeChange}
                 />
-                <div style={{ display: "flex", gap: "8px" }}>
-                    <InstrumentEnvelopeEditor
-                        title="Waveforms"
-                        frames={instrument.waveFrames}
-                        loopStart={instrument.waveLoopStart}
-                        loopLength={instrument.waveLoopLength}
-                        minValue={0}
-                        maxValue={Tic80Caps.waveform.count - 1}
-                        onChange={handleWaveEnvelopeChange}
-                        onHoverChange={(hover) => setHoveredWaveform(hover)}
-                    />
+                <div>
+                    <Tooltip title="The native TIC-80 waveform engine.">
+                        <RadioButton selected={instrument.waveEngine === 'native'} onClick={() => handleSetWaveEngine('native')}>Native</RadioButton>
+                    </Tooltip>
+                    <Tooltip title="Morphing waveforms is not yet supported">
+                        <RadioButton selected={instrument.waveEngine === 'morph'} onClick={() => handleSetWaveEngine('morph')}>Morph</RadioButton>
+                    </Tooltip>
 
-                    <div className="waveform-swatch-previews" style={{ marginTop: 75 /* crude alignment with editor */ }}>
-                        <WaveformSelect
-                            onClickWaveform={(waveformId) => {
-                                // set whole env to this waveform
-                                onSongChange({
-                                    description: 'Set waveform sequence',
-                                    undoable: true,
-                                    mutator: (s) => {
-                                        const inst = s.instruments[instrumentIndex];
-                                        inst.waveFrames = new Int8Array(inst.waveFrames.length).fill(waveformId);
-                                    },
-                                });
-                            }}
-                            song={song}
-                            getOverlayText={(i) => {
-                                const isNoise = song.waveforms[i]?.isNoise() ?? false;
-                                return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
-                            }}
-                            getWaveformDisplayStyle={(waveformId) => {
-                                if (hoveredWaveform === null) {
-                                    // no hover; just highlight all the USED waveforms
-                                    if (instrument.waveFrames.includes(waveformId)) {
-                                        return "normal";
-                                    }
-                                    return "muted";
-                                }
-                                if (hoveredWaveform && waveformId === hoveredWaveform.value) {
-                                    return "selected";
-                                }
-                                // interesting but introduces a 4th display styl...
-                                // if (instrument.waveFrames.includes(waveformId)) {
-                                //     return "normal";
-                                // }
+                    {instrument.waveEngine === 'morph' && (
+                        // a continuous range slider from 0-5 seconds
+                        <div>
+                            <label>
+                                Morph duration (milliseconds)
+                                <input
+                                    type="range"
+                                    min={32}
+                                    max={4000}
+                                    step={1}
+                                    value={instrument.morphDurationSeconds * 1000}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        if (isNaN(val)) return;
+                                        onSongChange({
+                                            description: 'Set morph duration',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                const inst = s.instruments[instrumentIndex];
+                                                inst.morphDurationSeconds = clamp(val / 1000, 0, 4);
+                                            },
+                                        });
+                                    }}
+                                />
+                            </label>
+                            <div>
+                                {Math.round(instrument.morphDurationSeconds * 1000)} ms ({Math.floor(instrument.morphDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz)
+                            </div>
+                            <div>
+                                Note: Morphing interpolates between two waveforms over the specified duration.
+                            </div>
+                            <div style={{ display: "flex", gap: "16px", padding: 8 }}>
+                                <strong>Morph Waveform A</strong>
+                                <WaveformSelect
+                                    song={song}
+                                    onClickWaveform={(waveformId) => {
+                                        onSongChange({
+                                            description: 'Set morph A waveform',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                const inst = s.instruments[instrumentIndex];
+                                                inst.morphWaveA = waveformId;
+                                            },
+                                        });
+                                    }}
+                                    getOverlayText={(i) => {
+                                        const isNoise = song.waveforms[i]?.isNoise() ?? false;
+                                        return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
+                                    }}
+                                    getWaveformDisplayStyle={(waveformId) => {
+                                        if (waveformId === instrument.morphWaveA) {
+                                            return "selected";
+                                        }
+                                        return "muted";
+                                    }}
+                                />
+                            </div>
+                            <div style={{ display: "flex", gap: "16px", padding: 8 }}>
+                                <strong>Morph Waveform B</strong>
+                                <WaveformSelect
+                                    song={song}
+                                    onClickWaveform={(waveformId) => {
+                                        onSongChange({
+                                            description: 'Set morph B waveform',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                const inst = s.instruments[instrumentIndex];
+                                                inst.morphWaveB = waveformId;
+                                            },
+                                        });
+                                    }}
+                                    getOverlayText={(i) => {
+                                        const isNoise = song.waveforms[i]?.isNoise() ?? false;
+                                        return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
+                                    }}
+                                    getWaveformDisplayStyle={(waveformId) => {
+                                        if (waveformId === instrument.morphWaveB) {
+                                            return "selected";
+                                        }
+                                        return "muted";
+                                    }}
+                                />
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: 8 }}>
+                                <strong>Morph Waveform Slot</strong>
+                                <div>
+                                    This waveform slot will be used during live playback to hold the morphing wave.
+                                    For now only 1 slot is supported which means this instrument must be monophonic.
+                                </div>
+                                <div style={{ display: "flex", gap: "16px", padding: 8 }}>
+                                    <WaveformSelect
+                                        song={song}
+                                        onClickWaveform={(waveformId) => {
+                                            onSongChange({
+                                                description: 'Set morph waveform slot',
+                                                undoable: true,
+                                                mutator: (s) => {
+                                                    const inst = s.instruments[instrumentIndex];
+                                                    inst.morphSlot = waveformId;
+                                                },
+                                            });
+                                        }}
+                                        getOverlayText={(i) => {
+                                            const isNoise = song.waveforms[i]?.isNoise() ?? false;
+                                            return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
+                                        }}
+                                        getWaveformDisplayStyle={(waveformId) => {
+                                            if (waveformId === instrument.morphSlot) {
+                                                return "selected";
+                                            }
+                                            return "muted";
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                                if (waveformId === hoveredWaveform?.actualValue) {
-                                    return "normal";
-                                }
+                    {instrument.waveEngine === 'native' && (
+                        <>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                                <InstrumentEnvelopeEditor
+                                    title="Waveforms"
+                                    frames={instrument.waveFrames}
+                                    loopStart={instrument.waveLoopStart}
+                                    loopLength={instrument.waveLoopLength}
+                                    minValue={0}
+                                    maxValue={Tic80Caps.waveform.count - 1}
+                                    onChange={handleWaveEnvelopeChange}
+                                    onHoverChange={(hover) => setHoveredWaveform(hover)}
+                                />
 
-                                return "muted";
-                            }}
-                        />
-                        {/* <div className="waveform-swatch-preview" style={{ visibility: (hoveredWaveform == null ? "hidden" : undefined) }}>
+                                <div className="waveform-swatch-previews" style={{ marginTop: 75 /* crude alignment with editor */ }}>
+                                    <WaveformSelect
+                                        onClickWaveform={(waveformId) => {
+                                            // set whole env to this waveform
+                                            onSongChange({
+                                                description: 'Set waveform sequence',
+                                                undoable: true,
+                                                mutator: (s) => {
+                                                    const inst = s.instruments[instrumentIndex];
+                                                    inst.waveFrames = new Int8Array(inst.waveFrames.length).fill(waveformId);
+                                                },
+                                            });
+                                        }}
+                                        song={song}
+                                        getOverlayText={(i) => {
+                                            const isNoise = song.waveforms[i]?.isNoise() ?? false;
+                                            return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
+                                        }}
+                                        getWaveformDisplayStyle={(waveformId) => {
+                                            if (hoveredWaveform === null) {
+                                                // no hover; just highlight all the USED waveforms
+                                                if (instrument.waveFrames.includes(waveformId)) {
+                                                    return "normal";
+                                                }
+                                                return "muted";
+                                            }
+                                            if (hoveredWaveform && waveformId === hoveredWaveform.value) {
+                                                return "selected";
+                                            }
+                                            // interesting but introduces a 4th display styl...
+                                            // if (instrument.waveFrames.includes(waveformId)) {
+                                            //     return "normal";
+                                            // }
+
+                                            if (waveformId === hoveredWaveform?.actualValue) {
+                                                return "normal";
+                                            }
+
+                                            return "muted";
+                                        }}
+                                    />
+                                    {/* <div className="waveform-swatch-preview" style={{ visibility: (hoveredWaveform == null ? "hidden" : undefined) }}>
                             <span>actual</span>
                             <WaveformSwatch
                                 value={song.waveforms[hoveredWaveform?.actualValue || 0]}
@@ -498,20 +641,23 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                                 scale={4}
                             />
                         </div> */}
-                    </div>
-                </div>
-                <div className='waveformSequence'>
-                    <strong>Waveform sequence:</strong>
-                    <div className='waveformSequence__list' style={{ display: "flex", gap: "3px", maxWidth: 600, flexWrap: "wrap" }}>
-                        {usedWaveformIDs.map((waveformId, index) => (
-                            <WaveformSwatch
-                                key={index}
-                                value={song.waveforms[waveformId.waveformId]}
-                                displayStyle={waveformId.isHovered ? "normal" : "muted"}
-                                scale={2}
-                            />
-                        ))}
-                    </div>
+                                </div>
+                            </div>
+                            <div className='waveformSequence'>
+                                <strong>Waveform sequence:</strong>
+                                <div className='waveformSequence__list' style={{ display: "flex", gap: "3px", maxWidth: 600, flexWrap: "wrap" }}>
+                                    {usedWaveformIDs.map((waveformId, index) => (
+                                        <WaveformSwatch
+                                            key={index}
+                                            value={song.waveforms[waveformId.waveformId]}
+                                            displayStyle={waveformId.isHovered ? "normal" : "muted"}
+                                            scale={2}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
                 <InstrumentEnvelopeEditor
                     title="Arpeggio"

@@ -46,13 +46,11 @@ export function calculateSongUsage(song: Song): SongUsage {
    });
 
    // waveforms referenced by used instruments
-   const maxWaveIndex = Math.max(song.waveforms.length - 1, 0);
    usedInstruments.forEach((instIdx) => {
       const inst = song.instruments[instIdx];
-      if (!inst)
-         return;
-      inst.waveFrames.forEach((waveIdx) => {
-         usedWaveforms.add(clamp(waveIdx, 0, maxWaveIndex));
+      const u = inst.getUsedWaveformIndices();
+      u.forEach((waveIdx) => {
+         usedWaveforms.add(waveIdx);
       });
    });
 
@@ -278,7 +276,7 @@ export function OptimizeSong(song: Song): OptimizeResult {
    const usedSfxCount = usedInstrumentSet.size;
    changeLog.push(`Packed instruments: ${usedSfxCount} used (including reserved 0/1) of ${newInstruments.length}.`);
 
-   // Step 4: find used waveforms from used instruments and pack.
+   // find used waveforms from used instruments and pack.
    const usedWaveformSet = new Set<number>();
    usedInstrumentSet.forEach((oldIndex) => {
       const mappedIndex = instrumentRemap.get(oldIndex);
@@ -286,8 +284,9 @@ export function OptimizeSong(song: Song): OptimizeResult {
          return;
       }
       const inst = newInstruments[mappedIndex];
-      inst.waveFrames.forEach((waveIdx) => {
-         usedWaveformSet.add(clamp(waveIdx, 0, working.waveforms.length - 1));
+      const u = inst.getUsedWaveformIndices();
+      u.forEach((waveIdx) => {
+         usedWaveformSet.add(waveIdx);
       });
    });
    if (usedWaveformSet.size === 0) {
@@ -314,10 +313,7 @@ export function OptimizeSong(song: Song): OptimizeResult {
 
    // remap waveform references inside all instruments.
    working.instruments.forEach((inst) => {
-      inst.waveFrames = new Int8Array(inst.waveFrames.map((waveIdx) => {
-         const clamped = clamp(waveIdx, 0, newWaveforms.length - 1);
-         return waveformRemap.get(clamped) ?? 0;
-      }));
+      inst.remapWaveformIndices(waveformRemap);
    });
 
    working.waveforms = newWaveforms;
