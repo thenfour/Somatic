@@ -115,7 +115,7 @@
 .desktop-menu-divider {
     height: 1px;
     margin: 4px 8px;
-    background: color-mix(in srgb, var(--border) 60%, transparent);
+    background: var(--text);
 }
 
 .desktop-menu-divider--inset {

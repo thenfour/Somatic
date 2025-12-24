@@ -466,6 +466,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             pokeBlock(TicMemoryMap.TRACKS_ADDR, opts.data.trackData);
             pokeBlock(TicMemoryMap.TF_ORDER_LIST, opts.data.songOrderData);
             pokeBlock(TicMemoryMap.TF_PATTERN_DATA, opts.data.patternData);
+            pokeBlock(TicMemoryMap.TF_MORPH_MAP, opts.data.morphMapData);
         };
 
         // Transaction API

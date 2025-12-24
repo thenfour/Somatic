@@ -110,6 +110,9 @@ export const TicMemoryMap = {
    TF_PATTERN_DATA: parseAddress(
       mem.TF_PATTERN_DATA), // theoretically you can support the whole tile+sprite+map area for pattern data.
 
+   // Packed morphing instrument config (host -> cart). See bridge_config.jsonc for binary layout.
+   TF_MORPH_MAP: parseAddress(mem.TF_MORPH_MAP),
+
    // RAM destinations for the chunk payloads (bank 0)
    WAVEFORMS_ADDR: parseAddress(mem.WAVEFORMS_ADDR),
    SFX_ADDR: parseAddress(mem.SFX_ADDR),

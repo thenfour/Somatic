@@ -430,25 +430,6 @@ option {
     color: var(--muted);
 }
 
-/* 
-.badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 12px;
-    border: 1px solid var(--border);
-}
-
-.badge--ok {
-    color: var(--text);
-}
-
-.badge--muted {
-    background: color-mix(in srgb, var(--muted) 40%, var(--panel-strong));
-    color: var(--text-muted);
-} */
-
 .app-panel {
     box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
     background-color: var(--panel);

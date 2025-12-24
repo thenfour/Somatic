@@ -26,11 +26,13 @@
         // above all tracker-format pattern data.
         //
         // Layout within MAP:
+        //   0x0efa0..0x0efdf : packed morphing instrument config
         //   0x0f000..0x0f01f : marker & small header region
         //   0x0f020..0x0f03f : Somatic registers (song position, FPS, etc.)
         //   0x0f040..0x0f07f : INBOX (host -> cart mailbox)
         //   0x0f080..0x0f08f : OUTBOX header (cart -> host mailbox)
         //   0x0f090..0x0f17f : OUTBOX log ring buffer (LOG_SIZE bytes)
+        "TF_MORPH_MAP": "0x0efa0", // requires 96 bytes.
         "MARKER_ADDR": "0x0f000",
         "REGISTERS_ADDR": "0x0f020",
         "INBOX_ADDR": "0x0f040",

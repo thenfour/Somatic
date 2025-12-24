@@ -2,15 +2,14 @@ import playroutineDebug from "../../bridge/playroutine-debug.lua";
 import playroutineRelease from "../../bridge/playroutine-release.lua";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import type {Tic80Instrument} from "../models/instruments";
-import {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {BakedSong, BakeSong} from "../utils/bakeSong";
 import {getMaxPatternUsedIndex, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong} from "../utils/SongOptimizer";
-import {assert, clamp, getBufferFingerprint, toLuaStringLiteral} from "../utils/utils";
+import {clamp, toLuaStringLiteral} from "../utils/utils";
 import {LoopMode} from "./backend";
 import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
-import {encodePatternChannel, encodePatternCombined} from "./pattern_encoding";
+import {encodePatternCombined} from "./pattern_encoding";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -23,6 +22,84 @@ const CHUNK = {
 } as const;
 
 const SFX_BYTES_PER_SAMPLE = 66;
+
+type Tic80MorphInstrumentConfig = {
+   morphWaveA: number; //
+   morphWaveB: number; //
+   morphSlot: number;  //
+   morphDurationInTicks: number;
+};
+
+function durationSecondsToTicks60Hz(seconds: number): number {
+   // Match the UI's convention (floor), and keep it integer.
+   const s = Math.max(0, seconds ?? 0);
+   return Math.floor(s * Tic80Caps.frameRate);
+}
+
+function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrumentConfig;}[] {
+   const entries: {instrumentId: number; cfg: Tic80MorphInstrumentConfig;}[] = [];
+   for (let instrumentId = 0; instrumentId < (song.instruments?.length ?? 0); instrumentId++) {
+      const inst = song.instruments[instrumentId];
+      if (!inst)
+         continue;
+      if (inst.waveEngine !== "morph")
+         continue;
+
+      const morphDurationInTicks = durationSecondsToTicks60Hz(inst.morphDurationSeconds);
+      entries.push({
+         instrumentId,
+         cfg: {
+            morphWaveA: clamp(inst.morphWaveA ?? 0, 0, Tic80Caps.waveform.count - 1),
+            morphWaveB: clamp(inst.morphWaveB ?? 1, 0, Tic80Caps.waveform.count - 1),
+            morphSlot: clamp(inst.morphSlot ?? 15, 0, Tic80Caps.waveform.count - 1),
+            morphDurationInTicks,
+         }
+      });
+   }
+
+   // Sort to keep output stable.
+   entries.sort((a, b) => a.instrumentId - b.instrumentId);
+   return entries;
+}
+
+// Packed as:
+// [0] = entryCount (u8)
+// per entry: instrumentId (u8), waveA (u8), waveB (u8), slot (u8), durationTicks (u16 LE)
+// 16 instruments x 6 bytes = 96 bytes max
+function encodeMorphMapForBridge(song: Song): Uint8Array {
+   const entries = getMorphMap(song);
+
+   const entryCount = clamp(entries.length, 0, 255);
+   const out = new Uint8Array(1 + entryCount * 6);
+   out[0] = entryCount & 0xff;
+
+   let w = 1;
+   for (let i = 0; i < entryCount; i++) {
+      const {instrumentId, cfg} = entries[i];
+      const ticks = clamp(cfg.morphDurationInTicks | 0, 0, 0xffff);
+      out[w++] = clamp(instrumentId | 0, 0, 255);
+      out[w++] = clamp(cfg.morphWaveA | 0, 0, 255);
+      out[w++] = clamp(cfg.morphWaveB | 0, 0, 255);
+      out[w++] = clamp(cfg.morphSlot | 0, 0, 255);
+      out[w++] = ticks & 0xff;
+      out[w++] = (ticks >> 8) & 0xff;
+   }
+   return out;
+}
+
+function makeMorphMapLua(song: Song): string {
+   // Emit a Lua table keyed by instrument ID:
+   //   [id] = { morphWaveA=.., morphWaveB=.., morphSlot=.., morphDurationInTicks=.. }
+   const entries = getMorphMap(song);
+   const parts: string[] = [];
+
+   for (const entry of entries) {
+      parts.push(
+         `[${entry.instrumentId}]={morphWaveA=${entry.cfg.morphWaveA}, morphWaveB=${entry.cfg.morphWaveB}, morphSlot=${
+            entry.cfg.morphSlot}, morphDurationInTicks=${entry.cfg.morphDurationInTicks}}`);
+   };
+   return `{\n\t\t${parts.join(",\n\t\t")}\n\t}`;
+}
 
 
 // each of OUR internal patterns is actually 4 tic80 patterns (channel A, B, C, D) in series.
@@ -282,6 +359,9 @@ export interface Tic80SerializedSong {
    sfxData: Uint8Array;
    trackData: Uint8Array;
 
+   // Packed morphing instrument config for the bridge cart.
+   morphMapData: Uint8Array;
+
    // length + order itself
    songOrderData: Uint8Array;
 
@@ -304,6 +384,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
       bakedSong.bakedSong, bakedSong.bakedSong.waveforms.length); // always send all waveforms even if unused
    const sfxData = encodeSfx(bakedSong.bakedSong, bakedSong.bakedSong.instruments.length);
    const trackData = encodeTrack(bakedSong.bakedSong);
+   const morphMapData = encodeMorphMapForBridge(bakedSong.bakedSong);
 
    const songOrderData = new Uint8Array(1 + SomaticCaps.maxSongLength);
    songOrderData[0] = bakedSong.bakedSong.songOrder.length;
@@ -325,6 +406,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
       waveformData,
       sfxData,
       trackData,
+      morphMapData,
       songOrderData,
       patternData: ch_serializePatterns(realPatternData),
    };
@@ -421,6 +503,7 @@ function getCode(song: Song, variant: "debug"|"release", audibleChannels: Set<Ti
    {code: string, generatedCode: string, patternChunks: Uint8Array[]} {
    // Generate the SOMATIC_MUSIC_DATA section
    const songOrder = song.songOrder.map(idx => idx.toString()).join(",");
+   const morphMapLua = makeMorphMapLua(song);
 
    const maxPattern = getMaxPatternUsedIndex(song);
    const patternChunks: Uint8Array[] = [];
@@ -446,11 +529,12 @@ function getCode(song: Song, variant: "debug"|"release", audibleChannels: Set<Ti
 
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
 SOMATIC_MUSIC_DATA = {
-\tsongOrder = { ${songOrder} },
-\tpatternLengths = { ${patternLengths.join(", ")} },
-\tpatterns = {
-\t\t${patternArray}
-\t},
+ songOrder = { ${songOrder} },
+ instrumentMorphMap = ${morphMapLua},
+ patternLengths = { ${patternLengths.join(", ")} },
+ patterns = {
+  ${patternArray}
+ },
 }
 -- END_SOMATIC_MUSIC_DATA`;
 
