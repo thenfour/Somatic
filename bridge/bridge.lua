@@ -214,6 +214,9 @@ local ch_sfx_ticks = { 0, 0, 0, 0 } -- 0-based channel -> duration since note-on
 --     instrumentId (u8), morphWaveA (u8), morphWaveB (u8), morphSlot (u8), durationTicks (u16 LE)
 local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
 
+local MORPH_HEADER_BYTES = 1
+local MORPH_ENTRY_BYTES = 6
+
 local WAVE_BASE = BRIDGE_CONFIG.memory.WAVEFORMS_ADDR
 local WAVE_BYTES_PER_WAVE = 16 -- 32x 4-bit samples packed 2-per-byte
 
@@ -312,6 +315,86 @@ end
 local function tf_sfx_tick()
 	for ch = 0, SFX_CHANNELS - 1 do
 		morph_tick_channel(ch)
+	end
+end
+
+-- =========================
+-- Music playback -> SFX channel state tracking
+-- =========================
+-- We want morphing to follow whatever SFX the tracker is triggering during music playback.
+-- This reads the current track frame -> pattern IDs, then reads the pattern row triplets.
+local TRACKS_BASE = BRIDGE_CONFIG.memory.TRACKS_ADDR
+local PATTERNS_BASE = BRIDGE_CONFIG.memory.PATTERNS_ADDR
+local TRACK_BYTES_PER_TRACK = 51
+local PATTERN_BYTES_PER_PATTERN = 192
+local ROW_BYTES = 3
+
+local last_music_track = -2
+local last_music_frame = -1
+local last_music_row = -1
+
+local function decode_track_frame_patterns(trackIndex, frameIndex)
+	if trackIndex == nil or trackIndex < 0 then
+		return 0, 0, 0, 0
+	end
+	local base = TRACKS_BASE + trackIndex * TRACK_BYTES_PER_TRACK + frameIndex * 3
+	local b0 = peek(base)
+	local b1 = peek(base + 1)
+	local b2 = peek(base + 2)
+	local packed = b0 + b1 * 256 + b2 * 65536
+	local p0 = packed & 0x3f
+	local p1 = (packed >> 6) & 0x3f
+	local p2 = (packed >> 12) & 0x3f
+	local p3 = (packed >> 18) & 0x3f
+	return p0, p1, p2, p3
+end
+
+-- Decode a pattern row's 3-byte triplet into note nibble and sfx id.
+-- Triplet layout (see pattern_encoding.ts):
+--  byte0: high nibble = argX, low nibble = noteNibble
+--  byte1: bit7 = instrument bit5, bits4..6 = command, low nibble = argY
+--  byte2: bits5..7 = octave, low5 = instrument low5
+local function decode_pattern_row(patternId1b, rowIndex)
+	if patternId1b == nil or patternId1b == 0 then
+		return 0, 0
+	end
+	local pat0b = patternId1b - 1
+	local addr = PATTERNS_BASE + pat0b * PATTERN_BYTES_PER_PATTERN + rowIndex * ROW_BYTES
+	local b0 = peek(addr)
+	local b1 = peek(addr + 1)
+	local b2 = peek(addr + 2)
+	local noteNibble = b0 & 0x0f
+	local inst = (b2 & 0x1f) | (((b1 >> 7) & 0x01) << 5)
+	return noteNibble, inst
+end
+
+local function apply_music_row_to_sfx_state(track, frame, row)
+	-- Only process once per new (track,frame,row) combination.
+	if track == last_music_track and frame == last_music_frame and row == last_music_row then
+		return
+	end
+	last_music_track = track
+	last_music_frame = frame
+	last_music_row = row
+
+	local p0, p1, p2, p3 = decode_track_frame_patterns(track, frame)
+	local patterns = { p0, p1, p2, p3 }
+
+	for ch = 0, SFX_CHANNELS - 1 do
+		local patternId1b = patterns[ch + 1]
+		local noteNibble, inst = decode_pattern_row(patternId1b, row)
+		if noteNibble == 0 then
+			-- empty cell; keep existing SFX state (note is still held)
+		elseif noteNibble < 4 then
+			-- stop/cut/off codes
+			ch_sfx_id[ch + 1] = -1
+			ch_sfx_ticks[ch + 1] = 0
+		else
+			-- note-on
+			ch_sfx_id[ch + 1] = inst
+			ch_sfx_ticks[ch + 1] = 0
+			prime_morph_slot_for_note_on(inst)
+		end
 	end
 end
 
@@ -485,6 +568,15 @@ local function draw_status()
 
 	local track, frame, row, looping = get_music_pos()
 	print(string.format("track:%d frame:%d row:%d loop:%s", track, frame, row, tostring(looping)), 40, y, 6)
+	y = y + 8
+
+	-- Show per-channel SFX/morph state for sanity checking.
+	for ch = 0, SFX_CHANNELS - 1 do
+		local sid = ch_sfx_id[ch + 1]
+		local ticks = ch_sfx_ticks[ch + 1]
+		print(string.format("ch%d sfx:%d t:%d", ch, sid, ticks), 40, y, 12)
+		y = y + 8
+	end
 
 	-- Recent logs
 	for i = #log_lines, 1, -1 do
@@ -792,6 +884,11 @@ function TIC()
 	end
 
 	tf_music_tick()
+	-- Mirror tracker playback into our per-channel SFX state for morphing.
+	local track, frame, row, _looping = get_music_pos()
+	if track ~= -1 then
+		apply_music_row_to_sfx_state(track, frame, row)
+	end
 	tf_sfx_tick()
 
 	t = t + 1

@@ -18,6 +18,7 @@ import {Tic80Caps} from "./tic80Capabilities";
 // u8 stereo_right:1;
 // u8 temp:2;
 
+// "PWM" | "LP" | "..."
 export type SomaticInstrumentWaveEngine = "morph"|"native";
 
 //export const SFX_FRAME_COUNT = 30;
