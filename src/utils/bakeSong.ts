@@ -194,6 +194,9 @@ function computeRepeatedRowCount(sliceLength: number): number {
    return repeats > 0 ? repeats * sliceLength : sliceLength;
 }
 
+// build a song that bakes in the requested playback options.
+// that means loop modes, channel muting,
+// also instrument wave morphing needs some baking.
 export const BakeSong = (args: BakeSongArgs): BakedSong => {
    const {
       song: originalSong,
@@ -416,6 +419,18 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
 
       default: {
          throw new Error(`Unknown loop mode: ${loopMode}`);
+      }
+   }
+
+   // for all morphing waveform instruments, set their native waveform envelope to the "morph wave slot"
+   for (const instrument of bakedSong.instruments) {
+      if (instrument.waveEngine !== "morph") {
+         continue;
+      }
+      instrument.waveLoopLength = 0;
+      instrument.waveLoopStart = 0;
+      for (let i = 0; i < Tic80Caps.sfx.envelopeFrameCount; i++) {
+         instrument.waveFrames[i] = instrument.morphSlot;
       }
    }
 

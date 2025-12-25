@@ -3,7 +3,7 @@ import playroutineRelease from "../../bridge/playroutine-release.lua";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import type {Tic80Instrument} from "../models/instruments";
 import type {Song} from "../models/song";
-import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
+import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {BakedSong, BakeSong} from "../utils/bakeSong";
 import {getMaxPatternUsedIndex, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong} from "../utils/SongOptimizer";
 import {clamp, toLuaStringLiteral} from "../utils/utils";
@@ -36,6 +36,7 @@ function durationSecondsToTicks60Hz(seconds: number): number {
    return Math.floor(s * Tic80Caps.frameRate);
 }
 
+// Extract the wave-morphing instrument config from the song.
 function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrumentConfig;}[] {
    const entries: {instrumentId: number; cfg: Tic80MorphInstrumentConfig;}[] = [];
    for (let instrumentId = 0; instrumentId < (song.instruments?.length ?? 0); instrumentId++) {
@@ -591,6 +592,20 @@ export function serializeSongToCartDetailed(
       song = result.optimizedSong;
       optimizeResult = result;
    }
+
+   const bakeResult = BakeSong({
+      song,
+      audibleChannels: gAllChannelsAudible,
+      cursorSongOrder: 0,
+      cursorChannelIndex: 0,
+      cursorRowIndex: 0,
+      patternSelection: null,
+      loopMode: "off",
+      songOrderSelection: null,
+      startPosition: 0,
+      startRow: 0,
+   });
+   song = bakeResult.bakedSong;
 
    // e.g., remove unused instruments, waveforms, patterns, shift to pack etc.
 
