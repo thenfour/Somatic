@@ -40,6 +40,161 @@ local PATTERN_BUFFER_BYTES = 192 * 4 -- 192 bytes per pattern-channel * 4 channe
 local bufferALocation = 0x11164 -- pointer to first pattern https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
 local bufferBLocation = bufferALocation + PATTERN_BUFFER_BYTES -- pointer to pattern 4
 
+-- Wave morphing
+local SFX_CHANNELS = 4
+local ch_sfx_id = { -1, -1, -1, -1 }
+local ch_sfx_ticks = { 0, 0, 0, 0 }
+local last_music_track = -2
+local last_music_frame = -1
+local last_music_row = -1
+
+local morphMap = (SOMATIC_MUSIC_DATA and SOMATIC_MUSIC_DATA.instrumentMorphMap) or {}
+
+local WAVE_BASE = 0x0FFE4
+local WAVE_BYTES_PER_WAVE = 16
+local TRACKS_BASE = 0x13E64
+local PATTERNS_BASE = 0x11164
+local TRACK_BYTES_PER_TRACK = 51
+local PATTERN_BYTES_PER_PATTERN = 192
+local ROW_BYTES = 3
+
+local function clamp01(x)
+	if x < 0 then
+		return 0
+	elseif x > 1 then
+		return 1
+	end
+	return x
+end
+
+local function lerp_nibble(a, b, t)
+	local v = a + (b - a) * t
+	if v < 0 then
+		v = 0
+	elseif v > 15 then
+		v = 15
+	end
+	return math.floor(v + 0.5)
+end
+
+function LerpWaveform(waveAIndex, waveBIndex, targetWaveIndex, t)
+	t = clamp01(t or 0)
+	local aBase = WAVE_BASE + waveAIndex * WAVE_BYTES_PER_WAVE
+	local bBase = WAVE_BASE + waveBIndex * WAVE_BYTES_PER_WAVE
+	local dstBase = WAVE_BASE + targetWaveIndex * WAVE_BYTES_PER_WAVE
+	for i = 0, WAVE_BYTES_PER_WAVE - 1 do
+		local ba = peek(aBase + i)
+		local bb = peek(bBase + i)
+		local a0 = ba & 0x0f
+		local a1 = (ba >> 4) & 0x0f
+		local b0 = bb & 0x0f
+		local b1 = (bb >> 4) & 0x0f
+		local o0 = lerp_nibble(a0, b0, t)
+		local o1 = lerp_nibble(a1, b1, t)
+		poke(dstBase + i, (o1 << 4) | o0)
+	end
+end
+
+local function read_morph_cfg(instId)
+	local cfg = morphMap and morphMap[instId]
+	if not cfg then
+		return nil
+	end
+	return cfg.morphWaveA, cfg.morphWaveB, cfg.morphSlot, cfg.morphDurationInTicks
+end
+
+local function prime_morph_slot_for_note_on(instId)
+	local waveA, waveB, slot, _dur = read_morph_cfg(instId)
+	if waveA == nil then
+		return
+	end
+	LerpWaveform(waveA, waveB, slot, 0.0)
+end
+
+local function decode_track_frame_patterns(trackIndex, frameIndex)
+	if trackIndex == nil or trackIndex < 0 then
+		return 0, 0, 0, 0
+	end
+	local base = TRACKS_BASE + trackIndex * TRACK_BYTES_PER_TRACK + frameIndex * 3
+	local b0 = peek(base)
+	local b1 = peek(base + 1)
+	local b2 = peek(base + 2)
+	local packed = b0 + b1 * 256 + b2 * 65536
+	local p0 = packed & 0x3f
+	local p1 = (packed >> 6) & 0x3f
+	local p2 = (packed >> 12) & 0x3f
+	local p3 = (packed >> 18) & 0x3f
+	return p0, p1, p2, p3
+end
+
+local function decode_pattern_row(patternId1b, rowIndex)
+	if patternId1b == nil or patternId1b == 0 then
+		return 0, 0
+	end
+	local pat0b = patternId1b - 1
+	local addr = PATTERNS_BASE + pat0b * PATTERN_BYTES_PER_PATTERN + rowIndex * ROW_BYTES
+	local b0 = peek(addr)
+	local b1 = peek(addr + 1)
+	local b2 = peek(addr + 2)
+	local noteNibble = b0 & 0x0f
+	local inst = (b2 & 0x1f) | (((b1 >> 7) & 0x01) << 5)
+	return noteNibble, inst
+end
+
+local function apply_music_row_to_sfx_state(track, frame, row)
+	if track == last_music_track and frame == last_music_frame and row == last_music_row then
+		return
+	end
+	last_music_track = track
+	last_music_frame = frame
+	last_music_row = row
+
+	local p0, p1, p2, p3 = decode_track_frame_patterns(track, frame)
+	local patterns = { p0, p1, p2, p3 }
+	for ch = 0, SFX_CHANNELS - 1 do
+		local patternId1b = patterns[ch + 1]
+		local noteNibble, inst = decode_pattern_row(patternId1b, row)
+		if noteNibble == 0 then
+			-- no event
+		elseif noteNibble < 4 then
+			ch_sfx_id[ch + 1] = -1
+			ch_sfx_ticks[ch + 1] = 0
+		else
+			ch_sfx_id[ch + 1] = inst
+			ch_sfx_ticks[ch + 1] = 0
+			prime_morph_slot_for_note_on(inst)
+		end
+	end
+end
+
+local function morph_tick_channel(ch)
+	local instId = ch_sfx_id[ch + 1]
+	if instId == -1 then
+		return
+	end
+	local ticksPlayed = ch_sfx_ticks[ch + 1]
+	local waveA, waveB, slot, durationTicks = read_morph_cfg(instId)
+	if waveA == nil then
+		ch_sfx_ticks[ch + 1] = ticksPlayed + 1
+		return
+	end
+	local t
+	if durationTicks == nil or durationTicks <= 0 then
+		t = 1.0
+	else
+		t = clamp01(ticksPlayed / durationTicks)
+	end
+	LerpWaveform(waveA, waveB, slot, t)
+	ch_sfx_ticks[ch + 1] = ticksPlayed + 1
+end
+
+local function tf_music_morph_tick(track, frame, row)
+	apply_music_row_to_sfx_state(track, frame, row)
+	for ch = 0, SFX_CHANNELS - 1 do
+		morph_tick_channel(ch)
+	end
+end
+
 -- base85 decode (ASCII85-style) for TIC-80 Lua
 -- Decodes 's' into memory starting at 'dst', writing exactly expectedLen bytes.
 -- Returns the number of bytes written (should equal expectedLen or error).
@@ -410,12 +565,20 @@ function TIC()
 	end
 
 	tf_music_tick()
+	local track, currentFrame, currentRow = get_music_pos()
+	if track ~= -1 then
+		tf_music_morph_tick(track, currentFrame, currentRow)
+	end
 	cls(0)
 	local y = 2
 	print("PLAYROUTINE TEST", 52, y, 12)
 	y = y + 8
-	local track, currentFrame, currentRow = get_music_pos()
 	print(string.format("t:%d f:%d r:%d", track, currentFrame, currentRow), 60, y, 6)
+	y = y + 8
+	for ch = 0, 3 do
+		print(string.format("ch%d sfx:%d t:%d", ch, ch_sfx_id[ch + 1], ch_sfx_ticks[ch + 1]), 60, y, 12)
+		y = y + 8
+	end
 	y = y + 8
 	print(
 		string.format(
