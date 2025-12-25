@@ -482,7 +482,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                             <div>
                                 {Math.round(instrument.morphDurationSeconds * 1000)} ms ({Math.floor(instrument.morphDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz)
                             </div>
-                            <div>
+                            <div style={{ maxWidth: 400 }}>
                                 Note: Morphing interpolates between two waveforms over the specified duration.
                             </div>
                             <div style={{ display: "flex", gap: "16px", padding: 8 }}>
@@ -539,7 +539,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: 8 }}>
                                 <strong>Morph Waveform Slot</strong>
-                                <div>
+                                <div style={{ maxWidth: 400 }}>
                                     This waveform slot will be used during live playback to hold the morphing wave.
                                     For now only 1 slot is supported which means this instrument must be monophonic.
                                 </div>

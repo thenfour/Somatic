@@ -422,9 +422,9 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
       }
    }
 
-   // for all morphing waveform instruments, set their native waveform envelope to the "morph wave slot"
+   // for all morphing or PWM waveform instruments, set their native waveform envelope to the "morph wave slot"
    for (const instrument of bakedSong.instruments) {
-      if (instrument.waveEngine !== "morph") {
+      if (instrument.waveEngine !== "morph" && instrument.waveEngine !== "pwm") {
          continue;
       }
       instrument.waveLoopLength = 0;

@@ -207,15 +207,20 @@ local SFX_CHANNELS = 4
 local ch_sfx_id = { -1, -1, -1, -1 } -- 0-based channel -> sfx id (or -1)
 local ch_sfx_ticks = { 0, 0, 0, 0 } -- 0-based channel -> duration since note-on (ticks)
 
--- SOMATIC_SFX_CONFIG is a fixed-size packed sparse map.
--- Layout:
---   [0] = entryCount (u8)
---   repeat entryCount times:
---     instrumentId (u8), morphWaveA (u8), morphWaveB (u8), morphSlot (u8), durationTicks (u16 LE)
 local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
 
 local MORPH_HEADER_BYTES = 1
-local MORPH_ENTRY_BYTES = 6
+local MORPH_ENTRY_BYTES = 18
+
+-- SOMATIC_SFX_CONFIG lives below the MARKER region; fail fast if layout or payload is inconsistent.
+local MORPH_MAP_BYTES = ADDR.MARKER - MORPH_MAP_BASE
+
+local function u8_to_s8(b)
+	if b > 0x7f then
+		return b - 0x100
+	end
+	return b
+end
 
 local WAVE_BASE = BRIDGE_CONFIG.memory.WAVEFORMS_ADDR
 local WAVE_BYTES_PER_WAVE = 16 -- 32x 4-bit samples packed 2-per-byte
@@ -229,33 +234,14 @@ local function clamp01(x)
 	return x
 end
 
--- local function lerp(a, b, t)
--- 	return a + (b - a) * t
--- end
-
--- local function wavefold(x)
--- 	-- fold into [-1,1] by reflecting
--- 	while x > 1 do
--- 		x = 2 - x
--- 	end
--- 	while x < -1 do
--- 		x = -2 - x
--- 	end
--- 	return x
--- end
-
--- local function clamp_round_nibble(v)
--- 	if v < 0 then
--- 		v = 0
--- 	elseif v > 15 then
--- 		v = 15
--- 	end
--- 	return math.floor(v + 0.5)
--- end
-
--- local function blend_nibble(a, b, t, blend_fn)
--- 	return clamp_round_nibble(blend_fn(a, b, t))
--- end
+local function clamp_nibble_round(v)
+	if v < 0 then
+		v = 0
+	elseif v > 15 then
+		v = 15
+	end
+	return math.floor(v + 0.5)
+end
 
 -- a,b: 0..15, t: 0..1
 local function lerp_nibble_lin(a, b, t)
@@ -268,46 +254,83 @@ local function lerp_nibble_lin(a, b, t)
 	return math.floor(v + 0.5)
 end
 
--- a,b: 0..15, t: 0..1
-local function xfade_equal_power_sqrt_nibble(a, b, t)
-	local wa = math.sqrt(1 - t)
-	local wb = math.sqrt(t)
-	local v = a * wa + b * wb
-	if v < 0 then
-		v = 0
-	elseif v > 15 then
-		v = 15
-	end
-	return math.floor(v + 0.5)
-end
+-- equal power (sqrt or sine law) makes a better xfade, but it doesn't preserve the waveshapes at either end so... not the best idea
+local lerp_nibble = lerp_nibble_lin
 
--- local function lerp_nibble(a, b, t)
--- 	return blend_nibble(a, b, t, lerp)
--- end
-
-local lerp_nibble = xfade_equal_power_sqrt_nibble
-
+-- Packed as:
+-- [0] = entryCount (u8)
+-- per entry:
+-- - instrumentId (u8)
+-- - waveEngine (u8) 0=morph,1=native,2=pwm
+-- - morphWaveA (u8)
+-- - morphWaveB (u8)
+-- - morphSlot (u8) (also for PWM!)
+-- - morphDurationTicks (u16 LE)
+-- - pwmSpeedTicks (u16 LE)
+-- - pwmDuty (u8)
+-- - pwmDepth (u8)
+-- - waveEffect (u8) 0=none,1=lowpass,2=wavefold
+-- - lowpassDurationTicks (u16 LE)
+-- - wavefoldAmt (u8)
+-- - morphCurve (s8)
+-- - lowpassCurve (s8)
+-- - wavefoldCurve (s8)
 local function read_morph_cfg(instrumentId)
-	local count = peek(MORPH_MAP_BASE)
+	local rawCount = peek(MORPH_MAP_BASE)
+	local maxCount = math.floor((MORPH_MAP_BYTES - MORPH_HEADER_BYTES) / MORPH_ENTRY_BYTES)
+	assert(MORPH_MAP_BYTES > 0, "Invalid bridge memory map: SOMATIC_SFX_CONFIG must be below MARKER")
+	assert(
+		rawCount <= maxCount,
+		"SOMATIC_SFX_CONFIG overflow: entryCount=" .. tostring(rawCount) .. " max=" .. tostring(maxCount)
+	)
+	local count = rawCount
+
 	for i = 0, count - 1 do
 		local off = MORPH_MAP_BASE + MORPH_HEADER_BYTES + i * MORPH_ENTRY_BYTES
 		local id = peek(off)
 		if id == instrumentId then
-			local waveA = peek(off + 1)
-			local waveB = peek(off + 2)
-			local slot = peek(off + 3)
-			local ticks = peek(off + 4) + peek(off + 5) * 256
-			return waveA, waveB, slot, ticks
+			local waveEngine = peek(off + 1)
+			local morphWaveA = peek(off + 2)
+			local morphWaveB = peek(off + 3)
+			local morphSlot = peek(off + 4)
+			local morphDurationInTicks = peek(off + 5) + peek(off + 6) * 256
+			local pwmCycleInTicks = peek(off + 7) + peek(off + 8) * 256
+			local pwmDuty = peek(off + 9)
+			local pwmDepth = peek(off + 10)
+			local waveEffect = peek(off + 11)
+			local lowpassDurationInTicks = peek(off + 12) + peek(off + 13) * 256
+			local wavefoldAmt = peek(off + 14)
+			local morphCurveS8 = u8_to_s8(peek(off + 15))
+			local lowpassCurveS8 = u8_to_s8(peek(off + 16))
+			local wavefoldCurveS8 = u8_to_s8(peek(off + 17))
+
+			-- Shape matches makeMorphMapLua(): values are numeric IDs.
+			return {
+				waveEngine = waveEngine,
+				morphWaveA = morphWaveA,
+				morphWaveB = morphWaveB,
+				morphSlot = morphSlot,
+				morphDurationInTicks = morphDurationInTicks,
+				morphCurveS8 = morphCurveS8,
+				pwmCycleInTicks = pwmCycleInTicks,
+				pwmDuty = pwmDuty,
+				pwmDepth = pwmDepth,
+				waveEffect = waveEffect,
+				lowpassDurationInTicks = lowpassDurationInTicks,
+				lowpassCurveS8 = lowpassCurveS8,
+				wavefoldAmt = wavefoldAmt,
+				wavefoldCurveS8 = wavefoldCurveS8,
+			}
 		end
 	end
 
 	return nil
 end
 
--- Interpolates waveA->waveB into target slot using t in [0,1]
 -- Memory-to-memory: reads source wave bytes, writes directly to target wave bytes.
-function LerpWaveform(waveAIndex, waveBIndex, targetWaveIndex, t)
+function PlaceWaveform(waveAIndex, waveBIndex, targetWaveIndex, t)
 	t = clamp01(t or 0)
+
 	local aBase = WAVE_BASE + waveAIndex * WAVE_BYTES_PER_WAVE
 	local bBase = WAVE_BASE + waveBIndex * WAVE_BYTES_PER_WAVE
 	local dstBase = WAVE_BASE + targetWaveIndex * WAVE_BYTES_PER_WAVE
@@ -328,11 +351,11 @@ function LerpWaveform(waveAIndex, waveBIndex, targetWaveIndex, t)
 end
 
 local function prime_morph_slot_for_note_on(instrumentId)
-	local waveA, waveB, slot, _dur = read_morph_cfg(instrumentId)
-	if waveA == nil then
+	local cfg = read_morph_cfg(instrumentId)
+	if cfg == nil or cfg.waveEngine ~= 0 then
 		return
 	end
-	LerpWaveform(waveA, waveB, slot, 0.0)
+	PlaceWaveform(cfg.morphWaveA, cfg.morphWaveB, cfg.morphSlot, 0.0)
 end
 
 local function morph_tick_channel(channel)
@@ -342,20 +365,26 @@ local function morph_tick_channel(channel)
 	end
 
 	local ticksPlayed = ch_sfx_ticks[channel + 1]
-	local waveA, waveB, slot, durationTicks = read_morph_cfg(idx)
-	if waveA == nil then
+	local cfg = read_morph_cfg(idx)
+	if cfg == nil then
+		ch_sfx_ticks[channel + 1] = ticksPlayed + 1
+		return
+	end
+	if cfg.waveEngine ~= 0 then
+		-- Not a morph instrument; ignore for now.
 		ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 		return
 	end
 
 	local t
+	local durationTicks = cfg.morphDurationInTicks
 	if durationTicks == nil or durationTicks <= 0 then
 		t = 1.0
 	else
 		t = clamp01(ticksPlayed / durationTicks)
 	end
 
-	LerpWaveform(waveA, waveB, slot, t)
+	PlaceWaveform(cfg.morphWaveA, cfg.morphWaveB, cfg.morphSlot, t)
 	ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 end
 

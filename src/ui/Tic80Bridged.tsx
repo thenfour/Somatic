@@ -10,6 +10,7 @@ import React, {
 import { Tic80SerializedSong } from "../audio/tic80_cart_serializer";
 import { Tic80ChannelIndex, TicBridge, TicMemoryMap } from "../models/tic80Capabilities";
 import { AsyncMutex } from "../utils/async_mutex";
+import { assert } from "../utils/utils";
 import { gLog } from "../utils/logger";
 import { Tic80Iframe, Tic80IframeHandle } from "./Tic80EmbedIframe";
 import { Tic80TopLevel, Tic80TopLevelHandle } from "./Tic80TopLevel";
@@ -466,6 +467,13 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             pokeBlock(TicMemoryMap.TRACKS_ADDR, opts.data.trackData);
             pokeBlock(TicMemoryMap.TF_ORDER_LIST, opts.data.songOrderData);
             pokeBlock(TicMemoryMap.TF_PATTERN_DATA, opts.data.patternData);
+
+            const sfxConfigBytes = TicMemoryMap.MARKER_ADDR - TicMemoryMap.SOMATIC_SFX_CONFIG;
+            assert(sfxConfigBytes > 0, "Invalid TicMemoryMap: MARKER_ADDR must be > SOMATIC_SFX_CONFIG");
+            assert(
+                opts.data.morphMapData.length === sfxConfigBytes,
+                `morphMapData length mismatch: got ${opts.data.morphMapData.length}, expected ${sfxConfigBytes}`
+            );
             pokeBlock(TicMemoryMap.SOMATIC_SFX_CONFIG, opts.data.morphMapData);
         };
 

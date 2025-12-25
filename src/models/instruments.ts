@@ -18,8 +18,9 @@ import {Tic80Caps} from "./tic80Capabilities";
 // u8 stereo_right:1;
 // u8 temp:2;
 
-// "PWM" | "LP" | "..."
-export type SomaticInstrumentWaveEngine = "morph"|"native";
+export type SomaticInstrumentWaveEngine = "morph"|"native"|"pwm";
+
+export type SomaticWaveformEffect = "none"|"lowpass"|"wavefold";
 
 //export const SFX_FRAME_COUNT = 30;
 
@@ -59,10 +60,26 @@ export interface Tic80InstrumentDto {
    pitch16x: boolean;
 
    waveEngine: SomaticInstrumentWaveEngine;
+
    morphWaveA: number; // 0-15
    morphWaveB: number; // 0-15
    morphSlot: number;  // 0-15 -- which waveform slot to use for live morphing
+   morphCurveN11: number;
    morphDurationSeconds: number;
+
+   pwmSpeedHz: number;
+   pwmDuty: number;  // 0-31
+   pwmDepth: number; // 0-31
+
+   waveEffect: SomaticWaveformEffect;
+
+   // lowpass
+   lowpassDurationSeconds: number;
+   lowpassCurveN11: number;
+
+   // wavefold
+   wavefoldAmt: number; // 0-255
+   wavefoldCurveN11: number;
 }
 ;
 
@@ -101,8 +118,24 @@ export class Tic80Instrument {
    waveEngine: SomaticInstrumentWaveEngine;
    morphWaveA: number; // 0-15
    morphWaveB: number; // 0-15
-   morphSlot: number;  // 0-15 -- which waveform slot to use for live morphing
+   morphSlot: number;  // 0-15 -- which waveform slot to use for live morphing. used for PWM as well!
+   morphCurveN11: number;
    morphDurationSeconds: number;
+
+   pwmSpeedHz: number;
+   pwmDuty: number;  // 0-31
+   pwmDepth: number; // 0-31
+
+   waveEffect: SomaticWaveformEffect;
+
+   // lowpass
+   lowpassDurationSeconds: number;
+   lowpassCurveN11: number;
+
+   // wavefold
+   wavefoldAmt: number; // 0-255
+   wavefoldCurveN11: number;
+
 
    // editor-only...
    constructor(data: Partial<Tic80InstrumentDto> = {}) {
@@ -164,7 +197,17 @@ export class Tic80Instrument {
       this.morphWaveA = clamp(data.morphWaveA ?? 0, 0, Tic80Caps.waveform.count - 1);
       this.morphWaveB = clamp(data.morphWaveB ?? 1, 0, Tic80Caps.waveform.count - 1);
       this.morphSlot = clamp(data.morphSlot ?? 15, 0, Tic80Caps.waveform.count - 1);
+      this.morphCurveN11 = clamp(data.morphCurveN11 ?? 0, -1, 1);
       this.morphDurationSeconds = Math.max(0, data.morphDurationSeconds ?? 1.0);
+
+      this.pwmSpeedHz = Math.max(0, data.pwmSpeedHz ?? 0);
+      this.pwmDuty = clamp(data.pwmDuty ?? 16, 0, 31);
+      this.pwmDepth = clamp(data.pwmDepth ?? 8, 0, 31);
+      this.waveEffect = data.waveEffect ?? "none";
+      this.lowpassDurationSeconds = Math.max(0, data.lowpassDurationSeconds ?? 0.5);
+      this.lowpassCurveN11 = clamp(data.lowpassCurveN11 ?? 0, -1, 1);
+      this.wavefoldAmt = clamp(data.wavefoldAmt ?? 0, 0, 255);
+      this.wavefoldCurveN11 = clamp(data.wavefoldCurveN11 ?? 0, -1, 1);
    }
 
    static fromData(data?: Partial<Tic80InstrumentDto>): Tic80Instrument {
@@ -198,7 +241,16 @@ export class Tic80Instrument {
          morphWaveA: this.morphWaveA,
          morphWaveB: this.morphWaveB,
          morphSlot: this.morphSlot,
+         morphCurveN11: this.morphCurveN11,
          morphDurationSeconds: this.morphDurationSeconds,
+         pwmSpeedHz: this.pwmSpeedHz,
+         pwmDuty: this.pwmDuty,
+         pwmDepth: this.pwmDepth,
+         waveEffect: this.waveEffect,
+         lowpassDurationSeconds: this.lowpassDurationSeconds,
+         lowpassCurveN11: this.lowpassCurveN11,
+         wavefoldAmt: this.wavefoldAmt,
+         wavefoldCurveN11: this.wavefoldCurveN11,
       };
    };
 
@@ -229,6 +281,9 @@ export class Tic80Instrument {
                usedWaveforms.add(waveIdx);
             });
             break;
+         case "pwm":
+            usedWaveforms.add(this.morphSlot);
+            break;
       };
       return usedWaveforms;
    }
@@ -244,6 +299,9 @@ export class Tic80Instrument {
             this.waveFrames = this.waveFrames.map((waveIdx) => {
                return waveformRemap.get(waveIdx) ?? waveIdx;
             });
+            break;
+         case "pwm":
+            this.morphSlot = waveformRemap.get(this.morphSlot) ?? this.morphSlot;
             break;
       };
    }
