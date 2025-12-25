@@ -229,8 +229,36 @@ local function clamp01(x)
 	return x
 end
 
-local function lerp_nibble(a, b, t)
-	-- a,b are 0..15
+-- local function lerp(a, b, t)
+-- 	return a + (b - a) * t
+-- end
+
+-- local function wavefold(x)
+-- 	-- fold into [-1,1] by reflecting
+-- 	while x > 1 do
+-- 		x = 2 - x
+-- 	end
+-- 	while x < -1 do
+-- 		x = -2 - x
+-- 	end
+-- 	return x
+-- end
+
+-- local function clamp_round_nibble(v)
+-- 	if v < 0 then
+-- 		v = 0
+-- 	elseif v > 15 then
+-- 		v = 15
+-- 	end
+-- 	return math.floor(v + 0.5)
+-- end
+
+-- local function blend_nibble(a, b, t, blend_fn)
+-- 	return clamp_round_nibble(blend_fn(a, b, t))
+-- end
+
+-- a,b: 0..15, t: 0..1
+local function lerp_nibble_lin(a, b, t)
 	local v = a + (b - a) * t
 	if v < 0 then
 		v = 0
@@ -239,6 +267,25 @@ local function lerp_nibble(a, b, t)
 	end
 	return math.floor(v + 0.5)
 end
+
+-- a,b: 0..15, t: 0..1
+local function xfade_equal_power_sqrt_nibble(a, b, t)
+	local wa = math.sqrt(1 - t)
+	local wb = math.sqrt(t)
+	local v = a * wa + b * wb
+	if v < 0 then
+		v = 0
+	elseif v > 15 then
+		v = 15
+	end
+	return math.floor(v + 0.5)
+end
+
+-- local function lerp_nibble(a, b, t)
+-- 	return blend_nibble(a, b, t, lerp)
+-- end
+
+local lerp_nibble = xfade_equal_power_sqrt_nibble
 
 local function read_morph_cfg(instrumentId)
 	local count = peek(MORPH_MAP_BASE)
