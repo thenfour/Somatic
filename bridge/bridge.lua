@@ -18,7 +18,7 @@ local ADDR = {
 	TF_ORDER_LIST_COUNT = BRIDGE_CONFIG.memory.TF_ORDER_LIST_COUNT,
 	TF_ORDER_LIST_ENTRIES = BRIDGE_CONFIG.memory.TF_ORDER_LIST_ENTRIES,
 	TF_PATTERN_DATA = BRIDGE_CONFIG.memory.TF_PATTERN_DATA,
-	TF_MORPH_MAP = BRIDGE_CONFIG.memory.TF_MORPH_MAP,
+	SOMATIC_SFX_CONFIG = BRIDGE_CONFIG.memory.SOMATIC_SFX_CONFIG,
 }
 
 -- Inbox command IDs (host -> cart)
@@ -201,6 +201,120 @@ local lastCmd = 0
 local lastCmdResult = 0
 local host_last_seq = 0
 
+-- Per channel, track which SFX is currently playing and how long it has been held (in 60Hz ticks)
+-- This is manual state; TIC-80 does not expose this per-channel for SFX (in a stable way)
+local SFX_CHANNELS = 4
+local ch_sfx_id = { -1, -1, -1, -1 } -- 0-based channel -> sfx id (or -1)
+local ch_sfx_ticks = { 0, 0, 0, 0 } -- 0-based channel -> duration since note-on (ticks)
+
+-- SOMATIC_SFX_CONFIG is a fixed-size packed sparse map.
+-- Layout:
+--   [0] = entryCount (u8)
+--   repeat entryCount times:
+--     instrumentId (u8), morphWaveA (u8), morphWaveB (u8), morphSlot (u8), durationTicks (u16 LE)
+local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
+
+local WAVE_BASE = BRIDGE_CONFIG.memory.WAVEFORMS_ADDR
+local WAVE_BYTES_PER_WAVE = 16 -- 32x 4-bit samples packed 2-per-byte
+
+local function clamp01(x)
+	if x < 0 then
+		return 0
+	elseif x > 1 then
+		return 1
+	end
+	return x
+end
+
+local function lerp_nibble(a, b, t)
+	-- a,b are 0..15
+	local v = a + (b - a) * t
+	if v < 0 then
+		v = 0
+	elseif v > 15 then
+		v = 15
+	end
+	return math.floor(v + 0.5)
+end
+
+local function read_morph_cfg(instrumentId)
+	local count = peek(MORPH_MAP_BASE)
+	for i = 0, count - 1 do
+		local off = MORPH_MAP_BASE + MORPH_HEADER_BYTES + i * MORPH_ENTRY_BYTES
+		local id = peek(off)
+		if id == instrumentId then
+			local waveA = peek(off + 1)
+			local waveB = peek(off + 2)
+			local slot = peek(off + 3)
+			local ticks = peek(off + 4) + peek(off + 5) * 256
+			return waveA, waveB, slot, ticks
+		end
+	end
+
+	return nil
+end
+
+-- Interpolates waveA->waveB into target slot using t in [0,1]
+-- Memory-to-memory: reads source wave bytes, writes directly to target wave bytes.
+function LerpWaveform(waveAIndex, waveBIndex, targetWaveIndex, t)
+	t = clamp01(t or 0)
+	local aBase = WAVE_BASE + waveAIndex * WAVE_BYTES_PER_WAVE
+	local bBase = WAVE_BASE + waveBIndex * WAVE_BYTES_PER_WAVE
+	local dstBase = WAVE_BASE + targetWaveIndex * WAVE_BYTES_PER_WAVE
+
+	for i = 0, WAVE_BYTES_PER_WAVE - 1 do
+		local ba = peek(aBase + i)
+		local bb = peek(bBase + i)
+
+		local a0 = ba & 0x0f
+		local a1 = (ba >> 4) & 0x0f
+		local b0 = bb & 0x0f
+		local b1 = (bb >> 4) & 0x0f
+
+		local o0 = lerp_nibble(a0, b0, t)
+		local o1 = lerp_nibble(a1, b1, t)
+		poke(dstBase + i, (o1 << 4) | o0)
+	end
+end
+
+local function prime_morph_slot_for_note_on(instrumentId)
+	local waveA, waveB, slot, _dur = read_morph_cfg(instrumentId)
+	if waveA == nil then
+		return
+	end
+	LerpWaveform(waveA, waveB, slot, 0.0)
+end
+
+local function morph_tick_channel(channel)
+	local idx = ch_sfx_id[channel + 1]
+	if idx == -1 then
+		return
+	end
+
+	local ticksPlayed = ch_sfx_ticks[channel + 1]
+	local waveA, waveB, slot, durationTicks = read_morph_cfg(idx)
+	if waveA == nil then
+		ch_sfx_ticks[channel + 1] = ticksPlayed + 1
+		return
+	end
+
+	local t
+	if durationTicks == nil or durationTicks <= 0 then
+		t = 1.0
+	else
+		t = clamp01(ticksPlayed / durationTicks)
+	end
+
+	LerpWaveform(waveA, waveB, slot, t)
+	ch_sfx_ticks[channel + 1] = ticksPlayed + 1
+end
+
+local function tf_sfx_tick()
+	for ch = 0, SFX_CHANNELS - 1 do
+		morph_tick_channel(ch)
+	end
+end
+
 local function publish_cmd(cmd, result)
 	lastCmd = cmd
 	lastCmdResult = result or 0
@@ -267,6 +381,12 @@ local function handle_play_sfx_on()
 		speed = 3
 	end
 
+	-- Track per-channel note state for morphing
+	ch_sfx_id[channel + 1] = sfx_id
+	ch_sfx_ticks[channel + 1] = 0
+	-- Ensure the morph slot is initialized before starting audio.
+	prime_morph_slot_for_note_on(sfx_id)
+
 	-- id, note, duration (-1 = sustained), channel 0..3, volume 15, speed 0
 	sfx(sfx_id, note, -1, channel, 15, speed)
 	publish_cmd(CMD_PLAY_SFX_ON, 0)
@@ -277,6 +397,8 @@ local function handle_play_sfx_off()
 	local channel = peek(INBOX.LOOP) & 0x03
 	-- id, note, duration (-1 = sustained), channel 0..3, volume 15, speed 0
 	sfx(-1, 0, 0, channel)
+	ch_sfx_id[channel + 1] = -1
+	ch_sfx_ticks[channel + 1] = 0
 	publish_cmd(CMD_PLAY_SFX_OFF, 0)
 	log(string.format("PLAY_SFX_OFF ch=%d", channel))
 end
@@ -670,6 +792,7 @@ function TIC()
 	end
 
 	tf_music_tick()
+	tf_sfx_tick()
 
 	t = t + 1
 

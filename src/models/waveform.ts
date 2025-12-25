@@ -40,15 +40,19 @@ export class Tic80Waveform {
    }
 
    isNoise(): boolean {
-      // all amplitudes are 0 or max
-      const maxAmp = Tic80Caps.waveform.amplitudeRange - 1;
+      // amptidutes are (ALL 0) or (ALL MAX)
+      // we'll count occurrances of both and check if one of them matches length.
+      let zeroCount = 0;
+      let maxCount = 0;
       for (let i = 0; i < this.amplitudes.length; i++) {
          const amp = this.amplitudes[i]!;
-         if (amp !== 0 && amp !== maxAmp) {
-            return false;
+         if (amp === 0) {
+            zeroCount++;
+         } else if (amp === Tic80Caps.waveform.amplitudeRange - 1) {
+            maxCount++;
          }
       }
-      return true;
+      return (zeroCount === this.amplitudes.length) || (maxCount === this.amplitudes.length);
    }
 
    toData(): Tic80WaveformDto {

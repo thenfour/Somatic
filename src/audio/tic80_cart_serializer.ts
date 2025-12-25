@@ -65,8 +65,13 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
 
 // Packed as:
 // [0] = entryCount (u8)
-// per entry: instrumentId (u8), waveA (u8), waveB (u8), slot (u8), durationTicks (u16 LE)
-// 16 instruments x 6 bytes = 96 bytes max
+// per entry:
+// - instrumentId (u8)
+// - waveA (u8)
+// - waveB (u8)
+// - slot (u8)
+// - durationTicks (u16 LE)
+// total payload = 1 + entryCount * 6 bytes = 97 bytes
 function encodeMorphMapForBridge(song: Song): Uint8Array {
    const entries = getMorphMap(song);
 
