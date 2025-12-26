@@ -12,7 +12,15 @@ import './instrument_editor.css';
 import { AppPanelShell } from './AppPanelShell';
 import { RadioButton } from './RadioButton';
 import { Tooltip } from './tooltip';
+import { ContinuousKnob, ContinuousParamConfig } from './basic/knob';
 
+const PWMDutyConfig: ContinuousParamConfig = {
+    resolutionSteps: 32,
+    default: 15,
+    convertTo01: (v) => v / 31,
+    convertFrom01: (v01) => v01 * 31,
+    format: (v) => v.toFixed(0),
+};
 
 /*
 
@@ -379,6 +387,16 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
+    const setPWMDuty = (value: number) => {
+        onSongChange({
+            description: 'Set PWM duty cycle',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.pwmDuty = value;
+            },
+        });
+    };
 
 
     {/* there are 3 possibilities:
@@ -624,28 +642,12 @@ show render slot if there are k-rate effects enabled
                                 </label>
                             </div>
                             <div className="field-row">
-                                <label>
-                                    PWM duty ({instrument.pwmDuty})
-                                    <input
-                                        type="range"
-                                        min={0}
-                                        max={31}
-                                        step={1}
-                                        value={instrument.pwmDuty}
-                                        onChange={(e) => {
-                                            const val = TryParseInt(e.target.value);
-                                            if (val === null) return;
-                                            onSongChange({
-                                                description: 'Set PWM duty',
-                                                undoable: true,
-                                                mutator: (s) => {
-                                                    const inst = s.instruments[instrumentIndex];
-                                                    inst.pwmDuty = clamp(val, 0, 31);
-                                                },
-                                            });
-                                        }}
-                                    />
-                                </label>
+                                <ContinuousKnob
+                                    label='PWM duty cycle'
+                                    value={instrument.pwmDuty}
+                                    config={PWMDutyConfig}
+                                    onChange={setPWMDuty}
+                                />
                             </div>
                             <div className="field-row">
                                 <label>
