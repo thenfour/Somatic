@@ -382,10 +382,12 @@ do
 
 	local render_waveform_pwm
 	-- BEGIN_FEATURE_PWM
-	render_waveform_pwm = function(cfg, ticks, out)
-		local c = cfg.pwmC or 0
-		local p = (cfg.pwmPh or 0) / 255
-		p = ((c > 0 and ((ticks % c) / c) or 0) + p) % 1
+	render_waveform_pwm = function(cfg, ticks, out, lfoTicks)
+		local c = cfg.lfoC or 0
+		local p = 0
+		if c > 0 then
+			p = (lfoTicks % c) / c
+		end
 		local tri = (p < 0.5) and (p * 4 - 1) or (3 - p * 4)
 		local d = (cfg.pwmD or 0) + (cfg.pwmDp or 0) * tri
 		if d < 1 then
@@ -404,7 +406,7 @@ do
 		wave_read_samples(cfg.sA, outSamples)
 	end
 
-	local function render_waveform_samples(cfg, ticksPlayed, outSamples)
+	local function render_waveform_samples(cfg, ticksPlayed, outSamples, lfoTicks)
 		local we = cfg.we or cfg.waveEngine or cfg.waveEngineId or 1
 		if we == 0 then
 			if render_waveform_morph then
@@ -414,7 +416,7 @@ do
 			end
 		elseif we == 2 then
 			if render_waveform_pwm then
-				render_waveform_pwm(cfg, ticksPlayed, outSamples)
+				render_waveform_pwm(cfg, ticksPlayed, outSamples, lfoTicks)
 			else
 				render_waveform_native(cfg, outSamples)
 			end
@@ -427,7 +429,7 @@ do
 		if not has_k_rate(cfg) then
 			return
 		end
-		render_waveform_samples(cfg, ticksPlayed, render_out)
+		render_waveform_samples(cfg, ticksPlayed, render_out, lfoTicks)
 		if apply_hardsync_effect_to_samples and cfg.hsE ~= 0 and cfg.hsStr > 0 then
 			local hsT = calc_t(cfg.hsSrc, cfg.hsDcy, ticksPlayed, lfoTicks, cfg.lfoC)
 			local env = 1 - crvN11(hsT, u8_s8(cfg.hsCrv))

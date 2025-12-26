@@ -291,14 +291,14 @@ local function render_waveform_morph(cfg, ticksPlayed, outSamples)
 	return true
 end
 
-local function render_waveform_pwm(cfg, ticksPlayed, outSamples)
-	local cycle = cfg.pwmCycleInTicks or 0
-	local phaseOffset = (cfg.pwmPhaseU8 or 0) / 255
+local function render_waveform_pwm(cfg, ticksPlayed, outSamples, lfoTicks)
+	-- PWM speed is driven by the instrument LFO; pwmCycleInTicks and phase offset are ignored.
+	local cycle = cfg.lfoCycleInTicks or 0
 	local phase
 	if cycle <= 0 then
-		phase = phaseOffset % 1
+		phase = 0
 	else
-		phase = (((ticksPlayed % cycle) / cycle) + phaseOffset) % 1
+		phase = (lfoTicks % cycle) / cycle
 	end
 	local tri
 	if phase < 0.5 then
@@ -324,12 +324,12 @@ local function render_waveform_native(cfg, outSamples)
 	return true
 end
 
-local function render_waveform_samples(cfg, ticksPlayed, outSamples)
+local function render_waveform_samples(cfg, ticksPlayed, outSamples, lfoTicks)
 	local we = cfg.waveEngine or cfg.waveEngineId or 1
 	if we == 0 then
 		return render_waveform_morph(cfg, ticksPlayed, outSamples)
 	elseif we == 2 then
-		return render_waveform_pwm(cfg, ticksPlayed, outSamples)
+		return render_waveform_pwm(cfg, ticksPlayed, outSamples, lfoTicks)
 	elseif we == 1 then
 		return render_waveform_native(cfg, outSamples)
 	end
@@ -340,7 +340,7 @@ local function render_tick_cfg(cfg, instId, ticksPlayed, lfoTicks)
 	if not cfg_is_k_rate_processing(cfg) then
 		return
 	end
-	if not render_waveform_samples(cfg, ticksPlayed, render_out) then
+	if not render_waveform_samples(cfg, ticksPlayed, render_out, lfoTicks) then
 		return
 	end
 	if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then

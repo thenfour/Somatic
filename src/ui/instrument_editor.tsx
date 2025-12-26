@@ -31,14 +31,6 @@ const SpeedConfig: ContinuousParamConfig = {
     format: (v) => v.toFixed(0),
 };
 
-const PWMSpeedConfig: ContinuousParamConfig = {
-    resolutionSteps: 200,
-    default: 0,
-    convertTo01: (v) => v / 20,
-    convertFrom01: (v01) => v01 * 20,
-    format: (v) => `${v.toFixed(2)} Hz`,
-};
-
 const PWMDepthConfig: ContinuousParamConfig = {
     resolutionSteps: 32,
     default: 0,
@@ -538,17 +530,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
-    const setPWMSpeed = (value: number) => {
-        onSongChange({
-            description: 'Set PWM speed',
-            undoable: true,
-            mutator: (s) => {
-                const inst = s.instruments[instrumentIndex];
-                inst.pwmSpeedHz = Math.max(0, value);
-            },
-        });
-    };
-
     const setPWMDepth = (value: number) => {
         onSongChange({
             description: 'Set PWM depth',
@@ -939,13 +920,9 @@ show render slot if there are k-rate effects enabled
                                 <div style={{ maxWidth: 520 }}>
                                     PWM uses the configured waveform slot for live synthesis.
                                 </div>
-                                <div className="field-row">
-                                    <ContinuousKnob
-                                        label='PWM speed'
-                                        value={instrument.pwmSpeedHz}
-                                        config={PWMSpeedConfig}
-                                        onChange={setPWMSpeed}
-                                    />
+                                <div style={{ maxWidth: 520, marginTop: 4 }}>
+                                    PWM speed is controlled by the instrument LFO rate in the Effects tab;
+                                    there is no separate PWM speed control.
                                 </div>
                                 <div className="field-row">
                                     <ContinuousKnob
