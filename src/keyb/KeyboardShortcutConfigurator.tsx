@@ -34,6 +34,8 @@ function KeyboardChordRow({ chord, actionId, onRemove }: KeyboardChordRowProps) 
         }
     }
 
+    const isPhysical = chord?.kind === "physical";
+
     return <span className="keyboard-binding-chord">
         <Tooltip title={JSON.stringify(chord)}>
             <span className="keyboard-binding-chord__label">
@@ -46,6 +48,11 @@ function KeyboardChordRow({ chord, actionId, onRemove }: KeyboardChordRowProps) 
         </>}>
             <span className="keyboard-binding-chord__conflict" title="This binding conflicts with another action!">⚠️</span>
         </Tooltip>}
+        {isPhysical && (
+            <Tooltip title="Physical key binding (layout-agnostic)">
+                <span className="keyboard-binding-chord__kindBadge">Phys</span>
+            </Tooltip>
+        )}
         <button
             className={`keyboard-binding-row__button ${!onRemove ? 'keyboard-binding-row__button--disabled' : ''}`}
             onClick={onRemove}

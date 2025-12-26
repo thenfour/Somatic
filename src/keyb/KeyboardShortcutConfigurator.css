@@ -135,6 +135,13 @@
     padding: 0 14px;
 }
 
+.keyboard-binding-chord__kindBadge {
+    margin-left: 18px;
+    font-size: 11px;
+    color: var(--accent-strong);
+    font-style: normal;
+}
+
 .keyboard-binding-chord .keyboard-binding-row__button {
     /* font-style: italic; */
     border: 0;
