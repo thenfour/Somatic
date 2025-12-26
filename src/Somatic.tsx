@@ -87,7 +87,7 @@ const isEditingCommandOrParamCell = () => {
 
 
 export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
-    const keyboardShortcutMgr = useShortcutManager<GlobalActionId>();
+    const mgr = useShortcutManager<GlobalActionId>();
     const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
     const [disabledMidiDeviceIds, setDisabledMidiDeviceIds] = useLocalStorage<string[]>("somatic-disabledMidiDeviceIds", []);
     const midiRef = React.useRef<MidiManager | null>(new MidiManager(disabledMidiDeviceIds));
@@ -110,6 +110,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const [editorState, setEditorState] = useState(() => new EditorState());
 
+    const [patternEditorOpen, setPatternEditorOpen] = useLocalStorage("somatic-patternEditorOpen", true);
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useLocalStorage("somatic-instrumentPanelOpen", false);
     const [waveformEditorPanelOpen, setWaveformEditorPanelOpen] = useLocalStorage("somatic-waveformEditorPanelOpen", false);
     const [tic80FrameSizeIndex, setTic80FrameSizeIndex] = useLocalStorage<number>("somatic-tic80FrameSizeIndex", TIC80_FRAME_DEFAULT_INDEX);
@@ -350,7 +351,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useEffect(() => {
         if (!keyboardNoteRef.current) {
             keyboardNoteRef.current = new KeyboardActionNoteInput({
-                shortcutMgr: { registerHandler: keyboardShortcutMgr.registerHandler },
+                shortcutMgr: { registerHandler: mgr.registerHandler },
                 getOctave: () => editorRef.current.octave,
                 shouldIgnoreKeyDown: () => isEditingCommandOrParamCell(),
             });
@@ -370,7 +371,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         return () => {
             cleanups.forEach((fn) => fn());
         };
-    }, [handleIncomingNoteOff, handleIncomingNoteOn, keyboardShortcutMgr.registerHandler]);
+    }, [handleIncomingNoteOff, handleIncomingNoteOn, mgr.registerHandler]);
 
     // Keep sources enabled/disabled in sync.
     useEffect(() => {
@@ -590,6 +591,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("CycleTic80PanelSize", () => cycleTic80FrameSize());
     useActionHandler("ToggleOnScreenKeyboard", () => setShowingOnScreenKeyboard(open => !open));
     useActionHandler("ToggleAdvancedEditPanel", () => setAdvancedEditPanelOpen(open => !open));
+    mgr.useActionHandler("TogglePatternEditor", () => {
+        setPatternEditorOpen(open => !open);
+    });
     useActionHandler("PlaySong", onPlayAll);
     useActionHandler("PlayFromPosition", onPlayFromPosition);
     useActionHandler("PlayPattern", onPlayPattern);
@@ -761,19 +765,19 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <DesktopMenu.Content>
                                     <DesktopMenu.Item
                                         onSelect={() => { void createNewSong(); }}
-                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("NewFile")}
+                                        shortcut={mgr.getActionBindingLabel("NewFile")}
                                     >
                                         New Song...
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         onSelect={() => { void openSongFile(); }}
-                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("OpenFile")}
+                                        shortcut={mgr.getActionBindingLabel("OpenFile")}
                                     >
                                         Open Song...
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         onSelect={saveSongFile}
-                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("SaveFile")}
+                                        shortcut={mgr.getActionBindingLabel("SaveFile")}
                                     >
                                         Save Song
                                     </DesktopMenu.Item>
@@ -786,7 +790,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                             </DesktopMenu.Item>
                                             <DesktopMenu.Item
                                                 onSelect={() => exportCart('release')}
-                                                shortcut={keyboardShortcutMgr.getActionBindingLabel("ExportCartRelease")}
+                                                shortcut={mgr.getActionBindingLabel("ExportCartRelease")}
                                             >
                                                 Release Build
                                             </DesktopMenu.Item>
@@ -801,7 +805,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <DesktopMenu.Content>
                                     <DesktopMenu.Item
                                         onSelect={handleUndo}
-                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("Undo")}
+                                        shortcut={mgr.getActionBindingLabel("Undo")}
                                         disabled={!undoStackRef.current || !undoStackRef.current.canUndo()}
                                     >
                                         {(() => {
@@ -812,7 +816,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         onSelect={handleRedo}
-                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("Redo")}
+                                        shortcut={mgr.getActionBindingLabel("Redo")}
                                         disabled={!undoStackRef.current || !undoStackRef.current.canRedo()}
                                     >
                                         {(() => {
@@ -830,39 +834,46 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <DesktopMenu.Trigger caret={false}>View</DesktopMenu.Trigger>
                                 <DesktopMenu.Content>
                                     <DesktopMenu.Item
+                                        checked={patternEditorOpen}
+                                        onSelect={() => setPatternEditorOpen(open => !open)}
+                                        shortcut={mgr.getActionBindingLabel("TogglePatternEditor")}
+                                    >
+                                        Show Pattern Editor
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
                                         checked={waveformEditorPanelOpen}
                                         onSelect={() => setWaveformEditorPanelOpen(open => !open)}
-                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleWaveformEditor")}
+                                        shortcut={mgr.getActionBindingLabel("ToggleWaveformEditor")}
                                     >
-                                        Waveform Editor
+                                        Show Waveform Editor
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={instrumentPanelOpen}
                                         onSelect={() => setInstrumentPanelOpen(open => !open)}
-                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleInstrumentPanel")}
+                                        shortcut={mgr.getActionBindingLabel("ToggleInstrumentPanel")}
                                     >
-                                        Instrument Panel
+                                        Show Instrument Panel
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={showingOnScreenKeyboard}
                                         onSelect={() => setShowingOnScreenKeyboard(open => !open)}
-                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleOnScreenKeyboard")}
+                                        shortcut={mgr.getActionBindingLabel("ToggleOnScreenKeyboard")}
                                     >
-                                        On-Screen Keyboard
+                                        Show On-Screen Keyboard
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={advancedEditPanelOpen}
                                         onSelect={() => setAdvancedEditPanelOpen(open => !open)}
-                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleAdvancedEditPanel")}
+                                        shortcut={mgr.getActionBindingLabel("ToggleAdvancedEditPanel")}
                                     >
-                                        Advanced Edit Panel
+                                        Show Advanced Edit Panel
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={preferencesPanelOpen}
                                         onSelect={() => setPreferencesPanelOpen((open) => !open)}
-                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("TogglePreferencesPanel")}
+                                        shortcut={mgr.getActionBindingLabel("TogglePreferencesPanel")}
                                     >
-                                        Preferences Panel
+                                        Preferences
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={themePanelOpen}
@@ -874,9 +885,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         checked={tic80FrameSizeIndex !== 0}
                                         closeOnSelect={false}
                                         onSelect={() => cycleTic80FrameSize()}
-                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("CycleTic80PanelSize")}
+                                        shortcut={mgr.getActionBindingLabel("CycleTic80PanelSize")}
                                     >
-                                        TIC-80 Bridge Size
+                                        TIC-80 Size
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Sub>
                                         <DesktopMenu.SubTrigger>TIC-80 Embed Variant</DesktopMenu.SubTrigger>
@@ -899,7 +910,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     <DesktopMenu.Item
                                         checked={editorState.editingEnabled}
                                         onSelect={toggleEditingEnabled}
-                                        shortcut={keyboardShortcutMgr.getActionBindingLabel("ToggleEditMode")}
+                                        shortcut={mgr.getActionBindingLabel("ToggleEditMode")}
                                     >
                                         Editing Mode Enabled
                                     </DesktopMenu.Item>
@@ -936,26 +947,26 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         </DesktopMenu.Bar>
                     </nav>
                     <div className={`menu-transport ${bridgeReady ? 'menu-transport--ready' : 'menu-transport--not-ready'}`}>
-                        <Tooltip title={keyboardShortcutMgr.getActionBindingLabel("Panic")}>
+                        <Tooltip title={mgr.getActionBindingLabel("Panic")}>
                             <button className={undefined/*'active'*/} onClick={onPanic}>
                                 <span className="icon">⏹</span>
                                 <span className="caption">Stop</span>
                             </button>
                         </Tooltip>
-                        <Tooltip title={keyboardShortcutMgr.getActionBindingLabel("PlaySong")}>
-                            <button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll} title={keyboardShortcutMgr.getActionBindingLabel("PlaySong")}><span className="icon" aria-hidden="true">
+                        <Tooltip title={mgr.getActionBindingLabel("PlaySong")}>
+                            <button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll} title={mgr.getActionBindingLabel("PlaySong")}><span className="icon" aria-hidden="true">
                                 {CharMap.RightTriangle}
                             </span>
                                 Song
                             </button>
                         </Tooltip>
-                        <Tooltip title={keyboardShortcutMgr.getActionBindingLabel("PlayPattern")}>
-                            <button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern} title={keyboardShortcutMgr.getActionBindingLabel("PlayPattern")}><span className="icon" aria-hidden="true">
+                        <Tooltip title={mgr.getActionBindingLabel("PlayPattern")}>
+                            <button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern} title={mgr.getActionBindingLabel("PlayPattern")}><span className="icon" aria-hidden="true">
                                 {CharMap.RightTriangleOutlined}
                             </span>Pat</button>
                         </Tooltip>
-                        <Tooltip title={keyboardShortcutMgr.getActionBindingLabel("PlayFromPosition")}>
-                            <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition} title={keyboardShortcutMgr.getActionBindingLabel("PlayFromPosition")}><span className="icon" aria-hidden="true">
+                        <Tooltip title={mgr.getActionBindingLabel("PlayFromPosition")}>
+                            <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition} title={mgr.getActionBindingLabel("PlayFromPosition")}><span className="icon" aria-hidden="true">
                                 {CharMap.RightTriangleOutlined}
                             </span>Pos</button>
                         </Tooltip>
@@ -970,7 +981,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         </Tooltip>
 
                         <div className="loop-controls">
-                            <Tooltip title={`Toggle loop mode (${keyboardShortcutMgr.getActionBindingLabel("ToggleLoopModeOff")})`}>
+                            <Tooltip title={`Toggle loop mode (${mgr.getActionBindingLabel("ToggleLoopModeOff")})`}>
                                 <button
                                     type="button"
                                     className={editorState.loopMode !== "off" ? "button-toggle button-toggle--on" : "button-toggle button-toggle--off"}
@@ -995,7 +1006,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         ⚠️You have multiple tabs open; that can cause conflicts
                     </div>}
                     <div className="right-controls">
-                        <Tooltip title={`Toggle editing (${keyboardShortcutMgr.getActionBindingLabel("ToggleEditMode")})`}>
+                        <Tooltip title={`Toggle editing (${mgr.getActionBindingLabel("ToggleEditMode")})`}>
                             <button
                                 className={`edit-toggle ${editorState.editingEnabled ? 'edit-toggle--on' : 'edit-toggle--off'}`}
                                 onClick={toggleEditingEnabled}
@@ -1012,9 +1023,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             midiEnabled={midiEnabled}
                             disabledMidiDeviceIds={disabledMidiDeviceIds}
                             onToggleMidiEnabled={toggleMidiEnabled}
-                            shortcutLabel={keyboardShortcutMgr.getActionBindingLabel("ToggleMidiNoteInput")}
+                            shortcutLabel={mgr.getActionBindingLabel("ToggleMidiNoteInput")}
                         />
-                        <Tooltip title={`${keyboardIndicatorTitle} (${keyboardShortcutMgr.getActionBindingLabel("ToggleKeyboardNoteInput")})`}>
+                        <Tooltip title={`${keyboardIndicatorTitle} (${mgr.getActionBindingLabel("ToggleKeyboardNoteInput")})`}>
                             <button
                                 className={`midi-indicator midi-indicator--${keyboardIndicatorState}`}
                                 title={keyboardIndicatorTitle}
@@ -1070,17 +1081,18 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         );
                     })()}
                 </div>
-                <PatternGrid
-                    ref={patternGridRef}
-                    song={song}
-                    audio={audio}
-                    musicState={somaticTransportState}
-                    editorState={editorState}
-                    onEditorStateChange={updateEditorState}
-                    onSongChange={updateSong}
-                    advancedEditPanelOpen={advancedEditPanelOpen}
-                    onSetAdvancedEditPanelOpen={open => setAdvancedEditPanelOpen(open)}
-                />
+                {patternEditorOpen && (
+                    <PatternGrid
+                        ref={patternGridRef}
+                        song={song}
+                        audio={audio}
+                        musicState={somaticTransportState}
+                        editorState={editorState}
+                        onEditorStateChange={updateEditorState}
+                        onSongChange={updateSong}
+                        advancedEditPanelOpen={advancedEditPanelOpen}
+                        onSetAdvancedEditPanelOpen={open => setAdvancedEditPanelOpen(open)}
+                    />)}
                 {waveformEditorPanelOpen && (
                     <WaveformEditorPanel
                         song={song}

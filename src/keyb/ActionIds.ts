@@ -16,6 +16,7 @@ export const GlobalActions = {
    CycleTic80PanelSize: "CycleTic80PanelSize",
    ToggleOnScreenKeyboard: "ToggleOnScreenKeyboard",
    ToggleAdvancedEditPanel: "ToggleAdvancedEditPanel",
+   TogglePatternEditor: "TogglePatternEditor",
    PlayFromPosition: "PlayFromPosition",
    PlayPattern: "PlayPattern",
    PlaySong: "PlaySong",

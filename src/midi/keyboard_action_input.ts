@@ -12,31 +12,31 @@ export type KeyboardNoteActionMapEntry = {
 };
 
 export const kDefaultKeyboardNoteActionMap: KeyboardNoteActionMapEntry[] = [
-   {actionId: "KeyboardNote01_C", semitoneIndex: 1},       ////
-   {actionId: "KeyboardNote02_Csharp", semitoneIndex: 2},  //
-   {actionId: "KeyboardNote03_D", semitoneIndex: 3},       ////
-   {actionId: "KeyboardNote04_Dsharp", semitoneIndex: 4},  //
-   {actionId: "KeyboardNote05_E", semitoneIndex: 5},       ////
-   {actionId: "KeyboardNote06_F", semitoneIndex: 6},       //
-   {actionId: "KeyboardNote07_Fsharp", semitoneIndex: 7},  ////
-   {actionId: "KeyboardNote08_G", semitoneIndex: 8},       //
-   {actionId: "KeyboardNote09_Gsharp", semitoneIndex: 9},  ////
-   {actionId: "KeyboardNote10_A", semitoneIndex: 10},      //
-   {actionId: "KeyboardNote11_Asharp", semitoneIndex: 11}, ////
-   {actionId: "KeyboardNote12_B", semitoneIndex: 12},      //
-   {actionId: "KeyboardNote13_C", semitoneIndex: 13},      ////
-   {actionId: "KeyboardNote14_Csharp", semitoneIndex: 14}, //
-   {actionId: "KeyboardNote15_D", semitoneIndex: 15},      ////
-   {actionId: "KeyboardNote16_Dsharp", semitoneIndex: 16}, //
-   {actionId: "KeyboardNote17_E", semitoneIndex: 17},      ////
-   {actionId: "KeyboardNote18_F", semitoneIndex: 18},      //
-   {actionId: "KeyboardNote19_Fsharp", semitoneIndex: 19}, ////
-   {actionId: "KeyboardNote20_G", semitoneIndex: 20},      //
-   {actionId: "KeyboardNote21_Gsharp", semitoneIndex: 21}, ////
-   {actionId: "KeyboardNote22_A", semitoneIndex: 22},      //
-   {actionId: "KeyboardNote23_Asharp", semitoneIndex: 23}, ////
-   {actionId: "KeyboardNote24_B", semitoneIndex: 24},      //
-   {actionId: "KeyboardNote25_C", semitoneIndex: 25},      //
+   {actionId: "KeyboardNote01_C", semitoneIndex: 0},       ////
+   {actionId: "KeyboardNote02_Csharp", semitoneIndex: 1},  //
+   {actionId: "KeyboardNote03_D", semitoneIndex: 2},       ////
+   {actionId: "KeyboardNote04_Dsharp", semitoneIndex: 3},  //
+   {actionId: "KeyboardNote05_E", semitoneIndex: 4},       ////
+   {actionId: "KeyboardNote06_F", semitoneIndex: 5},       //
+   {actionId: "KeyboardNote07_Fsharp", semitoneIndex: 6},  ////
+   {actionId: "KeyboardNote08_G", semitoneIndex: 7},       //
+   {actionId: "KeyboardNote09_Gsharp", semitoneIndex: 8},  ////
+   {actionId: "KeyboardNote10_A", semitoneIndex: 9},       //
+   {actionId: "KeyboardNote11_Asharp", semitoneIndex: 10}, ////
+   {actionId: "KeyboardNote12_B", semitoneIndex: 11},      //
+   {actionId: "KeyboardNote13_C", semitoneIndex: 12},      ////
+   {actionId: "KeyboardNote14_Csharp", semitoneIndex: 13}, //
+   {actionId: "KeyboardNote15_D", semitoneIndex: 14},      ////
+   {actionId: "KeyboardNote16_Dsharp", semitoneIndex: 15}, //
+   {actionId: "KeyboardNote17_E", semitoneIndex: 16},      ////
+   {actionId: "KeyboardNote18_F", semitoneIndex: 17},      //
+   {actionId: "KeyboardNote19_Fsharp", semitoneIndex: 18}, ////
+   {actionId: "KeyboardNote20_G", semitoneIndex: 19},      //
+   {actionId: "KeyboardNote21_Gsharp", semitoneIndex: 20}, ////
+   {actionId: "KeyboardNote22_A", semitoneIndex: 21},      //
+   {actionId: "KeyboardNote23_Asharp", semitoneIndex: 22}, ////
+   {actionId: "KeyboardNote24_B", semitoneIndex: 23},      //
+   {actionId: "KeyboardNote25_C", semitoneIndex: 24},      //
 ];
 
 export class KeyboardActionNoteInput implements NoteInputSource {

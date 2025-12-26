@@ -131,6 +131,16 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       ],
    },
 
+   "TogglePatternEditor": {
+      id: "TogglePatternEditor",
+      title: "toggle pattern editor",
+      description: "show or hide the pattern editor panel.",
+      category: "View",
+      defaultBindings: [
+         {kind: "character", key: "|", shift: true},
+      ],
+   },
+
    "PlaySong": {
       id: "PlaySong",
       title: "play song from start",
@@ -604,8 +614,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyZ", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyZ", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyZ"},
       ],
    },
    "KeyboardNote02_Csharp": {
@@ -615,8 +624,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyS", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyS", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyS"},
       ],
    },
    "KeyboardNote03_D": {
@@ -626,8 +634,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyX", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyX", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyX"},
       ],
    },
    "KeyboardNote04_Dsharp": {
@@ -637,8 +644,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyD", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyD", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyD"},
       ],
    },
    "KeyboardNote05_E": {
@@ -648,8 +654,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyC", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyC", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyC"},
       ],
    },
    "KeyboardNote06_F": {
@@ -659,8 +664,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyV", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyV", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyV"},
       ],
    },
    "KeyboardNote07_Fsharp": {
@@ -670,8 +674,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyG", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyG", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyG"},
       ],
    },
    "KeyboardNote08_G": {
@@ -681,8 +684,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyB", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyB", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyB"},
       ],
    },
    "KeyboardNote09_Gsharp": {
@@ -692,8 +694,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyH", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyH", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyH"},
       ],
    },
    "KeyboardNote10_A": {
@@ -703,8 +704,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyN", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyN", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyN"},
       ],
    },
    "KeyboardNote11_Asharp": {
@@ -714,8 +714,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyJ", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyJ", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyJ"},
       ],
    },
    "KeyboardNote12_B": {
@@ -725,8 +724,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyM", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyM", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyM"},
       ],
    },
    "KeyboardNote13_C": {
@@ -736,8 +734,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyQ", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyQ", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyQ"},
       ],
    },
    "KeyboardNote14_Csharp": {
@@ -747,8 +744,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "Digit2", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "Digit2", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "Digit2"},
       ],
    },
    "KeyboardNote15_D": {
@@ -758,8 +754,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyW", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyW", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyW"},
       ],
    },
    "KeyboardNote16_Dsharp": {
@@ -769,8 +764,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "Digit3", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "Digit3", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "Digit3"},
       ],
    },
    "KeyboardNote17_E": {
@@ -780,8 +774,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyE", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyE", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyE"},
       ],
    },
    "KeyboardNote18_F": {
@@ -791,8 +784,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyR", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyR", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyR"},
       ],
    },
    "KeyboardNote19_Fsharp": {
@@ -802,8 +794,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "Digit5", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "Digit5", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "Digit5"},
       ],
    },
    "KeyboardNote20_G": {
@@ -813,8 +804,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyT", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyT", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyT"},
       ],
    },
    "KeyboardNote21_Gsharp": {
@@ -824,8 +814,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "Digit6", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "Digit6", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "Digit6"},
       ],
    },
    "KeyboardNote22_A": {
@@ -835,8 +824,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyY", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyY", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyY"},
       ],
    },
    "KeyboardNote23_Asharp": {
@@ -846,8 +834,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "Digit7", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "Digit7", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "Digit7"},
       ],
    },
    "KeyboardNote24_B": {
@@ -857,8 +844,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyU", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyU", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyU"},
       ],
    },
    "KeyboardNote25_C": {
@@ -868,8 +854,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "NoteInput",
       eventType: "both",
       defaultBindings: [
-         {kind: "physical", code: "KeyI", ignoreExtraModifiers: true},
-         //{kind: "physical", code: "KeyI", shift: true, ignoreExtraModifiers: true},
+         {kind: "physical", code: "KeyI"},
       ],
    },
 
