@@ -1,5 +1,20 @@
 /* Instrument Editor Component Styles */
 
+.instrument-tab-content {
+    width: 600px;
+}
+
+.k-rate-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 4px 8px;
+    font-size: 16px;
+    border: 2px solid var(--accent-strong);
+    color: var(--accent-strong);
+    background-color: var(--bg);
+    border-radius: 4px;
+}
+
 .instrument-panel,
 .waveform-editor-panel {
     /* width: 800px; */

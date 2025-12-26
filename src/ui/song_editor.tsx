@@ -127,27 +127,42 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     <input type="number" min={1} max={Tic80Caps.pattern.octaveCount/* -1 + 1 for 1-baseddisplay */} value={editorState.octave} onChange={onOctaveChange} />
                 </label>
             </Tooltip>
-            <Tooltip title={`Current instrument for note input. ${getActionBindingLabel("IncreaseInstrument")} / ${getActionBindingLabel("DecreaseInstrument")} to adjust.`}>
+            <Tooltip title={`Current instrument for note input.`}>
                 <label>
-                    Instrument
+                    <span>Instrument</span>
                     <select
                         value={editorState.currentInstrument}
                         onChange={(e) => onEditorStateChange((state) => state.setCurrentInstrument(parseInt(e.target.value, 10)))}
                     >
                         {Array.from({ length: Tic80Caps.sfx.count }, (_, i) => (
                             <option key={i} value={i}>
-                                {i.toString(16).toUpperCase()}: {song.instruments[i].name}
+                                {song.instruments[i].getCaption(i)}
                             </option>
                         ))}
                     </select>
-                    {/* <input
-                    type="number"
-                    min={1}
-                    max={Tic80Caps.sfx.count}
-                    value={editorState.currentInstrument}
-                    onChange={onCurrentInstrumentChange}
-                /> */}
                 </label>
+            </Tooltip>
+            <Tooltip title={`Decrease instrument (${getActionBindingLabel("DecreaseInstrument")}).`}>
+                <button
+                    style={{ display: "inline-block" }}
+                    onClick={() => {
+                        onEditorStateChange((state) => {
+                            const newInstr = (state.currentInstrument - 1 + Tic80Caps.sfx.count) % Tic80Caps.sfx.count;
+                            state.setCurrentInstrument(newInstr);
+                        });
+                    }}
+                >{"<"}</button>
+            </Tooltip>
+            <Tooltip title={`Increase instrument (${getActionBindingLabel("IncreaseInstrument")}).`}>
+                <button
+                    style={{ display: "inline-block" }}
+                    onClick={() => {
+                        onEditorStateChange((state) => {
+                            const newInstr = (state.currentInstrument + 1) % Tic80Caps.sfx.count;
+                            state.setCurrentInstrument(newInstr);
+                        });
+                    }}
+                >{">"}</button>
             </Tooltip>
             <label>
                 Song title

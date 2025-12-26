@@ -5,7 +5,7 @@ import { midiToName } from '../defs';
 import { useClipboard } from '../hooks/useClipboard';
 import { useActionHandler } from '../keyb/useActionHandler';
 import { EditorState } from '../models/editor_state';
-import { isNoteCut, Pattern, PatternCell } from '../models/pattern';
+import { analyzePatternPlaybackForGrid, isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { formatPatternIndex, Song } from '../models/song';
 import { gChannelsArray, SomaticCaps, SomaticEffectCommand, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
 import { CharMap, clamp, Coord2D, numericRange } from '../utils/utils';
@@ -66,13 +66,6 @@ const formatParams = (valX: number | undefined | null, valY: number | undefined 
     return `${paramXStr}${paramYStr}`;
 };
 
-type EffectCarryState = {
-    commandStates: (undefined | {
-        effectX: number | undefined;
-        effectY: number | undefined;
-    })[];
-};
-
 type PatternGridProps = {
     song: Song;
     audio: AudioController;
@@ -122,42 +115,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
         const [currentColumnIndex, setCurrentColumnIndex] = useState(0);
         const pattern: Pattern = song.patterns[safePatternIndex];
-
-        const fxCarryByChannel = useMemo((): EffectCarryState[] => {
-            const states: EffectCarryState[] = gChannelsArray.map(() => ({
-                commandStates: Array.from({ length: commandKeyMap.length }, () => undefined),
-            }));
-
-            const maxPos = Math.max(0, Math.min(song.songOrder.length - 1, currentPosition));
-            for (let pos = 0; pos <= maxPos; pos++) {
-                const patIndexRaw = song.songOrder[pos] ?? 0;
-                const patIndex = Math.max(0, Math.min(patIndexRaw, song.patterns.length - 1));
-                const pat = song.patterns[patIndex];
-                if (!pat) continue;
-
-                for (const ch of gChannelsArray) {
-                    for (let row = 0; row < song.rowsPerPattern; row++) {
-                        const cell = pat.getCell(ch, row);
-                        if (cell.effect !== undefined) {
-                            const cmd = cell.effect;
-                            if (cmd >= 0 && cmd < commandKeyMap.length) {
-                                // A command explicitly set to 00 clears its carry state.
-                                if ((cell.effectX || 0) === 0 && (cell.effectY || 0) === 0) {
-                                    states[ch].commandStates[cmd] = undefined;
-                                } else {
-                                    states[ch].commandStates[cmd] = {
-                                        effectX: cell.effectX,
-                                        effectY: cell.effectY,
-                                    };
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            return states;
-        }, [currentPosition, song.patterns, song.rowsPerPattern, song.songOrder]);
+        const playbackAnalysis = useMemo(
+            () => analyzePatternPlaybackForGrid(song, safePatternIndex),
+            [song, safePatternIndex],
+        );
+        const { fxCarryByChannel, kRateRenderSlotConflictByRow } = playbackAnalysis;
 
         const fxCarryTooltip = `Effect command state at the end of this pattern (doesn't consider previous patterns)`;
         const cellRefs = useMemo(
@@ -1229,6 +1191,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                 const rowClass = `${sectionIndex === 0 ? 'row-section-a' : 'row-section-b'}${activeRow === rowIndex ? ' active-row' : ''}`;
                                 const isRowInSelection = editorState.isPatternRowSelected(rowIndex);
                                 const rowNumberClass = `row-number${isRowInSelection ? ' row-number--selected' : ''}`;
+                                const hasWaveformRenderConflict = kRateRenderSlotConflictByRow[rowIndex];
                                 return (
                                     <tr key={rowIndex} className={rowClass}>
                                         <td
@@ -1236,7 +1199,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             data-row-index={rowIndex}
                                             onMouseDown={(e) => handleRowHeaderMouseDown(e, rowIndex)}
                                         >
-                                            {rowIndex}
+                                            <div className="row-number-inner">
+                                                <span className="row-number-index">{rowIndex}</span>
+                                                {hasWaveformRenderConflict ? (
+                                                    <Tooltip title="Two or more channels render to the same waveform slot on this row">
+                                                        <div className="row-number-warning-dot"></div>
+                                                    </Tooltip>
+                                                ) : <div className="row-number-warning-dot row-number-warning-dot--hidden"></div>}
+                                            </div>
                                         </td>
                                         {pattern.channels.map((channel, channelIndexRaw) => {
                                             const channelIndex = ToTic80ChannelIndex(channelIndexRaw);
@@ -1387,7 +1357,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                     const s = fxCarryByChannel[channelIndex];
                                     const entries: string[] = [];
                                     for (let cmd = 0; cmd < commandKeyMap.length; cmd++) {
-                                        const cmdState = s?.commandStates[cmd];
+                                        const cmdState = s?.commandStates.get(cmd);
                                         if (!cmdState) continue;
                                         entries.push(`${formatCommand(cmd)}${formatParams(cmdState.effectX, cmdState.effectY)}`);
                                     }

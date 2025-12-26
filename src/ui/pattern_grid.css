@@ -415,6 +415,26 @@
     color: var(--text);
 }
 
+.pattern-grid .row-number-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+.pattern-grid .row-number-warning-dot {
+    --dot-size: 9px;
+    width: var(--dot-size);
+    height: var(--dot-size);
+    border-radius: 50%;
+    ;
+    background-color: var(--error-accent);
+}
+
+.pattern-grid .row-number-warning-dot--hidden {
+    visibility: hidden;
+}
+
 .pattern-grid-container {
     flex-grow: 1;
     padding-bottom: 50vh;

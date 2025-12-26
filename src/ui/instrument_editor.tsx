@@ -755,7 +755,15 @@ show render slot if there are k-rate effects enabled
     return (
         <AppPanelShell
             className="instrument-panel"
-            title="Instrument Editor"
+            title={<>
+                Instrument
+                {instrument.isKRateProcessing() && (
+                    // indicate when the instrument uses k-rate effects
+                    <Tooltip title="This instrument uses effects processing that will render at 60Hz">
+                        <span className="k-rate-badge">K-rate</span>
+                    </Tooltip>
+                )}
+            </>}
             actions={(
                 <>
                     <div className="toolbar">
@@ -785,6 +793,7 @@ show render slot if there are k-rate effects enabled
                     config={SpeedConfig}
                     onChange={setSpeed}
                 />
+
             </div>
 
             <TabPanel

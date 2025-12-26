@@ -313,7 +313,7 @@ export class Tic80Instrument {
    }
 
    getCaption(myIndex: number): string {
-      return `${myIndex.toString(16).toUpperCase()}: ${this.name}`;
+      return `${myIndex.toString(16).toUpperCase()}: ${this.name}${this.isKRateProcessing() ? " [K-rate]" : ""}`;
    }
 
    isKRateProcessing(): boolean {
