@@ -220,30 +220,20 @@ do
 		return true
 	end
 
-	local function render_waveform_pwm(cfg, ticksPlayed, outSamples)
-		local cycle = cfg.pwmCycleInTicks or 0
-		local phaseOffset = (cfg.pwmPhaseU8 or 0) / 255
-		local phase
-		if cycle <= 0 then
-			phase = phaseOffset % 1
-		else
-			phase = (((ticksPlayed % cycle) / cycle) + phaseOffset) % 1
+	local function render_waveform_pwm(cfg, ticks, out)
+		local c = cfg.pwmCycleInTicks or 0
+		local p = (cfg.pwmPhaseU8 or 0) / 255
+		p = ((c > 0 and ((ticks % c) / c) or 0) + p) % 1
+		local tri = (p < 0.5) and (p * 4 - 1) or (3 - p * 4)
+		local d = (cfg.pwmDuty or 0) + (cfg.pwmDepth or 0) * tri
+		if d < 1 then
+			d = 1
+		elseif d > 30 then
+			d = 30
 		end
-		local tri
-		if phase < 0.5 then
-			tri = phase * 4 - 1
-		else
-			tri = 3 - phase * 4
-		end
-		local duty = (cfg.pwmDuty or 0) + (cfg.pwmDepth or 0) * tri
-		if duty < 1 then
-			duty = 1
-		elseif duty > 30 then
-			duty = 30
-		end
-		local threshold = (duty / 31) * WAVE_SAMPLES_PER_WAVE
+		local thr = (d / 31) * WAVE_SAMPLES_PER_WAVE
 		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-			outSamples[i] = (i < threshold) and 15 or 0
+			out[i] = (i < thr) and 15 or 0
 		end
 		return true
 	end
@@ -459,9 +449,8 @@ do
 	local function getBufferPointer()
 		if backBufferIsA then
 			return bufferALocation
-		else
-			return bufferBLocation
 		end
+		return bufferBLocation
 	end
 
 	local function clearPatternBuffer(destPointer)
