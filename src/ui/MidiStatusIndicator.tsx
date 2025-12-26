@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { MidiDevice, MidiStatus } from '../midi/midi_manager';
-import { Tooltip } from './tooltip';
+import { Tooltip } from './basic/tooltip';
 
 interface MidiStatusIndicatorProps {
     midiStatus: MidiStatus;

@@ -1,8 +1,8 @@
 import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
 import { ModalDialog } from './ModalDialog';
-import { ShortcutManagerProvider, useShortcutManager } from '../keyb/KeyboardShortcutManager';
-import { useActionHandler } from '../keyb/useActionHandler';
-import type { ActionRegistry } from '../keyb/KeyboardShortcutTypes';
+import { ShortcutManagerProvider, useShortcutManager } from '../../keyb/KeyboardShortcutManager';
+import { useActionHandler } from '../../keyb/useActionHandler';
+import type { ActionRegistry } from '../../keyb/KeyboardShortcutTypes';
 
 export type ConfirmDialogOptions = {
     content: React.ReactNode;

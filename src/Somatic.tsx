@@ -23,7 +23,7 @@ import { calculateSongPositionInSeconds, gChannelsArray, ToTic80ChannelIndex } f
 import { AboutSomaticDialog } from './ui/AboutSomaticDialog';
 import { AppStatusBar } from './ui/AppStatusBar';
 import { ArrangementEditor } from './ui/ArrangementEditor';
-import { useConfirmDialog } from './ui/confirm_dialog';
+import { useConfirmDialog } from './ui/basic/confirm_dialog';
 import { DesktopMenu } from './ui/DesktopMenu/DesktopMenu';
 import { InstrumentPanel } from './ui/instrument_editor';
 import { Keyboard } from './ui/keyboard';
@@ -36,7 +36,7 @@ import { SongStats, SongStatsAppPanel, useSongStatsData } from './ui/SongStats';
 import { Theme, ThemeEditorPanel } from './ui/theme_editor_panel';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { useToasts } from './ui/toast_provider';
-import { Tooltip } from './ui/tooltip';
+import { Tooltip } from './ui/basic/tooltip';
 import { TransportTime } from './ui/transportTime';
 import { WaveformEditorPanel } from './ui/waveformEditor';
 import { gLog } from './utils/logger';

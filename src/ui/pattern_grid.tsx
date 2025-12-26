@@ -11,7 +11,7 @@ import { gChannelsArray, SomaticCaps, SomaticEffectCommand, Tic80Caps, Tic80Chan
 import { CharMap, clamp, Coord2D, numericRange } from '../utils/utils';
 import { InterpolateTarget, PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
 import { useToasts } from './toast_provider';
-import { Tooltip } from './tooltip';
+import { Tooltip } from './basic/tooltip';
 import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D';
 import { changeInstrumentInPattern, interpolatePatternValues, RowRange, setInstrumentInPattern, transposeCellsInPattern, nudgeInstrumentInPattern } from '../utils/advancedPatternEdit';
 import { useRenderAlarm } from '../hooks/useRenderAlarm';
@@ -1316,7 +1316,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         <Tooltip title={errorText} disabled={!errorInRow}>
                                                             <div>{noteText}</div>
                                                         </Tooltip>
-                                                        {/* {errorInRow && (<HelpTooltip className="error-tooltip" content={errorText} children={<>!</>} />)} */}
                                                     </td>
                                                     <td
                                                         tabIndex={0}

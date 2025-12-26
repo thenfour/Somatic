@@ -8,7 +8,7 @@ import { base85Encode, lzCompress, lzDecompress } from "../audio/encoding";
 import { OptimizeSong, analyzePatternColumns, PatternColumnAnalysisResult } from "../utils/SongOptimizer";
 import { gAllChannelsAudible, SomaticCaps } from "../models/tic80Capabilities";
 import { useRenderAlarm } from "../hooks/useRenderAlarm";
-import { KeyValueTable } from "./KeyValueTable";
+import { KeyValueTable } from "./basic/KeyValueTable";
 import { AppPanelShell } from "./AppPanelShell";
 
 const BarValue: React.FC<{ value: number; max: number; label: string }> = ({ value, max, label }) => {

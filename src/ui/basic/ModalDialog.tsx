@@ -1,6 +1,6 @@
 import React from 'react';
-import { ActionRegistry } from '../keyb/KeyboardShortcutTypes';
-import { ShortcutManagerProvider, useShortcutManager } from '../keyb/KeyboardShortcutManager';
+import { ActionRegistry } from '../../keyb/KeyboardShortcutTypes';
+import { ShortcutManagerProvider, useShortcutManager } from '../../keyb/KeyboardShortcutManager';
 
 const ModalActions = {
     Close: 'Close',

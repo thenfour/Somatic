@@ -1,5 +1,16 @@
 .knob>label {
-    border: 1px solid blue;
+    border: 2px solid transparent;
     display: flex;
+    padding: 4px 12px;
     flex-direction: column;
+    font-size: 14px;
+    ;
+}
+
+.knob>label:hover {
+    border-color: var(--accent);
+}
+
+.knob {
+    width: 200px;
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatRelativeToNow } from '../utils/utils';
+import { formatRelativeToNow } from '../../utils/utils';
 
 // displays a date value in a human-readable format, together with relative to now
 export const DateValue: React.FC<{ value: Date }> = ({ value }) => {

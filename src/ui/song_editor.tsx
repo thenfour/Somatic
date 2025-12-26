@@ -1,15 +1,14 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { AudioController } from '../audio/controller';
 //import { INSTRUMENT_COUNT, OCTAVE_COUNT, PATTERN_COUNT } from '../defs';
 import { EditorState } from '../models/editor_state';
 import { Song } from '../models/song';
 //import { PositionList } from './position_list';
-import { HelpTooltip } from './HelpTooltip';
+import { GlobalActionId } from '../keyb/ActionIds';
+import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
 import { calculateBpm, SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { TryParseInt } from '../utils/utils';
-import { Tooltip } from './tooltip';
-import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
-import { GlobalActionId } from '../keyb/ActionIds';
+import { Tooltip } from './basic/tooltip';
 
 type SongEditorProps = {
     song: Song;

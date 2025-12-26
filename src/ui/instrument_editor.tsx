@@ -3,15 +3,15 @@ import { AudioController } from '../audio/controller';
 import { Song } from '../models/song';
 import { SomaticInstrumentWaveEngine, Tic80Instrument, Tic80InstrumentDto } from '../models/instruments';
 import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
-import { assert, clamp, TryParseInt } from '../utils/utils';
+import { assert, clamp } from '../utils/utils';
 import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
 import { useClipboard } from '../hooks/useClipboard';
 import { WaveformSelect } from './waveformEditor';
 import { WaveformSwatch } from './waveformSwatch';
 import './instrument_editor.css';
 import { AppPanelShell } from './AppPanelShell';
-import { RadioButton } from './RadioButton';
-import { Tooltip } from './tooltip';
+import { RadioButton } from './basic/RadioButton';
+import { Tooltip } from './basic/tooltip';
 import { ContinuousKnob, ContinuousParamConfig } from './basic/knob';
 
 const PWMDutyConfig: ContinuousParamConfig = {
@@ -19,6 +19,110 @@ const PWMDutyConfig: ContinuousParamConfig = {
     default: 15,
     convertTo01: (v) => v / 31,
     convertFrom01: (v01) => v01 * 31,
+    format: (v) => v.toFixed(0),
+};
+
+const SpeedConfig: ContinuousParamConfig = {
+    resolutionSteps: Tic80Caps.sfx.speedMax + 1,
+    default: 0,
+    convertTo01: (v) => v / Tic80Caps.sfx.speedMax,
+    convertFrom01: (v01) => v01 * Tic80Caps.sfx.speedMax,
+    format: (v) => v.toFixed(0),
+};
+
+const PWMSpeedConfig: ContinuousParamConfig = {
+    resolutionSteps: 200,
+    default: 0,
+    convertTo01: (v) => v / 20,
+    convertFrom01: (v01) => v01 * 20,
+    format: (v) => `${v.toFixed(2)} Hz`,
+};
+
+const PWMDepthConfig: ContinuousParamConfig = {
+    resolutionSteps: 32,
+    default: 0,
+    convertTo01: (v) => v / 31,
+    convertFrom01: (v01) => v01 * 31,
+    format: (v) => v.toFixed(0),
+};
+
+const PWMPhaseConfig: ContinuousParamConfig = {
+    resolutionSteps: 100,
+    default: 0,
+    convertTo01: (v) => v,
+    convertFrom01: (v01) => v01,
+    format: (v) => `${Math.round(v * 100)}%`,
+};
+
+const MorphDurationConfig: ContinuousParamConfig = {
+    resolutionSteps: 400,
+    default: 0.032,
+    convertTo01: (v) => v / 4,
+    convertFrom01: (v01) => v01 * 4,
+    format: (v) => `${Math.round(v * 1000)} ms`,
+};
+
+const MorphCurveConfig: ContinuousParamConfig = {
+    resolutionSteps: 200,
+    default: 0,
+    convertTo01: (v) => (v + 1) / 2,
+    convertFrom01: (v01) => v01 * 2 - 1,
+    format: (v) => v.toFixed(2),
+};
+
+const LowpassDurationConfig: ContinuousParamConfig = {
+    resolutionSteps: 400,
+    default: 0,
+    convertTo01: (v) => v / 4,
+    convertFrom01: (v01) => v01 * 4,
+    format: (v) => `${Math.round(v * 1000)} ms`,
+};
+
+const LowpassCurveConfig: ContinuousParamConfig = {
+    resolutionSteps: 200,
+    default: 0,
+    convertTo01: (v) => (v + 1) / 2,
+    convertFrom01: (v01) => v01 * 2 - 1,
+    format: (v) => v.toFixed(2),
+};
+
+const WavefoldAmountConfig: ContinuousParamConfig = {
+    resolutionSteps: 256,
+    default: 0,
+    convertTo01: (v) => v / 255,
+    convertFrom01: (v01) => v01 * 255,
+    format: (v) => v.toFixed(0),
+};
+
+const WavefoldDurationConfig: ContinuousParamConfig = {
+    resolutionSteps: 400,
+    default: 0,
+    convertTo01: (v) => v / 4,
+    convertFrom01: (v01) => v01 * 4,
+    format: (v) => `${Math.round(v * 1000)} ms`,
+};
+
+const WavefoldCurveConfig: ContinuousParamConfig = {
+    resolutionSteps: 200,
+    default: 0,
+    convertTo01: (v) => (v + 1) / 2,
+    convertFrom01: (v01) => v01 * 2 - 1,
+    format: (v) => v.toFixed(2),
+};
+
+const LoopStartConfig: ContinuousParamConfig = {
+    resolutionSteps: Tic80Caps.sfx.envelopeFrameCount,
+    default: 0,
+    convertTo01: (v) => v / (Tic80Caps.sfx.envelopeFrameCount - 1),
+    convertFrom01: (v01) => v01 * (Tic80Caps.sfx.envelopeFrameCount - 1),
+    format: (v) => v.toFixed(0),
+};
+
+const LoopLengthConfig: ContinuousParamConfig = {
+    resolutionSteps: Tic80Caps.sfx.envelopeFrameCount,
+    default: 0,
+    convertTo01: (v) => v / (Tic80Caps.sfx.envelopeFrameCount - 1),
+    convertFrom01: (v01) => v01 * (Tic80Caps.sfx.envelopeFrameCount - 1),
     format: (v) => v.toFixed(0),
 };
 
@@ -64,19 +168,31 @@ export const InstrumentEnvelopeEditor: React.FC<{
         return [...frames]; // canvas does its own internal clamping.
     }, [frames]);
 
-    const handleLoopStartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = TryParseInt(e.target.value);
-        if (val === null) return;
-        const nextStart = clamp(val, 0, Math.max(0, frameCount - 1));
+    const loopStartConfig: ContinuousParamConfig = useMemo(() => ({
+        resolutionSteps: Math.max(1, frameCount),
+        default: 0,
+        convertTo01: (v) => frameCount <= 1 ? 0 : v / (frameCount - 1),
+        convertFrom01: (v01) => frameCount <= 1 ? 0 : v01 * (frameCount - 1),
+        format: (v) => v.toFixed(0),
+    }), [frameCount]);
+
+    const loopLengthConfig: ContinuousParamConfig = useMemo(() => ({
+        resolutionSteps: Math.max(1, frameCount),
+        default: 0,
+        convertTo01: (v) => frameCount <= 1 ? 0 : v / (frameCount - 1),
+        convertFrom01: (v01) => frameCount <= 1 ? 0 : v01 * (frameCount - 1),
+        format: (v) => v.toFixed(0),
+    }), [frameCount]);
+
+    const handleLoopStartChange = (value: number) => {
+        const nextStart = clamp(value, 0, Math.max(0, frameCount - 1));
         const nextLength = clamp(loopLength, 0, Math.max(0, frameCount - 1));
         onChange(frames, nextStart, nextLength);
     };
 
-    const handleLoopLengthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = TryParseInt(e.target.value);
-        if (val === null) return;
+    const handleLoopLengthChange = (value: number) => {
         const maxLen = Math.max(0, frameCount - 1);
-        const nextLength = clamp(val, 0, maxLen);
+        const nextLength = clamp(value, 0, maxLen);
         const nextStart = clamp(loopStart, 0, maxLen);
         onChange(frames, nextStart, nextLength);
     };
@@ -142,26 +258,18 @@ export const InstrumentEnvelopeEditor: React.FC<{
             <div className="instrument-envelope-editor__header">
                 <h4>{title}</h4>
                 <div className="instrument-envelope-editor__loop-controls">
-                    <label>
-                        Loop start
-                        <input
-                            type="number"
-                            min={0}
-                            max={Math.max(0, frameCount - 1)}
-                            value={loopStart}
-                            onChange={handleLoopStartChange}
-                        />
-                    </label>
-                    <label>
-                        Loop len
-                        <input
-                            type="number"
-                            min={0}
-                            max={Math.max(0, frameCount - 1)}
-                            value={loopLength}
-                            onChange={handleLoopLengthChange}
-                        />
-                    </label>
+                    <ContinuousKnob
+                        label='Loop start'
+                        value={loopStart}
+                        config={loopStartConfig}
+                        onChange={handleLoopStartChange}
+                    />
+                    <ContinuousKnob
+                        label='Loop len'
+                        value={loopLength}
+                        config={loopLengthConfig}
+                        onChange={handleLoopLengthChange}
+                    />
                 </div>
             </div>
             <div className="instrument-envelope-editor__content">
@@ -212,19 +320,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
             mutator: (s) => {
                 const inst = s.instruments[instrumentIndex];
                 inst.name = value;
-            },
-        });
-    };
-
-    const handleSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = TryParseInt(e.target.value);
-        if (val === null) return;
-        onSongChange({
-            description: 'Change instrument speed',
-            undoable: true,
-            mutator: (s) => {
-                const inst = s.instruments[instrumentIndex];
-                inst.speed = clamp(val, 0, Tic80Caps.sfx.speedMax);
             },
         });
     };
@@ -398,6 +493,127 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
+    const setSpeed = (value: number) => {
+        onSongChange({
+            description: 'Change instrument speed',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.speed = clamp(value, 0, Tic80Caps.sfx.speedMax);
+            },
+        });
+    };
+
+    const setPWMSpeed = (value: number) => {
+        onSongChange({
+            description: 'Set PWM speed',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.pwmSpeedHz = Math.max(0, value);
+            },
+        });
+    };
+
+    const setPWMDepth = (value: number) => {
+        onSongChange({
+            description: 'Set PWM depth',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.pwmDepth = clamp(value, 0, 31);
+            },
+        });
+    };
+
+    const setPWMPhase = (value: number) => {
+        onSongChange({
+            description: 'Set PWM phase',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.pwmPhase01 = clamp(value, 0, 1);
+            },
+        });
+    };
+
+    const setMorphDuration = (value: number) => {
+        onSongChange({
+            description: 'Set morph duration',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.morphDurationSeconds = clamp(value, 0, 4);
+            },
+        });
+    };
+
+    const setMorphCurve = (value: number) => {
+        onSongChange({
+            description: 'Set morph curve',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.morphCurveN11 = clamp(value, -1, 1);
+            },
+        });
+    };
+
+    const setLowpassDuration = (value: number) => {
+        onSongChange({
+            description: 'Set lowpass duration',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.lowpassDurationSeconds = clamp(value, 0, 4);
+            },
+        });
+    };
+
+    const setLowpassCurve = (value: number) => {
+        onSongChange({
+            description: 'Set lowpass curve',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.lowpassCurveN11 = clamp(value, -1, 1);
+            },
+        });
+    };
+
+    const setWavefoldAmount = (value: number) => {
+        onSongChange({
+            description: 'Set wavefold amount',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.wavefoldAmt = clamp(value, 0, 255);
+            },
+        });
+    };
+
+    const setWavefoldDuration = (value: number) => {
+        onSongChange({
+            description: 'Set wavefold duration',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.wavefoldDurationSeconds = clamp(value, 0, 4);
+            },
+        });
+    };
+
+    const setWavefoldCurve = (value: number) => {
+        onSongChange({
+            description: 'Set wavefold curve',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.wavefoldCurveN11 = clamp(value, -1, 1);
+            },
+        });
+    };
+
 
     {/* there are 3 possibilities:
 - morph = show source waveform + morph B
@@ -443,14 +659,11 @@ show render slot if there are k-rate effects enabled
                 <div className="field-row">
                 </div>
                 <div className="field-row">
-                    <label htmlFor="instrument-speed">Speed</label>
-                    <input
-                        id="instrument-speed"
-                        type="number"
-                        min={0}
-                        max={Tic80Caps.sfx.speedMax}
+                    <ContinuousKnob
+                        label='Speed'
                         value={instrument.speed}
-                        onChange={handleSpeedChange}
+                        config={SpeedConfig}
+                        onChange={setSpeed}
                     />
                 </div>
                 <div className="field-row">
@@ -558,57 +771,26 @@ show render slot if there are k-rate effects enabled
                     )}
 
                     {instrument.waveEngine === 'morph' && (
-                        // a continuous range slider from 0-5 seconds
                         <div>
-                            <div>
-                                <label>
-                                    Morph duration (milliseconds)
-                                    <input
-                                        type="range"
-                                        min={32}
-                                        max={4000}
-                                        step={1}
-                                        value={instrument.morphDurationSeconds * 1000}
-                                        onChange={(e) => {
-                                            const val = parseFloat(e.target.value);
-                                            if (isNaN(val)) return;
-                                            onSongChange({
-                                                description: 'Set morph duration',
-                                                undoable: true,
-                                                mutator: (s) => {
-                                                    const inst = s.instruments[instrumentIndex];
-                                                    inst.morphDurationSeconds = clamp(val / 1000, 0, 4);
-                                                },
-                                            });
-                                        }}
-                                    />
-                                </label>
-                                <div>
-                                    {Math.round(instrument.morphDurationSeconds * 1000)} ms ({Math.floor(instrument.morphDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz)
-                                </div>
-                            </div>
-                            <label>
-                                Morph Curve ({instrument.morphCurveN11.toFixed(2)})
-                                <input
-                                    type="range"
-                                    min={-1}
-                                    max={1}
-                                    step={0.01}
-                                    value={instrument.morphCurveN11}
-                                    onChange={(e) => {
-                                        const val = parseFloat(e.target.value);
-                                        if (!Number.isFinite(val)) return;
-                                        onSongChange({
-                                            description: 'Set morph curve',
-                                            undoable: true,
-                                            mutator: (s) => {
-                                                const inst = s.instruments[instrumentIndex];
-                                                inst.morphCurveN11 = clamp(val, -1, 1);
-                                            },
-                                        });
-                                    }}
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='Morph duration'
+                                    value={instrument.morphDurationSeconds}
+                                    config={MorphDurationConfig}
+                                    onChange={setMorphDuration}
                                 />
-                            </label>
+                            </div>
+                            <div>
+                                {Math.floor(instrument.morphDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
+                            </div>
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='Morph curve'
+                                    value={instrument.morphCurveN11}
+                                    config={MorphCurveConfig}
+                                    onChange={setMorphCurve}
+                                />
+                            </div>
                         </div>
                     )}
 
@@ -618,28 +800,12 @@ show render slot if there are k-rate effects enabled
                                 PWM uses the configured waveform slot for live synthesis.
                             </div>
                             <div className="field-row">
-                                <label>
-                                    PWM speed ({instrument.pwmSpeedHz.toFixed(2)} Hz)
-                                    <input
-                                        type="range"
-                                        min={0}
-                                        step={0.1}
-                                        max={20}
-                                        value={instrument.pwmSpeedHz}
-                                        onChange={(e) => {
-                                            const val = parseFloat(e.target.value);
-                                            if (!Number.isFinite(val)) return;
-                                            onSongChange({
-                                                description: 'Set PWM speed',
-                                                undoable: true,
-                                                mutator: (s) => {
-                                                    const inst = s.instruments[instrumentIndex];
-                                                    inst.pwmSpeedHz = Math.max(0, val);
-                                                },
-                                            });
-                                        }}
-                                    />
-                                </label>
+                                <ContinuousKnob
+                                    label='PWM speed'
+                                    value={instrument.pwmSpeedHz}
+                                    config={PWMSpeedConfig}
+                                    onChange={setPWMSpeed}
+                                />
                             </div>
                             <div className="field-row">
                                 <ContinuousKnob
@@ -650,53 +816,21 @@ show render slot if there are k-rate effects enabled
                                 />
                             </div>
                             <div className="field-row">
-                                <label>
-                                    PWM depth ({instrument.pwmDepth})
-                                    <input
-                                        type="range"
-                                        min={0}
-                                        max={31}
-                                        step={1}
-                                        value={instrument.pwmDepth}
-                                        onChange={(e) => {
-                                            const val = TryParseInt(e.target.value);
-                                            if (val === null) return;
-                                            onSongChange({
-                                                description: 'Set PWM depth',
-                                                undoable: true,
-                                                mutator: (s) => {
-                                                    const inst = s.instruments[instrumentIndex];
-                                                    inst.pwmDepth = clamp(val, 0, 31);
-                                                },
-                                            });
-                                        }}
-                                    />
-                                </label>
+                                <ContinuousKnob
+                                    label='PWM depth'
+                                    value={instrument.pwmDepth}
+                                    config={PWMDepthConfig}
+                                    onChange={setPWMDepth}
+                                />
                             </div>
 
                             <div className="field-row">
-                                <label>
-                                    PWM phase ({Math.round(instrument.pwmPhase01 * 100)}%)
-                                    <input
-                                        type="range"
-                                        min={0}
-                                        max={1}
-                                        step={0.01}
-                                        value={instrument.pwmPhase01}
-                                        onChange={(e) => {
-                                            const val = parseFloat(e.target.value);
-                                            if (!Number.isFinite(val)) return;
-                                            onSongChange({
-                                                description: 'Set PWM phase',
-                                                undoable: true,
-                                                mutator: (s) => {
-                                                    const inst = s.instruments[instrumentIndex];
-                                                    inst.pwmPhase01 = clamp(val, 0, 1);
-                                                },
-                                            });
-                                        }}
-                                    />
-                                </label>
+                                <ContinuousKnob
+                                    label='PWM phase'
+                                    value={instrument.pwmPhase01}
+                                    config={PWMPhaseConfig}
+                                    onChange={setPWMPhase}
+                                />
                             </div>
                         </div>
                     )}
@@ -849,134 +983,54 @@ show render slot if there are k-rate effects enabled
                             </label>
                         </div>
                         <div className="field-row">
-                            <label>
-                                Duration (milliseconds)
-                                <input
-                                    type="range"
-                                    min={0}
-                                    max={4000}
-                                    step={1}
-                                    value={instrument.lowpassDurationSeconds * 1000}
-                                    onChange={(e) => {
-                                        const val = parseFloat(e.target.value);
-                                        if (!Number.isFinite(val)) return;
-                                        onSongChange({
-                                            description: 'Set lowpass duration',
-                                            undoable: true,
-                                            mutator: (s) => {
-                                                const inst = s.instruments[instrumentIndex];
-                                                inst.lowpassDurationSeconds = clamp(val / 1000, 0, 4);
-                                            },
-                                        });
-                                    }}
-                                />
-                            </label>
+                            <ContinuousKnob
+                                label='Lowpass duration'
+                                value={instrument.lowpassDurationSeconds}
+                                config={LowpassDurationConfig}
+                                onChange={setLowpassDuration}
+                            />
                         </div>
                         <div>
-                            {Math.round(instrument.lowpassDurationSeconds * 1000)} ms ({Math.floor(instrument.lowpassDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz)
+                            {Math.floor(instrument.lowpassDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
                         </div>
                         <div className="field-row">
-                            <label>
-                                Curve ({instrument.lowpassCurveN11.toFixed(2)})
-                                <input
-                                    type="range"
-                                    min={-1}
-                                    max={1}
-                                    step={0.01}
-                                    value={instrument.lowpassCurveN11}
-                                    onChange={(e) => {
-                                        const val = parseFloat(e.target.value);
-                                        if (!Number.isFinite(val)) return;
-                                        onSongChange({
-                                            description: 'Set lowpass curve',
-                                            undoable: true,
-                                            mutator: (s) => {
-                                                const inst = s.instruments[instrumentIndex];
-                                                inst.lowpassCurveN11 = clamp(val, -1, 1);
-                                            },
-                                        });
-                                    }}
-                                />
-                            </label>
+                            <ContinuousKnob
+                                label='Lowpass curve'
+                                value={instrument.lowpassCurveN11}
+                                config={LowpassCurveConfig}
+                                onChange={setLowpassCurve}
+                            />
                         </div>
                     </div>
 
                     <div style={{ marginTop: 12 }}>
                         <h4>Wavefold</h4>
                         <div className="field-row">
-                            <label>
-                                Amount ({instrument.wavefoldAmt})
-                                <input
-                                    type="range"
-                                    min={0}
-                                    max={255}
-                                    step={1}
-                                    value={instrument.wavefoldAmt}
-                                    onChange={(e) => {
-                                        const val = TryParseInt(e.target.value);
-                                        if (val === null) return;
-                                        onSongChange({
-                                            description: 'Set wavefold amount',
-                                            undoable: true,
-                                            mutator: (s) => {
-                                                const inst = s.instruments[instrumentIndex];
-                                                inst.wavefoldAmt = clamp(val, 0, 255);
-                                            },
-                                        });
-                                    }}
-                                />
-                            </label>
+                            <ContinuousKnob
+                                label='strength'
+                                value={instrument.wavefoldAmt}
+                                config={WavefoldAmountConfig}
+                                onChange={setWavefoldAmount}
+                            />
                         </div>
                         <div className="field-row">
-                            <label>
-                                Duration (milliseconds)
-                                <input
-                                    type="range"
-                                    min={0}
-                                    max={4000}
-                                    step={1}
-                                    value={instrument.wavefoldDurationSeconds * 1000}
-                                    onChange={(e) => {
-                                        const val = parseFloat(e.target.value);
-                                        if (!Number.isFinite(val)) return;
-                                        onSongChange({
-                                            description: 'Set wavefold duration',
-                                            undoable: true,
-                                            mutator: (s) => {
-                                                const inst = s.instruments[instrumentIndex];
-                                                inst.wavefoldDurationSeconds = clamp(val / 1000, 0, 4);
-                                            },
-                                        });
-                                    }}
-                                />
-                            </label>
+                            <ContinuousKnob
+                                label='decay'
+                                value={instrument.wavefoldDurationSeconds}
+                                config={WavefoldDurationConfig}
+                                onChange={setWavefoldDuration}
+                            />
                         </div>
                         <div>
-                            {Math.round(instrument.wavefoldDurationSeconds * 1000)} ms ({Math.floor(instrument.wavefoldDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz)
+                            {Math.floor(instrument.wavefoldDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
                         </div>
                         <div className="field-row">
-                            <label>
-                                Curve ({instrument.wavefoldCurveN11.toFixed(2)})
-                                <input
-                                    type="range"
-                                    min={-1}
-                                    max={1}
-                                    step={0.01}
-                                    value={instrument.wavefoldCurveN11}
-                                    onChange={(e) => {
-                                        const val = parseFloat(e.target.value);
-                                        if (!Number.isFinite(val)) return;
-                                        onSongChange({
-                                            description: 'Set wavefold curve',
-                                            undoable: true,
-                                            mutator: (s) => {
-                                                const inst = s.instruments[instrumentIndex];
-                                                inst.wavefoldCurveN11 = clamp(val, -1, 1);
-                                            },
-                                        });
-                                    }}
-                                />
-                            </label>
+                            <ContinuousKnob
+                                label='curve'
+                                value={instrument.wavefoldCurveN11}
+                                config={WavefoldCurveConfig}
+                                onChange={setWavefoldCurve}
+                            />
                         </div>
                         <div style={{ maxWidth: 520 }}>
                             Set Amount to 0 to disable wavefold.

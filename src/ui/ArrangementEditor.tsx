@@ -6,8 +6,8 @@ import { Pattern } from "../models/pattern";
 import { formatPatternIndex, Song } from "../models/song";
 import { SomaticCaps } from "../models/tic80Capabilities";
 import { CharMap, clamp } from "../utils/utils";
-import { useConfirmDialog } from "./confirm_dialog";
-import { Tooltip } from "./tooltip";
+import { useConfirmDialog } from "./basic/confirm_dialog";
+import { Tooltip } from "./basic/tooltip";
 import { useWheelNavigator } from "../hooks/useWheelNavigator";
 
 const PAGE_SIZE = 4;

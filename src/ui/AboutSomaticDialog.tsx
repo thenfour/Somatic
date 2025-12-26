@@ -1,7 +1,7 @@
 import React from 'react';
-import { ModalDialog } from './ModalDialog';
 import { buildInfo } from '../buildInfo';
-import { DateValue } from './DateValue';
+import { DateValue } from './basic/DateValue';
+import { ModalDialog } from './basic/ModalDialog';
 
 export interface AboutSomaticDialogProps {
     open: boolean;

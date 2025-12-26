@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { CoalesceBoolean } from "../utils/utils";
+import { CoalesceBoolean } from "../../utils/utils";
 
 import "./Tabs.css";
 

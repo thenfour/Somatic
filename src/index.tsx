@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { ClipboardProvider } from "./hooks/useClipboard";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { ShortcutManagerProvider } from "./keyb/KeyboardShortcutManager";
-import { ConfirmDialogProvider } from "./ui/confirm_dialog";
+import { ConfirmDialogProvider } from "./ui/basic/confirm_dialog";
 import { Theme } from "./ui/theme_editor_panel";
 import { ToastProvider } from "./ui/toast_provider";
 import { App } from "./Somatic";

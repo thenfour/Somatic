@@ -1,5 +1,5 @@
 import React from "react";
-import { typedKeys } from "../utils/utils";
+import { typedKeys } from "../../utils/utils";
 
 type Primitive = string | number | boolean | null | undefined | bigint | symbol;
 

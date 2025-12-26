@@ -1,5 +1,5 @@
 import React from "react";
-import { Tooltip } from "../ui/tooltip";
+import { Tooltip } from "../ui/basic/tooltip";
 import { assert, CharMap, matchesFilter } from "../utils/utils";
 import { GlobalActionId, kAllActionIds } from "./ActionIds";
 import { gActionRegistry, kAllActions } from "./ActionRegistry";
@@ -8,7 +8,7 @@ import "./KeyboardShortcutConfigurator.css";
 import { useShortcutManager } from "./KeyboardShortcutManager";
 import { deserializeUserBindings, isSameChord, serializeUserBindings, ShortcutChord } from "./KeyboardShortcutTypes";
 import { useChordCapture } from "./useChordCapture";
-import { useConfirmDialog } from "../ui/confirm_dialog";
+import { useConfirmDialog } from "../ui/basic/confirm_dialog";
 import { useToasts } from "../ui/toast_provider";
 import { useClipboard } from "../hooks/useClipboard";
 

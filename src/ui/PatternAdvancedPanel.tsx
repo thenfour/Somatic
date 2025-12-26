@@ -1,6 +1,6 @@
 import React, { useId, useState } from 'react';
 import { CharMap } from '../utils/utils';
-import { Tooltip } from './tooltip';
+import { Tooltip } from './basic/tooltip';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
 import { GlobalActionId } from '../keyb/ActionIds';
 
