@@ -600,7 +600,10 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       title: "toggle loop mode off",
       description: "toggle looping off/on.",
       category: "Transport",
-      defaultBindings: [],
+      defaultBindings: [
+         // shift+L
+         {kind: "character", key: "L", shift: true}
+      ],
    },
 
 

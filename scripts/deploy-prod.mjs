@@ -80,6 +80,19 @@ async function main() {
 
   try {
     await sftp.connect(config);
+    // Clean remote deploy directory before uploading new build
+    if (DEPLOY_DIR) {
+      const remoteRoot = toPosix(DEPLOY_DIR);
+      console.log(`Cleaning remote directory ${remoteRoot} ...`);
+      try {
+        await sftp.rmdir(remoteRoot, true);
+      } catch (err) {
+        // It's fine if the directory doesn't exist yet
+        if (err && err.code !== 'ENOENT' && err.code !== 2) {
+          console.warn('Warning: failed to remove remote directory before deploy:', err.message || err);
+        }
+      }
+    }
     await uploadDirectory(sftp, BUILD_DIR, DEPLOY_DIR);
   } finally {
     await sftp.end();
