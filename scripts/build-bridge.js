@@ -101,6 +101,28 @@ function buildTicCart(luaSource) {
     return Buffer.concat([chunkHeader, codeBytes]);
 }
 
+function cleanOldBridgeCarts() {
+    const publicDir = path.resolve(__dirname, '../public');
+    const currentName = path.basename(OUTPUT_TIC_PATH);
+    if (!fs.existsSync(publicDir)) return;
+
+    const entries = fs.readdirSync(publicDir, { withFileTypes: true });
+    for (const entry of entries) {
+        if (!entry.isFile()) continue;
+        const name = entry.name;
+        if (name === currentName) continue;
+        if (name.startsWith('bridge-') && name.endsWith('.tic')) {
+            const fullPath = path.join(publicDir, name);
+            try {
+                fs.unlinkSync(fullPath);
+                console.log('[build-bridge] Removed old bridge cart', fullPath);
+            } catch (err) {
+                console.warn('[build-bridge] Failed to remove old bridge cart', fullPath, err.message || err);
+            }
+        }
+    }
+}
+
 function buildBridge() {
     console.log('[build-bridge] Reading', BRIDGE_LUA_PATH);
 
@@ -152,7 +174,9 @@ function buildBridge() {
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
-    
+    // Remove any older bridge-*.tic so public/ (and thus dist/) stays clean.
+    cleanOldBridgeCarts();
+
     fs.writeFileSync(OUTPUT_TIC_PATH, ticCart);
     console.log('[build-bridge] Written', OUTPUT_TIC_PATH);
 }
