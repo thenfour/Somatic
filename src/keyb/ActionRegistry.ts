@@ -592,6 +592,287 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "Transport",
       defaultBindings: [],
    },
+
+
+
+   // Keyboard note input (typing piano). Uses physical key codes so it is layout-agnostic.
+   // Matches the legacy layout in src/midi/keyboard_input.ts: "-zsxdcvgbhnjmq2w3er5t6y7ui".
+   "KeyboardNote01_C": {
+      id: "KeyboardNote01_C",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyZ", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyZ", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote02_Csharp": {
+      id: "KeyboardNote02_Csharp",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyS", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyS", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote03_D": {
+      id: "KeyboardNote03_D",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyX", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyX", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote04_Dsharp": {
+      id: "KeyboardNote04_Dsharp",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyD", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyD", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote05_E": {
+      id: "KeyboardNote05_E",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyC", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyC", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote06_F": {
+      id: "KeyboardNote06_F",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyV", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyV", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote07_Fsharp": {
+      id: "KeyboardNote07_Fsharp",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyG", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyG", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote08_G": {
+      id: "KeyboardNote08_G",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyB", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyB", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote09_Gsharp": {
+      id: "KeyboardNote09_Gsharp",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyH", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyH", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote10_A": {
+      id: "KeyboardNote10_A",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyN", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyN", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote11_Asharp": {
+      id: "KeyboardNote11_Asharp",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyJ", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyJ", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote12_B": {
+      id: "KeyboardNote12_B",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyM", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyM", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote13_C": {
+      id: "KeyboardNote13_C",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyQ", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyQ", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote14_Csharp": {
+      id: "KeyboardNote14_Csharp",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "Digit2", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "Digit2", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote15_D": {
+      id: "KeyboardNote15_D",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyW", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyW", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote16_Dsharp": {
+      id: "KeyboardNote16_Dsharp",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "Digit3", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "Digit3", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote17_E": {
+      id: "KeyboardNote17_E",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyE", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyE", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote18_F": {
+      id: "KeyboardNote18_F",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyR", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyR", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote19_Fsharp": {
+      id: "KeyboardNote19_Fsharp",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "Digit5", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "Digit5", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote20_G": {
+      id: "KeyboardNote20_G",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyT", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyT", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote21_Gsharp": {
+      id: "KeyboardNote21_Gsharp",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "Digit6", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "Digit6", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote22_A": {
+      id: "KeyboardNote22_A",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyY", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyY", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote23_Asharp": {
+      id: "KeyboardNote23_Asharp",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "Digit7", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "Digit7", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote24_B": {
+      id: "KeyboardNote24_B",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyU", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyU", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+   "KeyboardNote25_C": {
+      id: "KeyboardNote25_C",
+      title: "keyboard note",
+      description: "play note using the computer keyboard.",
+      category: "NoteInput",
+      eventType: "both",
+      defaultBindings: [
+         {kind: "physical", code: "KeyI", ignoreExtraModifiers: true},
+         //{kind: "physical", code: "KeyI", shift: true, ignoreExtraModifiers: true},
+      ],
+   },
+
 } as const;
 
 export const kAllActions = typedValues(gActionRegistry);

@@ -15,7 +15,6 @@ import { useRenderAlarm } from './hooks/useRenderAlarm';
 import { useWriteBehindEffect } from './hooks/useWriteBehindEffect';
 import { useShortcutManager } from './keyb/KeyboardShortcutManager';
 import { useActionHandler } from './keyb/useActionHandler';
-import { KeyboardNoteInput } from './midi/keyboard_input';
 import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
@@ -85,13 +84,40 @@ const isEditingCommandOrParamCell = () => {
     return cellType === 'command' || cellType === 'param' || cellType === 'instrument';
 };
 
+const kKeyboardNoteActions: Array<{ actionId: GlobalActionId; semitoneIndex: number; }> = [
+    { actionId: 'KeyboardNote01_C', semitoneIndex: 1 },
+    { actionId: 'KeyboardNote02_Csharp', semitoneIndex: 2 },
+    { actionId: 'KeyboardNote03_D', semitoneIndex: 3 },
+    { actionId: 'KeyboardNote04_Dsharp', semitoneIndex: 4 },
+    { actionId: 'KeyboardNote05_E', semitoneIndex: 5 },
+    { actionId: 'KeyboardNote06_F', semitoneIndex: 6 },
+    { actionId: 'KeyboardNote07_Fsharp', semitoneIndex: 7 },
+    { actionId: 'KeyboardNote08_G', semitoneIndex: 8 },
+    { actionId: 'KeyboardNote09_Gsharp', semitoneIndex: 9 },
+    { actionId: 'KeyboardNote10_A', semitoneIndex: 10 },
+    { actionId: 'KeyboardNote11_Asharp', semitoneIndex: 11 },
+    { actionId: 'KeyboardNote12_B', semitoneIndex: 12 },
+    { actionId: 'KeyboardNote13_C', semitoneIndex: 13 },
+    { actionId: 'KeyboardNote14_Csharp', semitoneIndex: 14 },
+    { actionId: 'KeyboardNote15_D', semitoneIndex: 15 },
+    { actionId: 'KeyboardNote16_Dsharp', semitoneIndex: 16 },
+    { actionId: 'KeyboardNote17_E', semitoneIndex: 17 },
+    { actionId: 'KeyboardNote18_F', semitoneIndex: 18 },
+    { actionId: 'KeyboardNote19_Fsharp', semitoneIndex: 19 },
+    { actionId: 'KeyboardNote20_G', semitoneIndex: 20 },
+    { actionId: 'KeyboardNote21_Gsharp', semitoneIndex: 21 },
+    { actionId: 'KeyboardNote22_A', semitoneIndex: 22 },
+    { actionId: 'KeyboardNote23_Asharp', semitoneIndex: 23 },
+    { actionId: 'KeyboardNote24_B', semitoneIndex: 24 },
+    { actionId: 'KeyboardNote25_C', semitoneIndex: 25 },
+];
+
 
 export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
     const keyboardShortcutMgr = useShortcutManager<GlobalActionId>();
     const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
     const [disabledMidiDeviceIds, setDisabledMidiDeviceIds] = useLocalStorage<string[]>("somatic-disabledMidiDeviceIds", []);
     const midiRef = React.useRef<MidiManager | null>(new MidiManager(disabledMidiDeviceIds));
-    const keyboardRef = React.useRef<KeyboardNoteInput | null>(null);
     const patternGridRef = React.useRef<PatternGridHandle | null>(null);
     const undoStackRef = React.useRef<UndoStack | null>(null);
     const audio = useMemo(() => new AudioController({ bridgeGetter: () => bridgeRef.current }), []);
@@ -180,7 +206,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const toggleKeyboardEnabled = () => {
         const newEnabled = !keyboardEnabled;
         setKeyboardEnabled(newEnabled);
-        keyboardRef.current?.setEnabled(newEnabled);
     };
 
     const switchEmbedMode = (mode: "iframe" | "toplevel") => {
@@ -347,21 +372,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         audio.sfxNoteOff(note);
     }, [audio, autoSave]);
 
-    // Register note handlers once for each source (MIDI + keyboard).
+    // Register note handlers once for MIDI.
     useEffect(() => {
-        if (!keyboardRef.current) {
-            keyboardRef.current = new KeyboardNoteInput({ getOctave: () => editorRef.current.octave });
-            keyboardRef.current.init();
-        }
-
         const cleanups: Array<() => void> = [];
         if (midiRef.current) {
             cleanups.push(midiRef.current.onNoteOn((evt) => handleIncomingNoteOn(evt.note)));
             cleanups.push(midiRef.current.onNoteOff((evt) => handleIncomingNoteOff(evt.note)));
-        }
-        if (keyboardRef.current) {
-            cleanups.push(keyboardRef.current.onNoteOn((evt) => handleIncomingNoteOn(evt.note)));
-            cleanups.push(keyboardRef.current.onNoteOff((evt) => handleIncomingNoteOff(evt.note)));
         }
 
         return () => {
@@ -369,14 +385,62 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         };
     }, [handleIncomingNoteOff, handleIncomingNoteOn]);
 
+    // Keyboard note input is implemented via global actions mapped to physical keys.
+    const activeKeyboardNotesRef = React.useRef<Map<GlobalActionId, number>>(new Map());
+
+    useEffect(() => {
+        const cleanups: Array<() => void> = [];
+        for (const { actionId, semitoneIndex } of kKeyboardNoteActions) {
+            cleanups.push(keyboardShortcutMgr.registerHandler(actionId, (ctx) => {
+                if (!keyboardEnabled)
+                    return;
+
+                if (ctx.eventType === 'keydown') {
+                    const e = ctx.event;
+                    if (e.metaKey || e.ctrlKey || e.altKey)
+                        return;
+                    if (e.repeat)
+                        return;
+                    if (isEditingCommandOrParamCell())
+                        return;
+                    if (activeKeyboardNotesRef.current.has(actionId))
+                        return;
+
+                    const octave = editorRef.current.octave;
+                    const note = semitoneIndex + (octave - 1) * 12;
+                    activeKeyboardNotesRef.current.set(actionId, note);
+                    handleIncomingNoteOn(note);
+                    return;
+                }
+
+                // keyup
+                const note = activeKeyboardNotesRef.current.get(actionId);
+                if (note == null)
+                    return;
+
+                activeKeyboardNotesRef.current.delete(actionId);
+                handleIncomingNoteOff(note);
+            }));
+        }
+        return () => {
+            cleanups.forEach((fn) => fn());
+        };
+    }, [handleIncomingNoteOff, handleIncomingNoteOn, keyboardEnabled, keyboardShortcutMgr]);
+
+    // If keyboard note input is disabled while notes are held, release them.
+    useEffect(() => {
+        if (keyboardEnabled)
+            return;
+        for (const note of activeKeyboardNotesRef.current.values()) {
+            handleIncomingNoteOff(note);
+        }
+        activeKeyboardNotesRef.current.clear();
+    }, [keyboardEnabled, handleIncomingNoteOff]);
+
     // Keep sources enabled/disabled in sync.
     useEffect(() => {
         midiRef.current?.setEnabled(midiEnabled);
     }, [midiEnabled]);
-
-    useEffect(() => {
-        keyboardRef.current?.setEnabled(keyboardEnabled);
-    }, [keyboardEnabled]);
 
     useEffect(() => {
         const midi = midiRef.current;

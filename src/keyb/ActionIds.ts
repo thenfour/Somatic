@@ -75,6 +75,34 @@ export const GlobalActions = {
    ClearCell: "ClearCell",
    ClearField: "ClearField",
    SelectAll: "SelectAll",
+
+   // Keyboard note input (typing piano) via global shortcuts.
+   // These correspond to the legacy mapping in src/midi/keyboard_input.ts.
+   KeyboardNote01_C: "KeyboardNote01_C",
+   KeyboardNote02_Csharp: "KeyboardNote02_Csharp",
+   KeyboardNote03_D: "KeyboardNote03_D",
+   KeyboardNote04_Dsharp: "KeyboardNote04_Dsharp",
+   KeyboardNote05_E: "KeyboardNote05_E",
+   KeyboardNote06_F: "KeyboardNote06_F",
+   KeyboardNote07_Fsharp: "KeyboardNote07_Fsharp",
+   KeyboardNote08_G: "KeyboardNote08_G",
+   KeyboardNote09_Gsharp: "KeyboardNote09_Gsharp",
+   KeyboardNote10_A: "KeyboardNote10_A",
+   KeyboardNote11_Asharp: "KeyboardNote11_Asharp",
+   KeyboardNote12_B: "KeyboardNote12_B",
+   KeyboardNote13_C: "KeyboardNote13_C",
+   KeyboardNote14_Csharp: "KeyboardNote14_Csharp",
+   KeyboardNote15_D: "KeyboardNote15_D",
+   KeyboardNote16_Dsharp: "KeyboardNote16_Dsharp",
+   KeyboardNote17_E: "KeyboardNote17_E",
+   KeyboardNote18_F: "KeyboardNote18_F",
+   KeyboardNote19_Fsharp: "KeyboardNote19_Fsharp",
+   KeyboardNote20_G: "KeyboardNote20_G",
+   KeyboardNote21_Gsharp: "KeyboardNote21_Gsharp",
+   KeyboardNote22_A: "KeyboardNote22_A",
+   KeyboardNote23_Asharp: "KeyboardNote23_Asharp",
+   KeyboardNote24_B: "KeyboardNote24_B",
+   KeyboardNote25_C: "KeyboardNote25_C",
 } as const;
 
 export const kAllActionIds = typedValues(GlobalActions);
@@ -87,6 +115,7 @@ export const GlobalActionCategories = {
    Edit: "Edit",
    View: "View",
    Navigation: "Navigation",
+   NoteInput: "NoteInput",
 } as const;
 
 export const kAllActionCategories = typedValues(GlobalActionCategories);

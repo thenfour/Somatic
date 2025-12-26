@@ -61,15 +61,27 @@ export function normalizeKeyForCharacterShortcut(key: string): string {
 }
 
 function chordModsMatch(e: KeyboardEvent, chord: ShortcutChord, platform: Platform): boolean {
-   const wantPrimary = !!chord.primary;
-   const wantSecondary = !!chord.secondary;
-   const wantAlt = !!chord.alt;
-   const wantShift = !!chord.shift;
-
    const havePrimary = getEventPrimaryDown(e, platform);
    const haveSecondary = getEventSecondaryDown(e, platform);
    const haveAlt = e.altKey;
    const haveShift = e.shiftKey;
+
+   if (chord.ignoreExtraModifiers) {
+      if (chord.primary && !havePrimary)
+         return false;
+      if (chord.secondary && !haveSecondary)
+         return false;
+      if (chord.alt && !haveAlt)
+         return false;
+      if (chord.shift && !haveShift)
+         return false;
+      return true;
+   }
+
+   const wantPrimary = !!chord.primary;
+   const wantSecondary = !!chord.secondary;
+   const wantAlt = !!chord.alt;
+   const wantShift = !!chord.shift;
 
    return (
       wantPrimary === havePrimary && wantSecondary === haveSecondary && wantAlt === haveAlt && wantShift === haveShift);
@@ -97,5 +109,7 @@ export function buildShortcutContext(platform: Platform, e: KeyboardEvent): Shor
       platform,
       target,
       isEditableTarget: isEditableTarget(target),
+      eventType: (e.type === "keyup" ? "keyup" : "keydown"),
+      event: e,
    };
 }

@@ -19,10 +19,17 @@ export type ShortcutChord = {
    secondary?: boolean;
    alt?: boolean;
    shift?: boolean;
+
+   // If true, extra modifiers do not prevent a match.
+   // (e.g. chord with no mods can still match while Ctrl is held).
+   // Default is exact matching.
+   ignoreExtraModifiers?: boolean;
 };
 
 export function isSameChord(a: ShortcutChord, b: ShortcutChord): boolean {
    if (a.kind !== b.kind)
+      return false;
+   if (Boolean(a.ignoreExtraModifiers) !== Boolean(b.ignoreExtraModifiers))
       return false;
    if (Boolean(a.primary) !== Boolean(b.primary))
       return false;
@@ -47,6 +54,10 @@ export type ActionDef<TActionId extends string = string> = {
    description?: string;
    category?: GlobalActionCategory;
 
+   // Which keyboard event type triggers this action.
+   // Default: keydown
+   eventType?: "keydown" | "keyup" | "both";
+
    // Defaults can be platform-specific (recommended)
    defaultBindings?: ShortcutChord[]; // | Partial<Record<Platform, ShortcutChord[]>>;
 
@@ -63,6 +74,8 @@ export type ShortcutContext = {
    platform: Platform; //
    target: EventTarget | null;
    isEditableTarget: boolean;
+   eventType: "keydown" | "keyup";
+   event: KeyboardEvent;
 };
 
 export type UserBindings<TActionId extends string = string> = Partial<Record<TActionId, ShortcutChord[]|null>>;

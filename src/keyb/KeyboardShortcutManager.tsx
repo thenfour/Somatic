@@ -40,6 +40,9 @@ const ShortcutManagerContext = React.createContext<ShortcutManagerApi<any> | nul
 function defaultShouldHandleAction<TActionId extends string>(def: ActionDef<TActionId>, ctx: ShortcutContext): boolean {
     if (def.when && !def.when(ctx)) return false;
     if (!def.allowInEditable && ctx.isEditableTarget) return false;
+
+    const et = def.eventType ?? "keydown";
+    if (et !== "both" && et !== ctx.eventType) return false;
     return true;
 }
 
@@ -122,8 +125,7 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
     }, [getResolvedBindings, platform]);
 
     React.useEffect(() => {
-        const onKeyDown = (e: Event) => {
-            console.log(`[${props.name}] KeyDown event:`, e);
+        const onKeyEvent = (e: Event) => {
             if (!(e instanceof KeyboardEvent)) return;
             if (suspendCountRef.current > 0) return;
 
@@ -216,9 +218,11 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
         const useCapture = eventPhase === "capture";
 
         //console.log(`[${props.name}] Attaching keydown listener to`, target, `in ${useCapture ? "capture" : "bubble"} phase`);
-        target.addEventListener("keydown", onKeyDown, useCapture);
+        target.addEventListener("keydown", onKeyEvent, useCapture);
+        target.addEventListener("keyup", onKeyEvent, useCapture);
         return () => {
-            target.removeEventListener("keydown", onKeyDown, useCapture);
+            target.removeEventListener("keydown", onKeyEvent, useCapture);
+            target.removeEventListener("keyup", onKeyEvent, useCapture);
         };
     }, [platform, props.eventPolicy, props.attachTo, props.eventPhase]);
 
