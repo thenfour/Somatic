@@ -657,20 +657,22 @@ show render slot if there are k-rate effects enabled
                 </>
             )}
         >
+
+            <div className="field-row">
+                <ContinuousKnob
+                    label='Speed'
+                    value={instrument.speed}
+                    config={SpeedConfig}
+                    onChange={setSpeed}
+                />
+            </div>
+
             <TabPanel
                 selectedTabId={selectedTab}
                 handleTabChange={(_, tabId) => setSelectedTab(tabId as string)}
             >
                 <Tab thisTabId="volume" summaryTitle="Volume" canBeDefault={true}>
                     <div className="instrument-tab-content">
-                        <div className="field-row">
-                            <ContinuousKnob
-                                label='Speed'
-                                value={instrument.speed}
-                                config={SpeedConfig}
-                                onChange={setSpeed}
-                            />
-                        </div>
                         <div className="field-row">
                             <label>Stereo</label>
                             <label>
@@ -884,7 +886,7 @@ show render slot if there are k-rate effects enabled
 
                         {showNativeWaveformEnvelope && (
                             <>
-                                <div style={{ display: "flex", gap: "8px" }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                                     <InstrumentEnvelopeEditor
                                         title="Waveforms"
                                         frames={instrument.waveFrames}
@@ -896,7 +898,7 @@ show render slot if there are k-rate effects enabled
                                         onHoverChange={(hover) => setHoveredWaveform(hover)}
                                     />
 
-                                    <div className="waveform-swatch-previews" style={{ marginTop: 75 /* crude alignment with editor */ }}>
+                                    <div>
                                         <WaveformSelect
                                             onClickWaveform={(waveformId) => {
                                                 // set whole env to this waveform
@@ -997,7 +999,7 @@ show render slot if there are k-rate effects enabled
                             </div>
                             <div className="field-row">
                                 <ContinuousKnob
-                                    label='Lowpass duration'
+                                    label='decay'
                                     value={instrument.lowpassDurationSeconds}
                                     config={LowpassDurationConfig}
                                     onChange={setLowpassDuration}
@@ -1008,7 +1010,7 @@ show render slot if there are k-rate effects enabled
                             </div>
                             <div className="field-row">
                                 <ContinuousKnob
-                                    label='Lowpass curve'
+                                    label='curve'
                                     value={instrument.lowpassCurveN11}
                                     config={LowpassCurveConfig}
                                     onChange={setLowpassCurve}
