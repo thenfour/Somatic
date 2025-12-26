@@ -4,6 +4,7 @@ dist
 temp
 .env.local
 .env
+public/bridge-*.tic
 public/bridge.tic
 public/robots.txt
 public/sitemap.xml

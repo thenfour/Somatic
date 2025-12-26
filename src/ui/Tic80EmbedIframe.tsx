@@ -7,7 +7,6 @@ import {
     useImperativeHandle,
     useRef,
 } from "react";
-import { gLog } from "../utils/logger";
 
 declare global {
     interface Window {

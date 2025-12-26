@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { Tic80SerializedSong } from "../audio/tic80_cart_serializer";
 import { Tic80ChannelIndex, TicBridge, TicMemoryMap } from "../models/tic80Capabilities";
+import { buildInfo } from "../buildInfo";
 import { AsyncMutex } from "../utils/async_mutex";
 import { assert } from "../utils/utils";
 import { gLog } from "../utils/logger";
@@ -97,6 +98,9 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         ref
     ) {
         const iframeRef = useRef<Tic80IframeHandle | Tic80TopLevelHandle | null>(null);
+
+        const bridgeBuildId = buildInfo.commitHash || "dev";
+        const bridgeCartPath = `/bridge-${bridgeBuildId}.tic`;
 
         const moduleRef = useRef<any | null>(null);
         const heapRef = useRef<Uint8Array | null>(null);
@@ -590,12 +594,11 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             {embedMode === "toplevel" ? (
                 <Tic80TopLevel
                     ref={iframeRef}
-                    args={["/bridge.tic", "--skip", "--vsync"]}
+                    args={[bridgeCartPath, "--skip", "--vsync"]}
                 />
             ) : (
                 <Tic80Iframe
                     ref={iframeRef}
-                    args={["/bridge.tic", "--skip", "--vsync"]}
                 />
             )}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>

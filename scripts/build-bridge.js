@@ -11,11 +11,16 @@
 const fs = require('fs');
 const path = require('path');
 const { parseJSONWithComments } = require('./jsonc-utils');
+const { BUILD_INFO, getBridgeCartFilename } = require('./buildInfo');
 
 const BRIDGE_LUA_PATH = path.resolve(__dirname, '../bridge/bridge.lua');
 const BRIDGE_CONFIG_JSONC_PATH = path.resolve(__dirname, '../bridge/bridge_config.jsonc');
 const OUTPUT_GENERATED_BRIDGE_LUA_PATH = path.resolve(__dirname, '../temp/bridge-generated.lua');
-const OUTPUT_TIC_PATH = path.resolve(__dirname, '../public/bridge.tic');
+const OUTPUT_TIC_PATH = path.resolve(
+    __dirname,
+    '../public',
+    getBridgeCartFilename(BUILD_INFO)
+);
 
 // TIC-80 chunk types (subset)
 const CHUNK_CODE = 5;
