@@ -348,18 +348,6 @@ do
 		return clamp01(ticksPlayed / durationTicks)
 	end
 
-	local function has_k_rate(cfg)
-		if not cfg then
-			return false
-		end
-		local we = cfg.we
-		return (render_waveform_morph and we == 0)
-			or (render_waveform_pwm and we == 2)
-			or (apply_lowpass_effect_to_samples and (cfg.lpE or 0) ~= 0)
-			or (apply_wavefold_effect_to_samples and (cfg.wfAmt or 0) > 0)
-			or (apply_hardsync_effect_to_samples and (cfg.hsE or 0) ~= 0 and (cfg.hsStr or 0) > 0)
-	end
-
 	local render_waveform_morph
 	-- BEGIN_FEATURE_WAVEMORPH
 	render_waveform_morph = function(cfg, ticksPlayed, outSamples)
@@ -383,13 +371,13 @@ do
 	local render_waveform_pwm
 	-- BEGIN_FEATURE_PWM
 	render_waveform_pwm = function(cfg, ticks, out, lfoTicks)
-		local c = cfg.lfoC or 0
+		local c = cfg.lfoC
 		local p = 0
 		if c > 0 then
 			p = (lfoTicks % c) / c
 		end
 		local tri = (p < 0.5) and (p * 4 - 1) or (3 - p * 4)
-		local d = (cfg.pwmD or 0) + (cfg.pwmDp or 0) * tri
+		local d = cfg.pwmD + cfg.pwmDp * tri
 		if d < 1 then
 			d = 1
 		elseif d > 30 then
@@ -425,6 +413,15 @@ do
 		end
 	end
 
+	local function has_k_rate(cfg)
+		local we = cfg.we
+		return (render_waveform_morph and we == 0)
+			or (render_waveform_pwm and we == 2)
+			or (apply_lowpass_effect_to_samples and cfg.lpE ~= 0)
+			or (apply_wavefold_effect_to_samples and cfg.wfAmt > 0)
+			or (apply_hardsync_effect_to_samples and cfg.hsE ~= 0 and cfg.hsStr > 0)
+	end
+
 	local function render_tick_cfg(cfg, instId, ticksPlayed, lfoTicks)
 		if not has_k_rate(cfg) then
 			return
@@ -433,7 +430,7 @@ do
 		if apply_hardsync_effect_to_samples and cfg.hsE ~= 0 and cfg.hsStr > 0 then
 			local hsT = calc_t(cfg.hsSrc, cfg.hsDcy, ticksPlayed, lfoTicks, cfg.lfoC)
 			local env = 1 - crvN11(hsT, u8_s8(cfg.hsCrv))
-			local multiplier = 1 + ((cfg.hsStr or 0) / 255) * 7 * env
+			local multiplier = 1 + (cfg.hsStr / 255) * 7 * env
 			apply_hardsync_effect_to_samples(render_out, multiplier)
 		end
 		if apply_wavefold_effect_to_samples then

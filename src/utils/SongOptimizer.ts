@@ -380,7 +380,8 @@ export function OptimizeSong(song: Song): OptimizeResult {
       }
 
       const lfoUsed = inst.lfoRateHz > 0 &&
-         (inst.lowpassModSource === "lfo" || inst.wavefoldModSource === "lfo" || inst.hardSyncModSource === "lfo");
+         (inst.lowpassModSource === "lfo" || inst.wavefoldModSource === "lfo" || inst.hardSyncModSource === "lfo" ||
+          inst.waveEngine === "pwm");
       if (lfoUsed) {
          featureUsage.lfo = true;
       } else {
@@ -424,8 +425,10 @@ export function analyzePlaybackFeatures(song: Song): PlaybackFeatureUsage {
    song.instruments.forEach((inst) => {
       if (inst.waveEngine === "morph")
          usage.waveMorph = true;
-      if (inst.waveEngine === "pwm")
+      if (inst.waveEngine === "pwm") {
          usage.pwm = true;
+         usage.lfo = true;
+      }
       if (inst.lowpassEnabled)
          usage.lowpass = true;
       if (inst.wavefoldAmt > 0)
