@@ -25,7 +25,15 @@ interface ContinuousKnobProps {
 
 export const ContinuousKnob: React.FC<ContinuousKnobProps> = ({ label, value, onChange, config }) => {
     return (
-        <div className="knob continuous-knob">
+        <div className="knob continuous-knob"
+            onMouseDown={(e) => {
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onChange(config.default);
+                }
+            }}
+        >
             <label>
                 {label}: {config.format(value)}
                 <input

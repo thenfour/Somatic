@@ -223,10 +223,10 @@ export class Tic80Instrument {
       this.morphCurveN11 = clamp(data.morphCurveN11 ?? 0, -1, 1);
       this.morphDurationSeconds = Math.max(0, data.morphDurationSeconds ?? 1.0);
 
-      this.pwmSpeedHz = Math.max(0, data.pwmSpeedHz ?? 0);
+      this.pwmSpeedHz = Math.max(0, data.pwmSpeedHz ?? 1.5);
       this.pwmDuty = clamp(data.pwmDuty ?? 16, 0, 31);
-      this.pwmDepth = clamp(data.pwmDepth ?? 8, 0, 31);
-      this.pwmPhase01 = clamp(data.pwmPhase01 ?? 0, 0, 1);
+      this.pwmDepth = clamp(data.pwmDepth ?? 10, 0, 31);
+      this.pwmPhase01 = clamp(data.pwmPhase01 ?? 6, 0, 1);
 
       this.lowpassEnabled = CoalesceBoolean(data.lowpassEnabled, false);
       this.lowpassDurationSeconds = Math.max(0, data.lowpassDurationSeconds ?? 0.5);
@@ -238,14 +238,14 @@ export class Tic80Instrument {
       this.wavefoldCurveN11 = clamp(data.wavefoldCurveN11 ?? 0, -1, 1);
 
       this.hardSyncEnabled = CoalesceBoolean(data.hardSyncEnabled, false);
-      this.hardSyncStrength = clamp(data.hardSyncStrength ?? 1, 1, 8);
-      this.hardSyncDecaySeconds = Math.max(0, data.hardSyncDecaySeconds ?? 0);
+      this.hardSyncStrength = clamp(data.hardSyncStrength ?? 3, 1, 8);
+      this.hardSyncDecaySeconds = Math.max(0, data.hardSyncDecaySeconds ?? 1.5);
       this.hardSyncCurveN11 = clamp(data.hardSyncCurveN11 ?? 0, -1, 1);
 
       this.lfoRateHz = Math.max(0, data.lfoRateHz ?? 2);
       this.lowpassModSource = data.lowpassModSource ?? "envelope";
       this.wavefoldModSource = data.wavefoldModSource ?? "envelope";
-      this.hardSyncModSource = data.hardSyncModSource ?? "envelope";
+      this.hardSyncModSource = data.hardSyncModSource ?? "lfo";
    }
 
    static fromData(data?: Partial<Tic80InstrumentDto>): Tic80Instrument {
