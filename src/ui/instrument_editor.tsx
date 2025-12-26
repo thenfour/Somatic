@@ -379,6 +379,23 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
+
+
+    {/* there are 3 possibilities:
+- morph = show source waveform + morph B
+- no k-rate processing = show native waveform envelope
+- else, show source waveform
+
+show render slot if there are k-rate effects enabled
+
+*/}
+
+    const showRenderWaveformSlot = instrument.isKRateProcessing();
+    const showMorphB = instrument.waveEngine === 'morph';
+    const showNativeWaveformEnvelope = !instrument.isKRateProcessing();
+    const showSourceWaveform = !showNativeWaveformEnvelope;
+
+
     return (
         <AppPanelShell
             className="instrument-panel"
@@ -450,109 +467,232 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                     <Tooltip title="The native TIC-80 waveform engine.">
                         <RadioButton selected={instrument.waveEngine === 'native'} onClick={() => handleSetWaveEngine('native')}>Native</RadioButton>
                     </Tooltip>
-                    <Tooltip title="Morphing waveforms is not yet supported">
+                    <Tooltip title="Morph between two waveforms over time.">
                         <RadioButton selected={instrument.waveEngine === 'morph'} onClick={() => handleSetWaveEngine('morph')}>Morph</RadioButton>
                     </Tooltip>
+                    <Tooltip title="PWM waveform synthesis.">
+                        <RadioButton selected={instrument.waveEngine === 'pwm'} onClick={() => handleSetWaveEngine('pwm')}>PWM</RadioButton>
+                    </Tooltip>
+
+
+                    {showSourceWaveform && (
+                        <div style={{ display: "flex", gap: "16px", padding: 8 }}>
+                            <strong>Source Waveform</strong>
+                            <WaveformSelect
+                                song={song}
+                                onClickWaveform={(waveformId) => {
+                                    onSongChange({
+                                        description: 'Set source waveform',
+                                        undoable: true,
+                                        mutator: (s) => {
+                                            const inst = s.instruments[instrumentIndex];
+                                            inst.sourceWaveformIndex = waveformId;
+                                        },
+                                    });
+                                }}
+                                getOverlayText={(i) => {
+                                    const isNoise = song.waveforms[i]?.isNoise() ?? false;
+                                    return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
+                                }}
+                                getWaveformDisplayStyle={(waveformId) => {
+                                    if (waveformId === instrument.sourceWaveformIndex) {
+                                        return "selected";
+                                    }
+                                    return "muted";
+                                }}
+                            />
+                        </div>)}
+                    {showMorphB && (
+                        <div style={{ display: "flex", gap: "16px", padding: 8 }}>
+                            <strong>Morph Waveform B</strong>
+                            <WaveformSelect
+                                song={song}
+                                onClickWaveform={(waveformId) => {
+                                    onSongChange({
+                                        description: 'Set morph B waveform',
+                                        undoable: true,
+                                        mutator: (s) => {
+                                            const inst = s.instruments[instrumentIndex];
+                                            inst.morphWaveB = waveformId;
+                                        },
+                                    });
+                                }}
+                                getOverlayText={(i) => {
+                                    const isNoise = song.waveforms[i]?.isNoise() ?? false;
+                                    return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
+                                }}
+                                getWaveformDisplayStyle={(waveformId) => {
+                                    if (waveformId === instrument.morphWaveB) {
+                                        return "selected";
+                                    }
+                                    return "muted";
+                                }}
+                            />
+                        </div>
+                    )}
+
+                    {instrument.waveEngine === 'native' && instrument.isKRateProcessing() && (
+                        <div style={{ marginTop: 8 }}>
+                            <div style={{ maxWidth: 520 }}>
+                                Native + effects uses a single configured source waveform.
+                            </div>
+                        </div>
+                    )}
 
                     {instrument.waveEngine === 'morph' && (
                         // a continuous range slider from 0-5 seconds
                         <div>
+                            <div>
+                                <label>
+                                    Morph duration (milliseconds)
+                                    <input
+                                        type="range"
+                                        min={32}
+                                        max={4000}
+                                        step={1}
+                                        value={instrument.morphDurationSeconds * 1000}
+                                        onChange={(e) => {
+                                            const val = parseFloat(e.target.value);
+                                            if (isNaN(val)) return;
+                                            onSongChange({
+                                                description: 'Set morph duration',
+                                                undoable: true,
+                                                mutator: (s) => {
+                                                    const inst = s.instruments[instrumentIndex];
+                                                    inst.morphDurationSeconds = clamp(val / 1000, 0, 4);
+                                                },
+                                            });
+                                        }}
+                                    />
+                                </label>
+                                <div>
+                                    {Math.round(instrument.morphDurationSeconds * 1000)} ms ({Math.floor(instrument.morphDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz)
+                                </div>
+                            </div>
                             <label>
-                                Morph duration (milliseconds)
+                                Morph Curve ({instrument.morphCurveN11.toFixed(2)})
                                 <input
                                     type="range"
-                                    min={32}
-                                    max={4000}
-                                    step={1}
-                                    value={instrument.morphDurationSeconds * 1000}
+                                    min={-1}
+                                    max={1}
+                                    step={0.01}
+                                    value={instrument.morphCurveN11}
                                     onChange={(e) => {
                                         const val = parseFloat(e.target.value);
-                                        if (isNaN(val)) return;
+                                        if (!Number.isFinite(val)) return;
                                         onSongChange({
-                                            description: 'Set morph duration',
+                                            description: 'Set morph curve',
                                             undoable: true,
                                             mutator: (s) => {
                                                 const inst = s.instruments[instrumentIndex];
-                                                inst.morphDurationSeconds = clamp(val / 1000, 0, 4);
+                                                inst.morphCurveN11 = clamp(val, -1, 1);
                                             },
                                         });
                                     }}
                                 />
                             </label>
-                            <div>
-                                {Math.round(instrument.morphDurationSeconds * 1000)} ms ({Math.floor(instrument.morphDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz)
+                        </div>
+                    )}
+
+                    {instrument.waveEngine === 'pwm' && (
+                        <div>
+                            <div style={{ maxWidth: 520 }}>
+                                PWM uses the configured waveform slot for live synthesis.
                             </div>
-                            <div style={{ maxWidth: 400 }}>
-                                Note: Morphing interpolates between two waveforms over the specified duration.
+                            <div className="field-row">
+                                <label>
+                                    PWM speed (Hz)
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        step={0.1}
+                                        max={20}
+                                        value={instrument.pwmSpeedHz}
+                                        onChange={(e) => {
+                                            const val = parseFloat(e.target.value);
+                                            if (!Number.isFinite(val)) return;
+                                            onSongChange({
+                                                description: 'Set PWM speed',
+                                                undoable: true,
+                                                mutator: (s) => {
+                                                    const inst = s.instruments[instrumentIndex];
+                                                    inst.pwmSpeedHz = Math.max(0, val);
+                                                },
+                                            });
+                                        }}
+                                    />
+                                </label>
                             </div>
-                            <div style={{ display: "flex", gap: "16px", padding: 8 }}>
-                                <strong>Morph Waveform A</strong>
-                                <WaveformSelect
-                                    song={song}
-                                    onClickWaveform={(waveformId) => {
-                                        onSongChange({
-                                            description: 'Set morph A waveform',
-                                            undoable: true,
-                                            mutator: (s) => {
-                                                const inst = s.instruments[instrumentIndex];
-                                                inst.morphWaveA = waveformId;
-                                            },
-                                        });
-                                    }}
-                                    getOverlayText={(i) => {
-                                        const isNoise = song.waveforms[i]?.isNoise() ?? false;
-                                        return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
-                                    }}
-                                    getWaveformDisplayStyle={(waveformId) => {
-                                        if (waveformId === instrument.morphWaveA) {
-                                            return "selected";
-                                        }
-                                        return "muted";
-                                    }}
-                                />
+                            <div className="field-row">
+                                <label>
+                                    PWM duty ({instrument.pwmDuty})
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={31}
+                                        step={1}
+                                        value={instrument.pwmDuty}
+                                        onChange={(e) => {
+                                            const val = TryParseInt(e.target.value);
+                                            if (val === null) return;
+                                            onSongChange({
+                                                description: 'Set PWM duty',
+                                                undoable: true,
+                                                mutator: (s) => {
+                                                    const inst = s.instruments[instrumentIndex];
+                                                    inst.pwmDuty = clamp(val, 0, 31);
+                                                },
+                                            });
+                                        }}
+                                    />
+                                </label>
                             </div>
-                            <div style={{ display: "flex", gap: "16px", padding: 8 }}>
-                                <strong>Morph Waveform B</strong>
-                                <WaveformSelect
-                                    song={song}
-                                    onClickWaveform={(waveformId) => {
-                                        onSongChange({
-                                            description: 'Set morph B waveform',
-                                            undoable: true,
-                                            mutator: (s) => {
-                                                const inst = s.instruments[instrumentIndex];
-                                                inst.morphWaveB = waveformId;
-                                            },
-                                        });
-                                    }}
-                                    getOverlayText={(i) => {
-                                        const isNoise = song.waveforms[i]?.isNoise() ?? false;
-                                        return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
-                                    }}
-                                    getWaveformDisplayStyle={(waveformId) => {
-                                        if (waveformId === instrument.morphWaveB) {
-                                            return "selected";
-                                        }
-                                        return "muted";
-                                    }}
-                                />
+                            <div className="field-row">
+                                <label>
+                                    PWM depth ({instrument.pwmDepth})
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={31}
+                                        step={1}
+                                        value={instrument.pwmDepth}
+                                        onChange={(e) => {
+                                            const val = TryParseInt(e.target.value);
+                                            if (val === null) return;
+                                            onSongChange({
+                                                description: 'Set PWM depth',
+                                                undoable: true,
+                                                mutator: (s) => {
+                                                    const inst = s.instruments[instrumentIndex];
+                                                    inst.pwmDepth = clamp(val, 0, 31);
+                                                },
+                                            });
+                                        }}
+                                    />
+                                </label>
                             </div>
+                        </div>
+                    )}
+
+                    {
+                        showRenderWaveformSlot && (
+
                             <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: 8 }}>
-                                <strong>Morph Waveform Slot</strong>
+                                <strong>waveform rendering slot</strong>
                                 <div style={{ maxWidth: 400 }}>
-                                    This waveform slot will be used during live playback to hold the morphing wave.
-                                    For now only 1 slot is supported which means this instrument must be monophonic.
+                                    when doing k-rate processing, we have to render the waveform to a slot.
+                                    note: this means this instrument must be monophonic.
                                 </div>
                                 <div style={{ display: "flex", gap: "16px", padding: 8 }}>
                                     <WaveformSelect
                                         song={song}
                                         onClickWaveform={(waveformId) => {
                                             onSongChange({
-                                                description: 'Set morph waveform slot',
+                                                description: 'Set PWM waveform slot',
                                                 undoable: true,
                                                 mutator: (s) => {
                                                     const inst = s.instruments[instrumentIndex];
-                                                    inst.morphSlot = waveformId;
+                                                    inst.renderWaveformSlot = waveformId;
                                                 },
                                             });
                                         }}
@@ -561,7 +701,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                                             return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
                                         }}
                                         getWaveformDisplayStyle={(waveformId) => {
-                                            if (waveformId === instrument.morphSlot) {
+                                            if (waveformId === instrument.renderWaveformSlot) {
                                                 return "selected";
                                             }
                                             return "muted";
@@ -569,10 +709,10 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                                     />
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )
+                    }
 
-                    {instrument.waveEngine === 'native' && (
+                    {showNativeWaveformEnvelope && (
                         <>
                             <div style={{ display: "flex", gap: "8px" }}>
                                 <InstrumentEnvelopeEditor
@@ -658,6 +798,163 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                             </div>
                         </>
                     )}
+
+                    <div style={{ marginTop: 12 }}>
+                        <h4>Lowpass</h4>
+                        <div className="field-row">
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={instrument.lowpassEnabled}
+                                    onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        onSongChange({
+                                            description: 'Toggle lowpass',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                const inst = s.instruments[instrumentIndex];
+                                                inst.lowpassEnabled = checked;
+                                            },
+                                        });
+                                    }}
+                                />
+                                Enabled
+                            </label>
+                        </div>
+                        <div className="field-row">
+                            <label>
+                                Duration (milliseconds)
+                                <input
+                                    type="range"
+                                    min={0}
+                                    max={4000}
+                                    step={1}
+                                    value={instrument.lowpassDurationSeconds * 1000}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        if (!Number.isFinite(val)) return;
+                                        onSongChange({
+                                            description: 'Set lowpass duration',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                const inst = s.instruments[instrumentIndex];
+                                                inst.lowpassDurationSeconds = clamp(val / 1000, 0, 4);
+                                            },
+                                        });
+                                    }}
+                                />
+                            </label>
+                        </div>
+                        <div>
+                            {Math.round(instrument.lowpassDurationSeconds * 1000)} ms ({Math.floor(instrument.lowpassDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz)
+                        </div>
+                        <div className="field-row">
+                            <label>
+                                Curve ({instrument.lowpassCurveN11.toFixed(2)})
+                                <input
+                                    type="range"
+                                    min={-1}
+                                    max={1}
+                                    step={0.01}
+                                    value={instrument.lowpassCurveN11}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        if (!Number.isFinite(val)) return;
+                                        onSongChange({
+                                            description: 'Set lowpass curve',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                const inst = s.instruments[instrumentIndex];
+                                                inst.lowpassCurveN11 = clamp(val, -1, 1);
+                                            },
+                                        });
+                                    }}
+                                />
+                            </label>
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: 12 }}>
+                        <h4>Wavefold</h4>
+                        <div className="field-row">
+                            <label>
+                                Amount ({instrument.wavefoldAmt})
+                                <input
+                                    type="range"
+                                    min={0}
+                                    max={255}
+                                    step={1}
+                                    value={instrument.wavefoldAmt}
+                                    onChange={(e) => {
+                                        const val = TryParseInt(e.target.value);
+                                        if (val === null) return;
+                                        onSongChange({
+                                            description: 'Set wavefold amount',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                const inst = s.instruments[instrumentIndex];
+                                                inst.wavefoldAmt = clamp(val, 0, 255);
+                                            },
+                                        });
+                                    }}
+                                />
+                            </label>
+                        </div>
+                        <div className="field-row">
+                            <label>
+                                Duration (milliseconds)
+                                <input
+                                    type="range"
+                                    min={0}
+                                    max={4000}
+                                    step={1}
+                                    value={instrument.wavefoldDurationSeconds * 1000}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        if (!Number.isFinite(val)) return;
+                                        onSongChange({
+                                            description: 'Set wavefold duration',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                const inst = s.instruments[instrumentIndex];
+                                                inst.wavefoldDurationSeconds = clamp(val / 1000, 0, 4);
+                                            },
+                                        });
+                                    }}
+                                />
+                            </label>
+                        </div>
+                        <div>
+                            {Math.round(instrument.wavefoldDurationSeconds * 1000)} ms ({Math.floor(instrument.wavefoldDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz)
+                        </div>
+                        <div className="field-row">
+                            <label>
+                                Curve ({instrument.wavefoldCurveN11.toFixed(2)})
+                                <input
+                                    type="range"
+                                    min={-1}
+                                    max={1}
+                                    step={0.01}
+                                    value={instrument.wavefoldCurveN11}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        if (!Number.isFinite(val)) return;
+                                        onSongChange({
+                                            description: 'Set wavefold curve',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                const inst = s.instruments[instrumentIndex];
+                                                inst.wavefoldCurveN11 = clamp(val, -1, 1);
+                                            },
+                                        });
+                                    }}
+                                />
+                            </label>
+                        </div>
+                        <div style={{ maxWidth: 520 }}>
+                            Set Amount to 0 to disable wavefold.
+                        </div>
+                    </div>
                 </div>
                 <InstrumentEnvelopeEditor
                     title="Arpeggio"

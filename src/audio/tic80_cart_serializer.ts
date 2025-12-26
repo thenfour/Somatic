@@ -1,7 +1,7 @@
 import playroutineDebug from "../../bridge/playroutine-debug.lua";
 import playroutineRelease from "../../bridge/playroutine-release.lua";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
-import type {SomaticInstrumentWaveEngine, SomaticWaveformEffect, Tic80Instrument} from "../models/instruments";
+import type {SomaticInstrumentWaveEngine, Tic80Instrument} from "../models/instruments";
 import type {Song} from "../models/song";
 import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {BakedSong, BakeSong} from "../utils/bakeSong";
@@ -36,24 +36,12 @@ function ToWaveEngineId(engine: SomaticInstrumentWaveEngine): number {
    throw new Error(`Unknown wave engine: ${engine}`);
 };
 
-function ToWaveEffectId(effect: SomaticWaveformEffect): number {
-   switch (effect) {
-      case "none":
-         return 0;
-      case "lowpass":
-         return 1;
-      case "wavefold":
-         return 2;
-   }
-   throw new Error(`Unknown wave effect: ${effect}`);
-};
-
 type Tic80MorphInstrumentConfig = {
    waveEngine: SomaticInstrumentWaveEngine; //
    waveEngineId: number;
-   morphWaveA: number; //
-   morphWaveB: number; //
-   morphSlot: number;  // also for PWM!
+   sourceWaveformIndex: number; //
+   morphWaveB: number;          //
+   renderWaveformSlot: number;  // also for PWM!
    morphDurationInTicks: number;
 
    // Curve parameters are currently undefined behavior-wise.
@@ -63,11 +51,11 @@ type Tic80MorphInstrumentConfig = {
    pwmDuty: number;  // 0-31
    pwmDepth: number; // 0-31
 
-   waveEffect: SomaticWaveformEffect;
-   waveEffectId: number;
+   lowpassEnabled: boolean;
    lowpassDurationInTicks: number;
    lowpassCurveS8: number;
    wavefoldAmt: number; // 0-255
+   wavefoldDurationInTicks: number;
    wavefoldCurveS8: number;
 };
 
@@ -114,19 +102,21 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
       // Only include instruments that require bridge-side runtime config.
       // This prevents overwriting the bridge marker/mailboxes in RAM.
       const waveEngine: SomaticInstrumentWaveEngine = inst.waveEngine ?? "native";
-      const waveEffect: SomaticWaveformEffect = inst.waveEffect ?? "none";
-      const needsRuntimeConfig = waveEngine !== "native" || waveEffect !== "none";
+      const lowpassEnabled = !!inst.lowpassEnabled;
+      const wavefoldAmt = clamp(inst.wavefoldAmt | 0, 0, 255);
+      const needsRuntimeConfig = waveEngine !== "native" || lowpassEnabled || wavefoldAmt !== 0;
       if (!needsRuntimeConfig)
          continue;
 
       const morphDurationInTicks = durationSecondsToTicks60Hz(inst.morphDurationSeconds);
       const lowpassDurationInTicks = durationSecondsToTicks60Hz(inst.lowpassDurationSeconds);
+      const wavefoldDurationInTicks = durationSecondsToTicks60Hz(inst.wavefoldDurationSeconds);
       entries.push({
          instrumentId,
          cfg: {
-            morphWaveA: clamp(inst.morphWaveA | 0, 0, Tic80Caps.waveform.count - 1),
+            sourceWaveformIndex: clamp(inst.sourceWaveformIndex | 0, 0, Tic80Caps.waveform.count - 1),
             morphWaveB: clamp(inst.morphWaveB | 0, 0, Tic80Caps.waveform.count - 1),
-            morphSlot: clamp(inst.morphSlot | 0, 0, Tic80Caps.waveform.count - 1),
+            renderWaveformSlot: clamp(inst.renderWaveformSlot | 0, 0, Tic80Caps.waveform.count - 1),
             morphDurationInTicks,
 
             morphCurveS8: curveN11ToS8(inst.morphCurveN11),
@@ -134,14 +124,14 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
             pwmCycleInTicks: clamp(RateInHzToTicks60Hz(inst.pwmSpeedHz ?? 0) | 0, 0, 0xffff),
             pwmDuty: clamp(inst.pwmDuty | 0, 0, 31),
             pwmDepth: clamp(inst.pwmDepth | 0, 0, 31),
-            waveEffect,
+            lowpassEnabled,
             lowpassDurationInTicks,
             lowpassCurveS8: curveN11ToS8(inst.lowpassCurveN11),
-            wavefoldAmt: clamp(inst.wavefoldAmt | 0, 0, 255),
+            wavefoldAmt,
+            wavefoldDurationInTicks,
 
             wavefoldCurveS8: curveN11ToS8(inst.wavefoldCurveN11),
             waveEngineId: ToWaveEngineId(waveEngine),
-            waveEffectId: ToWaveEffectId(waveEffect),
          }
       });
    }
@@ -156,23 +146,24 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
 // per entry:
 // - instrumentId (u8)
 // - waveEngine (u8) 0=morph,1=native,2=pwm
-// - morphWaveA (u8)
+// - sourceWaveformIndex (u8)
 // - morphWaveB (u8)
-// - morphSlot (u8) (also for PWM!)
+// - renderWaveformSlot (u8)
 // - morphDurationTicks (u16 LE)
 // - pwmSpeedTicks (u16 LE)
 // - pwmDuty (u8)
 // - pwmDepth (u8)
-// - waveEffect (u8) 0=none,1=lowpass,2=wavefold
+// - lowpassEnabled (u8) 0/1
 // - lowpassDurationTicks (u16 LE)
 // - wavefoldAmt (u8)
+// - wavefoldDurationTicks (u16 LE)
 // - morphCurve (s8)
 // - lowpassCurve (s8)
 // - wavefoldCurve (s8)
-// total payload = 1 + entryCount * 18 bytes
+// total payload = 1 + entryCount * 20 bytes
 function encodeMorphMapForBridge(song: Song): Uint8Array {
    const entries = getMorphMap(song);
-   const BYTES_PER_ENTRY = 18;
+   const BYTES_PER_ENTRY = 20;
    const HEADER_BYTES = 1;
 
    const totalBytes = getSomaticSfxConfigBytes();
@@ -195,9 +186,9 @@ function encodeMorphMapForBridge(song: Song): Uint8Array {
       const morphDurationTicks = clamp(cfg.morphDurationInTicks | 0, 0, 0xffff);
       out[w++] = clamp(instrumentId | 0, 0, 255);
       out[w++] = cfg.waveEngineId & 0xff;
-      out[w++] = clamp(cfg.morphWaveA | 0, 0, 255);
+      out[w++] = clamp(cfg.sourceWaveformIndex | 0, 0, 255);
       out[w++] = clamp(cfg.morphWaveB | 0, 0, 255);
-      out[w++] = clamp(cfg.morphSlot | 0, 0, 255);
+      out[w++] = clamp(cfg.renderWaveformSlot | 0, 0, 255);
       out[w++] = morphDurationTicks & 0xff;
       out[w++] = (morphDurationTicks >> 8) & 0xff;
 
@@ -206,12 +197,16 @@ function encodeMorphMapForBridge(song: Song): Uint8Array {
       out[w++] = (pwmCycleTicks >> 8) & 0xff;
       out[w++] = clamp(cfg.pwmDuty | 0, 0, 255);
       out[w++] = clamp(cfg.pwmDepth | 0, 0, 255);
-      out[w++] = cfg.waveEffectId & 0xff;
+      out[w++] = cfg.lowpassEnabled ? 1 : 0;
 
       const lowpassDurationTicks = clamp(cfg.lowpassDurationInTicks | 0, 0, 0xffff);
       out[w++] = lowpassDurationTicks & 0xff;
       out[w++] = (lowpassDurationTicks >> 8) & 0xff;
       out[w++] = clamp(cfg.wavefoldAmt | 0, 0, 255);
+
+      const wavefoldDurationTicks = clamp(cfg.wavefoldDurationInTicks | 0, 0, 0xffff);
+      out[w++] = wavefoldDurationTicks & 0xff;
+      out[w++] = (wavefoldDurationTicks >> 8) & 0xff;
 
       out[w++] = cfg.morphCurveS8 & 0xff;
       out[w++] = cfg.lowpassCurveS8 & 0xff;
@@ -222,28 +217,30 @@ function encodeMorphMapForBridge(song: Song): Uint8Array {
 
 function makeMorphMapLua(song: Song): string {
    // Emit a Lua table keyed by instrument ID:
-   //   [id] = { morphWaveA=.., morphWaveB=.., morphSlot=.., morphDurationInTicks=.. }
+   //   [id] = { sourceWaveformIndex=.., morphWaveB=.., renderWaveformSlot=.., morphDurationInTicks=.. }
    const entries = getMorphMap(song);
    const parts: string[] = [];
 
    for (const entry of entries) {
+      const lowpassEnabled = entry.cfg.lowpassEnabled ? 1 : 0;
       parts.push(`[${entry.instrumentId}]={
  waveEngine=${entry.cfg.waveEngineId},
- morphWaveA=${entry.cfg.morphWaveA},
+    sourceWaveformIndex=${entry.cfg.sourceWaveformIndex},
  morphWaveB=${entry.cfg.morphWaveB},
- morphSlot=${entry.cfg.morphSlot},
+ renderWaveformSlot=${entry.cfg.renderWaveformSlot},
  morphDurationInTicks=${entry.cfg.morphDurationInTicks},
  morphCurveS8=${entry.cfg.morphCurveS8},
  pwmCycleInTicks=${entry.cfg.pwmCycleInTicks},
  pwmDuty=${entry.cfg.pwmDuty},
  pwmDepth=${entry.cfg.pwmDepth},
- waveEffect=${entry.cfg.waveEffectId},
+ lowpassEnabled=${lowpassEnabled},
  lowpassDurationInTicks=${entry.cfg.lowpassDurationInTicks},
  lowpassCurveS8=${entry.cfg.lowpassCurveS8},
- wavefoldAmt=${entry.cfg.wavefoldAmt}
+ wavefoldAmt=${entry.cfg.wavefoldAmt},
+ wavefoldDurationInTicks=${entry.cfg.wavefoldDurationInTicks},
  wavefoldCurveS8=${entry.cfg.wavefoldCurveS8}
-`);
-   };
+}`);
+   }
    return `{\n\t\t${parts.join(",\n\t\t")}\n\t}`;
 }
 

@@ -14,6 +14,7 @@ local ADDR = {
 	REGISTERS = BRIDGE_CONFIG.memory.REGISTERS_ADDR,
 	INBOX = BRIDGE_CONFIG.memory.INBOX_ADDR,
 	OUTBOX = BRIDGE_CONFIG.memory.OUTBOX_ADDR,
+	SFX = BRIDGE_CONFIG.memory.SFX_ADDR,
 
 	TF_ORDER_LIST_COUNT = BRIDGE_CONFIG.memory.TF_ORDER_LIST_COUNT,
 	TF_ORDER_LIST_ENTRIES = BRIDGE_CONFIG.memory.TF_ORDER_LIST_ENTRIES,
@@ -210,7 +211,7 @@ local ch_sfx_ticks = { 0, 0, 0, 0 } -- 0-based channel -> duration since note-on
 local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
 
 local MORPH_HEADER_BYTES = 1
-local MORPH_ENTRY_BYTES = 18
+local MORPH_ENTRY_BYTES = 20
 
 -- SOMATIC_SFX_CONFIG lives below the MARKER region; fail fast if layout or payload is inconsistent.
 local MORPH_MAP_BYTES = ADDR.MARKER - MORPH_MAP_BASE
@@ -224,6 +225,7 @@ end
 
 local WAVE_BASE = BRIDGE_CONFIG.memory.WAVEFORMS_ADDR
 local WAVE_BYTES_PER_WAVE = 16 -- 32x 4-bit samples packed 2-per-byte
+local WAVE_SAMPLES_PER_WAVE = 32
 
 local function clamp01(x)
 	if x < 0 then
@@ -241,6 +243,10 @@ local function clamp_nibble_round(v)
 		v = 15
 	end
 	return math.floor(v + 0.5)
+end
+
+local function lerp(a, b, t)
+	return a + (b - a) * t
 end
 
 -- a,b: 0..15, t: 0..1
@@ -262,20 +268,21 @@ local lerp_nibble = lerp_nibble_lin
 -- per entry:
 -- - instrumentId (u8)
 -- - waveEngine (u8) 0=morph,1=native,2=pwm
--- - morphWaveA (u8)
+-- - sourceWaveformIndex (u8)
 -- - morphWaveB (u8)
--- - morphSlot (u8) (also for PWM!)
+-- - renderWaveformSlot (u8) (also for PWM!)
 -- - morphDurationTicks (u16 LE)
 -- - pwmSpeedTicks (u16 LE)
 -- - pwmDuty (u8)
 -- - pwmDepth (u8)
--- - waveEffect (u8) 0=none,1=lowpass,2=wavefold
+-- - lowpassEnabled (u8) 0/1
 -- - lowpassDurationTicks (u16 LE)
 -- - wavefoldAmt (u8)
+-- - wavefoldDurationTicks (u16 LE)
 -- - morphCurve (s8)
 -- - lowpassCurve (s8)
 -- - wavefoldCurve (s8)
-local function read_morph_cfg(instrumentId)
+local function read_sfx_cfg(instrumentId)
 	local rawCount = peek(MORPH_MAP_BASE)
 	local maxCount = math.floor((MORPH_MAP_BYTES - MORPH_HEADER_BYTES) / MORPH_ENTRY_BYTES)
 	assert(MORPH_MAP_BYTES > 0, "Invalid bridge memory map: SOMATIC_SFX_CONFIG must be below MARKER")
@@ -290,35 +297,37 @@ local function read_morph_cfg(instrumentId)
 		local id = peek(off)
 		if id == instrumentId then
 			local waveEngine = peek(off + 1)
-			local morphWaveA = peek(off + 2)
+			local sourceWaveformIndex = peek(off + 2)
 			local morphWaveB = peek(off + 3)
-			local morphSlot = peek(off + 4)
+			local renderWaveformSlot = peek(off + 4)
 			local morphDurationInTicks = peek(off + 5) + peek(off + 6) * 256
 			local pwmCycleInTicks = peek(off + 7) + peek(off + 8) * 256
 			local pwmDuty = peek(off + 9)
 			local pwmDepth = peek(off + 10)
-			local waveEffect = peek(off + 11)
+			local lowpassEnabled = peek(off + 11)
 			local lowpassDurationInTicks = peek(off + 12) + peek(off + 13) * 256
 			local wavefoldAmt = peek(off + 14)
-			local morphCurveS8 = u8_to_s8(peek(off + 15))
-			local lowpassCurveS8 = u8_to_s8(peek(off + 16))
-			local wavefoldCurveS8 = u8_to_s8(peek(off + 17))
+			local wavefoldDurationInTicks = peek(off + 15) + peek(off + 16) * 256
+			local morphCurveS8 = u8_to_s8(peek(off + 17))
+			local lowpassCurveS8 = u8_to_s8(peek(off + 18))
+			local wavefoldCurveS8 = u8_to_s8(peek(off + 19))
 
 			-- Shape matches makeMorphMapLua(): values are numeric IDs.
 			return {
 				waveEngine = waveEngine,
-				morphWaveA = morphWaveA,
+				sourceWaveformIndex = sourceWaveformIndex,
 				morphWaveB = morphWaveB,
-				morphSlot = morphSlot,
+				renderWaveformSlot = renderWaveformSlot,
 				morphDurationInTicks = morphDurationInTicks,
 				morphCurveS8 = morphCurveS8,
 				pwmCycleInTicks = pwmCycleInTicks,
 				pwmDuty = pwmDuty,
 				pwmDepth = pwmDepth,
-				waveEffect = waveEffect,
+				lowpassEnabled = lowpassEnabled ~= 0,
 				lowpassDurationInTicks = lowpassDurationInTicks,
 				lowpassCurveS8 = lowpassCurveS8,
 				wavefoldAmt = wavefoldAmt,
+				wavefoldDurationInTicks = wavefoldDurationInTicks,
 				wavefoldCurveS8 = wavefoldCurveS8,
 			}
 		end
@@ -327,70 +336,311 @@ local function read_morph_cfg(instrumentId)
 	return nil
 end
 
--- Memory-to-memory: reads source wave bytes, writes directly to target wave bytes.
-function PlaceWaveform(waveAIndex, waveBIndex, targetWaveIndex, t)
-	t = clamp01(t or 0)
+-- =========================
+-- Waveform processing
 
-	local aBase = WAVE_BASE + waveAIndex * WAVE_BYTES_PER_WAVE
-	local bBase = WAVE_BASE + waveBIndex * WAVE_BYTES_PER_WAVE
-	local dstBase = WAVE_BASE + targetWaveIndex * WAVE_BYTES_PER_WAVE
-
+-- Deserialize a waveform (packed nibbles in RAM) into a 0-based array of samples (0..15).
+local function wave_read_samples(waveIndex, outSamples)
+	local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
+	local si = 0
 	for i = 0, WAVE_BYTES_PER_WAVE - 1 do
-		local ba = peek(aBase + i)
-		local bb = peek(bBase + i)
-
-		local a0 = ba & 0x0f
-		local a1 = (ba >> 4) & 0x0f
-		local b0 = bb & 0x0f
-		local b1 = (bb >> 4) & 0x0f
-
-		local o0 = lerp_nibble(a0, b0, t)
-		local o1 = lerp_nibble(a1, b1, t)
-		poke(dstBase + i, (o1 << 4) | o0)
+		local b = peek(base + i)
+		outSamples[si] = b & 0x0f
+		outSamples[si + 1] = (b >> 4) & 0x0f
+		si = si + 2
 	end
 end
 
-local function prime_morph_slot_for_note_on(instrumentId)
-	local cfg = read_morph_cfg(instrumentId)
-	if cfg == nil or cfg.waveEngine ~= 0 then
-		return
+local function wave_write_samples(waveIndex, samples)
+	local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
+	local si = 0
+	for i = 0, WAVE_BYTES_PER_WAVE - 1 do
+		local s0 = clamp_nibble_round(samples[si] or 0)
+		local s1 = clamp_nibble_round(samples[si + 1] or 0)
+		poke(base + i, (s1 << 4) | s0)
+		si = si + 2
 	end
-	PlaceWaveform(cfg.morphWaveA, cfg.morphWaveB, cfg.morphSlot, 0.0)
 end
 
-local function morph_tick_channel(channel)
-	local idx = ch_sfx_id[channel + 1]
-	if idx == -1 then
+-- s8: -128..127 mapped to -1..+1
+local function apply_curveN11(t01, curveS8)
+	local t = clamp01(t01 or 0)
+	if t <= 0 then
+		return 0
+	end
+	if t >= 1 then
+		return 1
+	end
+
+	local k = (curveS8 or 0) / 127
+	if k < -1 then
+		k = -1
+	elseif k > 1 then
+		k = 1
+	end
+	if k == 0 then
+		return t
+	end
+
+	local s = 4
+	local function a(x)
+		return 2 ^ (s * x)
+	end
+
+	if k > 0 then
+		return t ^ (a(k))
+	end
+	return 1 - (1 - t) ^ (a(-k))
+end
+
+-- simple lowpass "diffusion"
+--   y[i] = x[i] + a * (0.5*(x[i-1] + x[i+1]) - x[i])
+--   https://en.wikipedia.org/wiki/Heat_equation
+--   https://en.wikipedia.org/wiki/FTCS_scheme
+-- x,y are 0-based arrays of length n; amt ~= diffusion strength per step.
+local function lp_diffuse_wrap(x, y, n, amt)
+	for i = 0, n - 1 do
+		local xm1 = x[(i - 1) % n]
+		local x0 = x[i]
+		local xp1 = x[(i + 1) % n]
+		y[i] = x0 + amt * (((xm1 + xp1) * 0.5) - x0)
+	end
+end
+
+local function apply_lowpass_effect_to_samples(samples, strength01)
+	local lp_scratch_a = {}
+	local lp_scratch_b = {}
+
+	local strength = clamp01(strength01 or 0)
+	if strength <= 0 then
 		return
 	end
 
-	local ticksPlayed = ch_sfx_ticks[channel + 1]
-	local cfg = read_morph_cfg(idx)
-	if cfg == nil then
-		ch_sfx_ticks[channel + 1] = ticksPlayed + 1
-		return
+	local steps = math.floor(1 + strength * 7 + 0.5) -- 1..8
+	local amt = 0.05 + strength * 0.35 -- ~0.05..0.4
+
+	for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+		lp_scratch_a[i] = samples[i] or 0
 	end
-	if cfg.waveEngine ~= 0 then
-		-- Not a morph instrument; ignore for now.
-		ch_sfx_ticks[channel + 1] = ticksPlayed + 1
+
+	local x = lp_scratch_a
+	local y = lp_scratch_b
+	for _ = 1, steps do
+		lp_diffuse_wrap(x, y, WAVE_SAMPLES_PER_WAVE, amt)
+		x, y = y, x
+	end
+
+	for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+		samples[i] = x[i]
+	end
+end
+
+local function fold_reflect(u)
+	-- Reflect u into [-1, 1] with repeated folding.
+	-- Period 4 in "u-space": [-1..1] then reflected pieces beyond.
+	local v = (u + 1) % 4 -- v in [0,4)
+	if v > 2 then
+		v = 4 - v
+	end -- reflect into [0,2]
+	return v - 1 -- back to [-1,1]
+end
+
+local function apply_wavefold_effect_to_samples(samples, strength01)
+	local strength = clamp01(strength01 or 0)
+	if strength <= 0 then
 		return
 	end
 
-	local t
+	local gain = 1 + strength * 20
+
+	for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+		local s = samples[i] or 0
+
+		-- 0..15 -> -1..1
+		local x = (s / 7.5) - 1
+
+		local folded = fold_reflect(x * gain)
+
+		-- optional dry/wet (keeps strength intuitive)
+		--local y = lerp(x, folded, strength)
+		local y = folded
+
+		-- -1..1 -> 0..15 (with quantize + clamp)
+		local out = (y + 1) * 7.5
+		if out < 0 then
+			out = 0
+		elseif out > 15 then
+			out = 15
+		end
+		samples[i] = math.floor(out + 0.5)
+	end
+end
+
+local function cfg_is_k_rate_processing(cfg)
+	if cfg.waveEngine == 0 or cfg.waveEngine == 2 then
+		return true
+	end
+	if cfg.lowpassEnabled then
+		return true
+	end
+	if (cfg.wavefoldAmt or 0) > 0 then
+		return true
+	end
+	return false
+end
+
+local render_src_a = {}
+local render_src_b = {}
+local render_out = {}
+
+local function render_waveform_morph(cfg, ticksPlayed, outSamples)
 	local durationTicks = cfg.morphDurationInTicks
+	local t
 	if durationTicks == nil or durationTicks <= 0 then
 		t = 1.0
 	else
 		t = clamp01(ticksPlayed / durationTicks)
 	end
 
-	PlaceWaveform(cfg.morphWaveA, cfg.morphWaveB, cfg.morphSlot, t)
+	wave_read_samples(cfg.sourceWaveformIndex, render_src_a)
+	wave_read_samples(cfg.morphWaveB, render_src_b)
+	for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+		local a = render_src_a[i] or 0
+		local b = render_src_b[i] or 0
+		outSamples[i] = a + (b - a) * t
+	end
+	return true
+end
+
+local function render_waveform_pwm(cfg, ticksPlayed, outSamples)
+	local cycle = cfg.pwmCycleInTicks or 0
+	local phase
+	if cycle <= 0 then
+		phase = 0
+	else
+		phase = (ticksPlayed % cycle) / cycle
+	end
+	local tri
+	if phase < 0.5 then
+		tri = phase * 4 - 1 -- -1..+1
+	else
+		tri = 3 - phase * 4 -- +1..-1
+	end
+	local duty = (cfg.pwmDuty or 0) + (cfg.pwmDepth or 0) * tri
+	-- Avoid generating a constant waveform (all -1 / all +1).
+	-- TIC-80 treats that as a special case; we force at least one sample of each polarity.
+	if duty < 1 then
+		duty = 1
+	elseif duty > 30 then
+		duty = 30
+	end
+	local threshold = (duty / 31) * WAVE_SAMPLES_PER_WAVE
+	for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+		outSamples[i] = (i < threshold) and 15 or 0
+	end
+	return true
+end
+
+local function render_waveform_native(cfg, outSamples)
+	-- native: use the configured source waveform.
+	wave_read_samples(cfg.sourceWaveformIndex, outSamples)
+	return true
+end
+
+local function render_waveform_samples(cfg, ticksPlayed, instrumentId, outSamples)
+	-- Output format: 0-based array of 32 samples in 0..15 (floats ok).
+	if cfg.waveEngine == 0 then
+		return render_waveform_morph(cfg, ticksPlayed, outSamples)
+	elseif cfg.waveEngine == 2 then
+		return render_waveform_pwm(cfg, ticksPlayed, outSamples)
+	elseif cfg.waveEngine == 1 then
+		return render_waveform_native(cfg, outSamples)
+	end
+end
+
+local function render_tick_cfg(cfg, instrumentId, ticksPlayed)
+	if not cfg_is_k_rate_processing(cfg) then
+		return
+	end
+
+	render_waveform_samples(cfg, ticksPlayed, instrumentId, render_out)
+
+	-- Wavefold first (adds harmonics), then lowpass (smooths)
+	if (cfg.wavefoldAmt or 0) > 0 and (cfg.wavefoldDurationInTicks or 0) > 0 then
+		local maxAmt = clamp01(cfg.wavefoldAmt / 255)
+		local wfDur = cfg.wavefoldDurationInTicks -- 26
+		local wfEnv = clamp01(ticksPlayed / wfDur) -- 150 -> 1.0
+		local envShaped = 1 - apply_curveN11(wfEnv, cfg.wavefoldCurveS8) -- map 0-1 -> 1-0
+		local strength = maxAmt * envShaped
+
+		-- log(
+		-- 	"wf str "
+		-- 		.. tostring(math.floor(strength * 100))
+		-- 		.. "% at t="
+		-- 		.. tostring(ticksPlayed)
+		-- 		.. "/"
+		-- 		.. tostring(wfDur)
+		-- 		.. " => "
+		-- 		.. tostring(envShaped) -- shaped
+		-- )
+
+		--log("Wavefold strength: " .. tostring(strength))
+		apply_wavefold_effect_to_samples(render_out, strength)
+	end
+
+	if cfg.lowpassEnabled then
+		local lpDur = cfg.lowpassDurationInTicks
+		local lpT
+		if lpDur == nil or lpDur <= 0 then
+			lpT = 1.0
+		else
+			lpT = clamp01(ticksPlayed / lpDur)
+		end
+		local strength = apply_curveN11(lpT, cfg.lowpassCurveS8)
+		apply_lowpass_effect_to_samples(render_out, strength)
+	end
+
+	wave_write_samples(cfg.renderWaveformSlot, render_out)
+end
+
+local function prime_render_slot_for_note_on(instrumentId)
+	local cfg = read_sfx_cfg(instrumentId)
+	if cfg == nil then
+		return
+	end
+	if not cfg_is_k_rate_processing(cfg) then
+		return
+	end
+	-- Render tick 0 so audio starts with a defined wavetable.
+	render_tick_cfg(cfg, instrumentId, 0)
+end
+
+local function sfx_tick_channel(channel)
+	local idx = ch_sfx_id[channel + 1]
+	if idx == -1 then
+		return
+	end
+
+	local ticksPlayed = ch_sfx_ticks[channel + 1]
+	local cfg = read_sfx_cfg(idx)
+	if cfg == nil then
+		ch_sfx_ticks[channel + 1] = ticksPlayed + 1
+		return
+	end
+
+	-- Stable pipeline: if not k-rate processing, do nothing.
+	if not cfg_is_k_rate_processing(cfg) then
+		ch_sfx_ticks[channel + 1] = ticksPlayed + 1
+		return
+	end
+
+	render_tick_cfg(cfg, idx, ticksPlayed)
 	ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 end
 
-local function tf_sfx_tick()
+local function sfx_tick()
 	for ch = 0, SFX_CHANNELS - 1 do
-		morph_tick_channel(ch)
+		sfx_tick_channel(ch)
 	end
 end
 
@@ -469,7 +719,7 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 			-- note-on
 			ch_sfx_id[ch + 1] = inst
 			ch_sfx_ticks[ch + 1] = 0
-			prime_morph_slot_for_note_on(inst)
+			prime_render_slot_for_note_on(inst)
 		end
 	end
 end
@@ -544,7 +794,7 @@ local function handle_play_sfx_on()
 	ch_sfx_id[channel + 1] = sfx_id
 	ch_sfx_ticks[channel + 1] = 0
 	-- Ensure the morph slot is initialized before starting audio.
-	prime_morph_slot_for_note_on(sfx_id)
+	prime_render_slot_for_note_on(sfx_id)
 
 	-- id, note, duration (-1 = sustained), channel 0..3, volume 15, speed 0
 	sfx(sfx_id, note, -1, channel, 15, speed)
@@ -965,7 +1215,7 @@ function TIC()
 	if track ~= -1 then
 		apply_music_row_to_sfx_state(track, frame, row)
 	end
-	tf_sfx_tick()
+	sfx_tick()
 
 	t = t + 1
 

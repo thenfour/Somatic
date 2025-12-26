@@ -301,3 +301,28 @@ export function typedFromEntries<K extends PropertyKey, V>(entries: readonly(rea
 export function typedGet<K extends PropertyKey, V>(obj: Record<K, V>, key: K): V {
    return obj[key];
 }
+
+
+// t in [0,1], k in [-1,1]
+// k=0 -> linear
+// k>0 -> slow start, fast end (ease-in)
+// k<0 -> fast start, slow end (ease-out) as the complementary mirror of k>0
+// S controls the steepness of the curve
+export function curveT(t: number, k: number, s: number = 4): number {
+   if (t <= 0)
+      return 0;
+   if (t >= 1)
+      return 1;
+   if (k === 0)
+      return t;
+
+   const kk = clamp(k, -1, 1);
+   const a = (x: number) => Math.pow(2, s * x);
+
+   if (kk > 0) {
+      return Math.pow(t, a(kk));
+   } else {
+      // complementary mirror
+      return 1 - Math.pow(1 - t, a(-kk));
+   }
+}

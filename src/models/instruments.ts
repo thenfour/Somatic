@@ -61,24 +61,22 @@ export interface Tic80InstrumentDto {
 
    waveEngine: SomaticInstrumentWaveEngine;
 
-   morphWaveA: number; // 0-15
-   morphWaveB: number; // 0-15
-   morphSlot: number;  // 0-15 -- which waveform slot to use for live morphing
-   morphCurveN11: number;
+   sourceWaveformIndex: number; // 0-15 (used as morph A for morph engine; used as source for native+effects)
+   morphWaveB: number;          // 0-15
+   renderWaveformSlot: number;  // 0-15 -- which waveform slot to use for live k-rate processing.
+   morphCurveN11: number;       // -1 to +1; 0 = linear. -1 = fast start, slow end; +1 = slow start, fast end
    morphDurationSeconds: number;
 
    pwmSpeedHz: number;
    pwmDuty: number;  // 0-31
    pwmDepth: number; // 0-31
 
-   waveEffect: SomaticWaveformEffect;
-
-   // lowpass
+   lowpassEnabled: boolean;
    lowpassDurationSeconds: number;
    lowpassCurveN11: number;
 
-   // wavefold
-   wavefoldAmt: number; // 0-255
+   wavefoldAmt: number; // 0-255 amplifies the waveform, folding it back into the valid range
+   wavefoldDurationSeconds: number;
    wavefoldCurveN11: number;
 }
 ;
@@ -116,9 +114,9 @@ export class Tic80Instrument {
    pitch16x: boolean;
 
    waveEngine: SomaticInstrumentWaveEngine;
-   morphWaveA: number; // 0-15
-   morphWaveB: number; // 0-15
-   morphSlot: number;  // 0-15 -- which waveform slot to use for live morphing. used for PWM as well!
+   sourceWaveformIndex: number; // 0-15
+   morphWaveB: number;          // 0-15
+   renderWaveformSlot: number;  // 0-15 -- which waveform slot to use for live k-rate processing. used for PWM as well!
    morphCurveN11: number;
    morphDurationSeconds: number;
 
@@ -126,14 +124,13 @@ export class Tic80Instrument {
    pwmDuty: number;  // 0-31
    pwmDepth: number; // 0-31
 
-   waveEffect: SomaticWaveformEffect;
-
-   // lowpass
+   lowpassEnabled: boolean;
    lowpassDurationSeconds: number;
    lowpassCurveN11: number;
 
    // wavefold
    wavefoldAmt: number; // 0-255
+   wavefoldDurationSeconds: number;
    wavefoldCurveN11: number;
 
 
@@ -194,19 +191,26 @@ export class Tic80Instrument {
       this.pitch16x = CoalesceBoolean(data.pitch16x, false);
 
       this.waveEngine = data.waveEngine ?? "native";
-      this.morphWaveA = clamp(data.morphWaveA ?? 0, 0, Tic80Caps.waveform.count - 1);
+      // Back-compat: older saved data used 'morphWaveA'.
+      const legacyMorphWaveA = (data as any).morphWaveA;
+      this.sourceWaveformIndex =
+         clamp(data.sourceWaveformIndex ?? legacyMorphWaveA ?? 0, 0, Tic80Caps.waveform.count - 1);
       this.morphWaveB = clamp(data.morphWaveB ?? 1, 0, Tic80Caps.waveform.count - 1);
-      this.morphSlot = clamp(data.morphSlot ?? 15, 0, Tic80Caps.waveform.count - 1);
+      this.renderWaveformSlot = clamp(data.renderWaveformSlot ?? 15, 0, Tic80Caps.waveform.count - 1);
       this.morphCurveN11 = clamp(data.morphCurveN11 ?? 0, -1, 1);
       this.morphDurationSeconds = Math.max(0, data.morphDurationSeconds ?? 1.0);
 
       this.pwmSpeedHz = Math.max(0, data.pwmSpeedHz ?? 0);
       this.pwmDuty = clamp(data.pwmDuty ?? 16, 0, 31);
       this.pwmDepth = clamp(data.pwmDepth ?? 8, 0, 31);
-      this.waveEffect = data.waveEffect ?? "none";
+
+      this.lowpassEnabled = CoalesceBoolean(data.lowpassEnabled, false);
       this.lowpassDurationSeconds = Math.max(0, data.lowpassDurationSeconds ?? 0.5);
       this.lowpassCurveN11 = clamp(data.lowpassCurveN11 ?? 0, -1, 1);
+
       this.wavefoldAmt = clamp(data.wavefoldAmt ?? 0, 0, 255);
+      // 0 means "no decay" (constant max strength), preserving legacy behavior.
+      this.wavefoldDurationSeconds = Math.max(0, data.wavefoldDurationSeconds ?? 0);
       this.wavefoldCurveN11 = clamp(data.wavefoldCurveN11 ?? 0, -1, 1);
    }
 
@@ -238,18 +242,19 @@ export class Tic80Instrument {
          pitchLoopLength: this.pitchLoopLength,
          pitch16x: this.pitch16x,
          waveEngine: this.waveEngine,
-         morphWaveA: this.morphWaveA,
+         sourceWaveformIndex: this.sourceWaveformIndex,
          morphWaveB: this.morphWaveB,
-         morphSlot: this.morphSlot,
+         renderWaveformSlot: this.renderWaveformSlot,
          morphCurveN11: this.morphCurveN11,
          morphDurationSeconds: this.morphDurationSeconds,
          pwmSpeedHz: this.pwmSpeedHz,
          pwmDuty: this.pwmDuty,
          pwmDepth: this.pwmDepth,
-         waveEffect: this.waveEffect,
+         lowpassEnabled: this.lowpassEnabled,
          lowpassDurationSeconds: this.lowpassDurationSeconds,
          lowpassCurveN11: this.lowpassCurveN11,
          wavefoldAmt: this.wavefoldAmt,
+         wavefoldDurationSeconds: this.wavefoldDurationSeconds,
          wavefoldCurveN11: this.wavefoldCurveN11,
       };
    };
@@ -268,41 +273,50 @@ export class Tic80Instrument {
       return `${myIndex.toString(16).toUpperCase()}: ${this.name}`;
    }
 
+   isKRateProcessing(): boolean {
+      if (this.waveEngine === "morph" || this.waveEngine === "pwm") {
+         return true;
+      }
+      if (this.lowpassEnabled) {
+         return true;
+      }
+      if (this.wavefoldAmt > 0) {
+         return true;
+      }
+      return false;
+   }
+
    getUsedWaveformIndices(): Set<number> {
       const usedWaveforms = new Set<number>();
+      if (this.isKRateProcessing()) {
+         usedWaveforms.add(this.renderWaveformSlot);
+      }
       switch (this.waveEngine) {
          case "morph":
-            usedWaveforms.add(this.morphWaveA);
+            usedWaveforms.add(this.sourceWaveformIndex);
             usedWaveforms.add(this.morphWaveB);
-            usedWaveforms.add(this.morphSlot);
             break;
          case "native":
-            this.waveFrames.forEach((waveIdx) => {
-               usedWaveforms.add(waveIdx);
-            });
+            if (this.isKRateProcessing()) {
+               usedWaveforms.add(this.sourceWaveformIndex);
+            } else {
+               this.waveFrames.forEach((waveIdx) => {
+                  usedWaveforms.add(waveIdx);
+               });
+            }
             break;
          case "pwm":
-            usedWaveforms.add(this.morphSlot);
             break;
       };
       return usedWaveforms;
    }
 
    remapWaveformIndices(waveformRemap: Map<number, number>) {
-      switch (this.waveEngine) {
-         case "morph":
-            this.morphWaveA = waveformRemap.get(this.morphWaveA) ?? this.morphWaveA;
-            this.morphWaveB = waveformRemap.get(this.morphWaveB) ?? this.morphWaveB;
-            this.morphSlot = waveformRemap.get(this.morphSlot) ?? this.morphSlot;
-            break;
-         case "native":
-            this.waveFrames = this.waveFrames.map((waveIdx) => {
-               return waveformRemap.get(waveIdx) ?? waveIdx;
-            });
-            break;
-         case "pwm":
-            this.morphSlot = waveformRemap.get(this.morphSlot) ?? this.morphSlot;
-            break;
-      };
+      this.renderWaveformSlot = waveformRemap.get(this.renderWaveformSlot) ?? this.renderWaveformSlot;
+      this.sourceWaveformIndex = waveformRemap.get(this.sourceWaveformIndex) ?? this.sourceWaveformIndex;
+      this.morphWaveB = waveformRemap.get(this.morphWaveB) ?? this.morphWaveB;
+      this.waveFrames = this.waveFrames.map((waveIdx) => {
+         return waveformRemap.get(waveIdx) ?? waveIdx;
+      });
    }
 }

@@ -100,7 +100,7 @@ local function read_morph_cfg(instId)
 	if not cfg then
 		return nil
 	end
-	return cfg.morphWaveA, cfg.morphWaveB, cfg.morphSlot, cfg.morphDurationInTicks
+	return cfg.sourceWaveformIndex, cfg.morphWaveB, cfg.renderWaveformSlot, cfg.morphDurationInTicks
 end
 
 local function prime_morph_slot_for_note_on(instId)
