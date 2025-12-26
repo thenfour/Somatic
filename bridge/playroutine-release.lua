@@ -40,6 +40,11 @@ do
 	local PATTERN_BYTES_PER_PATTERN = 192
 	local ROW_BYTES = 3
 
+	local pk, pe, fl, cos, pi = poke, peek, math.floor, math.cos, math.pi
+	local function u16(p)
+		return pe(p) + pe(p + 1) * 256
+	end
+
 	local function base85_decode_to_mem(s, n, d)
 		local i = 1
 		for o = 0, n - 1, 4 do
@@ -50,7 +55,7 @@ do
 			i = i + 5
 			for k = 3, 0, -1 do
 				if o + k < n then
-					poke(d + o + k, v % 256)
+					pk(d + o + k, v % 256)
 				end
 				v = v // 256
 			end
@@ -61,7 +66,7 @@ do
 	local function varint(base, si, srcLen)
 		local x, f = 0, 1
 		while true do
-			local b = peek(base + si)
+			local b = pe(base + si)
 			si = si + 1
 			x = x + (b % 0x80) * f
 			if b < 0x80 then
@@ -74,13 +79,13 @@ do
 	local function lzdec_mem(src, srcLen, dst)
 		local si, di = 0, 0
 		while si < srcLen do
-			local t = peek(src + si)
+			local t = pe(src + si)
 			si = si + 1
 			if t == 0 then
 				local l
 				l, si = varint(src, si, srcLen)
 				for j = 1, l do
-					poke(dst + di, peek(src + si))
+					pk(dst + di, pe(src + si))
 					si = si + 1
 					di = di + 1
 				end
@@ -89,7 +94,7 @@ do
 				l, si = varint(src, si, srcLen)
 				d, si = varint(src, si, srcLen)
 				for j = 1, l do
-					poke(dst + di, peek(dst + di - d))
+					pk(dst + di, pe(dst + di - d))
 					di = di + 1
 				end
 			end
@@ -112,7 +117,7 @@ do
 		elseif v > 15 then
 			v = 15
 		end
-		return math.floor(v + 0.5)
+		return fl(v + 0.5)
 	end
 
 	local function u8_to_s8(b)
@@ -161,38 +166,35 @@ do
 		local DST = TMP + 0x200
 		base85_decode_to_mem(m.morphMapB85, m.morphMapCLen, TMP)
 		local rawLen = lzdec_mem(TMP, m.morphMapCLen, DST)
-		local count = peek(DST)
+		local count = pe(DST)
 		local off = DST + 1
-		local function u16(addr)
-			return peek(addr) + peek(addr + 1) * 256
-		end
 		for _ = 1, count do
-			local id = peek(off)
+			local id = pe(off)
 			local cfg = {
-				we = peek(off + 1),
-				sA = peek(off + 2),
-				sB = peek(off + 3),
-				r = peek(off + 4),
+				we = pe(off + 1),
+				sA = pe(off + 2),
+				sB = pe(off + 3),
+				r = pe(off + 4),
 				xDcy = u16(off + 5),
 				pwmC = u16(off + 7),
-				pwmD = peek(off + 9),
-				pwmDp = peek(off + 10),
-				pwmPh = peek(off + 11),
-				lpE = peek(off + 12) ~= 0,
+				pwmD = pe(off + 9),
+				pwmDp = pe(off + 10),
+				pwmPh = pe(off + 11),
+				lpE = pe(off + 12) ~= 0,
 				lpDcy = u16(off + 13),
-				wfAmt = peek(off + 15),
+				wfAmt = pe(off + 15),
 				wfDcy = u16(off + 16),
-				xCrv = u8_to_s8(peek(off + 18)),
-				lpCrv = u8_to_s8(peek(off + 19)),
-				wfCrv = u8_to_s8(peek(off + 20)),
-				hsE = peek(off + 21) ~= 0,
-				hsStr = peek(off + 22),
+				xCrv = u8_to_s8(pe(off + 18)),
+				lpCrv = u8_to_s8(pe(off + 19)),
+				wfCrv = u8_to_s8(pe(off + 20)),
+				hsE = pe(off + 21) ~= 0,
+				hsStr = pe(off + 22),
 				hsDcy = u16(off + 23),
-				hsCrv = u8_to_s8(peek(off + 25)),
+				hsCrv = u8_to_s8(pe(off + 25)),
 				lfoC = u16(off + 26),
-				lpSrc = peek(off + 28),
-				wfSrc = peek(off + 29),
-				hsSrc = peek(off + 30),
+				lpSrc = pe(off + 28),
+				wfSrc = pe(off + 29),
+				hsSrc = pe(off + 30),
 			}
 			morphMap[id] = cfg
 			off = off + 31
@@ -207,7 +209,7 @@ do
 		local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
 		local si = 0
 		for i = 0, WAVE_BYTES_PER_WAVE - 1 do
-			local b = peek(base + i)
+			local b = pe(base + i)
 			outSamples[si] = b & 0x0f
 			outSamples[si + 1] = (b >> 4) & 0x0f
 			si = si + 2
@@ -220,7 +222,7 @@ do
 		for i = 0, WAVE_BYTES_PER_WAVE - 1 do
 			local s0 = clamp_nibble_round(samples[si] or 0)
 			local s1 = clamp_nibble_round(samples[si + 1] or 0)
-			poke(base + i, (s1 << 4) | s0)
+			pk(base + i, (s1 << 4) | s0)
 			si = si + 2
 		end
 	end
@@ -242,7 +244,7 @@ do
 		if strength <= 0 then
 			return
 		end
-		local steps = math.floor(1 + strength * 23 + 0.5) -- 1..24
+		local steps = fl(1 + strength * 23 + 0.5) -- 1..24
 		local amt = 0.02 + strength * 0.88 -- ~0.02..0.90
 		if amt > 0.95 then
 			amt = 0.95
@@ -285,7 +287,7 @@ do
 			elseif out > 15 then
 				out = 15
 			end
-			samples[i] = math.floor(out + 0.5)
+			samples[i] = fl(out + 0.5)
 		end
 	end
 
@@ -304,10 +306,10 @@ do
 
 		for i = 0, N - 1 do
 			local u = (i / N) * m -- slave cycles within master cycle
-			local k = math.floor(u)
+			local k = fl(u)
 			local frac = u - k -- 0..1
 			local p = frac * N
-			local idx0 = math.floor(p)
+			local idx0 = fl(p)
 			local f = p - idx0
 			local idx1 = (idx0 + 1) % N
 
@@ -331,7 +333,7 @@ do
 				return 0
 			end
 			local phase01 = (lfoTicks % cycle) / cycle
-			return (1 - math.cos(phase01 * math.pi * 2)) * 0.5
+			return (1 - cos(phase01 * pi * 2)) * 0.5
 		end
 		if durationTicks == nil or durationTicks <= 0 then
 			return fallbackT or 0
@@ -456,14 +458,12 @@ do
 			return 0, 0, 0, 0
 		end
 		local base = TRACKS_BASE + trackIndex * TRACK_BYTES_PER_TRACK + frameIndex * 3
-		local b0 = peek(base)
-		local b1 = peek(base + 1)
-		local b2 = peek(base + 2)
-		local packed = b0 + b1 * 256 + b2 * 65536
-		local p0 = packed & 0x3f
-		local p1 = (packed >> 6) & 0x3f
-		local p2 = (packed >> 12) & 0x3f
-		local p3 = (packed >> 18) & 0x3f
+		local b0 = pe(base)
+		local pak, s = b0 + u16(base + 1) * 256, 63
+		local p0 = pak & s
+		local p1 = (pak >> 6) & s
+		local p2 = (pak >> 12) & s
+		local p3 = (pak >> 18) & s
 		return p0, p1, p2, p3
 	end
 
@@ -473,9 +473,9 @@ do
 		end
 		local pat0b = patternId1b - 1
 		local addr = PATTERNS_BASE + pat0b * PATTERN_BYTES_PER_PATTERN + rowIndex * ROW_BYTES
-		local b0 = peek(addr)
-		local b1 = peek(addr + 1)
-		local b2 = peek(addr + 2)
+		local b0 = pe(addr)
+		local b1 = pe(addr + 1)
+		local b2 = pe(addr + 2)
 		local noteNibble = b0 & 0x0f
 		local inst = (b2 & 0x1f) | (((b1 >> 7) & 0x01) << 5)
 		return noteNibble, inst
@@ -563,7 +563,7 @@ do
 
 	local function clearPatternBuffer(destPointer)
 		for i = 0, PATTERN_BUFFER_BYTES - 1 do
-			poke(destPointer + i, 0)
+			pk(destPointer + i, 0)
 		end
 	end
 
@@ -577,9 +577,9 @@ do
 	local function somatic_init(songPosition, startRow)
 		songPosition = songPosition or 0
 		startRow = startRow or 0
-		poke(0x14000, 15)
+		pk(0x14000, 15)
 		for ch = 0, 3 do
-			poke(0x14001 + ch, 15)
+			pk(0x14001 + ch, 15)
 		end
 		currentSongOrder = songPosition
 		backBufferIsA = true
@@ -590,9 +590,9 @@ do
 	end
 
 	function somatic_get_state()
-		local track = peek(0x13FFC)
-		local frame = peek(0x13FFD)
-		local row = peek(0x13FFE)
+		local track = pe(0x13FFC)
+		local frame = pe(0x13FFD)
+		local row = pe(0x13FFE)
 		if track == 255 then
 			track = -1
 		end
