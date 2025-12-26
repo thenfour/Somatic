@@ -144,6 +144,7 @@ export interface OptimizeResult {
    usedWaveformCount: number;
    // includes 0 and 1 sfx so this will always be at least 1 for instrument#0, and 2 if you only have a note cut in your whole song (weird), and >=3 for normal cases.
    usedSfxCount: number;
+   featureUsage: PlaybackFeatureUsage;
 
    // hold explanations of what changed (moving patterns, deduping etc)
    changeLog: string[];
@@ -156,6 +157,7 @@ export function MakeOptimizeResultEmpty(song: Song): OptimizeResult {
       usedPatternCount: 0,
       usedWaveformCount: 0,
       usedSfxCount: 0,
+      featureUsage: makeFeatureUsage(),
       changeLog: [],
       resultingStats: {
          usedPatterns: new Set(),
@@ -168,10 +170,24 @@ export function MakeOptimizeResultEmpty(song: Song): OptimizeResult {
    };
 }
 
+export type PlaybackFeatureUsage = {
+   waveMorph: boolean; pwm: boolean; lowpass: boolean; wavefold: boolean; hardSync: boolean; lfo: boolean;
+};
+
+const makeFeatureUsage = (): PlaybackFeatureUsage => ({
+   waveMorph: false,
+   pwm: false,
+   lowpass: false,
+   wavefold: false,
+   hardSync: false,
+   lfo: false,
+});
+
 export function OptimizeSong(song: Song): OptimizeResult {
    // clone so callers keep their original instance untouched.
    const working = song.clone();
    const changeLog: string[] = [];
+   const featureUsage = makeFeatureUsage();
 
    const patternSignature = (pattern: Pattern): string => pattern.contentSignature();
 
@@ -316,6 +332,68 @@ export function OptimizeSong(song: Song): OptimizeResult {
       inst.remapWaveformIndices(waveformRemap);
    });
 
+   // Analyze features and zero unused params for size.
+   newInstruments.forEach((inst) => {
+      // Track usage before zeroing fields.
+      if (inst.waveEngine === "morph") {
+         featureUsage.waveMorph = true;
+      } else {
+         // not morphing: zero morph params
+         inst.morphWaveB = 0;
+         inst.morphCurveN11 = 0;
+         inst.morphDurationSeconds = 0;
+      }
+
+      if (inst.waveEngine === "pwm") {
+         featureUsage.pwm = true;
+      } else {
+         inst.pwmSpeedHz = 0;
+         inst.pwmDuty = 0;
+         inst.pwmDepth = 0;
+         inst.pwmPhase01 = 0;
+      }
+
+      if (inst.lowpassEnabled) {
+         featureUsage.lowpass = true;
+      } else {
+         inst.lowpassDurationSeconds = 0;
+         inst.lowpassCurveN11 = 0;
+         inst.lowpassModSource = "envelope";
+      }
+
+      if (inst.wavefoldAmt > 0) {
+         featureUsage.wavefold = true;
+      } else {
+         inst.wavefoldDurationSeconds = 0;
+         inst.wavefoldCurveN11 = 0;
+         inst.wavefoldModSource = "envelope";
+      }
+
+      if (inst.hardSyncEnabled && inst.hardSyncStrength > 0) {
+         featureUsage.hardSync = true;
+      } else {
+         inst.hardSyncEnabled = false;
+         inst.hardSyncStrength = 0;
+         inst.hardSyncDecaySeconds = 0;
+         inst.hardSyncCurveN11 = 0;
+         inst.hardSyncModSource = "envelope";
+      }
+
+      const lfoUsed = inst.lfoRateHz > 0 &&
+         (inst.lowpassModSource === "lfo" || inst.wavefoldModSource === "lfo" || inst.hardSyncModSource === "lfo");
+      if (lfoUsed) {
+         featureUsage.lfo = true;
+      } else {
+         inst.lfoRateHz = 0;
+         if (inst.lowpassModSource === "lfo")
+            inst.lowpassModSource = "envelope";
+         if (inst.wavefoldModSource === "lfo")
+            inst.wavefoldModSource = "envelope";
+         if (inst.hardSyncModSource === "lfo")
+            inst.hardSyncModSource = "envelope";
+      }
+   });
+
    working.waveforms = newWaveforms;
    const usedWaveformCount = usedWaveformSet.size;
    changeLog.push(`Packed waveforms: ${usedWaveformCount} used of ${newWaveforms.length}.`);
@@ -335,7 +413,29 @@ export function OptimizeSong(song: Song): OptimizeResult {
          usedPatternCount,                            //
          usedWaveformCount,                           //
          usedSfxCount,                                //
+         featureUsage,                                //
          changeLog,                                   //
          resultingStats: calculateSongUsage(working), //
    }
 };
+
+export function analyzePlaybackFeatures(song: Song): PlaybackFeatureUsage {
+   const usage = makeFeatureUsage();
+   song.instruments.forEach((inst) => {
+      if (inst.waveEngine === "morph")
+         usage.waveMorph = true;
+      if (inst.waveEngine === "pwm")
+         usage.pwm = true;
+      if (inst.lowpassEnabled)
+         usage.lowpass = true;
+      if (inst.wavefoldAmt > 0)
+         usage.wavefold = true;
+      if (inst.hardSyncEnabled && inst.hardSyncStrength > 0)
+         usage.hardSync = true;
+      const lfoUsed = inst.lfoRateHz > 0 &&
+         (inst.lowpassModSource === "lfo" || inst.wavefoldModSource === "lfo" || inst.hardSyncModSource === "lfo");
+      if (lfoUsed)
+         usage.lfo = true;
+   });
+   return usage;
+}

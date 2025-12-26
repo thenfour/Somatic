@@ -5,7 +5,7 @@ import type {ModSource, SomaticInstrumentWaveEngine, Tic80Instrument} from "../m
 import type {Song} from "../models/song";
 import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {BakedSong, BakeSong} from "../utils/bakeSong";
-import {getMaxPatternUsedIndex, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong} from "../utils/SongOptimizer";
+import {analyzePlaybackFeatures, getMaxPatternUsedIndex, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong} from "../utils/SongOptimizer";
 import bridgeConfig from "../../bridge/bridge_config.jsonc";
 import {assert, clamp, parseAddress, toLuaStringLiteral} from "../utils/utils";
 import {LoopMode} from "./backend";
@@ -603,6 +603,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
          usedPatternCount: getMaxPatternUsedIndex(bakedSong.bakedSong) + 1,
          usedSfxCount: getMaxSfxUsedIndex(bakedSong.bakedSong) + 1,
          usedWaveformCount: getMaxWaveformUsedIndex(bakedSong.bakedSong) + 1,
+         featureUsage: analyzePlaybackFeatures(bakedSong.bakedSong),
       },
       waveformData,
       sfxData,
@@ -792,6 +793,14 @@ export function serializeSongToCartDetailed(
       const result = OptimizeSong(song);
       song = result.optimizedSong;
       optimizeResult = result;
+   } else {
+      optimizeResult = {
+         ...optimizeResult,
+         usedPatternCount: getMaxPatternUsedIndex(song) + 1,
+         usedSfxCount: getMaxSfxUsedIndex(song) + 1,
+         usedWaveformCount: getMaxWaveformUsedIndex(song) + 1,
+         featureUsage: analyzePlaybackFeatures(song),
+      };
    }
 
    const bakeResult = BakeSong({
