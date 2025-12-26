@@ -87,7 +87,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       description: "show or hide the waveform editor panel.",
       category: "View",
       defaultBindings: [
-         {kind: "character", key: ","},
+         {kind: "character", key: "9"},
       ],
    },
 
@@ -97,7 +97,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       description: "show or hide the instrument editor panel.",
       category: "View",
       defaultBindings: [
-         {kind: "character", key: "."},
+         {kind: "character", key: "0"},
       ],
    },
 
