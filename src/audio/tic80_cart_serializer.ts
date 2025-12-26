@@ -58,6 +58,11 @@ type Tic80MorphInstrumentConfig = {
    wavefoldAmt: number; // 0-255
    wavefoldDurationInTicks: number;
    wavefoldCurveS8: number;
+
+   hardSyncEnabled: boolean;
+   hardSyncStrengthU8: number; // 0-255 mapped to multiplier 1..8 on cart
+   hardSyncDecayInTicks: number;
+   hardSyncCurveS8: number;
 };
 
 function getSomaticSfxConfigBytes(): number {
@@ -85,6 +90,12 @@ function durationSecondsToTicks60Hz(seconds: number): number {
    return Math.floor(s * Tic80Caps.frameRate);
 }
 
+function hardSyncStrengthToU8(strength: number|null|undefined): number {
+   const s = clamp(strength ?? 1, 1, 8);
+   // Map 1..8 -> 0..255 (0 means 1x, 255 means 8x)
+   return clamp(Math.round(((s - 1) / 7) * 255), 0, 255);
+}
+
 // takes rate in Hz, returns # of ticks per cycle at 60Hz
 function RateInHzToTicks60Hz(rateHz: number): number {
    const r0 = Number.isFinite(rateHz) ? rateHz : 0;
@@ -105,13 +116,15 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
       const waveEngine: SomaticInstrumentWaveEngine = inst.waveEngine ?? "native";
       const lowpassEnabled = !!inst.lowpassEnabled;
       const wavefoldAmt = clamp(inst.wavefoldAmt | 0, 0, 255);
-      const needsRuntimeConfig = waveEngine !== "native" || lowpassEnabled || wavefoldAmt !== 0;
+      const hardSyncEnabled = !!inst.hardSyncEnabled;
+      const needsRuntimeConfig = waveEngine !== "native" || lowpassEnabled || wavefoldAmt !== 0 || hardSyncEnabled;
       if (!needsRuntimeConfig)
          continue;
 
       const morphDurationInTicks = durationSecondsToTicks60Hz(inst.morphDurationSeconds);
       const lowpassDurationInTicks = durationSecondsToTicks60Hz(inst.lowpassDurationSeconds);
       const wavefoldDurationInTicks = durationSecondsToTicks60Hz(inst.wavefoldDurationSeconds);
+      const hardSyncDecayInTicks = durationSecondsToTicks60Hz(inst.hardSyncDecaySeconds);
       entries.push({
          instrumentId,
          cfg: {
@@ -134,6 +147,10 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
 
             wavefoldCurveS8: curveN11ToS8(inst.wavefoldCurveN11),
             waveEngineId: ToWaveEngineId(waveEngine),
+            hardSyncEnabled,
+            hardSyncStrengthU8: hardSyncStrengthToU8(inst.hardSyncStrength),
+            hardSyncDecayInTicks,
+            hardSyncCurveS8: curveN11ToS8(inst.hardSyncCurveN11),
          }
       });
    }
@@ -163,10 +180,14 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
 // - morphCurve (s8)
 // - lowpassCurve (s8)
 // - wavefoldCurve (s8)
-// total payload = 1 + entryCount * 21 bytes
+// - hardSyncEnabled (u8)
+// - hardSyncStrength (u8) // cart maps to multiplier
+// - hardSyncDecayTicks (u16 LE)
+// - hardSyncCurve (s8)
+// total payload = 1 + entryCount * 26 bytes
 function encodeMorphMapForBridge(song: Song): Uint8Array {
    const entries = getMorphMap(song);
-   const BYTES_PER_ENTRY = 21;
+   const BYTES_PER_ENTRY = 26;
    const HEADER_BYTES = 1;
 
    const totalBytes = getSomaticSfxConfigBytes();
@@ -215,6 +236,15 @@ function encodeMorphMapForBridge(song: Song): Uint8Array {
       out[w++] = cfg.morphCurveS8 & 0xff;
       out[w++] = cfg.lowpassCurveS8 & 0xff;
       out[w++] = cfg.wavefoldCurveS8 & 0xff;
+
+      out[w++] = cfg.hardSyncEnabled ? 1 : 0;
+      out[w++] = clamp(cfg.hardSyncStrengthU8 | 0, 0, 255);
+
+      const hardSyncDecayTicks = clamp(cfg.hardSyncDecayInTicks | 0, 0, 0xffff);
+      out[w++] = hardSyncDecayTicks & 0xff;
+      out[w++] = (hardSyncDecayTicks >> 8) & 0xff;
+
+      out[w++] = cfg.hardSyncCurveS8 & 0xff;
    }
    return out;
 }
@@ -243,7 +273,11 @@ function makeMorphMapLua(song: Song): string {
  lowpassCurveS8=${entry.cfg.lowpassCurveS8},
  wavefoldAmt=${entry.cfg.wavefoldAmt},
  wavefoldDurationInTicks=${entry.cfg.wavefoldDurationInTicks},
- wavefoldCurveS8=${entry.cfg.wavefoldCurveS8}
+ wavefoldCurveS8=${entry.cfg.wavefoldCurveS8},
+ hardSyncEnabled=${entry.cfg.hardSyncEnabled ? 1 : 0},
+ hardSyncStrengthU8=${entry.cfg.hardSyncStrengthU8},
+ hardSyncDecayInTicks=${entry.cfg.hardSyncDecayInTicks},
+ hardSyncCurveS8=${entry.cfg.hardSyncCurveS8}
 }`);
    }
    return `{\n\t\t${parts.join(",\n\t\t")}\n\t}`;

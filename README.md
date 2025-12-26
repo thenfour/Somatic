@@ -7,6 +7,13 @@ features you might find interesting:
 
 * MIDI device support
 * export as `.tic` cartridge
+* augments to the default tic80 music routine
+  * long songs (up to 255 song order)
+  * PWM waveform synthesis
+  * wavetable crossfading over time
+  * lowpass filter automation
+  * wavefolding shaper
+  * hard sync
 * Undo/redo support
 * Mute/Solo per channel
 * editing features
@@ -17,6 +24,7 @@ features you might find interesting:
 * waveform manipulation tools like smoothing, normalization, mixing in harmonics
 * instrument editor (sfx) shows the waveform sequence
 * Themes: dark/light supported
+* keyboard note input uses physically bound key shortcuts to be more keyboard layout compatible
 * Guaranteed sound accuracy because it uses a real TIC-80 as the sound engine.
 * Song optimization: unused waveforms, sfx, and patterns don't become part of the exported cart.
 * Song compression: pattern data is bloaty and gets compressed to keep code size down

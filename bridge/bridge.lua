@@ -211,7 +211,7 @@ local ch_sfx_ticks = { 0, 0, 0, 0 } -- 0-based channel -> duration since note-on
 local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
 
 local MORPH_HEADER_BYTES = 1
-local MORPH_ENTRY_BYTES = 21
+local MORPH_ENTRY_BYTES = 26
 
 -- SOMATIC_SFX_CONFIG lives below the MARKER region; fail fast if layout or payload is inconsistent.
 local MORPH_MAP_BYTES = ADDR.MARKER - MORPH_MAP_BASE
@@ -283,6 +283,10 @@ local lerp_nibble = lerp_nibble_lin
 -- - morphCurve (s8)
 -- - lowpassCurve (s8)
 -- - wavefoldCurve (s8)
+-- - hardSyncEnabled (u8)
+-- - hardSyncStrength (u8)
+-- - hardSyncDecayTicks (u16 LE)
+-- - hardSyncCurve (s8)
 local function read_sfx_cfg(instrumentId)
 	local rawCount = peek(MORPH_MAP_BASE)
 	local maxCount = math.floor((MORPH_MAP_BYTES - MORPH_HEADER_BYTES) / MORPH_ENTRY_BYTES)
@@ -313,6 +317,10 @@ local function read_sfx_cfg(instrumentId)
 			local morphCurveS8 = u8_to_s8(peek(off + 18))
 			local lowpassCurveS8 = u8_to_s8(peek(off + 19))
 			local wavefoldCurveS8 = u8_to_s8(peek(off + 20))
+			local hardSyncEnabled = peek(off + 21)
+			local hardSyncStrengthU8 = peek(off + 22)
+			local hardSyncDecayInTicks = peek(off + 23) + peek(off + 24) * 256
+			local hardSyncCurveS8 = u8_to_s8(peek(off + 25))
 
 			-- Shape matches makeMorphMapLua(): values are numeric IDs.
 			return {
@@ -332,6 +340,10 @@ local function read_sfx_cfg(instrumentId)
 				wavefoldAmt = wavefoldAmt,
 				wavefoldDurationInTicks = wavefoldDurationInTicks,
 				wavefoldCurveS8 = wavefoldCurveS8,
+				hardSyncEnabled = hardSyncEnabled ~= 0,
+				hardSyncStrengthU8 = hardSyncStrengthU8,
+				hardSyncDecayInTicks = hardSyncDecayInTicks,
+				hardSyncCurveS8 = hardSyncCurveS8,
 			}
 		end
 	end
@@ -483,6 +495,36 @@ local function apply_wavefold_effect_to_samples(samples, strength01)
 	end
 end
 
+local hs_scratch = {}
+local function apply_hardsync_effect_to_samples(samples, multiplier)
+	local m = multiplier or 1
+	if m <= 1.001 then
+		return
+	end
+
+	local N = WAVE_SAMPLES_PER_WAVE
+
+	for i = 0, N - 1 do
+		hs_scratch[i] = samples[i] or 0
+	end
+
+	for i = 0, N - 1 do
+		local u = (i / N) * m -- slave cycles within master cycle
+		local k = math.floor(u)
+		local frac = u - k -- 0..1
+		local p = frac * N
+		local idx0 = math.floor(p)
+		local f = p - idx0
+		local idx1 = (idx0 + 1) % N
+
+		local s0 = hs_scratch[idx0]
+		local s1 = hs_scratch[idx1]
+		local v = s0 + (s1 - s0) * f
+
+		samples[i] = v
+	end
+end
+
 local function cfg_is_k_rate_processing(cfg)
 	if cfg.waveEngine == 0 or cfg.waveEngine == 2 then
 		return true
@@ -491,6 +533,9 @@ local function cfg_is_k_rate_processing(cfg)
 		return true
 	end
 	if (cfg.wavefoldAmt or 0) > 0 then
+		return true
+	end
+	if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then
 		return true
 	end
 	return false
@@ -571,7 +616,23 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed)
 		return
 	end
 
-	render_waveform_samples(cfg, ticksPlayed, instrumentId, render_out)
+	local rendered = render_waveform_samples(cfg, ticksPlayed, instrumentId, render_out)
+	if not rendered then
+		return
+	end
+
+	if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then
+		local decayTicks = cfg.hardSyncDecayInTicks or 0
+		local hsT
+		if decayTicks == nil or decayTicks <= 0 then
+			hsT = 0
+		else
+			hsT = clamp01(ticksPlayed / decayTicks)
+		end
+		local env = 1 - apply_curveN11(hsT, cfg.hardSyncCurveS8 or 0)
+		local multiplier = 1 + ((cfg.hardSyncStrengthU8 or 0) / 255) * 7 * env
+		apply_hardsync_effect_to_samples(render_out, multiplier)
+	end
 
 	-- Wavefold first (adds harmonics), then lowpass (smooths)
 	if (cfg.wavefoldAmt or 0) > 0 and (cfg.wavefoldDurationInTicks or 0) > 0 then

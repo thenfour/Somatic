@@ -199,6 +199,36 @@ local function apply_wavefold_effect_to_samples(samples, strength01)
 	end
 end
 
+local hs_scratch = {}
+local function apply_hardsync_effect_to_samples(samples, multiplier)
+	local m = multiplier or 1
+	if m <= 1.001 then
+		return
+	end
+
+	local N = WAVE_SAMPLES_PER_WAVE
+
+	for i = 0, N - 1 do
+		hs_scratch[i] = samples[i] or 0
+	end
+
+	for i = 0, N - 1 do
+		local u = (i / N) * m -- slave cycles within master cycle
+		local k = math.floor(u)
+		local frac = u - k -- 0..1
+		local p = frac * N
+		local idx0 = math.floor(p)
+		local f = p - idx0
+		local idx1 = (idx0 + 1) % N
+
+		local s0 = hs_scratch[idx0]
+		local s1 = hs_scratch[idx1]
+		local v = s0 + (s1 - s0) * f
+
+		samples[i] = v
+	end
+end
+
 local render_src_a = {}
 local render_src_b = {}
 local render_out = {}
@@ -215,6 +245,9 @@ local function cfg_is_k_rate_processing(cfg)
 		return true
 	end
 	if (cfg.wavefoldAmt or 0) > 0 then
+		return true
+	end
+	if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then
 		return true
 	end
 	return false
@@ -289,6 +322,18 @@ local function render_tick_cfg(cfg, instId, ticksPlayed)
 	end
 	if not render_waveform_samples(cfg, ticksPlayed, render_out) then
 		return
+	end
+	if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then
+		local decayTicks = cfg.hardSyncDecayInTicks or 0
+		local hsT
+		if decayTicks == nil or decayTicks <= 0 then
+			hsT = 0
+		else
+			hsT = clamp01(ticksPlayed / decayTicks)
+		end
+		local env = 1 - apply_curveN11(hsT, u8_to_s8(cfg.hardSyncCurveS8 or 0))
+		local multiplier = 1 + ((cfg.hardSyncStrengthU8 or 0) / 255) * 7 * env
+		apply_hardsync_effect_to_samples(render_out, multiplier)
 	end
 	if (cfg.wavefoldAmt or 0) > 0 and (cfg.wavefoldDurationInTicks or 0) > 0 then
 		local maxAmt = clamp01((cfg.wavefoldAmt or 0) / 255)

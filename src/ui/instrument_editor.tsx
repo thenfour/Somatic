@@ -111,6 +111,30 @@ const WavefoldCurveConfig: ContinuousParamConfig = {
     format: (v) => v.toFixed(2),
 };
 
+const HardSyncStrengthConfig: ContinuousParamConfig = {
+    resolutionSteps: 64,
+    default: 1,
+    convertTo01: (v) => (v - 1) / 7,
+    convertFrom01: (v01) => 1 + v01 * 7,
+    format: (v) => `${v.toFixed(2)}x`,
+};
+
+const HardSyncDecayConfig: ContinuousParamConfig = {
+    resolutionSteps: 400,
+    default: 0,
+    convertTo01: (v) => v / 4,
+    convertFrom01: (v01) => v01 * 4,
+    format: (v) => `${Math.round(v * 1000)} ms`,
+};
+
+const HardSyncCurveConfig: ContinuousParamConfig = {
+    resolutionSteps: 200,
+    default: 0,
+    convertTo01: (v) => (v + 1) / 2,
+    convertFrom01: (v01) => v01 * 2 - 1,
+    format: (v) => v.toFixed(2),
+};
+
 const LoopStartConfig: ContinuousParamConfig = {
     resolutionSteps: Tic80Caps.sfx.envelopeFrameCount,
     default: 0,
@@ -583,6 +607,50 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
+    const setHardSyncEnabled = (enabled: boolean) => {
+        onSongChange({
+            description: 'Toggle hard sync',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.hardSyncEnabled = enabled;
+            },
+        });
+    };
+
+    const setHardSyncStrength = (value: number) => {
+        onSongChange({
+            description: 'Set hard sync strength',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.hardSyncStrength = clamp(value, 1, 8);
+            },
+        });
+    };
+
+    const setHardSyncDecay = (value: number) => {
+        onSongChange({
+            description: 'Set hard sync decay',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.hardSyncDecaySeconds = clamp(value, 0, 4);
+            },
+        });
+    };
+
+    const setHardSyncCurve = (value: number) => {
+        onSongChange({
+            description: 'Set hard sync curve',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.hardSyncCurveN11 = clamp(value, -1, 1);
+            },
+        });
+    };
+
     const setWavefoldAmount = (value: number) => {
         onSongChange({
             description: 'Set wavefold amount',
@@ -976,6 +1044,78 @@ show render slot if there are k-rate effects enabled
                 <Tab thisTabId="effects" summaryTitle="Effects">
                     <div className="instrument-tab-content">
                         <div style={{ marginTop: 12 }}>
+                            <h4>Hard Sync</h4>
+                            <div className="field-row">
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={instrument.hardSyncEnabled}
+                                        onChange={(e) => setHardSyncEnabled(e.target.checked)}
+                                    />
+                                    Enabled
+                                </label>
+                            </div>
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='strength'
+                                    value={instrument.hardSyncStrength}
+                                    config={HardSyncStrengthConfig}
+                                    onChange={setHardSyncStrength}
+                                />
+                            </div>
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='decay'
+                                    value={instrument.hardSyncDecaySeconds}
+                                    config={HardSyncDecayConfig}
+                                    onChange={setHardSyncDecay}
+                                />
+                            </div>
+                            <div>
+                                {Math.floor(instrument.hardSyncDecaySeconds * 1000 / (1000 / 60))} ticks @ 60Hz
+                            </div>
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='curve'
+                                    value={instrument.hardSyncCurveN11}
+                                    config={HardSyncCurveConfig}
+                                    onChange={setHardSyncCurve}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: 12 }}>
+                            <h4>Wavefold</h4>
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='strength'
+                                    value={instrument.wavefoldAmt}
+                                    config={WavefoldAmountConfig}
+                                    onChange={setWavefoldAmount}
+                                />
+                            </div>
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='decay'
+                                    value={instrument.wavefoldDurationSeconds}
+                                    config={WavefoldDurationConfig}
+                                    onChange={setWavefoldDuration}
+                                />
+                            </div>
+                            <div>
+                                {Math.floor(instrument.wavefoldDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
+                            </div>
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='curve'
+                                    value={instrument.wavefoldCurveN11}
+                                    config={WavefoldCurveConfig}
+                                    onChange={setWavefoldCurve}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: 12 }}>
                             <h4>Lowpass</h4>
                             <div className="field-row">
                                 <label>
@@ -1015,40 +1155,6 @@ show render slot if there are k-rate effects enabled
                                     config={LowpassCurveConfig}
                                     onChange={setLowpassCurve}
                                 />
-                            </div>
-                        </div>
-
-                        <div style={{ marginTop: 12 }}>
-                            <h4>Wavefold</h4>
-                            <div className="field-row">
-                                <ContinuousKnob
-                                    label='strength'
-                                    value={instrument.wavefoldAmt}
-                                    config={WavefoldAmountConfig}
-                                    onChange={setWavefoldAmount}
-                                />
-                            </div>
-                            <div className="field-row">
-                                <ContinuousKnob
-                                    label='decay'
-                                    value={instrument.wavefoldDurationSeconds}
-                                    config={WavefoldDurationConfig}
-                                    onChange={setWavefoldDuration}
-                                />
-                            </div>
-                            <div>
-                                {Math.floor(instrument.wavefoldDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
-                            </div>
-                            <div className="field-row">
-                                <ContinuousKnob
-                                    label='curve'
-                                    value={instrument.wavefoldCurveN11}
-                                    config={WavefoldCurveConfig}
-                                    onChange={setWavefoldCurve}
-                                />
-                            </div>
-                            <div style={{ maxWidth: 520 }}>
-                                Set Amount to 0 to disable wavefold.
                             </div>
                         </div>
                     </div>

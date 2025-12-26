@@ -80,10 +80,10 @@ export interface Tic80InstrumentDto {
    wavefoldDurationSeconds: number;
    wavefoldCurveN11: number;
 
-   // hardSyncEnabled: boolean;     // not implemented
-   // hardSyncStrength: number;     // not implemented
-   // hardSyncDecaySeconds: number; // not implemented
-   // hardSyncCurveN11: number;
+   hardSyncEnabled: boolean;
+   hardSyncStrength: number;     // multiplier 1-8
+   hardSyncDecaySeconds: number; // decay envelope for hard sync strength
+   hardSyncCurveN11: number;     // curve shaping for the decay
 }
 
 // aka "SFX" aka "sample" (from tic.h / sound.c)
@@ -138,6 +138,11 @@ export class Tic80Instrument {
    wavefoldAmt: number; // 0-255
    wavefoldDurationSeconds: number;
    wavefoldCurveN11: number;
+
+   hardSyncEnabled: boolean;
+   hardSyncStrength: number; // multiplier 1-8
+   hardSyncDecaySeconds: number;
+   hardSyncCurveN11: number;
 
 
    // editor-only...
@@ -219,6 +224,11 @@ export class Tic80Instrument {
       // 0 means "no decay" (constant max strength), preserving legacy behavior.
       this.wavefoldDurationSeconds = Math.max(0, data.wavefoldDurationSeconds ?? 0);
       this.wavefoldCurveN11 = clamp(data.wavefoldCurveN11 ?? 0, -1, 1);
+
+      this.hardSyncEnabled = CoalesceBoolean(data.hardSyncEnabled, false);
+      this.hardSyncStrength = clamp(data.hardSyncStrength ?? 1, 1, 8);
+      this.hardSyncDecaySeconds = Math.max(0, data.hardSyncDecaySeconds ?? 0);
+      this.hardSyncCurveN11 = clamp(data.hardSyncCurveN11 ?? 0, -1, 1);
    }
 
    static fromData(data?: Partial<Tic80InstrumentDto>): Tic80Instrument {
@@ -264,6 +274,10 @@ export class Tic80Instrument {
          wavefoldAmt: this.wavefoldAmt,
          wavefoldDurationSeconds: this.wavefoldDurationSeconds,
          wavefoldCurveN11: this.wavefoldCurveN11,
+         hardSyncEnabled: this.hardSyncEnabled,
+         hardSyncStrength: this.hardSyncStrength,
+         hardSyncDecaySeconds: this.hardSyncDecaySeconds,
+         hardSyncCurveN11: this.hardSyncCurveN11,
       };
    };
 
@@ -289,6 +303,9 @@ export class Tic80Instrument {
          return true;
       }
       if (this.wavefoldAmt > 0) {
+         return true;
+      }
+      if (this.hardSyncEnabled) {
          return true;
       }
       return false;
