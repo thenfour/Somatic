@@ -79,8 +79,12 @@ export interface Tic80InstrumentDto {
    wavefoldAmt: number; // 0-255 amplifies the waveform, folding it back into the valid range
    wavefoldDurationSeconds: number;
    wavefoldCurveN11: number;
+
+   // hardSyncEnabled: boolean;     // not implemented
+   // hardSyncStrength: number;     // not implemented
+   // hardSyncDecaySeconds: number; // not implemented
+   // hardSyncCurveN11: number;
 }
-;
 
 // aka "SFX" aka "sample" (from tic.h / sound.c)
 export class Tic80Instrument {

@@ -5,7 +5,7 @@ import "./Tabs.css";
 
 type TTabID = string | number | undefined | null;
 
-interface CMTabProps {
+interface TabProps {
     thisTabId: TTabID;
     summaryIcon?: React.ReactNode;
     summaryTitle?: React.ReactNode;
@@ -14,11 +14,11 @@ interface CMTabProps {
     canBeDefault?: boolean; // if the requested default tab is not available, 
 };
 
-export const Tab = ({ enabled = true, ...props }: React.PropsWithChildren<CMTabProps>) => {
+export const Tab = ({ enabled = true, ...props }: React.PropsWithChildren<TabProps>) => {
     return enabled && <Suspense>{props.children}</Suspense>;
 };
 
-const TabHeader = (props: CMTabProps & {
+const TabHeader = (props: TabProps & {
     selected: boolean,
     onClick: (e: React.MouseEvent<HTMLLIElement>) => void
 }) => {
@@ -35,21 +35,21 @@ const TabHeader = (props: CMTabProps & {
     </li>
 };
 
-export type CMTabPanelChild = React.ReactElement<React.PropsWithChildren<CMTabProps>>;
+export type TabPanelChild = React.ReactElement<React.PropsWithChildren<TabProps>>;
 
-interface CMTabPanelProps {
+interface TabPanelProps {
     selectedTabId: TTabID;
     //defaultTabId?: TTabID;
     handleTabChange: (e: React.SyntheticEvent | undefined, newTabId: TTabID) => void;
     className?: string | undefined;
     style?: React.CSSProperties | undefined;
-    children: CMTabPanelChild | CMTabPanelChild[];
+    children: TabPanelChild | TabPanelChild[];
     //setNewDefault?: (tabId: TTabID) => void;
     tablListStyle?: React.CSSProperties | undefined;
 };
 
-export const CMTabPanel = (props: CMTabPanelProps) => {
-    const handleTabHeaderClick = (ch: React.ReactElement<React.PropsWithChildren<CMTabProps>>, e: React.MouseEvent<HTMLLIElement>) => {
+export const TabPanel = (props: TabPanelProps) => {
+    const handleTabHeaderClick = (ch: React.ReactElement<React.PropsWithChildren<TabProps>>, e: React.MouseEvent<HTMLLIElement>) => {
         props.handleTabChange(e, ch.props.thisTabId);
     };
 

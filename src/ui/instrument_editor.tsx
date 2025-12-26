@@ -13,6 +13,7 @@ import { AppPanelShell } from './AppPanelShell';
 import { RadioButton } from './basic/RadioButton';
 import { Tooltip } from './basic/tooltip';
 import { ContinuousKnob, ContinuousParamConfig } from './basic/knob';
+import { TabPanel, Tab } from './basic/Tabs';
 
 const PWMDutyConfig: ContinuousParamConfig = {
     resolutionSteps: 32,
@@ -311,6 +312,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
     const instrument = song.instruments[instrumentIndex];
     const clipboard = useClipboard();
     const [hoveredWaveform, setHoveredWaveform] = useState<WaveformCanvasHover | null>(null);
+    const [selectedTab, setSelectedTab] = useState<string>('volume');
 
     const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -655,280 +657,287 @@ show render slot if there are k-rate effects enabled
                 </>
             )}
         >
-            <div className="">
-                <div className="field-row">
-                </div>
-                <div className="field-row">
-                    <ContinuousKnob
-                        label='Speed'
-                        value={instrument.speed}
-                        config={SpeedConfig}
-                        onChange={setSpeed}
-                    />
-                </div>
-                <div className="field-row">
-                    <label>Stereo</label>
-                    <label>
-                        <input
-                            type="checkbox"
-                            checked={instrument.stereoLeft}
-                            onChange={handleStereoLeftChange}
-                        />
-                        L
-                    </label>
-                    <label>
-                        <input
-                            type="checkbox"
-                            checked={instrument.stereoRight}
-                            onChange={handleStereoRightChange}
-                        />
-                        R
-                    </label>
-                </div>
-                <InstrumentEnvelopeEditor
-                    title="Volume"
-                    frames={instrument.volumeFrames}
-                    loopStart={instrument.volumeLoopStart}
-                    loopLength={instrument.volumeLoopLength}
-                    minValue={0}
-                    maxValue={Tic80Caps.sfx.volumeMax}
-                    onChange={handleVolumeEnvelopeChange}
-                />
-                <div>
-                    <Tooltip title="The native TIC-80 waveform engine.">
-                        <RadioButton selected={instrument.waveEngine === 'native'} onClick={() => handleSetWaveEngine('native')}>Native</RadioButton>
-                    </Tooltip>
-                    <Tooltip title="Morph between two waveforms over time.">
-                        <RadioButton selected={instrument.waveEngine === 'morph'} onClick={() => handleSetWaveEngine('morph')}>Morph</RadioButton>
-                    </Tooltip>
-                    <Tooltip title="PWM waveform synthesis.">
-                        <RadioButton selected={instrument.waveEngine === 'pwm'} onClick={() => handleSetWaveEngine('pwm')}>PWM</RadioButton>
-                    </Tooltip>
-
-
-                    {showSourceWaveform && (
-                        <div style={{ display: "flex", gap: "16px", padding: 8 }}>
-                            <strong>Source Waveform</strong>
-                            <WaveformSelect
-                                song={song}
-                                onClickWaveform={(waveformId) => {
-                                    onSongChange({
-                                        description: 'Set source waveform',
-                                        undoable: true,
-                                        mutator: (s) => {
-                                            const inst = s.instruments[instrumentIndex];
-                                            inst.sourceWaveformIndex = waveformId;
-                                        },
-                                    });
-                                }}
-                                getOverlayText={(i) => {
-                                    const isNoise = song.waveforms[i]?.isNoise() ?? false;
-                                    return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
-                                }}
-                                getWaveformDisplayStyle={(waveformId) => {
-                                    if (waveformId === instrument.sourceWaveformIndex) {
-                                        return "selected";
-                                    }
-                                    return "muted";
-                                }}
-                            />
-                        </div>)}
-                    {showMorphB && (
-                        <div style={{ display: "flex", gap: "16px", padding: 8 }}>
-                            <strong>Morph Waveform B</strong>
-                            <WaveformSelect
-                                song={song}
-                                onClickWaveform={(waveformId) => {
-                                    onSongChange({
-                                        description: 'Set morph B waveform',
-                                        undoable: true,
-                                        mutator: (s) => {
-                                            const inst = s.instruments[instrumentIndex];
-                                            inst.morphWaveB = waveformId;
-                                        },
-                                    });
-                                }}
-                                getOverlayText={(i) => {
-                                    const isNoise = song.waveforms[i]?.isNoise() ?? false;
-                                    return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
-                                }}
-                                getWaveformDisplayStyle={(waveformId) => {
-                                    if (waveformId === instrument.morphWaveB) {
-                                        return "selected";
-                                    }
-                                    return "muted";
-                                }}
+            <TabPanel
+                selectedTabId={selectedTab}
+                handleTabChange={(_, tabId) => setSelectedTab(tabId as string)}
+            >
+                <Tab thisTabId="volume" summaryTitle="Volume" canBeDefault={true}>
+                    <div className="instrument-tab-content">
+                        <div className="field-row">
+                            <ContinuousKnob
+                                label='Speed'
+                                value={instrument.speed}
+                                config={SpeedConfig}
+                                onChange={setSpeed}
                             />
                         </div>
-                    )}
-
-                    {instrument.waveEngine === 'native' && instrument.isKRateProcessing() && (
-                        <div style={{ marginTop: 8 }}>
-                            <div style={{ maxWidth: 520 }}>
-                                Native + effects uses a single configured source waveform.
-                            </div>
+                        <div className="field-row">
+                            <label>Stereo</label>
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={instrument.stereoLeft}
+                                    onChange={handleStereoLeftChange}
+                                />
+                                L
+                            </label>
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={instrument.stereoRight}
+                                    onChange={handleStereoRightChange}
+                                />
+                                R
+                            </label>
                         </div>
-                    )}
+                        <InstrumentEnvelopeEditor
+                            title="Volume"
+                            frames={instrument.volumeFrames}
+                            loopStart={instrument.volumeLoopStart}
+                            loopLength={instrument.volumeLoopLength}
+                            minValue={0}
+                            maxValue={Tic80Caps.sfx.volumeMax}
+                            onChange={handleVolumeEnvelopeChange}
+                        />
+                    </div>
+                </Tab>
 
-                    {instrument.waveEngine === 'morph' && (
-                        <div>
-                            <div className="field-row">
-                                <ContinuousKnob
-                                    label='Morph duration'
-                                    value={instrument.morphDurationSeconds}
-                                    config={MorphDurationConfig}
-                                    onChange={setMorphDuration}
-                                />
-                            </div>
-                            <div>
-                                {Math.floor(instrument.morphDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
-                            </div>
-                            <div className="field-row">
-                                <ContinuousKnob
-                                    label='Morph curve'
-                                    value={instrument.morphCurveN11}
-                                    config={MorphCurveConfig}
-                                    onChange={setMorphCurve}
-                                />
-                            </div>
-                        </div>
-                    )}
+                <Tab thisTabId="waveform" summaryTitle="Waveform">
+                    <div className="instrument-tab-content">
+                        <Tooltip title="The native TIC-80 waveform engine.">
+                            <RadioButton selected={instrument.waveEngine === 'native'} onClick={() => handleSetWaveEngine('native')}>Native</RadioButton>
+                        </Tooltip>
+                        <Tooltip title="Morph between two waveforms over time.">
+                            <RadioButton selected={instrument.waveEngine === 'morph'} onClick={() => handleSetWaveEngine('morph')}>Morph</RadioButton>
+                        </Tooltip>
+                        <Tooltip title="PWM waveform synthesis.">
+                            <RadioButton selected={instrument.waveEngine === 'pwm'} onClick={() => handleSetWaveEngine('pwm')}>PWM</RadioButton>
+                        </Tooltip>
 
-                    {instrument.waveEngine === 'pwm' && (
-                        <div>
-                            <div style={{ maxWidth: 520 }}>
-                                PWM uses the configured waveform slot for live synthesis.
-                            </div>
-                            <div className="field-row">
-                                <ContinuousKnob
-                                    label='PWM speed'
-                                    value={instrument.pwmSpeedHz}
-                                    config={PWMSpeedConfig}
-                                    onChange={setPWMSpeed}
-                                />
-                            </div>
-                            <div className="field-row">
-                                <ContinuousKnob
-                                    label='PWM duty cycle'
-                                    value={instrument.pwmDuty}
-                                    config={PWMDutyConfig}
-                                    onChange={setPWMDuty}
-                                />
-                            </div>
-                            <div className="field-row">
-                                <ContinuousKnob
-                                    label='PWM depth'
-                                    value={instrument.pwmDepth}
-                                    config={PWMDepthConfig}
-                                    onChange={setPWMDepth}
-                                />
-                            </div>
 
-                            <div className="field-row">
-                                <ContinuousKnob
-                                    label='PWM phase'
-                                    value={instrument.pwmPhase01}
-                                    config={PWMPhaseConfig}
-                                    onChange={setPWMPhase}
+                        {showSourceWaveform && (
+                            <div style={{ display: "flex", gap: "16px", padding: 8 }}>
+                                <strong>Source Waveform</strong>
+                                <WaveformSelect
+                                    song={song}
+                                    onClickWaveform={(waveformId) => {
+                                        onSongChange({
+                                            description: 'Set source waveform',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                const inst = s.instruments[instrumentIndex];
+                                                inst.sourceWaveformIndex = waveformId;
+                                            },
+                                        });
+                                    }}
+                                    getOverlayText={(i) => {
+                                        const isNoise = song.waveforms[i]?.isNoise() ?? false;
+                                        return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
+                                    }}
+                                    getWaveformDisplayStyle={(waveformId) => {
+                                        if (waveformId === instrument.sourceWaveformIndex) {
+                                            return "selected";
+                                        }
+                                        return "muted";
+                                    }}
+                                />
+                            </div>)}
+                        {showMorphB && (
+                            <div style={{ display: "flex", gap: "16px", padding: 8 }}>
+                                <strong>Morph Waveform B</strong>
+                                <WaveformSelect
+                                    song={song}
+                                    onClickWaveform={(waveformId) => {
+                                        onSongChange({
+                                            description: 'Set morph B waveform',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                const inst = s.instruments[instrumentIndex];
+                                                inst.morphWaveB = waveformId;
+                                            },
+                                        });
+                                    }}
+                                    getOverlayText={(i) => {
+                                        const isNoise = song.waveforms[i]?.isNoise() ?? false;
+                                        return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
+                                    }}
+                                    getWaveformDisplayStyle={(waveformId) => {
+                                        if (waveformId === instrument.morphWaveB) {
+                                            return "selected";
+                                        }
+                                        return "muted";
+                                    }}
                                 />
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {
-                        showRenderWaveformSlot && (
-
-                            <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: 8 }}>
-                                <strong>waveform rendering slot</strong>
-                                <div style={{ maxWidth: 400 }}>
-                                    when doing k-rate processing, we have to render the waveform to a slot.
-                                    note: this means this instrument must be monophonic.
+                        {instrument.waveEngine === 'native' && instrument.isKRateProcessing() && (
+                            <div style={{ marginTop: 8 }}>
+                                <div style={{ maxWidth: 520 }}>
+                                    Native + effects uses a single configured source waveform.
                                 </div>
-                                <div style={{ display: "flex", gap: "16px", padding: 8 }}>
-                                    <WaveformSelect
-                                        song={song}
-                                        onClickWaveform={(waveformId) => {
-                                            onSongChange({
-                                                description: 'Set PWM waveform slot',
-                                                undoable: true,
-                                                mutator: (s) => {
-                                                    const inst = s.instruments[instrumentIndex];
-                                                    inst.renderWaveformSlot = waveformId;
-                                                },
-                                            });
-                                        }}
-                                        getOverlayText={(i) => {
-                                            const isNoise = song.waveforms[i]?.isNoise() ?? false;
-                                            return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
-                                        }}
-                                        getWaveformDisplayStyle={(waveformId) => {
-                                            if (waveformId === instrument.renderWaveformSlot) {
-                                                return "selected";
-                                            }
-                                            return "muted";
-                                        }}
+                            </div>
+                        )}
+
+                        {instrument.waveEngine === 'morph' && (
+                            <div>
+                                <div className="field-row">
+                                    <ContinuousKnob
+                                        label='Morph duration'
+                                        value={instrument.morphDurationSeconds}
+                                        config={MorphDurationConfig}
+                                        onChange={setMorphDuration}
+                                    />
+                                </div>
+                                <div>
+                                    {Math.floor(instrument.morphDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
+                                </div>
+                                <div className="field-row">
+                                    <ContinuousKnob
+                                        label='Morph curve'
+                                        value={instrument.morphCurveN11}
+                                        config={MorphCurveConfig}
+                                        onChange={setMorphCurve}
                                     />
                                 </div>
                             </div>
-                        )
-                    }
+                        )}
 
-                    {showNativeWaveformEnvelope && (
-                        <>
-                            <div style={{ display: "flex", gap: "8px" }}>
-                                <InstrumentEnvelopeEditor
-                                    title="Waveforms"
-                                    frames={instrument.waveFrames}
-                                    loopStart={instrument.waveLoopStart}
-                                    loopLength={instrument.waveLoopLength}
-                                    minValue={0}
-                                    maxValue={Tic80Caps.waveform.count - 1}
-                                    onChange={handleWaveEnvelopeChange}
-                                    onHoverChange={(hover) => setHoveredWaveform(hover)}
-                                />
+                        {instrument.waveEngine === 'pwm' && (
+                            <div>
+                                <div style={{ maxWidth: 520 }}>
+                                    PWM uses the configured waveform slot for live synthesis.
+                                </div>
+                                <div className="field-row">
+                                    <ContinuousKnob
+                                        label='PWM speed'
+                                        value={instrument.pwmSpeedHz}
+                                        config={PWMSpeedConfig}
+                                        onChange={setPWMSpeed}
+                                    />
+                                </div>
+                                <div className="field-row">
+                                    <ContinuousKnob
+                                        label='PWM duty cycle'
+                                        value={instrument.pwmDuty}
+                                        config={PWMDutyConfig}
+                                        onChange={setPWMDuty}
+                                    />
+                                </div>
+                                <div className="field-row">
+                                    <ContinuousKnob
+                                        label='PWM depth'
+                                        value={instrument.pwmDepth}
+                                        config={PWMDepthConfig}
+                                        onChange={setPWMDepth}
+                                    />
+                                </div>
 
-                                <div className="waveform-swatch-previews" style={{ marginTop: 75 /* crude alignment with editor */ }}>
-                                    <WaveformSelect
-                                        onClickWaveform={(waveformId) => {
-                                            // set whole env to this waveform
-                                            onSongChange({
-                                                description: 'Set waveform sequence',
-                                                undoable: true,
-                                                mutator: (s) => {
-                                                    const inst = s.instruments[instrumentIndex];
-                                                    inst.waveFrames = new Int8Array(inst.waveFrames.length).fill(waveformId);
-                                                },
-                                            });
-                                        }}
-                                        song={song}
-                                        getOverlayText={(i) => {
-                                            const isNoise = song.waveforms[i]?.isNoise() ?? false;
-                                            return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
-                                        }}
-                                        getWaveformDisplayStyle={(waveformId) => {
-                                            if (hoveredWaveform === null) {
-                                                // no hover; just highlight all the USED waveforms
-                                                if (instrument.waveFrames.includes(waveformId)) {
-                                                    return "normal";
+                                <div className="field-row">
+                                    <ContinuousKnob
+                                        label='PWM phase'
+                                        value={instrument.pwmPhase01}
+                                        config={PWMPhaseConfig}
+                                        onChange={setPWMPhase}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {
+                            showRenderWaveformSlot && (
+
+                                <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: 8 }}>
+                                    <strong>waveform rendering slot</strong>
+                                    <div style={{ maxWidth: 400 }}>
+                                        when doing k-rate processing, we have to render the waveform to a slot.
+                                        note: this means this instrument must be monophonic.
+                                    </div>
+                                    <div style={{ display: "flex", gap: "16px", padding: 8 }}>
+                                        <WaveformSelect
+                                            song={song}
+                                            onClickWaveform={(waveformId) => {
+                                                onSongChange({
+                                                    description: 'Set PWM waveform slot',
+                                                    undoable: true,
+                                                    mutator: (s) => {
+                                                        const inst = s.instruments[instrumentIndex];
+                                                        inst.renderWaveformSlot = waveformId;
+                                                    },
+                                                });
+                                            }}
+                                            getOverlayText={(i) => {
+                                                const isNoise = song.waveforms[i]?.isNoise() ?? false;
+                                                return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
+                                            }}
+                                            getWaveformDisplayStyle={(waveformId) => {
+                                                if (waveformId === instrument.renderWaveformSlot) {
+                                                    return "selected";
                                                 }
                                                 return "muted";
-                                            }
-                                            if (hoveredWaveform && waveformId === hoveredWaveform.value) {
-                                                return "selected";
-                                            }
-                                            // interesting but introduces a 4th display styl...
-                                            // if (instrument.waveFrames.includes(waveformId)) {
-                                            //     return "normal";
-                                            // }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            )
+                        }
 
-                                            if (waveformId === hoveredWaveform?.actualValue) {
-                                                return "normal";
-                                            }
-
-                                            return "muted";
-                                        }}
+                        {showNativeWaveformEnvelope && (
+                            <>
+                                <div style={{ display: "flex", gap: "8px" }}>
+                                    <InstrumentEnvelopeEditor
+                                        title="Waveforms"
+                                        frames={instrument.waveFrames}
+                                        loopStart={instrument.waveLoopStart}
+                                        loopLength={instrument.waveLoopLength}
+                                        minValue={0}
+                                        maxValue={Tic80Caps.waveform.count - 1}
+                                        onChange={handleWaveEnvelopeChange}
+                                        onHoverChange={(hover) => setHoveredWaveform(hover)}
                                     />
-                                    {/* <div className="waveform-swatch-preview" style={{ visibility: (hoveredWaveform == null ? "hidden" : undefined) }}>
+
+                                    <div className="waveform-swatch-previews" style={{ marginTop: 75 /* crude alignment with editor */ }}>
+                                        <WaveformSelect
+                                            onClickWaveform={(waveformId) => {
+                                                // set whole env to this waveform
+                                                onSongChange({
+                                                    description: 'Set waveform sequence',
+                                                    undoable: true,
+                                                    mutator: (s) => {
+                                                        const inst = s.instruments[instrumentIndex];
+                                                        inst.waveFrames = new Int8Array(inst.waveFrames.length).fill(waveformId);
+                                                    },
+                                                });
+                                            }}
+                                            song={song}
+                                            getOverlayText={(i) => {
+                                                const isNoise = song.waveforms[i]?.isNoise() ?? false;
+                                                return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
+                                            }}
+                                            getWaveformDisplayStyle={(waveformId) => {
+                                                if (hoveredWaveform === null) {
+                                                    // no hover; just highlight all the USED waveforms
+                                                    if (instrument.waveFrames.includes(waveformId)) {
+                                                        return "normal";
+                                                    }
+                                                    return "muted";
+                                                }
+                                                if (hoveredWaveform && waveformId === hoveredWaveform.value) {
+                                                    return "selected";
+                                                }
+                                                // interesting but introduces a 4th display styl...
+                                                // if (instrument.waveFrames.includes(waveformId)) {
+                                                //     return "normal";
+                                                // }
+
+                                                if (waveformId === hoveredWaveform?.actualValue) {
+                                                    return "normal";
+                                                }
+
+                                                return "muted";
+                                            }}
+                                        />
+                                        {/* <div className="waveform-swatch-preview" style={{ visibility: (hoveredWaveform == null ? "hidden" : undefined) }}>
                             <span>actual</span>
                             <WaveformSwatch
                                 value={song.waveforms[hoveredWaveform?.actualValue || 0]}
@@ -942,140 +951,150 @@ show render slot if there are k-rate effects enabled
                                 scale={4}
                             />
                         </div> */}
+                                    </div>
                                 </div>
-                            </div>
-                            <div className='waveformSequence'>
-                                <strong>Waveform sequence:</strong>
-                                <div className='waveformSequence__list' style={{ display: "flex", gap: "3px", maxWidth: 600, flexWrap: "wrap" }}>
-                                    {usedWaveformIDs.map((waveformId, index) => (
-                                        <WaveformSwatch
-                                            key={index}
-                                            value={song.waveforms[waveformId.waveformId]}
-                                            displayStyle={waveformId.isHovered ? "normal" : "muted"}
-                                            scale={2}
-                                        />
-                                    ))}
+                                <div className='waveformSequence'>
+                                    <strong>Waveform sequence:</strong>
+                                    <div className='waveformSequence__list' style={{ display: "flex", gap: "3px", maxWidth: 600, flexWrap: "wrap" }}>
+                                        {usedWaveformIDs.map((waveformId, index) => (
+                                            <WaveformSwatch
+                                                key={index}
+                                                value={song.waveforms[waveformId.waveformId]}
+                                                displayStyle={waveformId.isHovered ? "normal" : "muted"}
+                                                scale={2}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        </>
-                    )}
+                            </>
+                        )}
+                    </div>
+                </Tab>
 
-                    <div style={{ marginTop: 12 }}>
-                        <h4>Lowpass</h4>
+                <Tab thisTabId="effects" summaryTitle="Effects">
+                    <div className="instrument-tab-content">
+                        <div style={{ marginTop: 12 }}>
+                            <h4>Lowpass</h4>
+                            <div className="field-row">
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={instrument.lowpassEnabled}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            onSongChange({
+                                                description: 'Toggle lowpass',
+                                                undoable: true,
+                                                mutator: (s) => {
+                                                    const inst = s.instruments[instrumentIndex];
+                                                    inst.lowpassEnabled = checked;
+                                                },
+                                            });
+                                        }}
+                                    />
+                                    Enabled
+                                </label>
+                            </div>
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='Lowpass duration'
+                                    value={instrument.lowpassDurationSeconds}
+                                    config={LowpassDurationConfig}
+                                    onChange={setLowpassDuration}
+                                />
+                            </div>
+                            <div>
+                                {Math.floor(instrument.lowpassDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
+                            </div>
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='Lowpass curve'
+                                    value={instrument.lowpassCurveN11}
+                                    config={LowpassCurveConfig}
+                                    onChange={setLowpassCurve}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: 12 }}>
+                            <h4>Wavefold</h4>
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='strength'
+                                    value={instrument.wavefoldAmt}
+                                    config={WavefoldAmountConfig}
+                                    onChange={setWavefoldAmount}
+                                />
+                            </div>
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='decay'
+                                    value={instrument.wavefoldDurationSeconds}
+                                    config={WavefoldDurationConfig}
+                                    onChange={setWavefoldDuration}
+                                />
+                            </div>
+                            <div>
+                                {Math.floor(instrument.wavefoldDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
+                            </div>
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='curve'
+                                    value={instrument.wavefoldCurveN11}
+                                    config={WavefoldCurveConfig}
+                                    onChange={setWavefoldCurve}
+                                />
+                            </div>
+                            <div style={{ maxWidth: 520 }}>
+                                Set Amount to 0 to disable wavefold.
+                            </div>
+                        </div>
+                    </div>
+                </Tab>
+
+                <Tab thisTabId="pitch" summaryTitle="Pitch">
+                    <div className="instrument-tab-content">
+                        <InstrumentEnvelopeEditor
+                            title="Arpeggio"
+                            frames={instrument.arpeggioFrames}
+                            loopStart={instrument.arpeggioLoopStart}
+                            loopLength={instrument.arpeggioLoopLength}
+                            minValue={0}
+                            maxValue={Tic80Caps.sfx.arpeggioMax}
+                            onChange={handleArpeggioEnvelopeChange}
+                        />
                         <div className="field-row">
                             <label>
                                 <input
                                     type="checkbox"
-                                    checked={instrument.lowpassEnabled}
-                                    onChange={(e) => {
-                                        const checked = e.target.checked;
-                                        onSongChange({
-                                            description: 'Toggle lowpass',
-                                            undoable: true,
-                                            mutator: (s) => {
-                                                const inst = s.instruments[instrumentIndex];
-                                                inst.lowpassEnabled = checked;
-                                            },
-                                        });
-                                    }}
+                                    checked={instrument.arpeggioDown}
+                                    onChange={handleArpeggioReverseChange}
                                 />
-                                Enabled
+                                Arpeggio reverse
                             </label>
                         </div>
+                        <InstrumentEnvelopeEditor
+                            title="Pitch"
+                            frames={instrument.pitchFrames}
+                            loopStart={instrument.pitchLoopStart}
+                            loopLength={instrument.pitchLoopLength}
+                            minValue={Tic80Caps.sfx.pitchMin}
+                            maxValue={Tic80Caps.sfx.pitchMax}
+                            onChange={handlePitchEnvelopeChange}
+                        />
                         <div className="field-row">
-                            <ContinuousKnob
-                                label='Lowpass duration'
-                                value={instrument.lowpassDurationSeconds}
-                                config={LowpassDurationConfig}
-                                onChange={setLowpassDuration}
-                            />
-                        </div>
-                        <div>
-                            {Math.floor(instrument.lowpassDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
-                        </div>
-                        <div className="field-row">
-                            <ContinuousKnob
-                                label='Lowpass curve'
-                                value={instrument.lowpassCurveN11}
-                                config={LowpassCurveConfig}
-                                onChange={setLowpassCurve}
-                            />
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={instrument.pitch16x}
+                                    onChange={handlePitch16xChange}
+                                />
+                                Pitch 16x
+                            </label>
                         </div>
                     </div>
-
-                    <div style={{ marginTop: 12 }}>
-                        <h4>Wavefold</h4>
-                        <div className="field-row">
-                            <ContinuousKnob
-                                label='strength'
-                                value={instrument.wavefoldAmt}
-                                config={WavefoldAmountConfig}
-                                onChange={setWavefoldAmount}
-                            />
-                        </div>
-                        <div className="field-row">
-                            <ContinuousKnob
-                                label='decay'
-                                value={instrument.wavefoldDurationSeconds}
-                                config={WavefoldDurationConfig}
-                                onChange={setWavefoldDuration}
-                            />
-                        </div>
-                        <div>
-                            {Math.floor(instrument.wavefoldDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
-                        </div>
-                        <div className="field-row">
-                            <ContinuousKnob
-                                label='curve'
-                                value={instrument.wavefoldCurveN11}
-                                config={WavefoldCurveConfig}
-                                onChange={setWavefoldCurve}
-                            />
-                        </div>
-                        <div style={{ maxWidth: 520 }}>
-                            Set Amount to 0 to disable wavefold.
-                        </div>
-                    </div>
-                </div>
-                <InstrumentEnvelopeEditor
-                    title="Arpeggio"
-                    frames={instrument.arpeggioFrames}
-                    loopStart={instrument.arpeggioLoopStart}
-                    loopLength={instrument.arpeggioLoopLength}
-                    minValue={0}
-                    maxValue={Tic80Caps.sfx.arpeggioMax}
-                    onChange={handleArpeggioEnvelopeChange}
-                />
-                <div className="field-row">
-                    <label>
-                        <input
-                            type="checkbox"
-                            checked={instrument.arpeggioDown}
-                            onChange={handleArpeggioReverseChange}
-                        />
-                        Arpeggio reverse
-                    </label>
-                </div>
-                <InstrumentEnvelopeEditor
-                    title="Pitch"
-                    frames={instrument.pitchFrames}
-                    loopStart={instrument.pitchLoopStart}
-                    loopLength={instrument.pitchLoopLength}
-                    minValue={Tic80Caps.sfx.pitchMin}
-                    maxValue={Tic80Caps.sfx.pitchMax}
-                    onChange={handlePitchEnvelopeChange}
-                />
-                <div className="field-row">
-                    <label>
-                        <input
-                            type="checkbox"
-                            checked={instrument.pitch16x}
-                            onChange={handlePitch16xChange}
-                        />
-                        Pitch 16x
-                    </label>
-                </div>
-            </div>
+                </Tab>
+            </TabPanel>
         </AppPanelShell>
     );
 };
