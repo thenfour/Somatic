@@ -334,7 +334,7 @@ do
 	lfo_ticks_by_sfx = {}
 	-- END_FEATURE_LFO
 
-	local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks)
+	local function calc_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks)
 		-- BEGIN_FEATURE_LFO
 		if modSource == MOD_SRC_LFO then
 			local cycle = lfoCycleTicks
@@ -429,24 +429,23 @@ do
 		end
 		render_waveform_samples(cfg, ticksPlayed, render_out)
 		if apply_hardsync_effect_to_samples and cfg.hsE ~= 0 and cfg.hsStr > 0 then
-			local hsT = calculate_mod_t(cfg.hsSrc or MOD_SRC_ENVELOPE, cfg.hsDcy, ticksPlayed, lfoTicks, cfg.lfoC)
+			local hsT = calc_t(cfg.hsSrc, cfg.hsDcy, ticksPlayed, lfoTicks, cfg.lfoC)
 			local env = 1 - crvN11(hsT, u8_s8(cfg.hsCrv))
 			local multiplier = 1 + ((cfg.hsStr or 0) / 255) * 7 * env
 			apply_hardsync_effect_to_samples(render_out, multiplier)
 		end
 		if apply_wavefold_effect_to_samples then
-			local wavefoldModSource = cfg.wfSrc or MOD_SRC_ENVELOPE
-			local wavefoldHasTime = (wavefoldModSource == MOD_SRC_LFO and (cfg.lfoC or 0) > 0) or ((cfg.wfDcy or 0) > 0)
-			if (cfg.wfAmt or 0) > 0 and wavefoldHasTime then
-				local maxAmt = clamp01((cfg.wfAmt or 0) / 255)
-				local wfT = calculate_mod_t(wavefoldModSource, cfg.wfDcy or 0, ticksPlayed, lfoTicks, cfg.lfoC or 0)
-				local envShaped = 1 - crvN11(wfT, u8_s8(cfg.wfCrv or 0))
+			local wavefoldHasTime = (cfg.wfSrc == MOD_SRC_LFO and cfg.lfoC > 0) or (cfg.wfDcy > 0)
+			if cfg.wfAmt > 0 and wavefoldHasTime then
+				local maxAmt = clamp01(cfg.wfAmt / 255)
+				local wfT = calc_t(cfg.wfSrc, cfg.wfDcy, ticksPlayed, lfoTicks, cfg.lfoC)
+				local envShaped = 1 - crvN11(wfT, u8_s8(cfg.wfCrv))
 				local strength = maxAmt * envShaped
 				apply_wavefold_effect_to_samples(render_out, strength)
 			end
 		end
 		if apply_lowpass_effect_to_samples and cfg.lpE ~= 0 then
-			local lpT = calculate_mod_t(cfg.lpSrc or MOD_SRC_ENVELOPE, cfg.lpDcy, ticksPlayed, lfoTicks, cfg.lfoC)
+			local lpT = calc_t(cfg.lpSrc, cfg.lpDcy, ticksPlayed, lfoTicks, cfg.lfoC)
 			local strength = crvN11(lpT, u8_s8(cfg.lpCrv))
 			apply_lowpass_effect_to_samples(render_out, strength)
 		end
