@@ -1,7 +1,9 @@
-# Somatic tracker
+# Somatic: A music tracker for the TIC-80
 
-The idea of Somatic tracker is that a real tic80 is used as the sound engine,
+The main idea of Somatic tracker is that a real tic80 is used as the sound engine,
 but the tracker interface is a web-based SPA with more ... ergonomics.
+
+It also augments the built-in `music()` player with new features.
 
 features you might find interesting:
 
@@ -14,6 +16,7 @@ features you might find interesting:
   * lowpass filter automation
   * wavefolding shaper
   * hard sync
+  * lfo modulation
 * Undo/redo support
 * Mute/Solo per channel
 * editing features

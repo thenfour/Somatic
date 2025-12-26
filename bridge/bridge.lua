@@ -559,7 +559,7 @@ end
 local render_src_a = {}
 local render_src_b = {}
 local render_out = {}
-local lfo_ticks = 0
+local lfo_ticks_by_sfx = {}
 
 local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)
 	if modSource == MOD_SRC_LFO then
@@ -655,7 +655,14 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks)
 	end
 
 	if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then
-		local hsT = calculate_mod_t(cfg.hardSyncModSource or MOD_SRC_ENVELOPE, cfg.hardSyncDecayInTicks, ticksPlayed, lfoTicks, cfg.lfoCycleInTicks, 0)
+		local hsT = calculate_mod_t(
+			cfg.hardSyncModSource or MOD_SRC_ENVELOPE,
+			cfg.hardSyncDecayInTicks,
+			ticksPlayed,
+			lfoTicks,
+			cfg.lfoCycleInTicks,
+			0
+		)
 		local env = 1 - apply_curveN11(hsT, cfg.hardSyncCurveS8 or 0)
 		local multiplier = 1 + ((cfg.hardSyncStrengthU8 or 0) / 255) * 7 * env
 		apply_hardsync_effect_to_samples(render_out, multiplier)
@@ -667,7 +674,14 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks)
 		or ((cfg.wavefoldDurationInTicks or 0) > 0)
 	if (cfg.wavefoldAmt or 0) > 0 and wavefoldHasTime then
 		local maxAmt = clamp01(cfg.wavefoldAmt / 255)
-		local wfT = calculate_mod_t(wavefoldModSource, cfg.wavefoldDurationInTicks, ticksPlayed, lfoTicks, cfg.lfoCycleInTicks, 0)
+		local wfT = calculate_mod_t(
+			wavefoldModSource,
+			cfg.wavefoldDurationInTicks,
+			ticksPlayed,
+			lfoTicks,
+			cfg.lfoCycleInTicks,
+			0
+		)
 		local envShaped = 1 - apply_curveN11(wfT, cfg.wavefoldCurveS8)
 		local strength = maxAmt * envShaped
 
@@ -687,7 +701,14 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks)
 	end
 
 	if cfg.lowpassEnabled then
-		local lpT = calculate_mod_t(cfg.lowpassModSource or MOD_SRC_ENVELOPE, cfg.lowpassDurationInTicks, ticksPlayed, lfoTicks, cfg.lfoCycleInTicks, 1)
+		local lpT = calculate_mod_t(
+			cfg.lowpassModSource or MOD_SRC_ENVELOPE,
+			cfg.lowpassDurationInTicks,
+			ticksPlayed,
+			lfoTicks,
+			cfg.lfoCycleInTicks,
+			1
+		)
 		local strength = apply_curveN11(lpT, cfg.lowpassCurveS8)
 		apply_lowpass_effect_to_samples(render_out, strength)
 	end
@@ -704,7 +725,8 @@ local function prime_render_slot_for_note_on(instrumentId)
 		return
 	end
 	-- Render tick 0 so audio starts with a defined wavetable.
-	render_tick_cfg(cfg, instrumentId, 0, lfo_ticks)
+	local lt = lfo_ticks_by_sfx[instrumentId] or 0
+	render_tick_cfg(cfg, instrumentId, 0, lt)
 end
 
 local function sfx_tick_channel(channel)
@@ -726,12 +748,21 @@ local function sfx_tick_channel(channel)
 		return
 	end
 
-	render_tick_cfg(cfg, idx, ticksPlayed, lfo_ticks)
+	local lt = lfo_ticks_by_sfx[idx] or 0
+	render_tick_cfg(cfg, idx, ticksPlayed, lt)
 	ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 end
 
+local function advance_all_lfo_ticks()
+	local count = peek(MORPH_MAP_BASE)
+	for i = 0, count - 1 do
+		local id = peek(MORPH_MAP_BASE + MORPH_HEADER_BYTES + i * MORPH_ENTRY_BYTES)
+		lfo_ticks_by_sfx[id] = (lfo_ticks_by_sfx[id] or 0) + 1
+	end
+end
+
 local function sfx_tick()
-	lfo_ticks = lfo_ticks + 1
+	advance_all_lfo_ticks()
 	for ch = 0, SFX_CHANNELS - 1 do
 		sfx_tick_channel(ch)
 	end

@@ -29,7 +29,7 @@ do
 	local last_music_frame = -1
 	local last_music_row = -1
 
-	local morphMap = (SOMATIC_MUSIC_DATA and SOMATIC_MUSIC_DATA.instrumentMorphMap) or {}
+	local morphMap = {}
 
 	local WAVE_BASE = 0x0FFE4
 	local WAVE_BYTES_PER_WAVE = 16 -- 32x 4-bit samples packed 2-per-byte
@@ -92,6 +92,54 @@ do
 			return t ^ (a(k))
 		end
 		return 1 - (1 - t) ^ (a(-k))
+	end
+
+	local function decode_morph_map()
+		local smd = SOMATIC_MUSIC_DATA or {}
+		local m = smd.instrumentMorphMap or nil
+		if not m or not m.morphMapB85 or not m.morphMapCLen then
+			return
+		end
+		local TMP = 0x13B60
+		local DST = TMP + 0x200
+		base85_decode_to_mem(m.morphMapB85, m.morphMapCLen, TMP)
+		local rawLen = lzdec_mem(TMP, m.morphMapCLen, DST)
+		local count = peek(DST)
+		local off = DST + 1
+		local function u16(addr)
+			return peek(addr) + peek(addr + 1) * 256
+		end
+		for _ = 1, count do
+			local id = peek(off)
+			local cfg = {
+				we = peek(off + 1),
+				sA = peek(off + 2),
+				sB = peek(off + 3),
+				r = peek(off + 4),
+				xDcy = u16(off + 5),
+				pwmC = u16(off + 7),
+				pwmD = peek(off + 9),
+				pwmDp = peek(off + 10),
+				pwmPh = peek(off + 11),
+				lpE = peek(off + 12) ~= 0,
+				lpDcy = u16(off + 13),
+				wfAmt = peek(off + 15),
+				wfDcy = u16(off + 16),
+				xCrv = u8_to_s8(peek(off + 18)),
+				lpCrv = u8_to_s8(peek(off + 19)),
+				wfCrv = u8_to_s8(peek(off + 20)),
+				hsE = peek(off + 21) ~= 0,
+				hsStr = peek(off + 22),
+				hsDcy = u16(off + 23),
+				hsCrv = u8_to_s8(peek(off + 25)),
+				lfoC = u16(off + 26),
+				lpSrc = peek(off + 28),
+				wfSrc = peek(off + 29),
+				hsSrc = peek(off + 30),
+			}
+			morphMap[id] = cfg
+			off = off + 31
+		end
 	end
 
 	local MOD_SRC_ENVELOPE = 0
@@ -217,7 +265,7 @@ do
 	local render_src_a = {}
 	local render_src_b = {}
 	local render_out = {}
-	local lfo_ticks = 0
+	local lfo_ticks_by_sfx = {}
 
 	local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)
 		if modSource == MOD_SRC_LFO then
@@ -238,32 +286,32 @@ do
 		if not cfg then
 			return false
 		end
-		local we = cfg.waveEngine or cfg.waveEngineId or 1
+		local we = cfg.we or cfg.waveEngine or cfg.waveEngineId or 1
 		if we == 0 or we == 2 then
 			return true
 		end
-		if (cfg.lowpassEnabled or 0) ~= 0 then
+		if (cfg.lpE or 0) ~= 0 then
 			return true
 		end
-		if (cfg.wavefoldAmt or 0) > 0 then
+		if (cfg.wfAmt or 0) > 0 then
 			return true
 		end
-		if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then
+		if (cfg.hsE or 0) ~= 0 and (cfg.hsStr or 0) > 0 then
 			return true
 		end
 		return false
 	end
 
 	local function render_waveform_morph(cfg, ticksPlayed, outSamples)
-		local durationTicks = cfg.morphDurationInTicks
+		local durationTicks = cfg.xDcy
 		local t
 		if durationTicks == nil or durationTicks <= 0 then
 			t = 1.0
 		else
 			t = clamp01(ticksPlayed / durationTicks)
 		end
-		wave_read_samples(cfg.sourceWaveformIndex, render_src_a)
-		wave_read_samples(cfg.morphWaveB, render_src_b)
+		wave_read_samples(cfg.sA, render_src_a)
+		wave_read_samples(cfg.sB, render_src_b)
 		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
 			local a = render_src_a[i] or 0
 			local b = render_src_b[i] or 0
@@ -273,11 +321,11 @@ do
 	end
 
 	local function render_waveform_pwm(cfg, ticks, out)
-		local c = cfg.pwmCycleInTicks or 0
-		local p = (cfg.pwmPhaseU8 or 0) / 255
+		local c = cfg.pwmC or 0
+		local p = (cfg.pwmPh or 0) / 255
 		p = ((c > 0 and ((ticks % c) / c) or 0) + p) % 1
 		local tri = (p < 0.5) and (p * 4 - 1) or (3 - p * 4)
-		local d = (cfg.pwmDuty or 0) + (cfg.pwmDepth or 0) * tri
+		local d = (cfg.pwmD or 0) + (cfg.pwmDp or 0) * tri
 		if d < 1 then
 			d = 1
 		elseif d > 30 then
@@ -291,12 +339,12 @@ do
 	end
 
 	local function render_waveform_native(cfg, outSamples)
-		wave_read_samples(cfg.sourceWaveformIndex, outSamples)
+		wave_read_samples(cfg.sA, outSamples)
 		return true
 	end
 
 	local function render_waveform_samples(cfg, ticksPlayed, outSamples)
-		local we = cfg.waveEngine or cfg.waveEngineId or 1
+		local we = cfg.we or cfg.waveEngine or cfg.waveEngineId or 1
 		if we == 0 then
 			return render_waveform_morph(cfg, ticksPlayed, outSamples)
 		elseif we == 2 then
@@ -314,49 +362,27 @@ do
 		if not render_waveform_samples(cfg, ticksPlayed, render_out) then
 			return
 		end
-		if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then
-			local hsT = calculate_mod_t(
-				cfg.hardSyncModSource or MOD_SRC_ENVELOPE,
-				cfg.hardSyncDecayInTicks,
-				ticksPlayed,
-				lfoTicks,
-				cfg.lfoCycleInTicks,
-				0
-			)
-			local env = 1 - apply_curveN11(hsT, u8_to_s8(cfg.hardSyncCurveS8 or 0))
-			local multiplier = 1 + ((cfg.hardSyncStrengthU8 or 0) / 255) * 7 * env
+		if (cfg.hsE or 0) ~= 0 and (cfg.hsStr or 0) > 0 then
+			local hsT = calculate_mod_t(cfg.hsSrc or MOD_SRC_ENVELOPE, cfg.hsDcy, ticksPlayed, lfoTicks, cfg.lfoC, 0)
+			local env = 1 - apply_curveN11(hsT, u8_to_s8(cfg.hsCrv or 0))
+			local multiplier = 1 + ((cfg.hsStr or 0) / 255) * 7 * env
 			apply_hardsync_effect_to_samples(render_out, multiplier)
 		end
-		local wavefoldModSource = cfg.wavefoldModSource or MOD_SRC_ENVELOPE
-		local wavefoldHasTime = (wavefoldModSource == MOD_SRC_LFO and (cfg.lfoCycleInTicks or 0) > 0)
-			or ((cfg.wavefoldDurationInTicks or 0) > 0)
-		if (cfg.wavefoldAmt or 0) > 0 and wavefoldHasTime then
-			local maxAmt = clamp01((cfg.wavefoldAmt or 0) / 255)
-			local wfT = calculate_mod_t(
-				wavefoldModSource,
-				cfg.wavefoldDurationInTicks,
-				ticksPlayed,
-				lfoTicks,
-				cfg.lfoCycleInTicks,
-				0
-			)
-			local envShaped = 1 - apply_curveN11(wfT, u8_to_s8(cfg.wavefoldCurveS8 or 0))
+		local wavefoldModSource = cfg.wfSrc or MOD_SRC_ENVELOPE
+		local wavefoldHasTime = (wavefoldModSource == MOD_SRC_LFO and (cfg.lfoC or 0) > 0) or ((cfg.wfDcy or 0) > 0)
+		if (cfg.wfAmt or 0) > 0 and wavefoldHasTime then
+			local maxAmt = clamp01((cfg.wfAmt or 0) / 255)
+			local wfT = calculate_mod_t(wavefoldModSource, cfg.wfDcy, ticksPlayed, lfoTicks, cfg.lfoC, 0)
+			local envShaped = 1 - apply_curveN11(wfT, u8_to_s8(cfg.wfCrv or 0))
 			local strength = maxAmt * envShaped
 			apply_wavefold_effect_to_samples(render_out, strength)
 		end
-		if (cfg.lowpassEnabled or 0) ~= 0 then
-			local lpT = calculate_mod_t(
-				cfg.lowpassModSource or MOD_SRC_ENVELOPE,
-				cfg.lowpassDurationInTicks,
-				ticksPlayed,
-				lfoTicks,
-				cfg.lfoCycleInTicks,
-				1
-			)
-			local strength = apply_curveN11(lpT, u8_to_s8(cfg.lowpassCurveS8 or 0))
+		if (cfg.lpE or 0) ~= 0 then
+			local lpT = calculate_mod_t(cfg.lpSrc or MOD_SRC_ENVELOPE, cfg.lpDcy, ticksPlayed, lfoTicks, cfg.lfoC, 1)
+			local strength = apply_curveN11(lpT, u8_to_s8(cfg.lpCrv or 0))
 			apply_lowpass_effect_to_samples(render_out, strength)
 		end
-		wave_write_samples(cfg.renderWaveformSlot, render_out)
+		wave_write_samples(cfg.r, render_out)
 	end
 
 	local function prime_render_slot_for_note_on(instId)
@@ -364,7 +390,8 @@ do
 		if not cfg_is_k_rate_processing(cfg) then
 			return
 		end
-		render_tick_cfg(cfg, instId, 0, lfo_ticks)
+		local lt = lfo_ticks_by_sfx[instId] or 0
+		render_tick_cfg(cfg, instId, 0, lt)
 	end
 
 	local function decode_track_frame_patterns(trackIndex, frameIndex)
@@ -435,13 +462,16 @@ do
 			ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 			return
 		end
-		render_tick_cfg(cfg, instId, ticksPlayed, lfo_ticks)
+		local lt = lfo_ticks_by_sfx[instId] or 0
+		render_tick_cfg(cfg, instId, ticksPlayed, lt)
 		ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 	end
 
 	local function tf_music_morph_tick(track, frame, row)
-		lfo_ticks = lfo_ticks + 1
 		apply_music_row_to_sfx_state(track, frame, row)
+		for id, _ in pairs(morphMap) do
+			lfo_ticks_by_sfx[id] = (lfo_ticks_by_sfx[id] or 0) + 1
+		end
 		for ch = 0, SFX_CHANNELS - 1 do
 			sfx_tick_channel(ch)
 		end
@@ -507,6 +537,8 @@ do
 		end
 		return di
 	end
+
+	decode_morph_map()
 
 	local function getSongOrderCount()
 		return #SOMATIC_MUSIC_DATA.songOrder

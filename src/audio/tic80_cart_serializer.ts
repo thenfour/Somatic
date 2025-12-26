@@ -181,6 +181,9 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
    return entries;
 }
 
+const MORPH_BYTES_PER_ENTRY = 31;
+const MORPH_HEADER_BYTES = 1;
+
 // Packed as:
 // [0] = entryCount (u8)
 // per entry:
@@ -210,23 +213,16 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
 // - wavefoldModSource (u8) 0=envelope,1=lfo
 // - hardSyncModSource (u8) 0=envelope,1=lfo
 // total payload = 1 + entryCount * 31 bytes
-function encodeMorphMapForBridge(song: Song): Uint8Array {
-   const entries = getMorphMap(song);
-   const BYTES_PER_ENTRY = 31;
-   const HEADER_BYTES = 1;
-
-   const totalBytes = getSomaticSfxConfigBytes();
-   const maxEntryCount = Math.floor((totalBytes - HEADER_BYTES) / BYTES_PER_ENTRY);
-   assert(entries.length <= 255, `SOMATIC_SFX_CONFIG overflow: too many entries (${entries.length})`);
-   assert(
-      entries.length <= maxEntryCount,
-      `SOMATIC_SFX_CONFIG overflow: need ${HEADER_BYTES + entries.length * BYTES_PER_ENTRY} bytes, have ${
-         totalBytes} bytes`);
+function packMorphEntries(
+   entries: {instrumentId: number; cfg: Tic80MorphInstrumentConfig;}[],
+   totalBytes?: number,
+   ): Uint8Array {
    const entryCount = entries.length;
-
-   // Fixed-size buffer so we always fully overwrite the region (avoids stale entries)
-   // and never overwrite the marker/mailboxes above it.
-   const out = new Uint8Array(totalBytes);
+   const neededBytes = MORPH_HEADER_BYTES + entryCount * MORPH_BYTES_PER_ENTRY;
+   if (typeof totalBytes === "number") {
+      assert(neededBytes <= totalBytes, `SOMATIC_SFX_CONFIG overflow: need ${neededBytes} bytes, have ${totalBytes}`);
+   }
+   const out = new Uint8Array(totalBytes ?? neededBytes);
    out[0] = entryCount & 0xff;
 
    let w = 1;
@@ -282,42 +278,28 @@ function encodeMorphMapForBridge(song: Song): Uint8Array {
    return out;
 }
 
-function makeMorphMapLua(song: Song): string {
-   // Emit a Lua table keyed by instrument ID:
-   //   [id] = { sourceWaveformIndex=.., morphWaveB=.., renderWaveformSlot=.., morphDurationInTicks=.. }
+function encodeMorphMapForBridge(song: Song): Uint8Array {
    const entries = getMorphMap(song);
-   const parts: string[] = [];
+   const totalBytes = getSomaticSfxConfigBytes();
+   const maxEntryCount = Math.floor((totalBytes - MORPH_HEADER_BYTES) / MORPH_BYTES_PER_ENTRY);
+   assert(entries.length <= 255, `SOMATIC_SFX_CONFIG overflow: too many entries (${entries.length})`);
+   assert(
+      entries.length <= maxEntryCount,
+      `SOMATIC_SFX_CONFIG overflow: need ${MORPH_HEADER_BYTES + entries.length * MORPH_BYTES_PER_ENTRY} bytes, have ${
+         totalBytes} bytes`);
 
-   for (const entry of entries) {
-      const lowpassEnabled = entry.cfg.lowpassEnabled ? 1 : 0;
-      parts.push(`[${entry.instrumentId}]={
- waveEngine=${entry.cfg.waveEngineId},
-    sourceWaveformIndex=${entry.cfg.sourceWaveformIndex},
- morphWaveB=${entry.cfg.morphWaveB},
- renderWaveformSlot=${entry.cfg.renderWaveformSlot},
- morphDurationInTicks=${entry.cfg.morphDurationInTicks},
- morphCurveS8=${entry.cfg.morphCurveS8},
- pwmCycleInTicks=${entry.cfg.pwmCycleInTicks},
- pwmDuty=${entry.cfg.pwmDuty},
- pwmDepth=${entry.cfg.pwmDepth},
- pwmPhaseU8=${entry.cfg.pwmPhaseU8},
- lowpassEnabled=${lowpassEnabled},
- lowpassDurationInTicks=${entry.cfg.lowpassDurationInTicks},
- lowpassCurveS8=${entry.cfg.lowpassCurveS8},
- wavefoldAmt=${entry.cfg.wavefoldAmt},
- wavefoldDurationInTicks=${entry.cfg.wavefoldDurationInTicks},
- wavefoldCurveS8=${entry.cfg.wavefoldCurveS8},
- hardSyncEnabled=${entry.cfg.hardSyncEnabled ? 1 : 0},
- hardSyncStrengthU8=${entry.cfg.hardSyncStrengthU8},
- hardSyncDecayInTicks=${entry.cfg.hardSyncDecayInTicks},
- hardSyncCurveS8=${entry.cfg.hardSyncCurveS8},
- lfoCycleInTicks=${entry.cfg.lfoCycleInTicks},
- lowpassModSource=${entry.cfg.lowpassModSource},
- wavefoldModSource=${entry.cfg.wavefoldModSource},
- hardSyncModSource=${entry.cfg.hardSyncModSource}
-}`);
-   }
-   return `{\n\t\t${parts.join(",\n\t\t")}\n\t}`;
+   // Fixed-size buffer so we always fully overwrite the region (avoids stale entries)
+   // and never overwrite the marker/mailboxes above it.
+   return packMorphEntries(entries, totalBytes);
+}
+
+function makeMorphMapLua(song: Song): string {
+   const entries = getMorphMap(song);
+   const packed = packMorphEntries(entries);
+   const compressed = lzCompress(packed, gSomaticLZDefaultConfig);
+   const b85 = base85Encode(compressed);
+
+   return `{ morphMapB85=${toLuaStringLiteral(b85)}, morphMapCLen=${compressed.length} }`;
 }
 
 
@@ -718,8 +700,8 @@ function getPlayroutineCode(variant: "debug"|"release"): string {
    return variant === "debug" ? playroutineDebug : playroutineRelease;
 };
 
-function getCode(song: Song, variant: "debug"|"release", audibleChannels: Set<Tic80ChannelIndex>):
-   {code: string, generatedCode: string, patternChunks: Uint8Array[]} {
+function getCode(
+   song: Song, variant: "debug"|"release"): {code: string, generatedCode: string, patternChunks: Uint8Array[]} {
    // Generate the SOMATIC_MUSIC_DATA section
    const songOrder = song.songOrder.map(idx => idx.toString()).join(",");
    const morphMapLua = makeMorphMapLua(song);
@@ -791,6 +773,7 @@ export type SongCartDetails = {
    realPatternChunks: Uint8Array[]; // before turning into literals
 
    // how much of the code chunk is generated code.
+   wholePlayroutineCode: string;
    generatedCode: string;
    codeChunk: Uint8Array; //
 
@@ -838,7 +821,7 @@ export function serializeSongToCartDetailed(
    const sfxChunk = createChunk(CHUNK.SFX, encodeSfx(song, getMaxSfxUsedIndex(song) + 1), true);
    const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, new Uint8Array(1), true); // all zeros
    const trackChunk = createChunk(CHUNK.MUSIC_TRACKS, encodeTrack(song), true);
-   const {code, generatedCode, patternChunks} = getCode(song, variant, audibleChannels);
+   const {code, generatedCode, patternChunks} = getCode(song, variant);
    const codePayload = stringToAsciiPayload(code);
    const codeChunk = createChunk(CHUNK.CODE, codePayload, false, 0);
 
@@ -867,6 +850,7 @@ export function serializeSongToCartDetailed(
       realPatternChunks: patternChunks,
       trackChunk,
       codeChunk,
+      wholePlayroutineCode: code,
       generatedCode,
       optimizeResult,
       cartridge,

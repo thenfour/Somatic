@@ -48,7 +48,7 @@ local last_music_track = -2
 local last_music_frame = -1
 local last_music_row = -1
 
-local morphMap = (SOMATIC_MUSIC_DATA and SOMATIC_MUSIC_DATA.instrumentMorphMap) or {}
+local morphMap = {}
 
 local WAVE_BASE = 0x0FFE4
 local WAVE_BYTES_PER_WAVE = 16
@@ -235,7 +235,7 @@ end
 local render_src_a = {}
 local render_src_b = {}
 local render_out = {}
-local lfo_ticks = 0
+local lfo_ticks_by_sfx = {}
 
 local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)
 	if modSource == MOD_SRC_LFO then
@@ -393,7 +393,8 @@ local function prime_render_slot_for_note_on(instId)
 	if not cfg_is_k_rate_processing(cfg) then
 		return
 	end
-	render_tick_cfg(cfg, instId, 0, lfo_ticks)
+	local lt = lfo_ticks_by_sfx[instId] or 0
+	render_tick_cfg(cfg, instId, 0, lt)
 end
 
 local function decode_track_frame_patterns(trackIndex, frameIndex)
@@ -463,13 +464,16 @@ local function sfx_tick_channel(ch)
 		ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 		return
 	end
-	render_tick_cfg(cfg, instId, ticksPlayed, lfo_ticks)
+	local lt = lfo_ticks_by_sfx[instId] or 0
+	render_tick_cfg(cfg, instId, ticksPlayed, lt)
 	ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 end
 
 local function tf_music_morph_tick(track, frame, row)
-	lfo_ticks = lfo_ticks + 1
 	apply_music_row_to_sfx_state(track, frame, row)
+	for id, _ in pairs(morphMap) do
+		lfo_ticks_by_sfx[id] = (lfo_ticks_by_sfx[id] or 0) + 1
+	end
 	for ch = 0, SFX_CHANNELS - 1 do
 		sfx_tick_channel(ch)
 	end
@@ -563,6 +567,55 @@ function base85_decode_to_mem(s, expectedLen, dst)
 	return outCount
 end
 
+local function decode_morph_map()
+	local smd = SOMATIC_MUSIC_DATA or {}
+	local m = smd.instrumentMorphMap or nil
+	if not m or not m.morphMapB85 or not m.morphMapCLen then
+		return
+	end
+	local TMP = 0x13B60
+	local DST = TMP + 0x200 -- enough headroom for small payloads
+	base85_decode_to_mem(m.morphMapB85, m.morphMapCLen, TMP)
+	local rawLen = lzdec_mem(TMP, m.morphMapCLen, DST)
+	local count = peek(DST)
+	local off = DST + 1
+	local function u16(loAddr)
+		local lo = peek(loAddr)
+		return lo + peek(loAddr + 1) * 256
+	end
+	for _ = 1, count do
+		local id = peek(off)
+		local cfg = {
+			waveEngine = peek(off + 1),
+			sourceWaveformIndex = peek(off + 2),
+			morphWaveB = peek(off + 3),
+			renderWaveformSlot = peek(off + 4),
+			morphDurationInTicks = u16(off + 5),
+			pwmCycleInTicks = u16(off + 7),
+			pwmDuty = peek(off + 9),
+			pwmDepth = peek(off + 10),
+			pwmPhaseU8 = peek(off + 11),
+			lowpassEnabled = peek(off + 12) ~= 0,
+			lowpassDurationInTicks = u16(off + 13),
+			wavefoldAmt = peek(off + 15),
+			wavefoldDurationInTicks = u16(off + 16),
+			morphCurveS8 = u8_to_s8(peek(off + 18)),
+			lowpassCurveS8 = u8_to_s8(peek(off + 19)),
+			wavefoldCurveS8 = u8_to_s8(peek(off + 20)),
+			hardSyncEnabled = peek(off + 21) ~= 0,
+			hardSyncStrengthU8 = peek(off + 22),
+			hardSyncDecayInTicks = u16(off + 23),
+			hardSyncCurveS8 = u8_to_s8(peek(off + 25)),
+			lfoCycleInTicks = u16(off + 26),
+			lowpassModSource = peek(off + 28),
+			wavefoldModSource = peek(off + 29),
+			hardSyncModSource = peek(off + 30),
+		}
+		morphMap[id] = cfg
+		off = off + 31
+	end
+end
+
 -- Read unsigned LEB128 varint from memory.
 -- base:   start address of encoded stream
 -- si:     current offset (0-based) into the stream
@@ -646,6 +699,8 @@ function lzdec_mem(src, srcLen, dst)
 
 	return di
 end
+
+decode_morph_map()
 
 -- Computes a simple checksum and first-bytes hex preview for a memory region.
 -- addr:      start address in memory

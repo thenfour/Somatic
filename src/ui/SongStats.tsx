@@ -129,8 +129,9 @@ export const useSongStatsData = (song: Song): SongStatsData => {
         };
 
         const result: ChunkInfo[] = [];
-        result.push({ name: 'Code (playroutine)', size: input.cartridge.codeChunk.length - input.cartridge.generatedCode.length, color: 'var(--tic-1)' });
-        result.push({ name: 'Code (songdata)', size: input.cartridge.generatedCode.length, color: 'var(--tic-2)' });
+        result.push({ name: 'Code (playroutine only)', size: input.cartridge.codeChunk.length - input.cartridge.generatedCode.length, color: 'var(--tic-1)' });
+        result.push({ name: 'Code (generated songdata)', size: input.cartridge.generatedCode.length, color: 'var(--tic-2)' });
+        result.push({ name: 'Code (whole playroutine)', size: input.cartridge.wholePlayroutineCode.length, color: 'var(--tic-2)' });
         result.push({ name: 'Waveforms', size: input.cartridge.waveformChunk.length, color: 'var(--tic-3)' });
         result.push({ name: 'SFX', size: input.cartridge.sfxChunk.length, color: 'var(--tic-4)' });
         result.push({ name: 'Patterns', size: input.cartridge.patternChunk.length, color: 'var(--tic-5)' });
@@ -194,7 +195,7 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
     const clipboard = useClipboard();
 
     const handleCopyGeneratedCode = async () => {
-        await clipboard.copyTextToClipboard(input?.cartridge.generatedCode || "");
+        await clipboard.copyTextToClipboard(input?.cartridge.wholePlayroutineCode || "");
     };
 
     const body = !input ? (
