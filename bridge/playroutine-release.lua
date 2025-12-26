@@ -40,6 +40,63 @@ do
 	local PATTERN_BYTES_PER_PATTERN = 192
 	local ROW_BYTES = 3
 
+	local function base85_decode_to_mem(s, n, d)
+		local i = 1
+		for o = 0, n - 1, 4 do
+			local v = 0
+			for j = i, i + 4 do
+				v = v * 85 + s:byte(j) - 33
+			end
+			i = i + 5
+			for k = 3, 0, -1 do
+				if o + k < n then
+					poke(d + o + k, v % 256)
+				end
+				v = v // 256
+			end
+		end
+		return n
+	end
+
+	local function varint(base, si, srcLen)
+		local x, f = 0, 1
+		while true do
+			local b = peek(base + si)
+			si = si + 1
+			x = x + (b % 0x80) * f
+			if b < 0x80 then
+				return x, si
+			end
+			f = f * 0x80
+		end
+	end
+
+	local function lzdec_mem(src, srcLen, dst)
+		local si, di = 0, 0
+		while si < srcLen do
+			local t = peek(src + si)
+			si = si + 1
+			if t == 0 then
+				local l
+				l, si = varint(src, si, srcLen)
+				for j = 1, l do
+					poke(dst + di, peek(src + si))
+					si = si + 1
+					di = di + 1
+				end
+			else
+				local l, d
+				l, si = varint(src, si, srcLen)
+				d, si = varint(src, si, srcLen)
+				for j = 1, l do
+					poke(dst + di, peek(dst + di - d))
+					di = di + 1
+				end
+			end
+		end
+		return di
+	end
+
 	local function clamp01(x)
 		if x < 0 then
 			return 0
@@ -479,63 +536,6 @@ do
 
 	function somatic_get_channel_state(ch)
 		return ch_sfx_id[ch + 1], ch_sfx_ticks[ch + 1]
-	end
-
-	local function base85_decode_to_mem(s, n, d)
-		local i = 1
-		for o = 0, n - 1, 4 do
-			local v = 0
-			for j = i, i + 4 do
-				v = v * 85 + s:byte(j) - 33
-			end
-			i = i + 5
-			for k = 3, 0, -1 do
-				if o + k < n then
-					poke(d + o + k, v % 256)
-				end
-				v = v // 256
-			end
-		end
-		return n
-	end
-
-	local function varint(base, si, srcLen)
-		local x, f = 0, 1
-		while true do
-			local b = peek(base + si)
-			si = si + 1
-			x = x + (b % 0x80) * f
-			if b < 0x80 then
-				return x, si
-			end
-			f = f * 0x80
-		end
-	end
-
-	local function lzdec_mem(src, srcLen, dst)
-		local si, di = 0, 0
-		while si < srcLen do
-			local t = peek(src + si)
-			si = si + 1
-			if t == 0 then
-				local l
-				l, si = varint(src, si, srcLen)
-				for j = 1, l do
-					poke(dst + di, peek(src + si))
-					si = si + 1
-					di = di + 1
-				end
-			else
-				local l, d
-				l, si = varint(src, si, srcLen)
-				d, si = varint(src, si, srcLen)
-				for j = 1, l do
-					poke(dst + di, peek(dst + di - d))
-					di = di + 1
-				end
-			end
-		end
-		return di
 	end
 
 	decode_morph_map()
