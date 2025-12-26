@@ -66,6 +66,13 @@ const formatParams = (valX: number | undefined | null, valY: number | undefined 
     return `${paramXStr}${paramYStr}`;
 };
 
+type EffectCarryState = {
+    commandStates: (undefined | {
+        effectX: number | undefined;
+        effectY: number | undefined;
+    })[];
+};
+
 type PatternGridProps = {
     song: Song;
     audio: AudioController;
@@ -115,6 +122,44 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
         const [currentColumnIndex, setCurrentColumnIndex] = useState(0);
         const pattern: Pattern = song.patterns[safePatternIndex];
+
+        const fxCarryByChannel = useMemo((): EffectCarryState[] => {
+            const states: EffectCarryState[] = gChannelsArray.map(() => ({
+                commandStates: Array.from({ length: commandKeyMap.length }, () => undefined),
+            }));
+
+            const maxPos = Math.max(0, Math.min(song.songOrder.length - 1, currentPosition));
+            for (let pos = 0; pos <= maxPos; pos++) {
+                const patIndexRaw = song.songOrder[pos] ?? 0;
+                const patIndex = Math.max(0, Math.min(patIndexRaw, song.patterns.length - 1));
+                const pat = song.patterns[patIndex];
+                if (!pat) continue;
+
+                for (const ch of gChannelsArray) {
+                    for (let row = 0; row < song.rowsPerPattern; row++) {
+                        const cell = pat.getCell(ch, row);
+                        if (cell.effect !== undefined) {
+                            const cmd = cell.effect;
+                            if (cmd >= 0 && cmd < commandKeyMap.length) {
+                                // A command explicitly set to 00 clears its carry state.
+                                if ((cell.effectX || 0) === 0 && (cell.effectY || 0) === 0) {
+                                    states[ch].commandStates[cmd] = undefined;
+                                } else {
+                                    states[ch].commandStates[cmd] = {
+                                        effectX: cell.effectX,
+                                        effectY: cell.effectY,
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return states;
+        }, [currentPosition, song.patterns, song.rowsPerPattern, song.songOrder]);
+
+        const fxCarryTooltip = `Effect command state at the end of this pattern (doesn't consider previous patterns)`;
         const cellRefs = useMemo(
             () => Array.from({ length: 64 }, () => Array(16).fill(null) as (HTMLTableCellElement | null)[]),
             [],
@@ -1332,6 +1377,30 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                 );
                             })}
                         </tbody>
+                        <tfoot>
+                            <tr className="pattern-grid-carry-row">
+                                <th className="pattern-grid-carry-label">
+                                    <Tooltip title={fxCarryTooltip}>
+                                        <span>FX{CharMap.DownArrow}</span>
+                                    </Tooltip>
+                                </th>
+                                {gChannelsArray.map((channelIndex) => {
+                                    const s = fxCarryByChannel[channelIndex];
+                                    const entries: string[] = [];
+                                    for (let cmd = 0; cmd < commandKeyMap.length; cmd++) {
+                                        const cmdState = s?.commandStates[cmd];
+                                        if (!cmdState) continue;
+                                        entries.push(`${formatCommand(cmd)}${formatParams(cmdState.effectX, cmdState.effectY)}`);
+                                    }
+                                    const label = entries.length === 0 ? '' : entries.join(' ');
+                                    return (
+                                        <th key={channelIndex} colSpan={CELLS_PER_CHANNEL} className="pattern-grid-carry-cell">
+                                            {label}
+                                        </th>
+                                    );
+                                })}
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>

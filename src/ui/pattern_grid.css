@@ -429,3 +429,20 @@
 .pattern-grid-container--editMode {
     box-shadow: 0 0 0 3px var(--edit-border) inset;
 }
+
+.pattern-grid tfoot .pattern-grid-carry-row th {
+    color: var(--muted);
+    font-size: 16px;
+    padding: 2px 6px;
+    border-top: 1px solid var(--border);
+}
+
+.pattern-grid tfoot .pattern-grid-carry-label {
+    text-align: left;
+    white-space: nowrap;
+}
+
+.pattern-grid tfoot .pattern-grid-carry-cell {
+    text-align: center;
+    white-space: normal;
+}
