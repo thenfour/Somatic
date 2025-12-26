@@ -126,15 +126,19 @@ do
 		end
 	end
 
+	local lp_scratch_a = {}
+	local lp_scratch_b = {}
+
 	local function apply_lowpass_effect_to_samples(samples, strength01)
-		local lp_scratch_a = {}
-		local lp_scratch_b = {}
 		local strength = clamp01(strength01 or 0)
 		if strength <= 0 then
 			return
 		end
-		local steps = math.floor(1 + strength * 7 + 0.5)
-		local amt = 0.05 + strength * 0.35
+		local steps = math.floor(1 + strength * 23 + 0.5) -- 1..24
+		local amt = 0.02 + strength * 0.88 -- ~0.02..0.90
+		if amt > 0.95 then
+			amt = 0.95
+		end
 		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
 			lp_scratch_a[i] = samples[i] or 0
 		end
