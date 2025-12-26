@@ -601,7 +601,7 @@ show render slot if there are k-rate effects enabled
                             </div>
                             <div className="field-row">
                                 <label>
-                                    PWM speed (Hz)
+                                    PWM speed ({instrument.pwmSpeedHz.toFixed(2)} Hz)
                                     <input
                                         type="range"
                                         min={0}
@@ -665,6 +665,31 @@ show render slot if there are k-rate effects enabled
                                                 mutator: (s) => {
                                                     const inst = s.instruments[instrumentIndex];
                                                     inst.pwmDepth = clamp(val, 0, 31);
+                                                },
+                                            });
+                                        }}
+                                    />
+                                </label>
+                            </div>
+
+                            <div className="field-row">
+                                <label>
+                                    PWM phase ({Math.round(instrument.pwmPhase01 * 100)}%)
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={1}
+                                        step={0.01}
+                                        value={instrument.pwmPhase01}
+                                        onChange={(e) => {
+                                            const val = parseFloat(e.target.value);
+                                            if (!Number.isFinite(val)) return;
+                                            onSongChange({
+                                                description: 'Set PWM phase',
+                                                undoable: true,
+                                                mutator: (s) => {
+                                                    const inst = s.instruments[instrumentIndex];
+                                                    inst.pwmPhase01 = clamp(val, 0, 1);
                                                 },
                                             });
                                         }}

@@ -68,8 +68,9 @@ export interface Tic80InstrumentDto {
    morphDurationSeconds: number;
 
    pwmSpeedHz: number;
-   pwmDuty: number;  // 0-31
-   pwmDepth: number; // 0-31
+   pwmDuty: number;    // 0-31
+   pwmDepth: number;   // 0-31
+   pwmPhase01: number; // 0-1; phase offset for PWM duty-cycle modulation
 
    lowpassEnabled: boolean;
    lowpassDurationSeconds: number;
@@ -121,8 +122,9 @@ export class Tic80Instrument {
    morphDurationSeconds: number;
 
    pwmSpeedHz: number;
-   pwmDuty: number;  // 0-31
-   pwmDepth: number; // 0-31
+   pwmDuty: number;    // 0-31
+   pwmDepth: number;   // 0-31
+   pwmPhase01: number; // 0-1
 
    lowpassEnabled: boolean;
    lowpassDurationSeconds: number;
@@ -203,6 +205,7 @@ export class Tic80Instrument {
       this.pwmSpeedHz = Math.max(0, data.pwmSpeedHz ?? 0);
       this.pwmDuty = clamp(data.pwmDuty ?? 16, 0, 31);
       this.pwmDepth = clamp(data.pwmDepth ?? 8, 0, 31);
+      this.pwmPhase01 = clamp(data.pwmPhase01 ?? 0, 0, 1);
 
       this.lowpassEnabled = CoalesceBoolean(data.lowpassEnabled, false);
       this.lowpassDurationSeconds = Math.max(0, data.lowpassDurationSeconds ?? 0.5);
@@ -250,6 +253,7 @@ export class Tic80Instrument {
          pwmSpeedHz: this.pwmSpeedHz,
          pwmDuty: this.pwmDuty,
          pwmDepth: this.pwmDepth,
+         pwmPhase01: this.pwmPhase01,
          lowpassEnabled: this.lowpassEnabled,
          lowpassDurationSeconds: this.lowpassDurationSeconds,
          lowpassCurveN11: this.lowpassCurveN11,

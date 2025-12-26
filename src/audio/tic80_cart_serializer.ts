@@ -48,8 +48,9 @@ type Tic80MorphInstrumentConfig = {
    // They are serialized as signed 8-bit values (s8).
    morphCurveS8: number;
    pwmCycleInTicks: number;
-   pwmDuty: number;  // 0-31
-   pwmDepth: number; // 0-31
+   pwmDuty: number;    // 0-31
+   pwmDepth: number;   // 0-31
+   pwmPhaseU8: number; // 0-255; phase offset within PWM duty modulation cycle
 
    lowpassEnabled: boolean;
    lowpassDurationInTicks: number;
@@ -87,8 +88,8 @@ function durationSecondsToTicks60Hz(seconds: number): number {
 // takes rate in Hz, returns # of ticks per cycle at 60Hz
 function RateInHzToTicks60Hz(rateHz: number): number {
    const r0 = Number.isFinite(rateHz) ? rateHz : 0;
-   const r = Math.max(1, r0);
-   return Math.floor(Tic80Caps.frameRate / r);
+   const r = Math.max(0.001, r0);
+   return Math.min(8000, Math.floor(Tic80Caps.frameRate / r));
 }
 
 // Extract the wave-morphing instrument config from the song.
@@ -124,6 +125,7 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
             pwmCycleInTicks: clamp(RateInHzToTicks60Hz(inst.pwmSpeedHz ?? 0) | 0, 0, 0xffff),
             pwmDuty: clamp(inst.pwmDuty | 0, 0, 31),
             pwmDepth: clamp(inst.pwmDepth | 0, 0, 31),
+            pwmPhaseU8: clamp(Math.round(clamp(inst.pwmPhase01 ?? 0, 0, 1) * 255), 0, 255),
             lowpassEnabled,
             lowpassDurationInTicks,
             lowpassCurveS8: curveN11ToS8(inst.lowpassCurveN11),
@@ -153,6 +155,7 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
 // - pwmSpeedTicks (u16 LE)
 // - pwmDuty (u8)
 // - pwmDepth (u8)
+// - pwmPhase (u8)
 // - lowpassEnabled (u8) 0/1
 // - lowpassDurationTicks (u16 LE)
 // - wavefoldAmt (u8)
@@ -160,10 +163,10 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
 // - morphCurve (s8)
 // - lowpassCurve (s8)
 // - wavefoldCurve (s8)
-// total payload = 1 + entryCount * 20 bytes
+// total payload = 1 + entryCount * 21 bytes
 function encodeMorphMapForBridge(song: Song): Uint8Array {
    const entries = getMorphMap(song);
-   const BYTES_PER_ENTRY = 20;
+   const BYTES_PER_ENTRY = 21;
    const HEADER_BYTES = 1;
 
    const totalBytes = getSomaticSfxConfigBytes();
@@ -197,6 +200,7 @@ function encodeMorphMapForBridge(song: Song): Uint8Array {
       out[w++] = (pwmCycleTicks >> 8) & 0xff;
       out[w++] = clamp(cfg.pwmDuty | 0, 0, 255);
       out[w++] = clamp(cfg.pwmDepth | 0, 0, 255);
+      out[w++] = clamp(cfg.pwmPhaseU8 | 0, 0, 255);
       out[w++] = cfg.lowpassEnabled ? 1 : 0;
 
       const lowpassDurationTicks = clamp(cfg.lowpassDurationInTicks | 0, 0, 0xffff);
@@ -233,6 +237,7 @@ function makeMorphMapLua(song: Song): string {
  pwmCycleInTicks=${entry.cfg.pwmCycleInTicks},
  pwmDuty=${entry.cfg.pwmDuty},
  pwmDepth=${entry.cfg.pwmDepth},
+ pwmPhaseU8=${entry.cfg.pwmPhaseU8},
  lowpassEnabled=${lowpassEnabled},
  lowpassDurationInTicks=${entry.cfg.lowpassDurationInTicks},
  lowpassCurveS8=${entry.cfg.lowpassCurveS8},

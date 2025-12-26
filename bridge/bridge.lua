@@ -211,7 +211,7 @@ local ch_sfx_ticks = { 0, 0, 0, 0 } -- 0-based channel -> duration since note-on
 local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
 
 local MORPH_HEADER_BYTES = 1
-local MORPH_ENTRY_BYTES = 20
+local MORPH_ENTRY_BYTES = 21
 
 -- SOMATIC_SFX_CONFIG lives below the MARKER region; fail fast if layout or payload is inconsistent.
 local MORPH_MAP_BYTES = ADDR.MARKER - MORPH_MAP_BASE
@@ -275,6 +275,7 @@ local lerp_nibble = lerp_nibble_lin
 -- - pwmSpeedTicks (u16 LE)
 -- - pwmDuty (u8)
 -- - pwmDepth (u8)
+-- - pwmPhase (u8)
 -- - lowpassEnabled (u8) 0/1
 -- - lowpassDurationTicks (u16 LE)
 -- - wavefoldAmt (u8)
@@ -304,13 +305,14 @@ local function read_sfx_cfg(instrumentId)
 			local pwmCycleInTicks = peek(off + 7) + peek(off + 8) * 256
 			local pwmDuty = peek(off + 9)
 			local pwmDepth = peek(off + 10)
-			local lowpassEnabled = peek(off + 11)
-			local lowpassDurationInTicks = peek(off + 12) + peek(off + 13) * 256
-			local wavefoldAmt = peek(off + 14)
-			local wavefoldDurationInTicks = peek(off + 15) + peek(off + 16) * 256
-			local morphCurveS8 = u8_to_s8(peek(off + 17))
-			local lowpassCurveS8 = u8_to_s8(peek(off + 18))
-			local wavefoldCurveS8 = u8_to_s8(peek(off + 19))
+			local pwmPhaseU8 = peek(off + 11)
+			local lowpassEnabled = peek(off + 12)
+			local lowpassDurationInTicks = peek(off + 13) + peek(off + 14) * 256
+			local wavefoldAmt = peek(off + 15)
+			local wavefoldDurationInTicks = peek(off + 16) + peek(off + 17) * 256
+			local morphCurveS8 = u8_to_s8(peek(off + 18))
+			local lowpassCurveS8 = u8_to_s8(peek(off + 19))
+			local wavefoldCurveS8 = u8_to_s8(peek(off + 20))
 
 			-- Shape matches makeMorphMapLua(): values are numeric IDs.
 			return {
@@ -323,6 +325,7 @@ local function read_sfx_cfg(instrumentId)
 				pwmCycleInTicks = pwmCycleInTicks,
 				pwmDuty = pwmDuty,
 				pwmDepth = pwmDepth,
+				pwmPhaseU8 = pwmPhaseU8,
 				lowpassEnabled = lowpassEnabled ~= 0,
 				lowpassDurationInTicks = lowpassDurationInTicks,
 				lowpassCurveS8 = lowpassCurveS8,
@@ -514,11 +517,12 @@ end
 
 local function render_waveform_pwm(cfg, ticksPlayed, outSamples)
 	local cycle = cfg.pwmCycleInTicks or 0
+	local phaseOffset = (cfg.pwmPhaseU8 or 0) / 255
 	local phase
 	if cycle <= 0 then
-		phase = 0
+		phase = phaseOffset % 1
 	else
-		phase = (ticksPlayed % cycle) / cycle
+		phase = (((ticksPlayed % cycle) / cycle) + phaseOffset) % 1
 	end
 	local tri
 	if phase < 0.5 then
