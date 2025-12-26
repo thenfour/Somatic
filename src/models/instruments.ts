@@ -20,6 +20,8 @@ import {Tic80Caps} from "./tic80Capabilities";
 
 export type SomaticInstrumentWaveEngine = "morph"|"native"|"pwm";
 
+export type ModSource = "envelope"|"lfo";
+
 export type SomaticWaveformEffect = "none"|"lowpass"|"wavefold";
 
 //export const SFX_FRAME_COUNT = 30;
@@ -84,6 +86,11 @@ export interface Tic80InstrumentDto {
    hardSyncStrength: number;     // multiplier 1-8
    hardSyncDecaySeconds: number; // decay envelope for hard sync strength
    hardSyncCurveN11: number;     // curve shaping for the decay
+
+   lfoRateHz: number;
+   lowpassModSource: ModSource;
+   wavefoldModSource: ModSource;
+   hardSyncModSource: ModSource;
 }
 
 // aka "SFX" aka "sample" (from tic.h / sound.c)
@@ -143,6 +150,11 @@ export class Tic80Instrument {
    hardSyncStrength: number; // multiplier 1-8
    hardSyncDecaySeconds: number;
    hardSyncCurveN11: number;
+
+   lfoRateHz: number;
+   lowpassModSource: ModSource;
+   wavefoldModSource: ModSource;
+   hardSyncModSource: ModSource;
 
 
    // editor-only...
@@ -229,6 +241,11 @@ export class Tic80Instrument {
       this.hardSyncStrength = clamp(data.hardSyncStrength ?? 1, 1, 8);
       this.hardSyncDecaySeconds = Math.max(0, data.hardSyncDecaySeconds ?? 0);
       this.hardSyncCurveN11 = clamp(data.hardSyncCurveN11 ?? 0, -1, 1);
+
+      this.lfoRateHz = Math.max(0, data.lfoRateHz ?? 2);
+      this.lowpassModSource = data.lowpassModSource ?? "envelope";
+      this.wavefoldModSource = data.wavefoldModSource ?? "envelope";
+      this.hardSyncModSource = data.hardSyncModSource ?? "envelope";
    }
 
    static fromData(data?: Partial<Tic80InstrumentDto>): Tic80Instrument {
@@ -278,6 +295,10 @@ export class Tic80Instrument {
          hardSyncStrength: this.hardSyncStrength,
          hardSyncDecaySeconds: this.hardSyncDecaySeconds,
          hardSyncCurveN11: this.hardSyncCurveN11,
+         lfoRateHz: this.lfoRateHz,
+         lowpassModSource: this.lowpassModSource,
+         wavefoldModSource: this.wavefoldModSource,
+         hardSyncModSource: this.hardSyncModSource,
       };
    };
 

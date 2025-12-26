@@ -211,7 +211,7 @@ local ch_sfx_ticks = { 0, 0, 0, 0 } -- 0-based channel -> duration since note-on
 local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
 
 local MORPH_HEADER_BYTES = 1
-local MORPH_ENTRY_BYTES = 26
+local MORPH_ENTRY_BYTES = 31
 
 -- SOMATIC_SFX_CONFIG lives below the MARKER region; fail fast if layout or payload is inconsistent.
 local MORPH_MAP_BYTES = ADDR.MARKER - MORPH_MAP_BASE
@@ -222,6 +222,9 @@ local function u8_to_s8(b)
 	end
 	return b
 end
+
+local MOD_SRC_ENVELOPE = 0
+local MOD_SRC_LFO = 1
 
 local WAVE_BASE = BRIDGE_CONFIG.memory.WAVEFORMS_ADDR
 local WAVE_BYTES_PER_WAVE = 16 -- 32x 4-bit samples packed 2-per-byte
@@ -287,6 +290,10 @@ local lerp_nibble = lerp_nibble_lin
 -- - hardSyncStrength (u8)
 -- - hardSyncDecayTicks (u16 LE)
 -- - hardSyncCurve (s8)
+-- - lfoCycleTicks (u16 LE)
+-- - lowpassModSource (u8)
+-- - wavefoldModSource (u8)
+-- - hardSyncModSource (u8)
 local function read_sfx_cfg(instrumentId)
 	local rawCount = peek(MORPH_MAP_BASE)
 	local maxCount = math.floor((MORPH_MAP_BYTES - MORPH_HEADER_BYTES) / MORPH_ENTRY_BYTES)
@@ -321,6 +328,10 @@ local function read_sfx_cfg(instrumentId)
 			local hardSyncStrengthU8 = peek(off + 22)
 			local hardSyncDecayInTicks = peek(off + 23) + peek(off + 24) * 256
 			local hardSyncCurveS8 = u8_to_s8(peek(off + 25))
+			local lfoCycleInTicks = peek(off + 26) + peek(off + 27) * 256
+			local lowpassModSource = peek(off + 28)
+			local wavefoldModSource = peek(off + 29)
+			local hardSyncModSource = peek(off + 30)
 
 			-- Shape matches makeMorphMapLua(): values are numeric IDs.
 			return {
@@ -344,6 +355,10 @@ local function read_sfx_cfg(instrumentId)
 				hardSyncStrengthU8 = hardSyncStrengthU8,
 				hardSyncDecayInTicks = hardSyncDecayInTicks,
 				hardSyncCurveS8 = hardSyncCurveS8,
+				lfoCycleInTicks = lfoCycleInTicks,
+				lowpassModSource = lowpassModSource,
+				wavefoldModSource = wavefoldModSource,
+				hardSyncModSource = hardSyncModSource,
 			}
 		end
 	end
@@ -544,6 +559,24 @@ end
 local render_src_a = {}
 local render_src_b = {}
 local render_out = {}
+local lfo_ticks = 0
+
+local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)
+	if modSource == MOD_SRC_LFO then
+		local cycle = lfoCycleTicks or 0
+		if cycle <= 0 then
+			return 0
+		end
+		local phase01 = (lfoTicks % cycle) / cycle
+		-- Map sine to 0..1, starting at 0 when phase01=0.
+		return (1 - math.cos(phase01 * math.pi * 2)) * 0.5
+	end
+
+	if durationTicks == nil or durationTicks <= 0 then
+		return fallbackT or 0
+	end
+	return clamp01(ticksPlayed / durationTicks)
+end
 
 local function render_waveform_morph(cfg, ticksPlayed, outSamples)
 	local durationTicks = cfg.morphDurationInTicks
@@ -611,7 +644,7 @@ local function render_waveform_samples(cfg, ticksPlayed, instrumentId, outSample
 	end
 end
 
-local function render_tick_cfg(cfg, instrumentId, ticksPlayed)
+local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks)
 	if not cfg_is_k_rate_processing(cfg) then
 		return
 	end
@@ -622,24 +655,20 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed)
 	end
 
 	if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then
-		local decayTicks = cfg.hardSyncDecayInTicks or 0
-		local hsT
-		if decayTicks == nil or decayTicks <= 0 then
-			hsT = 0
-		else
-			hsT = clamp01(ticksPlayed / decayTicks)
-		end
+		local hsT = calculate_mod_t(cfg.hardSyncModSource or MOD_SRC_ENVELOPE, cfg.hardSyncDecayInTicks, ticksPlayed, lfoTicks, cfg.lfoCycleInTicks, 0)
 		local env = 1 - apply_curveN11(hsT, cfg.hardSyncCurveS8 or 0)
 		local multiplier = 1 + ((cfg.hardSyncStrengthU8 or 0) / 255) * 7 * env
 		apply_hardsync_effect_to_samples(render_out, multiplier)
 	end
 
 	-- Wavefold first (adds harmonics), then lowpass (smooths)
-	if (cfg.wavefoldAmt or 0) > 0 and (cfg.wavefoldDurationInTicks or 0) > 0 then
+	local wavefoldModSource = cfg.wavefoldModSource or MOD_SRC_ENVELOPE
+	local wavefoldHasTime = (wavefoldModSource == MOD_SRC_LFO and (cfg.lfoCycleInTicks or 0) > 0)
+		or ((cfg.wavefoldDurationInTicks or 0) > 0)
+	if (cfg.wavefoldAmt or 0) > 0 and wavefoldHasTime then
 		local maxAmt = clamp01(cfg.wavefoldAmt / 255)
-		local wfDur = cfg.wavefoldDurationInTicks -- 26
-		local wfEnv = clamp01(ticksPlayed / wfDur) -- 150 -> 1.0
-		local envShaped = 1 - apply_curveN11(wfEnv, cfg.wavefoldCurveS8) -- map 0-1 -> 1-0
+		local wfT = calculate_mod_t(wavefoldModSource, cfg.wavefoldDurationInTicks, ticksPlayed, lfoTicks, cfg.lfoCycleInTicks, 0)
+		local envShaped = 1 - apply_curveN11(wfT, cfg.wavefoldCurveS8)
 		local strength = maxAmt * envShaped
 
 		-- log(
@@ -658,13 +687,7 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed)
 	end
 
 	if cfg.lowpassEnabled then
-		local lpDur = cfg.lowpassDurationInTicks
-		local lpT
-		if lpDur == nil or lpDur <= 0 then
-			lpT = 1.0
-		else
-			lpT = clamp01(ticksPlayed / lpDur)
-		end
+		local lpT = calculate_mod_t(cfg.lowpassModSource or MOD_SRC_ENVELOPE, cfg.lowpassDurationInTicks, ticksPlayed, lfoTicks, cfg.lfoCycleInTicks, 1)
 		local strength = apply_curveN11(lpT, cfg.lowpassCurveS8)
 		apply_lowpass_effect_to_samples(render_out, strength)
 	end
@@ -681,7 +704,7 @@ local function prime_render_slot_for_note_on(instrumentId)
 		return
 	end
 	-- Render tick 0 so audio starts with a defined wavetable.
-	render_tick_cfg(cfg, instrumentId, 0)
+	render_tick_cfg(cfg, instrumentId, 0, lfo_ticks)
 end
 
 local function sfx_tick_channel(channel)
@@ -703,11 +726,12 @@ local function sfx_tick_channel(channel)
 		return
 	end
 
-	render_tick_cfg(cfg, idx, ticksPlayed)
+	render_tick_cfg(cfg, idx, ticksPlayed, lfo_ticks)
 	ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 end
 
 local function sfx_tick()
+	lfo_ticks = lfo_ticks + 1
 	for ch = 0, SFX_CHANNELS - 1 do
 		sfx_tick_channel(ch)
 	end

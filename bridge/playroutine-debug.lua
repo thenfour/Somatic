@@ -113,6 +113,9 @@ local function apply_curveN11(t01, curveS8)
 	return 1 - (1 - t) ^ (a(-k))
 end
 
+local MOD_SRC_ENVELOPE = 0
+local MOD_SRC_LFO = 1
+
 local function wave_read_samples(waveIndex, outSamples)
 	local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
 	local si = 0
@@ -232,6 +235,23 @@ end
 local render_src_a = {}
 local render_src_b = {}
 local render_out = {}
+local lfo_ticks = 0
+
+local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)
+	if modSource == MOD_SRC_LFO then
+		local cycle = lfoCycleTicks or 0
+		if cycle <= 0 then
+			return 0
+		end
+		local phase01 = (lfoTicks % cycle) / cycle
+		return (1 - math.cos(phase01 * math.pi * 2)) * 0.5
+	end
+
+	if durationTicks == nil or durationTicks <= 0 then
+		return fallbackT or 0
+	end
+	return clamp01(ticksPlayed / durationTicks)
+end
 
 local function cfg_is_k_rate_processing(cfg)
 	if not cfg then
@@ -316,7 +336,7 @@ local function render_waveform_samples(cfg, ticksPlayed, outSamples)
 	return false
 end
 
-local function render_tick_cfg(cfg, instId, ticksPlayed)
+local function render_tick_cfg(cfg, instId, ticksPlayed, lfoTicks)
 	if not cfg_is_k_rate_processing(cfg) then
 		return
 	end
@@ -324,33 +344,44 @@ local function render_tick_cfg(cfg, instId, ticksPlayed)
 		return
 	end
 	if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then
-		local decayTicks = cfg.hardSyncDecayInTicks or 0
-		local hsT
-		if decayTicks == nil or decayTicks <= 0 then
-			hsT = 0
-		else
-			hsT = clamp01(ticksPlayed / decayTicks)
-		end
+		local hsT = calculate_mod_t(
+			cfg.hardSyncModSource or MOD_SRC_ENVELOPE,
+			cfg.hardSyncDecayInTicks,
+			ticksPlayed,
+			lfoTicks,
+			cfg.lfoCycleInTicks,
+			0
+		)
 		local env = 1 - apply_curveN11(hsT, u8_to_s8(cfg.hardSyncCurveS8 or 0))
 		local multiplier = 1 + ((cfg.hardSyncStrengthU8 or 0) / 255) * 7 * env
 		apply_hardsync_effect_to_samples(render_out, multiplier)
 	end
-	if (cfg.wavefoldAmt or 0) > 0 and (cfg.wavefoldDurationInTicks or 0) > 0 then
+	local wavefoldModSource = cfg.wavefoldModSource or MOD_SRC_ENVELOPE
+	local wavefoldHasTime = (wavefoldModSource == MOD_SRC_LFO and (cfg.lfoCycleInTicks or 0) > 0)
+		or ((cfg.wavefoldDurationInTicks or 0) > 0)
+	if (cfg.wavefoldAmt or 0) > 0 and wavefoldHasTime then
 		local maxAmt = clamp01((cfg.wavefoldAmt or 0) / 255)
-		local wfDur = cfg.wavefoldDurationInTicks
-		local wfEnv = clamp01(ticksPlayed / wfDur)
-		local envShaped = 1 - apply_curveN11(wfEnv, u8_to_s8(cfg.wavefoldCurveS8 or 0))
+		local wfT = calculate_mod_t(
+			wavefoldModSource,
+			cfg.wavefoldDurationInTicks,
+			ticksPlayed,
+			lfoTicks,
+			cfg.lfoCycleInTicks,
+			0
+		)
+		local envShaped = 1 - apply_curveN11(wfT, u8_to_s8(cfg.wavefoldCurveS8 or 0))
 		local strength = maxAmt * envShaped
 		apply_wavefold_effect_to_samples(render_out, strength)
 	end
 	if (cfg.lowpassEnabled or 0) ~= 0 then
-		local lpDur = cfg.lowpassDurationInTicks
-		local lpT
-		if lpDur == nil or lpDur <= 0 then
-			lpT = 1.0
-		else
-			lpT = clamp01(ticksPlayed / lpDur)
-		end
+		local lpT = calculate_mod_t(
+			cfg.lowpassModSource or MOD_SRC_ENVELOPE,
+			cfg.lowpassDurationInTicks,
+			ticksPlayed,
+			lfoTicks,
+			cfg.lfoCycleInTicks,
+			1
+		)
 		local strength = apply_curveN11(lpT, u8_to_s8(cfg.lowpassCurveS8 or 0))
 		apply_lowpass_effect_to_samples(render_out, strength)
 	end
@@ -362,7 +393,7 @@ local function prime_render_slot_for_note_on(instId)
 	if not cfg_is_k_rate_processing(cfg) then
 		return
 	end
-	render_tick_cfg(cfg, instId, 0)
+	render_tick_cfg(cfg, instId, 0, lfo_ticks)
 end
 
 local function decode_track_frame_patterns(trackIndex, frameIndex)
@@ -432,11 +463,12 @@ local function sfx_tick_channel(ch)
 		ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 		return
 	end
-	render_tick_cfg(cfg, instId, ticksPlayed)
+	render_tick_cfg(cfg, instId, ticksPlayed, lfo_ticks)
 	ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 end
 
 local function tf_music_morph_tick(track, frame, row)
+	lfo_ticks = lfo_ticks + 1
 	apply_music_row_to_sfx_state(track, frame, row)
 	for ch = 0, SFX_CHANNELS - 1 do
 		sfx_tick_channel(ch)

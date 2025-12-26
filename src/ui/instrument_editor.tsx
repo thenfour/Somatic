@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AudioController } from '../audio/controller';
 import { Song } from '../models/song';
-import { SomaticInstrumentWaveEngine, Tic80Instrument, Tic80InstrumentDto } from '../models/instruments';
+import { ModSource, SomaticInstrumentWaveEngine, Tic80Instrument, Tic80InstrumentDto } from '../models/instruments';
 import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { assert, clamp } from '../utils/utils';
 import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
@@ -133,6 +133,14 @@ const HardSyncCurveConfig: ContinuousParamConfig = {
     convertTo01: (v) => (v + 1) / 2,
     convertFrom01: (v01) => v01 * 2 - 1,
     format: (v) => v.toFixed(2),
+};
+
+const LfoRateConfig: ContinuousParamConfig = {
+    resolutionSteps: 240,
+    default: 2,
+    convertTo01: (v) => Math.min(1, Math.max(0, v) / 12),
+    convertFrom01: (v01) => v01 * 12,
+    format: (v) => `${v.toFixed(2)} Hz`,
 };
 
 const LoopStartConfig: ContinuousParamConfig = {
@@ -651,6 +659,50 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
+    const setLfoRate = (value: number) => {
+        onSongChange({
+            description: 'Set LFO rate',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.lfoRateHz = Math.max(0, value);
+            },
+        });
+    };
+
+    const setLowpassModSource = (source: ModSource) => {
+        onSongChange({
+            description: 'Set lowpass mod source',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.lowpassModSource = source;
+            },
+        });
+    };
+
+    const setWavefoldModSource = (source: ModSource) => {
+        onSongChange({
+            description: 'Set wavefold mod source',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.wavefoldModSource = source;
+            },
+        });
+    };
+
+    const setHardSyncModSource = (source: ModSource) => {
+        onSongChange({
+            description: 'Set hard sync mod source',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.hardSyncModSource = source;
+            },
+        });
+    };
+
     const setWavefoldAmount = (value: number) => {
         onSongChange({
             description: 'Set wavefold amount',
@@ -1044,6 +1096,19 @@ show render slot if there are k-rate effects enabled
                 <Tab thisTabId="effects" summaryTitle="Effects">
                     <div className="instrument-tab-content">
                         <div style={{ marginTop: 12 }}>
+                            <h4>LFO</h4>
+                            <div className="field-row">
+                                <ContinuousKnob
+                                    label='rate'
+                                    value={instrument.lfoRateHz}
+                                    config={LfoRateConfig}
+                                    onChange={setLfoRate}
+                                />
+                                <span style={{ marginLeft: 8 }}>Global; not retriggered.</span>
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: 12 }}>
                             <h4>Hard Sync</h4>
                             <div className="field-row">
                                 <label>
@@ -1054,6 +1119,11 @@ show render slot if there are k-rate effects enabled
                                     />
                                     Enabled
                                 </label>
+                            </div>
+                            <div className="field-row">
+                                <label>Mod source</label>
+                                <RadioButton selected={instrument.hardSyncModSource === 'envelope'} onClick={() => setHardSyncModSource('envelope')}>Envelope</RadioButton>
+                                <RadioButton selected={instrument.hardSyncModSource === 'lfo'} onClick={() => setHardSyncModSource('lfo')}>LFO</RadioButton>
                             </div>
                             <div className="field-row">
                                 <ContinuousKnob
@@ -1086,6 +1156,11 @@ show render slot if there are k-rate effects enabled
 
                         <div style={{ marginTop: 12 }}>
                             <h4>Wavefold</h4>
+                            <div className="field-row">
+                                <label>Mod source</label>
+                                <RadioButton selected={instrument.wavefoldModSource === 'envelope'} onClick={() => setWavefoldModSource('envelope')}>Envelope</RadioButton>
+                                <RadioButton selected={instrument.wavefoldModSource === 'lfo'} onClick={() => setWavefoldModSource('lfo')}>LFO</RadioButton>
+                            </div>
                             <div className="field-row">
                                 <ContinuousKnob
                                     label='strength'
@@ -1136,6 +1211,11 @@ show render slot if there are k-rate effects enabled
                                     />
                                     Enabled
                                 </label>
+                            </div>
+                            <div className="field-row">
+                                <label>Mod source</label>
+                                <RadioButton selected={instrument.lowpassModSource === 'envelope'} onClick={() => setLowpassModSource('envelope')}>Envelope</RadioButton>
+                                <RadioButton selected={instrument.lowpassModSource === 'lfo'} onClick={() => setLowpassModSource('lfo')}>LFO</RadioButton>
                             </div>
                             <div className="field-row">
                                 <ContinuousKnob
