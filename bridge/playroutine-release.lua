@@ -163,29 +163,41 @@ do
 			local cfg = {
 				we = pe(off + 1),
 				sA = pe(off + 2),
-				sB = pe(off + 3),
 				r = pe(off + 4),
-				xDcy = u16(off + 5),
-				pwmC = u16(off + 7),
-				pwmD = pe(off + 9),
-				pwmDp = pe(off + 10),
-				pwmPh = pe(off + 11),
-				lpE = pe(off + 12) ~= 0,
-				lpDcy = u16(off + 13),
-				wfAmt = pe(off + 15),
-				wfDcy = u16(off + 16),
-				xCrv = u8_s8(pe(off + 18)),
-				lpCrv = u8_s8(pe(off + 19)),
-				wfCrv = u8_s8(pe(off + 20)),
-				hsE = pe(off + 21) ~= 0,
-				hsStr = pe(off + 22),
-				hsDcy = u16(off + 23),
-				hsCrv = u8_s8(pe(off + 25)),
-				lfoC = u16(off + 26),
-				lpSrc = pe(off + 28),
-				wfSrc = pe(off + 29),
-				hsSrc = pe(off + 30),
 			}
+			-- BEGIN_FEATURE_WAVEMORPH
+			cfg.sB = pe(off + 3)
+			cfg.xDcy = u16(off + 5)
+			cfg.xCrv = u8_s8(pe(off + 18))
+			-- END_FEATURE_WAVEMORPH
+			-- BEGIN_FEATURE_PWM
+			cfg.pwmC = u16(off + 7)
+			cfg.pwmD = pe(off + 9)
+			cfg.pwmDp = pe(off + 10)
+			cfg.pwmPh = pe(off + 11)
+			-- END_FEATURE_PWM
+			-- BEGIN_FEATURE_LOWPASS
+			cfg.lpE = pe(off + 12)
+			cfg.lpDcy = u16(off + 13)
+			cfg.lpCrv = u8_s8(pe(off + 19))
+			cfg.lpSrc = pe(off + 28)
+			-- END_FEATURE_LOWPASS
+			-- BEGIN_FEATURE_WAVEFOLD
+			cfg.wfAmt = pe(off + 15)
+			cfg.wfDcy = u16(off + 16)
+			cfg.wfCrv = u8_s8(pe(off + 20))
+			cfg.wfSrc = pe(off + 29)
+			-- END_FEATURE_WAVEFOLD
+			-- BEGIN_FEATURE_HARDSYNC
+			cfg.hsE = pe(off + 21)
+			cfg.hsStr = pe(off + 22)
+			cfg.hsDcy = u16(off + 23)
+			cfg.hsCrv = u8_s8(pe(off + 25))
+			cfg.hsSrc = pe(off + 30)
+			-- END_FEATURE_HARDSYNC
+			-- BEGIN_FEATURE_LFO
+			cfg.lfoC = u16(off + 26)
+			-- END_FEATURE_LFO
 			morphMap[id] = cfg
 			off = off + 31
 		end
@@ -217,6 +229,8 @@ do
 		end
 	end
 
+	local apply_lowpass_effect_to_samples
+	-- BEGIN_FEATURE_LOWPASS
 	local function lp_diffuse_wrap(x, y, n, amt)
 		for i = 0, n - 1 do
 			local xm1 = x[(i - 1) % n]
@@ -229,7 +243,7 @@ do
 	local lp_scratch_a = {}
 	local lp_scratch_b = {}
 
-	local function apply_lowpass_effect_to_samples(samples, strength01)
+	apply_lowpass_effect_to_samples = function(samples, strength01)
 		local strength = clamp01(strength01)
 		local steps = fl(1 + strength * 23 + 0.5) -- 1..24
 		local amt = 0.02 + strength * 0.88 -- ~0.02..0.90
@@ -249,7 +263,10 @@ do
 			samples[i] = x[i]
 		end
 	end
+	-- END_FEATURE_LOWPASS
 
+	local apply_wavefold_effect_to_samples
+	-- BEGIN_FEATURE_WAVEFOLD
 	local function fold_reflect(u)
 		local v = (u + 1) % 4
 		if v > 2 then
@@ -258,7 +275,7 @@ do
 		return v - 1
 	end
 
-	local function apply_wavefold_effect_to_samples(samples, strength01)
+	apply_wavefold_effect_to_samples = function(samples, strength01)
 		local strength = clamp01(strength01)
 		local gain = 1 + strength * 20
 		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
@@ -274,9 +291,12 @@ do
 			samples[i] = fl(out + 0.5)
 		end
 	end
+	-- END_FEATURE_WAVEFOLD
 
+	local apply_hardsync_effect_to_samples
+	-- BEGIN_FEATURE_HARDSYNC
 	local hs_scratch = {}
-	local function apply_hardsync_effect_to_samples(samples, multiplier)
+	apply_hardsync_effect_to_samples = function(samples, multiplier)
 		local m = multiplier
 		if m <= 1.001 then
 			return
@@ -304,13 +324,18 @@ do
 			samples[i] = v
 		end
 	end
+	-- END_FEATURE_HARDSYNC
 
 	local render_src_a = {}
 	local render_src_b = {}
 	local render_out = {}
-	local lfo_ticks_by_sfx = {}
+	local lfo_ticks_by_sfx
+	-- BEGIN_FEATURE_LFO
+	lfo_ticks_by_sfx = {}
+	-- END_FEATURE_LFO
 
 	local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks)
+		-- BEGIN_FEATURE_LFO
 		if modSource == MOD_SRC_LFO then
 			local cycle = lfoCycleTicks
 			if cycle <= 0 then
@@ -319,6 +344,7 @@ do
 			local phase01 = (lfoTicks % cycle) / cycle
 			return (1 - cos(phase01 * pi * 2)) * 0.5
 		end
+		-- END_FEATURE_LFO
 		return clamp01(ticksPlayed / durationTicks)
 	end
 
@@ -327,10 +353,16 @@ do
 			return false
 		end
 		local we = cfg.we
-		return we == 0 or we == 2 or cfg.lpE or cfg.wfAmt > 0 or (cfg.hsE and cfg.hsStr > 0)
+		return (render_waveform_morph and we == 0)
+			or (render_waveform_pwm and we == 2)
+			or (apply_lowpass_effect_to_samples and (cfg.lpE or 0) ~= 0)
+			or (apply_wavefold_effect_to_samples and (cfg.wfAmt or 0) > 0)
+			or (apply_hardsync_effect_to_samples and (cfg.hsE or 0) ~= 0 and (cfg.hsStr or 0) > 0)
 	end
 
-	local function render_waveform_morph(cfg, ticksPlayed, outSamples)
+	local render_waveform_morph
+	-- BEGIN_FEATURE_WAVEMORPH
+	render_waveform_morph = function(cfg, ticksPlayed, outSamples)
 		local durationTicks = cfg.xDcy
 		local t
 		if durationTicks == nil or durationTicks <= 0 then
@@ -346,8 +378,11 @@ do
 			outSamples[i] = a + (b - a) * t
 		end
 	end
+	-- END_FEATURE_WAVEMORPH
 
-	local function render_waveform_pwm(cfg, ticks, out)
+	local render_waveform_pwm
+	-- BEGIN_FEATURE_PWM
+	render_waveform_pwm = function(cfg, ticks, out)
 		local c = cfg.pwmC or 0
 		local p = (cfg.pwmPh or 0) / 255
 		p = ((c > 0 and ((ticks % c) / c) or 0) + p) % 1
@@ -363,6 +398,7 @@ do
 			out[i] = (i < thr) and 15 or 0
 		end
 	end
+	-- END_FEATURE_PWM
 
 	local function render_waveform_native(cfg, outSamples)
 		wave_read_samples(cfg.sA, outSamples)
@@ -371,9 +407,17 @@ do
 	local function render_waveform_samples(cfg, ticksPlayed, outSamples)
 		local we = cfg.we or cfg.waveEngine or cfg.waveEngineId or 1
 		if we == 0 then
-			render_waveform_morph(cfg, ticksPlayed, outSamples)
+			if render_waveform_morph then
+				render_waveform_morph(cfg, ticksPlayed, outSamples)
+			else
+				render_waveform_native(cfg, outSamples)
+			end
 		elseif we == 2 then
-			render_waveform_pwm(cfg, ticksPlayed, outSamples)
+			if render_waveform_pwm then
+				render_waveform_pwm(cfg, ticksPlayed, outSamples)
+			else
+				render_waveform_native(cfg, outSamples)
+			end
 		elseif we == 1 then
 			render_waveform_native(cfg, outSamples)
 		end
@@ -384,22 +428,24 @@ do
 			return
 		end
 		render_waveform_samples(cfg, ticksPlayed, render_out)
-		if cfg.hsE ~= 0 and cfg.hsStr > 0 then
+		if apply_hardsync_effect_to_samples and cfg.hsE ~= 0 and cfg.hsStr > 0 then
 			local hsT = calculate_mod_t(cfg.hsSrc or MOD_SRC_ENVELOPE, cfg.hsDcy, ticksPlayed, lfoTicks, cfg.lfoC)
 			local env = 1 - crvN11(hsT, u8_s8(cfg.hsCrv))
 			local multiplier = 1 + ((cfg.hsStr or 0) / 255) * 7 * env
 			apply_hardsync_effect_to_samples(render_out, multiplier)
 		end
-		local wavefoldModSource = cfg.wfSrc or MOD_SRC_ENVELOPE
-		local wavefoldHasTime = (wavefoldModSource == MOD_SRC_LFO and cfg.lfoC > 0) or (cfg.wfDcy > 0)
-		if cfg.wfAmt > 0 and wavefoldHasTime then
-			local maxAmt = clamp01((cfg.wfAmt or 0) / 255)
-			local wfT = calculate_mod_t(wavefoldModSource, cfg.wfDcy, ticksPlayed, lfoTicks, cfg.lfoC)
-			local envShaped = 1 - crvN11(wfT, u8_s8(cfg.wfCrv))
-			local strength = maxAmt * envShaped
-			apply_wavefold_effect_to_samples(render_out, strength)
+		if apply_wavefold_effect_to_samples then
+			local wavefoldModSource = cfg.wfSrc or MOD_SRC_ENVELOPE
+			local wavefoldHasTime = (wavefoldModSource == MOD_SRC_LFO and (cfg.lfoC or 0) > 0) or ((cfg.wfDcy or 0) > 0)
+			if (cfg.wfAmt or 0) > 0 and wavefoldHasTime then
+				local maxAmt = clamp01((cfg.wfAmt or 0) / 255)
+				local wfT = calculate_mod_t(wavefoldModSource, cfg.wfDcy or 0, ticksPlayed, lfoTicks, cfg.lfoC or 0)
+				local envShaped = 1 - crvN11(wfT, u8_s8(cfg.wfCrv or 0))
+				local strength = maxAmt * envShaped
+				apply_wavefold_effect_to_samples(render_out, strength)
+			end
 		end
-		if cfg.lpE ~= 0 then
+		if apply_lowpass_effect_to_samples and cfg.lpE ~= 0 then
 			local lpT = calculate_mod_t(cfg.lpSrc or MOD_SRC_ENVELOPE, cfg.lpDcy, ticksPlayed, lfoTicks, cfg.lfoC)
 			local strength = crvN11(lpT, u8_s8(cfg.lpCrv))
 			apply_lowpass_effect_to_samples(render_out, strength)
@@ -412,7 +458,10 @@ do
 		if not has_k_rate(cfg) then
 			return
 		end
-		local lt = lfo_ticks_by_sfx[instId] or 0
+		local lt = 0
+		-- BEGIN_FEATURE_LFO
+		lt = lfo_ticks_by_sfx[instId] or 0
+		-- END_FEATURE_LFO
 		render_tick_cfg(cfg, instId, 0, lt)
 	end
 
@@ -482,16 +531,21 @@ do
 			ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 			return
 		end
-		local lt = lfo_ticks_by_sfx[instId] or 0
+		local lt = 0
+		-- BEGIN_FEATURE_LFO
+		lt = lfo_ticks_by_sfx[instId] or 0
+		-- END_FEATURE_LFO
 		render_tick_cfg(cfg, instId, ticksPlayed, lt)
 		ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 	end
 
 	local function sfx_tick(track, frame, row)
 		apply_music_row_to_sfx_state(track, frame, row)
+		-- BEGIN_FEATURE_LFO
 		for id, _ in pairs(morphMap) do
 			lfo_ticks_by_sfx[id] = (lfo_ticks_by_sfx[id] or 0) + 1
 		end
+		-- END_FEATURE_LFO
 		for ch = 0, SFX_CHANNELS - 1 do
 			sfx_tick_channel(ch)
 		end

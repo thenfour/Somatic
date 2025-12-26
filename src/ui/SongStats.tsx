@@ -263,6 +263,14 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                             SFX: input.cartridge.optimizeResult.usedSfxCount,
                             Waveforms: input.cartridge.optimizeResult.usedWaveformCount,
                         },
+                        'Playback Features': {
+                            'Wave morph': input.cartridge.optimizeResult.featureUsage.waveMorph,
+                            PWM: input.cartridge.optimizeResult.featureUsage.pwm,
+                            Lowpass: input.cartridge.optimizeResult.featureUsage.lowpass,
+                            Wavefold: input.cartridge.optimizeResult.featureUsage.wavefold,
+                            'Hard sync': input.cartridge.optimizeResult.featureUsage.hardSync,
+                            LFO: input.cartridge.optimizeResult.featureUsage.lfo,
+                        },
                         'Pattern Payload Sizes': {
                             'RAW (pattern-based)': <BarValue value={breakdown.patternPayload.rawBytes} max={rawMax} label={formatBytes(breakdown.patternPayload.rawBytes)} />,
                             'RAW (column-based)': <BarValue value={breakdown.patternColumnStats.columnPayload.rawBytes} max={rawMax} label={formatBytes(breakdown.patternColumnStats.columnPayload.rawBytes)} />,

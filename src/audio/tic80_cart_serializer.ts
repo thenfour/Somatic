@@ -5,9 +5,9 @@ import type {ModSource, SomaticInstrumentWaveEngine, Tic80Instrument} from "../m
 import type {Song} from "../models/song";
 import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {BakedSong, BakeSong} from "../utils/bakeSong";
-import {analyzePlaybackFeatures, getMaxPatternUsedIndex, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong} from "../utils/SongOptimizer";
+import {analyzePlaybackFeatures, getMaxPatternUsedIndex, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
 import bridgeConfig from "../../bridge/bridge_config.jsonc";
-import {assert, clamp, parseAddress, toLuaStringLiteral} from "../utils/utils";
+import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../utils/utils";
 import {LoopMode} from "./backend";
 import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
 import {encodePatternCombined} from "./pattern_encoding";
@@ -697,13 +697,41 @@ function stringToAsciiPayload(str: string): Uint8Array {
    return codeBytes;
 };
 
+function stripUnusedFeatureBlocks(template: string, usage: PlaybackFeatureUsage): string {
+   const featureTags: Record<keyof PlaybackFeatureUsage, string> = {
+      waveMorph: "FEATURE_WAVEMORPH",
+      pwm: "FEATURE_PWM",
+      lowpass: "FEATURE_LOWPASS",
+      wavefold: "FEATURE_WAVEFOLD",
+      hardSync: "FEATURE_HARDSYNC",
+      lfo: "FEATURE_LFO",
+   };
+
+   let out = template;
+   typedKeys(featureTags).forEach((key) => {
+      const tag = featureTags[key];
+      const begin = `-- BEGIN_${tag}`;
+      const end = `-- END_${tag}`;
+      if (usage[key]) {
+         out = removeLuaBlockMarkers(out, [begin, end]); // keep block contents but remove the marker lines
+      } else {
+         out = replaceLuaBlock(out, begin, end, ""); // drop block entirely
+      }
+   });
+   return out;
+}
+
 function getPlayroutineCode(variant: "debug"|"release"): string {
    return variant === "debug" ? playroutineDebug : playroutineRelease;
 };
 
-function getCode(
-   song: Song, variant: "debug"|"release"): {code: string, generatedCode: string, patternChunks: Uint8Array[]} {
+function getCode(song: Song, variant: "debug"|"release", featureUsage?: PlaybackFeatureUsage): {
+   code: string,               //
+   generatedCode: string,      //
+   patternChunks: Uint8Array[] //
+} {
    // Generate the SOMATIC_MUSIC_DATA section
+   const features = featureUsage ?? analyzePlaybackFeatures(song);
    const songOrder = song.songOrder.map(idx => idx.toString()).join(",");
    const morphMapLua = makeMorphMapLua(song);
 
@@ -741,24 +769,12 @@ SOMATIC_MUSIC_DATA = {
 -- END_SOMATIC_MUSIC_DATA`;
 
    // Replace the SOMATIC_MUSIC_DATA section in the template
-   const playroutineTemplate = getPlayroutineCode(variant);
-   const markerIndex = playroutineTemplate.indexOf("-- END_SOMATIC_MUSIC_DATA");
-   if (markerIndex === -1) {
-      throw new Error("Template marker \"-- END_SOMATIC_MUSIC_DATA\" not found in playroutine-min.lua");
-   }
-
-   const musicDataStart = playroutineTemplate.indexOf("-- BEGIN_SOMATIC_MUSIC_DATA");
-   if (musicDataStart === -1) {
-      throw new Error("Could not find \"BEGIN_SOMATIC_MUSIC_DATA\" in template");
-   }
-
-   // Replace from musicDataStart to end of marker line
-   const markerLineEnd = playroutineTemplate.indexOf("\n", markerIndex);
-   const beforeMusicData = playroutineTemplate.substring(0, musicDataStart);
-   const afterMarker = playroutineTemplate.substring(markerLineEnd + 1);
+   const playroutineTemplate = stripUnusedFeatureBlocks(getPlayroutineCode(variant), features);
+   const code = replaceLuaBlock(
+      playroutineTemplate, "-- BEGIN_SOMATIC_MUSIC_DATA", "-- END_SOMATIC_MUSIC_DATA", musicDataSection);
 
    return {
-      code: beforeMusicData + musicDataSection + "\n" + afterMarker,
+      code,
       generatedCode: musicDataSection,
       patternChunks,
    };
@@ -830,7 +846,7 @@ export function serializeSongToCartDetailed(
    const sfxChunk = createChunk(CHUNK.SFX, encodeSfx(song, getMaxSfxUsedIndex(song) + 1), true);
    const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, new Uint8Array(1), true); // all zeros
    const trackChunk = createChunk(CHUNK.MUSIC_TRACKS, encodeTrack(song), true);
-   const {code, generatedCode, patternChunks} = getCode(song, variant);
+   const {code, generatedCode, patternChunks} = getCode(song, variant, optimizeResult.featureUsage);
    const codePayload = stringToAsciiPayload(code);
    const codeChunk = createChunk(CHUNK.CODE, codePayload, false, 0);
 

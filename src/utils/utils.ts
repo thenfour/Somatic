@@ -60,6 +60,59 @@ export function toLuaStringLiteral(str: string): string {
 };
 
 
+// Replace one or more Lua "blocks" delimited by begin/end marker lines.
+// - Markers are matched as substrings within their lines (so callers can pass "-- BEGIN_BLARG").
+// - The entire block (including marker lines and inner contents) is replaced with `replacement`.
+export function replaceLuaBlock(
+   src: string,
+   beginMarker: string,
+   endMarker: string,
+   replacement: string,
+   ): string {
+   const eol = src.includes("\r\n") ? "\r\n" : "\n";
+   const normalizeEol = (s: string) => s.replace(/\r?\n/g, eol);
+   const replacementNorm = normalizeEol(replacement);
+
+   let out = src;
+   let searchFrom = 0;
+   while (true) {
+      const beginIdx = out.indexOf(beginMarker, searchFrom);
+      if (beginIdx < 0) {
+         break;
+      }
+
+      const beginLineStart = Math.max(0, out.lastIndexOf(eol, beginIdx));
+      const beginLineStart0 = (beginLineStart === 0) ? 0 : beginLineStart + eol.length;
+      const beginLineEnd = out.indexOf(eol, beginIdx);
+      const innerStart = (beginLineEnd < 0) ? out.length : beginLineEnd + eol.length;
+
+      const endIdx = out.indexOf(endMarker, innerStart);
+      assert(endIdx >= 0, `replaceLuaBlock: end marker not found: ${endMarker}`);
+
+      const endLineEnd = out.indexOf(eol, endIdx);
+      const blockEnd = (endLineEnd < 0) ? out.length : endLineEnd + eol.length;
+
+      out = out.slice(0, beginLineStart0) + replacementNorm + out.slice(blockEnd);
+      searchFrom = beginLineStart0 + replacementNorm.length;
+   }
+
+   return out;
+}
+
+
+// Remove any Lua lines that contain one of the specified marker substrings.
+// Useful for stripping marker comments while leaving surrounding code untouched.
+export function removeLuaBlockMarkers(src: string, markers: string[]): string {
+   if (markers.length === 0)
+      return src;
+
+   const eol = src.includes("\r\n") ? "\r\n" : "\n";
+   const lines = src.split(/\r?\n/);
+   const filtered = lines.filter(line => !markers.some(m => m && line.includes(m)));
+   return filtered.join(eol);
+}
+
+
 export interface CompareResult {
    match: boolean;
    lengthA: number;
