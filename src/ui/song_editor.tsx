@@ -76,7 +76,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
     const instrumentOptions = React.useMemo(() => {
         return Array.from({ length: Tic80Caps.sfx.count }, (_, i) => ({
             value: i,
-            label: <InstrumentChip instrumentIndex={i} instrument={song.instruments[i]} showTooltip={false} />,
+            label: <InstrumentChip instrumentIndex={i} instrument={song.instruments[i]} showTooltip={false} width={300} />,
         }));
     }, [song.instruments]);
 
@@ -164,6 +164,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 Song title
                 <input
                     type="text"
+                    className='song-title-input'
                     maxLength={SomaticCaps.maxSongTitleLength}
                     value={song.name}
                     onChange={(e) => onSongChange({

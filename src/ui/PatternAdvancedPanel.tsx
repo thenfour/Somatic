@@ -52,7 +52,12 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ song
     const instrumentOptions = React.useMemo(() => {
         return Array.from({ length: Tic80Caps.sfx.count }, (_, i) => ({
             value: i,
-            label: <InstrumentChip instrumentIndex={i} instrument={song.instruments[i]} showTooltip={false} />,
+            label: <InstrumentChip
+                instrumentIndex={i}
+                instrument={song.instruments[i]}
+                showTooltip={false}
+                width={200}
+            />,
         }));
     }, [song.instruments]);
 

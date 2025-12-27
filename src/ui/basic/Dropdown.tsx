@@ -1,5 +1,6 @@
 import React from 'react';
 import { DesktopMenu } from '../DesktopMenu/DesktopMenu';
+import './Dropdown.css';
 
 export type DropdownOption<TValue> = {
     value: TValue;
@@ -55,7 +56,9 @@ export function Dropdown<TValue>(props: DropdownProps<TValue>): JSX.Element {
             >
                 {triggerLabel}
             </DesktopMenu.Trigger>
-            <DesktopMenu.Content className={contentClassName}>
+            <DesktopMenu.Content
+                className={['dropdown-menu', contentClassName].filter(Boolean).join(' ')}
+            >
                 {options.map((option, idx) => {
                     const isSelected = selectedOption === option;
                     return (

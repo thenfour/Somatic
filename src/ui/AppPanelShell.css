@@ -15,6 +15,10 @@
     border-bottom: 1px solid var(--border);
 }
 
+.app-panel-shell__header .chip {
+    font-size: 24px;
+}
+
 .app-panel-shell__title-group {
     display: flex;
     flex-direction: column;

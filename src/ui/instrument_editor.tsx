@@ -14,6 +14,7 @@ import { RadioButton } from './basic/RadioButton';
 import { Tooltip } from './basic/tooltip';
 import { ContinuousKnob, ContinuousParamConfig } from './basic/knob';
 import { TabPanel, Tab } from './basic/Tabs';
+import { InstrumentChip } from './InstrumentChip';
 
 const PWMDutyConfig: ContinuousParamConfig = {
     resolutionSteps: 32,
@@ -747,11 +748,14 @@ show render slot if there are k-rate effects enabled
             </>}
             actions={(
                 <>
-                    <div className="toolbar">
-                        {instrumentIndex === 0 && <div className='alertPanel'>!! instrument 0 is weird and should not be used.</div>}
-                        {instrumentIndex === SomaticCaps.noteCutInstrumentIndex && <div className='alertPanel'>!! This is the note-off sfx and should not be edited.</div>}
+                    <div className='instrument-index'>
+                        {/* {instrumentIndex.toString(16).toUpperCase()}: */}
+                        <InstrumentChip
+                            instrumentIndex={instrumentIndex}
+                            instrument={instrument}
+                            children={<span className="instrument-chip-index">{instrument.getIndexString(instrumentIndex)}</span>}
+                        />
                     </div>
-                    <div className='instrument-index'>{instrumentIndex.toString(16).toUpperCase()}:</div>
                     {/* <label htmlFor="instrument-name">Name</label> */}
                     <input
                         //id="instrument-name"
@@ -766,6 +770,10 @@ show render slot if there are k-rate effects enabled
                 </>
             )}
         >
+            <div>
+                {instrumentIndex === 0 && <div className='alertPanel'>!! instrument 0 is weird and should not be used.</div>}
+                {instrumentIndex === SomaticCaps.noteCutInstrumentIndex && <div className='alertPanel'>!! This is the note-off sfx and should not be edited.</div>}
+            </div>
 
             <div className="field-row">
                 <ContinuousKnob

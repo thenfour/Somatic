@@ -7,7 +7,7 @@
     align-items: center;
     padding: 3px 10px;
     white-space: nowrap;
-    max-width: 150px;
+    /* max-width: 150px; */
 }
 
 .chip .instrument-chip-index,

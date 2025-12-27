@@ -1,0 +1,6 @@
+.dropdown-menu {
+    /* deal w very long option lists */
+    max-height: 60vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}

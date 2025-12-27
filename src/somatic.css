@@ -1166,3 +1166,7 @@ option {
     border-radius: var(--bar-value-border-radius);
     z-index: 1;
 }
+
+.song-title-input {
+    width: 250px;
+}
