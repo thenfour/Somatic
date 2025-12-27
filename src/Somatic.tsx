@@ -19,7 +19,7 @@ import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { KeyboardActionNoteInput } from './midi/keyboard_action_input';
 import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
-import { calculateSongPositionInSeconds, gChannelsArray, ToTic80ChannelIndex } from './models/tic80Capabilities';
+import { calculateSongPositionInSeconds, gChannelsArray, Tic80Caps, ToTic80ChannelIndex } from './models/tic80Capabilities';
 import { AboutSomaticDialog } from './ui/AboutSomaticDialog';
 import { AppStatusBar } from './ui/AppStatusBar';
 import { ArrangementEditor } from './ui/ArrangementEditor';
@@ -992,6 +992,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         <Tooltip title={(<div>
                             <div>Current position of {somaticTransportState.isPlaying ? "playhead" : "cursor"}.</div>
                             <div>Total song length: <TransportTime positionSeconds={totalSongSeconds} /></div>
+                            <div>TIC-80 frames (i think something's borked in the calc): {Math.floor((somaticTransportState.isPlaying ? playheadPositionSeconds : cursorPositionSeconds) * Tic80Caps.frameRate)}</div>
                         </div>)}
                         >
                             <div>
