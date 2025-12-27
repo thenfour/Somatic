@@ -116,6 +116,23 @@
     --solo-button-active-bg: #ffcd75;
     --mute-button-active-label: #f4f4f4;
     --solo-button-active-label: #1a1c2c;
+    --marker-default: #3b5dc9;
+    --marker-star: #ffcd75;
+    --marker-question: #41a6f6;
+    --marker-exclamation: #ef7d57;
+    --marker-check: #38b764;
+    --marker-blank: #94b0c2;
+    --marker-asterisk: #a7f070;
+    --marker-up: #b13e53;
+    --marker-circle1: #566c86;
+    --marker-circle2: #73eff7;
+    --marker-circle3: #257179;
+    --marker-circle4: #5d275d;
+    --marker-heart: #ef7d57;
+    --marker-diamond: #41a6f6;
+    --marker-club: #257179;
+    --marker-spade: #1a1c2c;
+    --marker-trash: #1a1c2c;
 }
 
 .theme-dark {
@@ -168,6 +185,23 @@
     --solo-button-active-bg: #ffcd75;
     --mute-button-active-label: #f4f4f4;
     --solo-button-active-label: #1a1c2c;
+    --marker-default: #41a6f6;
+    --marker-star: #ffcd75;
+    --marker-question: #73eff7;
+    --marker-exclamation: #ef7d57;
+    --marker-check: #38b764;
+    --marker-blank: #566c86;
+    --marker-asterisk: #a7f070;
+    --marker-up: #b13e53;
+    --marker-circle1: #94b0c2;
+    --marker-circle2: #73eff7;
+    --marker-circle3: #41a6f6;
+    --marker-circle4: #257179;
+    --marker-heart: #ef7d57;
+    --marker-diamond: #73eff7;
+    --marker-club: #38b764;
+    --marker-spade: #f4f4f4;
+    --marker-trash: #f4f4f4;
 }
 
 html,
@@ -989,6 +1023,9 @@ option {
 .arrangement-editor .arrangement-editor__marker {
     margin-left: 4px;
     margin-right: 4px;
+    display: flex;
+    align-items: center;
+
 }
 
 .arrangement-editor .arrangement-editor__pattern {
@@ -996,11 +1033,15 @@ option {
     margin-right: 16px;
     color: var(--text);
     /* background-color: var(--row-a); */
+    display: flex;
+    align-items: center;
 }
 
 .arrangement-editor__pattern-name-container {
     margin-left: 6px;
     flex: 1;
+    display: flex;
+    align-items: center;
 }
 
 .arrangement-editor__pattern-name {
@@ -1008,10 +1049,9 @@ option {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 40px;
-    max-width: 120px;
+    /* min-width: 40px;
+    max-width: 120px; */
     display: inline-block;
-    height: 100%;
     cursor: pointer;
     color: var(--accent);
 }

@@ -4,19 +4,27 @@
 import {clamp, CoalesceBoolean} from "../utils/utils";
 import {Tic80Caps} from "./tic80Capabilities";
 
+// these should be semi-semantic, not just random symbols.
+// NOTE: keep in sync with
+// - theme vars
+// - <SongOrderMarkerValue>
 export const SongOrderMarkerVariantValues = [
    "default",
    "star",
+   "asterisk",
+
    "question",
    "exclamation",
    "check",
+   "trash",
 
    "blank",
-   "asterisk",
-   "circle",
    "up",
-   "doubleUp",
 
+   "circle1",
+   "circle2",
+   "circle3",
+   "circle4",
 
    "heart",
    "diamond",

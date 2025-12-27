@@ -66,6 +66,25 @@ const THEME_VARS = {
         '--mute-button-active-label',
         '--solo-button-active-label',
     ],
+    "Song Order Marker": [
+        '--marker-default',
+        '--marker-star',
+        '--marker-question',
+        '--marker-exclamation',
+        '--marker-trash',
+        '--marker-check',
+        '--marker-blank',
+        '--marker-asterisk',
+        '--marker-up',
+        '--marker-circle1',
+        '--marker-circle2',
+        '--marker-circle3',
+        '--marker-circle4',
+        '--marker-heart',
+        '--marker-diamond',
+        '--marker-club',
+        '--marker-spade',
+    ],
 
 } as const;
 
@@ -160,18 +179,20 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
                     <button type="button" onClick={onClose}>Close</button>
                 </>
             )}
+            headerExtra={<>
+                <p>Drag a palette swatch onto a variable to assign it. Export copies current vars.</p>
+                <div className="theme-panel__palette" aria-label="TIC-80 palette">
+                    {PALETTE_KEYS.map((key, i) => (
+                        <PaletteSwatch
+                            key={key}
+                            color={values[key]}
+                            contrast={values[PALETTE_CONTRAST_KEYS[i]]}
+                        />
+                    ))}
+                </div>
+            </>
+            }
         >
-            <p>Drag a palette swatch onto a variable to assign it. Export copies current vars.</p>
-
-            <div className="theme-panel__palette" aria-label="TIC-80 palette">
-                {PALETTE_KEYS.map((key, i) => (
-                    <PaletteSwatch
-                        key={key}
-                        color={values[key]}
-                        contrast={values[PALETTE_CONTRAST_KEYS[i]]}
-                    />
-                ))}
-            </div>
 
             <div className="theme-panel__vars" aria-label="Theme variables">
                 {typedEntries(THEME_VARS).map(([sectionName, varNames]) => (

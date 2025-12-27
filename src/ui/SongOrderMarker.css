@@ -2,10 +2,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
-    fill: var(--muted);
-    color: var(--muted);
+    width: 18px;
+    height: 18px;
 }
 
 .song-order-marker .marker-icon {
@@ -14,4 +12,73 @@
     justify-content: center;
     width: 100%;
     height: 100%;
+}
+
+/* Color each marker variant with its theme variable */
+.marker-icon.default-icon {
+    color: var(--marker-default);
+}
+
+.marker-icon.star-icon {
+    color: var(--marker-star);
+}
+
+.marker-icon.question-icon {
+    color: var(--marker-question);
+}
+
+.marker-icon.exclamation-icon {
+    color: var(--marker-exclamation);
+}
+
+.marker-icon.check-icon {
+    color: var(--marker-check);
+}
+
+.marker-icon.blank-icon {
+    color: var(--marker-blank);
+}
+
+.marker-icon.asterisk-icon {
+    color: var(--marker-asterisk);
+}
+
+.marker-icon.up-icon {
+    color: var(--marker-up);
+}
+
+.marker-icon.circle1-icon {
+    color: var(--marker-circle1);
+}
+
+.marker-icon.circle2-icon {
+    color: var(--marker-circle2);
+}
+
+.marker-icon.circle3-icon {
+    color: var(--marker-circle3);
+}
+
+.marker-icon.circle4-icon {
+    color: var(--marker-circle4);
+}
+
+.marker-icon.heart-icon {
+    color: var(--marker-heart);
+}
+
+.marker-icon.diamond-icon {
+    color: var(--marker-diamond);
+}
+
+.marker-icon.club-icon {
+    color: var(--marker-club);
+}
+
+.marker-icon.spade-icon {
+    color: var(--marker-spade);
+}
+
+.marker-icon.trash-icon {
+    color: var(--marker-trash);
 }

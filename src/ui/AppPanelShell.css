@@ -7,12 +7,23 @@
 
 .app-panel-shell__header {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
     background: var(--panel-strong);
     padding: 8px 10px;
     border-bottom: 1px solid var(--border);
+}
+
+.app-panel-shell__header-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 auto;
+    justify-content: space-between;
+    width: 100%;
 }
 
 .app-panel-shell__header .chip {

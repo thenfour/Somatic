@@ -20,7 +20,7 @@
     background: transparent;
     color: var(--text);
     cursor: pointer;
-    border-radius: 3px 3px 0 0;
+    /* border-radius: 3px 3px 0 0; */
 }
 
 .desktop-menu-trigger:hover {
@@ -52,7 +52,7 @@
     position: fixed;
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 4px;
     padding: 4px 0;
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
     min-width: 180px;
@@ -126,4 +126,8 @@
     letter-spacing: 0.08em;
     padding: 6px 14px 4px;
     color: var(--muted);
+}
+
+.desktop-menu-trigger__label {
+    display: flex;
 }

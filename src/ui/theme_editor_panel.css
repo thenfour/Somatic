@@ -14,7 +14,7 @@
 }
 
 .theme-panel__swatch {
-    width: 80px;
+    width: 50px;
     aspect-ratio: 1 / 1;
     cursor: grab;
     padding: 0;
@@ -22,12 +22,16 @@
 }
 
 .theme-panel__vars {
-    flex-shrink: 1;
-    overflow: auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 8px;
-    margin: 12px 0;
+}
+
+.theme-panel__var-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 300px;
 }
 
 .theme-panel__var {
@@ -37,6 +41,10 @@
     border: 0;
     padding: 6px 8px;
     cursor: grab;
+    white-space: nowrap;
+    height: 40px;
+    overflow: hidden;
+
 }
 
 .theme-panel__var-value {
