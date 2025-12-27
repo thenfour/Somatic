@@ -12,32 +12,32 @@ SOMATIC_MUSIC_DATA = {
 
 do
 	local initialized = false
-	local currentSongOrder = 0 -- the "back buffer"
-	local playingSongOrder = 0 -- the "front buffer"
-	local lastPlayingFrame = -1
-	local backBufferIsA = false
-	local stopPlayingOnNextFrame = false
-	local PATTERN_BUFFER_BYTES = 192 * 4
-	local bufferALocation = 0x11164
-	local bufferBLocation = bufferALocation + PATTERN_BUFFER_BYTES
+	local curOrd = 0 -- the "back buffer"
+	local playOrd = 0 -- the "front buffer"
+	local lastFrame = -1
+	local backA = false
+	local stopNext = false
+	local PBUF = 192 * 4
+	local bufA = 0x11164
+	local bufB = bufA + PBUF
 
 	-- Wave morphing (music playback only)
 	local SFX_CHANNELS = 4
-	local ch_sfx_id = { -1, -1, -1, -1 }
-	local ch_sfx_ticks = { 0, 0, 0, 0 }
-	local last_music_track = -2
-	local last_music_frame = -1
-	local last_music_row = -1
+	local chId = { -1, -1, -1, -1 }
+	local chTk = { 0, 0, 0, 0 }
+	local lastTrk = -2
+	local lastFrm = -1
+	local lastRow = -1
 
-	local morphMap = {}
+	local morphs = {}
 
-	local WAVE_BASE = 0x0FFE4
-	local WAVE_BYTES_PER_WAVE = 16 -- 32x 4-bit samples packed 2-per-byte
-	local WAVE_SAMPLES_PER_WAVE = 32
-	local TRACKS_BASE = 0x13E64
-	local PATTERNS_BASE = 0x11164
-	local TRACK_BYTES_PER_TRACK = 51
-	local PATTERN_BYTES_PER_PATTERN = 192
+	local WBASE = 0x0FFE4
+	local WBYTES = 16 -- 32x 4-bit samples packed 2-per-byte
+	local WSAMPLES = 32
+	local TRK_BASE = 0x13E64
+	local PAT_BASE = 0x11164
+	local TRK_BYTES = 51
+	local PAT_BYTES = 192
 	local ROW_BYTES = 3
 
 	local pk, pe, fl, cos, pi = poke, peek, math.floor, math.cos, math.pi
@@ -45,7 +45,7 @@ do
 		return pe(p) + pe(p + 1) * 256
 	end
 
-	local function base85_decode_to_mem(s, n, d)
+	local function b85d(s, n, d)
 		local i = 1
 		for o = 0, n - 1, 4 do
 			local v = 0
@@ -63,7 +63,7 @@ do
 		return n
 	end
 
-	local function varint(base, si, srcLen)
+	local function vi(base, si, srcLen)
 		local x, f = 0, 1
 		while true do
 			local b = pe(base + si)
@@ -76,14 +76,14 @@ do
 		end
 	end
 
-	local function lzdec_mem(src, srcLen, dst)
+	local function lzdm(src, srcLen, dst)
 		local si, di = 0, 0
 		while si < srcLen do
 			local t = pe(src + si)
 			si = si + 1
 			if t == 0 then
 				local l
-				l, si = varint(src, si, srcLen)
+				l, si = vi(src, si, srcLen)
 				for j = 1, l do
 					pk(dst + di, pe(src + si))
 					si = si + 1
@@ -91,8 +91,8 @@ do
 				end
 			else
 				local l, d
-				l, si = varint(src, si, srcLen)
-				d, si = varint(src, si, srcLen)
+				l, si = vi(src, si, srcLen)
+				d, si = vi(src, si, srcLen)
 				for j = 1, l do
 					pk(dst + di, pe(dst + di - d))
 					di = di + 1
@@ -102,7 +102,7 @@ do
 		return di
 	end
 
-	local function clamp01(x)
+	local function cl01(x)
 		if x < 0 then
 			return 0
 		elseif x > 1 then
@@ -111,7 +111,7 @@ do
 		return x
 	end
 
-	local function clamp_nibble_round(v)
+	local function cnr(v)
 		if v < 0 then
 			v = 0
 		elseif v > 15 then
@@ -120,7 +120,7 @@ do
 		return fl(v + 0.5)
 	end
 
-	local function u8_s8(b)
+	local function u8s8(b)
 		if b > 0x7f then
 			return b - 0x100
 		end
@@ -128,7 +128,7 @@ do
 	end
 
 	local function crvN11(t01, curveS8)
-		local t = clamp01(t01)
+		local t = cl01(t01)
 		if t <= 0 then
 			return 0
 		elseif t >= 1 then
@@ -149,13 +149,13 @@ do
 		return (k > 0) and (t ^ e) or (1 - (1 - t) ^ e)
 	end
 
-	local function decode_morph_map()
+	local function dmorph()
 		local smd = SOMATIC_MUSIC_DATA
 		local m = smd.instrumentMorphMap
 		local TMP = 0x13B60
 		local DST = TMP + 0x200
-		base85_decode_to_mem(m.morphMapB85, m.morphMapCLen, TMP)
-		lzdec_mem(TMP, m.morphMapCLen, DST)
+		b85d(m.morphMapB85, m.morphMapCLen, TMP)
+		lzdm(TMP, m.morphMapCLen, DST)
 		local count = pe(DST)
 		local off = DST + 1
 		for _ = 1, count do
@@ -168,7 +168,7 @@ do
 			-- BEGIN_FEATURE_WAVEMORPH
 			cfg.sB = pe(off + 3)
 			cfg.xDcy = u16(off + 5)
-			cfg.xCrv = u8_s8(pe(off + 18))
+			cfg.xCrv = u8s8(pe(off + 18))
 			-- END_FEATURE_WAVEMORPH
 			-- BEGIN_FEATURE_PWM
 			cfg.pwmC = u16(off + 7)
@@ -179,26 +179,26 @@ do
 			-- BEGIN_FEATURE_LOWPASS
 			cfg.lpE = pe(off + 12)
 			cfg.lpDcy = u16(off + 13)
-			cfg.lpCrv = u8_s8(pe(off + 19))
+			cfg.lpCrv = u8s8(pe(off + 19))
 			cfg.lpSrc = pe(off + 28)
 			-- END_FEATURE_LOWPASS
 			-- BEGIN_FEATURE_WAVEFOLD
 			cfg.wfAmt = pe(off + 15)
 			cfg.wfDcy = u16(off + 16)
-			cfg.wfCrv = u8_s8(pe(off + 20))
+			cfg.wfCrv = u8s8(pe(off + 20))
 			cfg.wfSrc = pe(off + 29)
 			-- END_FEATURE_WAVEFOLD
 			-- BEGIN_FEATURE_HARDSYNC
 			cfg.hsE = pe(off + 21)
 			cfg.hsStr = pe(off + 22)
 			cfg.hsDcy = u16(off + 23)
-			cfg.hsCrv = u8_s8(pe(off + 25))
+			cfg.hsCrv = u8s8(pe(off + 25))
 			cfg.hsSrc = pe(off + 30)
 			-- END_FEATURE_HARDSYNC
 			-- BEGIN_FEATURE_LFO
 			cfg.lfoC = u16(off + 26)
 			-- END_FEATURE_LFO
-			morphMap[id] = cfg
+			morphs[id] = cfg
 			off = off + 31
 		end
 	end
@@ -207,10 +207,10 @@ do
 	local MOD_SRC_LFO = 1
 
 	-- Deserialize a waveform (packed nibbles in RAM) into a 0-based array of samples (0..15).
-	local function wave_read_samples(waveIndex, outSamples)
-		local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
+	local function wread(waveIndex, outSamples)
+		local base = WBASE + waveIndex * WBYTES
 		local si = 0
-		for i = 0, WAVE_BYTES_PER_WAVE - 1 do
+		for i = 0, WBYTES - 1 do
 			local b = pe(base + i)
 			outSamples[si] = b & 0x0f
 			outSamples[si + 1] = (b >> 4) & 0x0f
@@ -218,12 +218,12 @@ do
 		end
 	end
 
-	local function wave_write_samples(waveIndex, samples)
-		local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
+	local function wwrite(waveIndex, samples)
+		local base = WBASE + waveIndex * WBYTES
 		local si = 0
-		for i = 0, WAVE_BYTES_PER_WAVE - 1 do
-			local s0 = clamp_nibble_round(samples[si])
-			local s1 = clamp_nibble_round(samples[si + 1])
+		for i = 0, WBYTES - 1 do
+			local s0 = cnr(samples[si])
+			local s1 = cnr(samples[si + 1])
 			pk(base + i, (s1 << 4) | s0)
 			si = si + 2
 		end
@@ -244,22 +244,22 @@ do
 	local lp_scratch_b = {}
 
 	apply_lowpass_effect_to_samples = function(samples, strength01)
-		local strength = clamp01(strength01)
+		local strength = cl01(strength01)
 		local steps = fl(1 + strength * 23 + 0.5) -- 1..24
 		local amt = 0.02 + strength * 0.88 -- ~0.02..0.90
 		if amt > 0.95 then
 			amt = 0.95
 		end
-		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+		for i = 0, WSAMPLES - 1 do
 			lp_scratch_a[i] = samples[i]
 		end
 		local x = lp_scratch_a
 		local y = lp_scratch_b
 		for _ = 1, steps do
-			lp_diffuse_wrap(x, y, WAVE_SAMPLES_PER_WAVE, amt)
+			lp_diffuse_wrap(x, y, WSAMPLES, amt)
 			x, y = y, x
 		end
-		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+		for i = 0, WSAMPLES - 1 do
 			samples[i] = x[i]
 		end
 	end
@@ -276,9 +276,9 @@ do
 	end
 
 	apply_wavefold_effect_to_samples = function(samples, strength01)
-		local strength = clamp01(strength01)
+		local strength = cl01(strength01)
 		local gain = 1 + strength * 20
-		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+		for i = 0, WSAMPLES - 1 do
 			local s = samples[i]
 			local x = (s / 7.5) - 1
 			local folded = fold_reflect(x * gain)
@@ -302,7 +302,7 @@ do
 			return
 		end
 
-		local N = WAVE_SAMPLES_PER_WAVE
+		local N = WSAMPLES
 
 		for i = 0, N - 1 do
 			hs_scratch[i] = samples[i]
@@ -326,15 +326,15 @@ do
 	end
 	-- END_FEATURE_HARDSYNC
 
-	local render_src_a = {}
-	local render_src_b = {}
-	local render_out = {}
-	local lfo_ticks_by_sfx
+	local srcA = {}
+	local srcB = {}
+	local render = {}
+	local lfoTicks
 	-- BEGIN_FEATURE_LFO
-	lfo_ticks_by_sfx = {}
+	lfoTicks = {}
 	-- END_FEATURE_LFO
 
-	local function calc_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks)
+	local function ct(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks)
 		-- BEGIN_FEATURE_LFO
 		if modSource == MOD_SRC_LFO then
 			local cycle = lfoCycleTicks
@@ -345,32 +345,32 @@ do
 			return (1 - cos(phase01 * pi * 2)) * 0.5
 		end
 		-- END_FEATURE_LFO
-		return clamp01(ticksPlayed / durationTicks)
+		return cl01(ticksPlayed / durationTicks)
 	end
 
-	local render_waveform_morph
+	local r_morph
 	-- BEGIN_FEATURE_WAVEMORPH
-	render_waveform_morph = function(cfg, ticksPlayed, outSamples)
+	r_morph = function(cfg, ticksPlayed, outSamples)
 		local durationTicks = cfg.xDcy
 		local t
 		if durationTicks == nil or durationTicks <= 0 then
 			t = 1.0
 		else
-			t = clamp01(ticksPlayed / durationTicks)
+			t = cl01(ticksPlayed / durationTicks)
 		end
-		wave_read_samples(cfg.sA, render_src_a)
-		wave_read_samples(cfg.sB, render_src_b)
-		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-			local a = render_src_a[i] or 0
-			local b = render_src_b[i] or 0
+		wread(cfg.sA, srcA)
+		wread(cfg.sB, srcB)
+		for i = 0, WSAMPLES - 1 do
+			local a = srcA[i]
+			local b = srcB[i]
 			outSamples[i] = a + (b - a) * t
 		end
 	end
 	-- END_FEATURE_WAVEMORPH
 
-	local render_waveform_pwm
+	local r_pwm
 	-- BEGIN_FEATURE_PWM
-	render_waveform_pwm = function(cfg, ticks, out, lfoTicks)
+	r_pwm = function(cfg, ticks, out, lfoTicks)
 		local c = cfg.lfoC
 		local p = 0
 		if c > 0 then
@@ -383,94 +383,94 @@ do
 		elseif d > 30 then
 			d = 30
 		end
-		local thr = (d / 31) * WAVE_SAMPLES_PER_WAVE
-		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+		local thr = (d / 31) * WSAMPLES
+		for i = 0, WSAMPLES - 1 do
 			out[i] = (i < thr) and 15 or 0
 		end
 	end
 	-- END_FEATURE_PWM
 
-	local function render_waveform_native(cfg, outSamples)
-		wave_read_samples(cfg.sA, outSamples)
+	local function r_native(cfg, outSamples)
+		wread(cfg.sA, outSamples)
 	end
 
-	local function render_waveform_samples(cfg, ticksPlayed, outSamples, lfoTicks)
-		local we = cfg.we or cfg.waveEngine or cfg.waveEngineId or 1
+	local function r_wave(cfg, ticksPlayed, outSamples, lfoTicks)
+		local we = cfg.we or 1
 		if we == 0 then
-			if render_waveform_morph then
-				render_waveform_morph(cfg, ticksPlayed, outSamples)
+			if r_morph then
+				r_morph(cfg, ticksPlayed, outSamples)
 			else
-				render_waveform_native(cfg, outSamples)
+				r_native(cfg, outSamples)
 			end
 		elseif we == 2 then
-			if render_waveform_pwm then
-				render_waveform_pwm(cfg, ticksPlayed, outSamples, lfoTicks)
+			if r_pwm then
+				r_pwm(cfg, ticksPlayed, outSamples, lfoTicks)
 			else
-				render_waveform_native(cfg, outSamples)
+				r_native(cfg, outSamples)
 			end
 		elseif we == 1 then
-			render_waveform_native(cfg, outSamples)
+			r_native(cfg, outSamples)
 		end
 	end
 
-	local function has_k_rate(cfg)
+	local function hask(cfg)
 		if not cfg then
 			return false
 		end
 		local we = cfg.we
-		return (render_waveform_morph and we == 0)
-			or (render_waveform_pwm and we == 2)
+		return (r_morph and we == 0)
+			or (r_pwm and we == 2)
 			or (apply_lowpass_effect_to_samples and cfg.lpE ~= 0)
 			or (apply_wavefold_effect_to_samples and cfg.wfAmt > 0)
 			or (apply_hardsync_effect_to_samples and cfg.hsE ~= 0 and cfg.hsStr > 0)
 	end
 
-	local function render_tick_cfg(cfg, instId, ticksPlayed, lfoTicks)
-		if not has_k_rate(cfg) then
+	local function rtick(cfg, instId, ticksPlayed, lfoTicks)
+		if not hask(cfg) then
 			return
 		end
-		render_waveform_samples(cfg, ticksPlayed, render_out, lfoTicks)
+		r_wave(cfg, ticksPlayed, render, lfoTicks)
 		if apply_hardsync_effect_to_samples and cfg.hsE ~= 0 and cfg.hsStr > 0 then
-			local hsT = calc_t(cfg.hsSrc, cfg.hsDcy, ticksPlayed, lfoTicks, cfg.lfoC)
-			local env = 1 - crvN11(hsT, u8_s8(cfg.hsCrv))
+			local hsT = ct(cfg.hsSrc, cfg.hsDcy, ticksPlayed, lfoTicks, cfg.lfoC)
+			local env = 1 - crvN11(hsT, u8s8(cfg.hsCrv))
 			local multiplier = 1 + (cfg.hsStr / 255) * 7 * env
-			apply_hardsync_effect_to_samples(render_out, multiplier)
+			apply_hardsync_effect_to_samples(render, multiplier)
 		end
 		if apply_wavefold_effect_to_samples then
 			local wavefoldHasTime = (cfg.wfSrc == MOD_SRC_LFO and cfg.lfoC > 0) or (cfg.wfDcy > 0)
 			if cfg.wfAmt > 0 and wavefoldHasTime then
-				local maxAmt = clamp01(cfg.wfAmt / 255)
-				local wfT = calc_t(cfg.wfSrc, cfg.wfDcy, ticksPlayed, lfoTicks, cfg.lfoC)
-				local envShaped = 1 - crvN11(wfT, u8_s8(cfg.wfCrv))
+				local maxAmt = cl01(cfg.wfAmt / 255)
+				local wfT = ct(cfg.wfSrc, cfg.wfDcy, ticksPlayed, lfoTicks, cfg.lfoC)
+				local envShaped = 1 - crvN11(wfT, u8s8(cfg.wfCrv))
 				local strength = maxAmt * envShaped
-				apply_wavefold_effect_to_samples(render_out, strength)
+				apply_wavefold_effect_to_samples(render, strength)
 			end
 		end
 		if apply_lowpass_effect_to_samples and cfg.lpE ~= 0 then
-			local lpT = calc_t(cfg.lpSrc, cfg.lpDcy, ticksPlayed, lfoTicks, cfg.lfoC)
-			local strength = crvN11(lpT, u8_s8(cfg.lpCrv))
-			apply_lowpass_effect_to_samples(render_out, strength)
+			local lpT = ct(cfg.lpSrc, cfg.lpDcy, ticksPlayed, lfoTicks, cfg.lfoC)
+			local strength = crvN11(lpT, u8s8(cfg.lpCrv))
+			apply_lowpass_effect_to_samples(render, strength)
 		end
-		wave_write_samples(cfg.r, render_out)
+		wwrite(cfg.r, render)
 	end
 
-	local function prime_render_slot_for_note_on(instId)
-		local cfg = morphMap and morphMap[instId]
-		if not has_k_rate(cfg) then
+	local function prime(instId)
+		local cfg = morphs[instId]
+		if not hask(cfg) then
 			return
 		end
 		local lt = 0
 		-- BEGIN_FEATURE_LFO
-		lt = lfo_ticks_by_sfx[instId] or 0
+		lt = lfoTicks[instId] or 0
 		-- END_FEATURE_LFO
-		render_tick_cfg(cfg, instId, 0, lt)
+		rtick(cfg, instId, 0, lt)
 	end
 
-	local function decode_track_frame_patterns(trackIndex, frameIndex)
+	local function dtfp(trackIndex, frameIndex)
 		if trackIndex == nil or trackIndex < 0 then
 			return 0, 0, 0, 0
 		end
-		local base = TRACKS_BASE + trackIndex * TRACK_BYTES_PER_TRACK + frameIndex * 3
+		local base = TRK_BASE + trackIndex * TRK_BYTES + frameIndex * 3
 		local b0 = pe(base)
 		local pak, s = b0 + u16(base + 1) * 256, 63
 		local p0 = pak & s
@@ -480,12 +480,12 @@ do
 		return p0, p1, p2, p3
 	end
 
-	local function decode_pattern_row(patternId1b, rowIndex)
+	local function dpr(patternId1b, rowIndex)
 		if patternId1b == nil or patternId1b == 0 then
 			return 0, 0
 		end
 		local pat0b = patternId1b - 1
-		local addr = PATTERNS_BASE + pat0b * PATTERN_BYTES_PER_PATTERN + rowIndex * ROW_BYTES
+		local addr = PAT_BASE + pat0b * PAT_BYTES + rowIndex * ROW_BYTES
 		local b0 = pe(addr)
 		local b1 = pe(addr + 1)
 		local b2 = pe(addr + 2)
@@ -494,109 +494,109 @@ do
 		return noteNibble, inst
 	end
 
-	local function apply_music_row_to_sfx_state(track, frame, row)
-		if track == last_music_track and frame == last_music_frame and row == last_music_row then
+	local function applyRow(track, frame, row)
+		if track == lastTrk and frame == lastFrm and row == lastRow then
 			return
 		end
-		last_music_track = track
-		last_music_frame = frame
-		last_music_row = row
+		lastTrk = track
+		lastFrm = frame
+		lastRow = row
 
-		local p0, p1, p2, p3 = decode_track_frame_patterns(track, frame)
+		local p0, p1, p2, p3 = dtfp(track, frame)
 		local patterns = { p0, p1, p2, p3 }
 
 		for ch = 0, SFX_CHANNELS - 1 do
 			local patternId1b = patterns[ch + 1]
-			local noteNibble, inst = decode_pattern_row(patternId1b, row)
+			local noteNibble, inst = dpr(patternId1b, row)
 			if noteNibble == 0 then
 				-- no event
 			elseif noteNibble < 4 then
-				ch_sfx_id[ch + 1] = -1
-				ch_sfx_ticks[ch + 1] = 0
+				chId[ch + 1] = -1
+				chTk[ch + 1] = 0
 			else
-				ch_sfx_id[ch + 1] = inst
-				ch_sfx_ticks[ch + 1] = 0
-				prime_render_slot_for_note_on(inst)
+				chId[ch + 1] = inst
+				chTk[ch + 1] = 0
+				prime(inst)
 			end
 		end
 	end
 
-	local function sfx_tick_channel(ch)
-		local instId = ch_sfx_id[ch + 1]
+	local function stc(ch)
+		local instId = chId[ch + 1]
 		if instId == -1 then
 			return
 		end
-		local ticksPlayed = ch_sfx_ticks[ch + 1]
-		local cfg = morphMap and morphMap[instId]
-		if not has_k_rate(cfg) then
-			ch_sfx_ticks[ch + 1] = ticksPlayed + 1
+		local ticksPlayed = chTk[ch + 1]
+		local cfg = morphs[instId]
+		if not hask(cfg) then
+			chTk[ch + 1] = ticksPlayed + 1
 			return
 		end
 		local lt = 0
 		-- BEGIN_FEATURE_LFO
-		lt = lfo_ticks_by_sfx[instId] or 0
+		lt = lfoTicks[instId] or 0
 		-- END_FEATURE_LFO
-		render_tick_cfg(cfg, instId, ticksPlayed, lt)
-		ch_sfx_ticks[ch + 1] = ticksPlayed + 1
+		rtick(cfg, instId, ticksPlayed, lt)
+		chTk[ch + 1] = ticksPlayed + 1
 	end
 
-	local function sfx_tick(track, frame, row)
-		apply_music_row_to_sfx_state(track, frame, row)
+	local function st(track, frame, row)
+		applyRow(track, frame, row)
 		-- BEGIN_FEATURE_LFO
-		for id, _ in pairs(morphMap) do
-			lfo_ticks_by_sfx[id] = (lfo_ticks_by_sfx[id] or 0) + 1
+		for id, _ in pairs(morphs) do
+			lfoTicks[id] = (lfoTicks[id] or 0) + 1
 		end
 		-- END_FEATURE_LFO
 		for ch = 0, SFX_CHANNELS - 1 do
-			sfx_tick_channel(ch)
+			stc(ch)
 		end
 	end
 
 	function somatic_get_channel_state(ch)
-		return ch_sfx_id[ch + 1], ch_sfx_ticks[ch + 1]
+		return chId[ch + 1], chTk[ch + 1]
 	end
 
-	decode_morph_map()
+	dmorph()
 
-	local function getSongOrderCount()
+	local function orderN()
 		return #SOMATIC_MUSIC_DATA.songOrder
 	end
 
-	local function blitPatternColumn(columnIndex0b, destPointer)
+	local function blitCol(columnIndex0b, destPointer)
 		local patternString = SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1]
 		local patternLengthBytes = SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1]
 		local TEMP_DECODE_BUFFER = 0x13B60 -- put temp buffer towards end of the pattern memory
-		local decodedLen = base85_decode_to_mem(patternString, patternLengthBytes, TEMP_DECODE_BUFFER)
-		lzdec_mem(TEMP_DECODE_BUFFER, decodedLen, destPointer)
+		local decodedLen = b85d(patternString, patternLengthBytes, TEMP_DECODE_BUFFER)
+		lzdm(TEMP_DECODE_BUFFER, decodedLen, destPointer)
 	end
 
-	local function swapInPlayorder(songPosition0b, destPointer)
+	local function swapPO(songPosition0b, destPointer)
 		local entry = SOMATIC_MUSIC_DATA.songOrder[songPosition0b + 1]
 		for ch = 0, 3 do
-			local columnIndex0b = entry[ch + 1] or 0
-			local dst = destPointer + ch * PATTERN_BYTES_PER_PATTERN
-			blitPatternColumn(columnIndex0b, dst)
+			local columnIndex0b = entry[ch + 1]
+			local dst = destPointer + ch * PAT_BYTES
+			blitCol(columnIndex0b, dst)
 		end
 	end
 
-	local function getBufferPointer()
-		if backBufferIsA then
-			return bufferALocation
+	local function bufPtr()
+		if backA then
+			return bufA
 		end
-		return bufferBLocation
+		return bufB
 	end
 
-	local function clearPatternBuffer(destPointer)
-		for i = 0, PATTERN_BUFFER_BYTES - 1 do
+	local function clrBuf(destPointer)
+		for i = 0, PBUF - 1 do
 			pk(destPointer + i, 0)
 		end
 	end
 
-	local function reset_state()
-		currentSongOrder = 0
-		lastPlayingFrame = -1
-		backBufferIsA = false
-		stopPlayingOnNextFrame = false
+	local function reset()
+		curOrd = 0
+		lastFrame = -1
+		backA = false
+		stopNext = false
 	end
 
 	local function somatic_init(songPosition, startRow)
@@ -606,19 +606,19 @@ do
 		for ch = 0, 3 do
 			pk(0x14001 + ch, 15)
 		end
-		currentSongOrder = songPosition
-		backBufferIsA = true
-		lastPlayingFrame = -1
-		stopPlayingOnNextFrame = false
-		swapInPlayorder(currentSongOrder, bufferALocation)
+		curOrd = songPosition
+		backA = true
+		lastFrame = -1
+		stopNext = false
+		swapPO(curOrd, bufA)
 		music(0, 0, startRow, true, true)
 	end
 
 	function somatic_get_state()
-		local track = u8_s8(pe(0x13FFC))
+		local track = u8s8(pe(0x13FFC))
 		local frame = pe(0x13FFD)
 		local row = pe(0x13FFE)
-		return track, playingSongOrder, frame, row
+		return track, playOrd, frame, row
 	end
 
 	function somatic_tick()
@@ -630,27 +630,27 @@ do
 		if track == -1 then
 			return
 		end
-		sfx_tick(track, currentFrame, row)
-		if currentFrame == lastPlayingFrame then
+		st(track, currentFrame, row)
+		if currentFrame == lastFrame then
 			return
 		end
-		if stopPlayingOnNextFrame then
+		if stopNext then
 			music()
-			reset_state()
+			reset()
 			return
 		end
-		backBufferIsA = not backBufferIsA
-		lastPlayingFrame = currentFrame
-		playingSongOrder = currentSongOrder
-		currentSongOrder = currentSongOrder + 1
-		local destPointer = getBufferPointer()
-		local orderCount = getSongOrderCount()
-		if orderCount == 0 or currentSongOrder >= orderCount then
-			clearPatternBuffer(destPointer)
-			stopPlayingOnNextFrame = true
+		backA = not backA
+		lastFrame = currentFrame
+		playOrd = curOrd
+		curOrd = curOrd + 1
+		local destPointer = bufPtr()
+		local orderCount = orderN()
+		if orderCount == 0 or curOrd >= orderCount then
+			clrBuf(destPointer)
+			stopNext = true
 			return
 		end
-		swapInPlayorder(currentSongOrder, destPointer)
+		swapPO(curOrd, destPointer)
 	end
 end -- do
 
