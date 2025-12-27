@@ -66,8 +66,8 @@ function KeyboardChordRow({ chord, actionId, onRemove }: KeyboardChordRowProps) 
 
 
 function BindingEditorRow({ actionId }: { actionId: GlobalActionId }) {
-    const mgr = useShortcutManager();
     const toast = useToasts();
+    const mgr = useShortcutManager();
     const capture = useChordCapture({ kind: "character", platform: mgr.platform });
 
     React.useEffect(() => {

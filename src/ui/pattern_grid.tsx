@@ -1103,6 +1103,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 {advancedEditPanelOpen && (
                     <PatternAdvancedPanel
                         // enabled={editingEnabled} // allow advanced edits even in non-edit mode
+                        song={song}
                         onTranspose={handleTranspose}
                         onSetInstrument={handleSetInstrument}
                         onChangeInstrument={handleChangeInstrument}

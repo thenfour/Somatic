@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { App } from "./Somatic";
 import { ClipboardProvider } from "./hooks/useClipboard";
 import { useLocalStorage } from "./hooks/useLocalStorage";
+import { gActionRegistry } from "./keyb/ActionRegistry";
 import { ShortcutManagerProvider } from "./keyb/KeyboardShortcutManager";
 import { ConfirmDialogProvider } from "./ui/basic/confirm_dialog";
 import { Theme } from "./ui/theme_editor_panel";
 import { ToastProvider } from "./ui/toast_provider";
-import { App } from "./Somatic";
-import { gActionRegistry } from "./keyb/ActionRegistry";
 
 // just a splash which requires user gesture to continue (so the audio context etc are allowed to start)
 const SplashScreen: React.FC<{ onContinue: () => void }> = ({ onContinue }) => {
@@ -15,6 +15,11 @@ const SplashScreen: React.FC<{ onContinue: () => void }> = ({ onContinue }) => {
     const PALETTE_SIZE = 16;
     const CYCLE_INTERVAL_MS = 150;
     const [cycleIndex, setCycleIndex] = useState(0);
+
+    React.useEffect(() => {
+        document.addEventListener("keydown", onContinue, true);
+        return () => document.removeEventListener("keydown", onContinue, true);
+    }, [onContinue]);
 
     // split into letters; each letter wrapped in a span for potential future animation
     const letters = title.split("").map((letter, index) => {

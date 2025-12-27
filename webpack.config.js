@@ -27,7 +27,7 @@ module.exports = {
   // Path and filename of your result bundle.
   // Webpack will bundle all JavaScript into this file
   output: {
-    filename: "bundle.[contenthash].js",
+    filename: `bundle.${BUILD_INFO.commitHash}.js`,
     path: path.resolve(__dirname, "dist"),
     publicPath: "",
     clean: true,
@@ -87,7 +87,7 @@ module.exports = {
       bridgeCartFilename: getBridgeCartFilename(BUILD_INFO),
     }),
     new MiniCssExtractPlugin({
-        filename: "[name].[contenthash].css",
+        filename: `[name].${BUILD_INFO.commitHash}.css`,
     }),
     new CopyWebpackPlugin({
       patterns: [

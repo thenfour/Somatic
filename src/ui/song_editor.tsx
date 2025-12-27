@@ -9,6 +9,8 @@ import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
 import { calculateBpm, SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { TryParseInt } from '../utils/utils';
 import { Tooltip } from './basic/tooltip';
+import { Dropdown } from './basic/Dropdown';
+import { InstrumentChip } from './InstrumentChip';
 
 type SongEditorProps = {
     song: Song;
@@ -71,15 +73,15 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
 
     const bpm = calculateBpm({ songTempo: song.tempo, songSpeed: song.speed, rowsPerBeat: 4 });
 
+    const instrumentOptions = React.useMemo(() => {
+        return Array.from({ length: Tic80Caps.sfx.count }, (_, i) => ({
+            value: i,
+            label: <InstrumentChip instrumentIndex={i} instrument={song.instruments[i]} showTooltip={false} />,
+        }));
+    }, [song.instruments]);
+
     return (
         <div className="section">
-            {/* <PositionList
-                song={song}
-                editorState={editorState}
-                onSongChange={onSongChange}
-                onEditorStateChange={onEditorStateChange}
-                audio={audio}
-            /> */}
             <Tooltip title={`Song tempo (${bpm} BPM); ${getActionBindingLabel("IncreaseTempo")} / ${getActionBindingLabel("DecreaseTempo")} to adjust.`}>
                 <div className="field-row">
                     <label htmlFor="song-tempo">Tempo</label>
@@ -127,21 +129,15 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     <input type="number" min={1} max={Tic80Caps.pattern.octaveCount/* -1 + 1 for 1-baseddisplay */} value={editorState.octave} onChange={onOctaveChange} />
                 </label>
             </Tooltip>
-            <Tooltip title={`Current instrument for note input.`}>
-                <label>
-                    <span>Instrument</span>
-                    <select
-                        value={editorState.currentInstrument}
-                        onChange={(e) => onEditorStateChange((state) => state.setCurrentInstrument(parseInt(e.target.value, 10)))}
-                    >
-                        {Array.from({ length: Tic80Caps.sfx.count }, (_, i) => (
-                            <option key={i} value={i}>
-                                {song.instruments[i].getCaption(i)}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-            </Tooltip>
+            <label>Instrument
+                <Dropdown
+                    value={editorState.currentInstrument}
+                    onChange={(newInstr) => {
+                        onEditorStateChange((state) => state.setCurrentInstrument(newInstr));
+                    }}
+                    options={instrumentOptions}
+                />
+            </label>
             <Tooltip title={`Decrease instrument (${getActionBindingLabel("DecreaseInstrument")}).`}>
                 <button
                     style={{ display: "inline-block" }}

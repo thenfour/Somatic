@@ -312,8 +312,14 @@ export class Tic80Instrument {
       return JSON.stringify(content);
    }
 
+   getIndexString(myIndex: number): string {
+      return myIndex.toString(16).toUpperCase().padStart(2, "0");
+   }
+
+   // use <InstrumentChip> to render instrument name in UI.
    getCaption(myIndex: number): string {
-      return `${myIndex.toString(16).toUpperCase()}: ${this.name}${this.isKRateProcessing() ? " [K-rate]" : ""}`;
+      const indexString = this.getIndexString(myIndex);
+      return `${indexString}: ${this.name}${this.isKRateProcessing() ? " [K-rate]" : ""}`;
    }
 
    isKRateProcessing(): boolean {

@@ -3,9 +3,14 @@ import { CharMap } from '../utils/utils';
 import { Tooltip } from './basic/tooltip';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
 import { GlobalActionId } from '../keyb/ActionIds';
+import { Dropdown } from './basic/Dropdown';
+import { InstrumentChip } from './InstrumentChip';
+import { Tic80Caps } from '../models/tic80Capabilities';
+import { Song } from '../models/song';
 
 export type PatternAdvancedPanelProps = {
     enabled?: boolean;
+    song: Song;
     onTranspose: (amount: number, scope: ScopeValue) => void;
     onSetInstrument: (instrument: number, scope: ScopeValue) => void;
     onChangeInstrument: (fromInstrument: number, toInstrument: number, scope: ScopeValue) => void;
@@ -32,7 +37,7 @@ const interpolateOptions = [
 
 export type InterpolateTarget = (typeof interpolateOptions)[number]['value'];
 
-export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enabled = true, onTranspose, onSetInstrument, onChangeInstrument, onNudgeInstrument, onInterpolate, onClose }) => {
+export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ song, enabled = true, onTranspose, onSetInstrument, onChangeInstrument, onNudgeInstrument, onInterpolate, onClose }) => {
     const scopeGroupId = useId();
     const keyboardShortcutMgr = useShortcutManager();
     const [scope, setScope] = useState<ScopeValue>('selection');
@@ -43,6 +48,13 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enab
     const mgr = useShortcutManager<GlobalActionId>();
 
     const advancedEditPanelKeyshortcut = mgr.getActionBindingLabel("ToggleAdvancedEditPanel") || "Unbound";
+
+    const instrumentOptions = React.useMemo(() => {
+        return Array.from({ length: Tic80Caps.sfx.count }, (_, i) => ({
+            value: i,
+            label: <InstrumentChip instrumentIndex={i} instrument={song.instruments[i]} showTooltip={false} />,
+        }));
+    }, [song.instruments]);
 
     return (
         <aside
@@ -107,13 +119,19 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enab
                 <section className="pattern-advanced-panel__section">
                     <label className="pattern-advanced-panel__stacked">
                         <div className="pattern-advanced-panel__inputRow">
+                            <Dropdown
+                                value={setInstrumentValue}
+                                onChange={(inst) => setSetInstrumentValue(inst)}
+                                options={instrumentOptions}
+                            />
+                            {/* 
                             <input
                                 type="number"
                                 min={0}
                                 max={63}
                                 value={setInstrumentValue}
                                 onChange={(e) => setSetInstrumentValue(Number(e.target.value))}
-                            />
+                            /> */}
                             <button
                                 type="button"
                                 className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
@@ -124,36 +142,29 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ enab
                             </button>
                         </div>
                     </label>
-                    <label className="pattern-advanced-panel__stacked">
-                        <div className="pattern-advanced-panel__inputRow">
-                            <input
-                                type="number"
-                                min={0}
-                                max={63}
-                                value={changeInstrumentFrom}
-                                onChange={(e) => setChangeInstrumentFrom(Number(e.target.value))}
-                                aria-label="Change instrument: from"
-                            />
-                            <span className="pattern-advanced-panel__arrow">{CharMap.RightTriangle}</span>
-                            <input
-                                type="number"
-                                min={0}
-                                max={63}
-                                value={changeInstrumentTo}
-                                onChange={(e) => setChangeInstrumentTo(Number(e.target.value))}
-                                aria-label="Change instrument: to"
-                            />
-                            <button
-                                type="button"
-                                className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
-                                onClick={() => onChangeInstrument(changeInstrumentFrom, changeInstrumentTo, scope)}
-                                disabled={!enabled}
-                            >
-                                Change Inst
-                            </button>
-                        </div>
-                    </label>
-                    <div className="pattern-advanced-panel__buttonRow">
+                    <div className="pattern-advanced-panel__inputRow">
+                        <Dropdown
+                            value={changeInstrumentFrom}
+                            onChange={(inst) => setChangeInstrumentFrom(inst)}
+                            options={instrumentOptions}
+                        />
+                        <span className="pattern-advanced-panel__arrow">{CharMap.RightTriangle}</span>
+                        <Dropdown
+                            value={changeInstrumentTo}
+                            onChange={(inst) => setChangeInstrumentTo(inst)}
+                            options={instrumentOptions}
+                        />
+                    </div>
+                    <div className="pattern-advanced-panel__inputRow">
+                        <button
+                            type="button"
+                            className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
+                            onClick={() => onChangeInstrument(changeInstrumentFrom, changeInstrumentTo, scope)}
+                            disabled={!enabled}
+                        >
+                            Change Inst
+                        </button>
+                    </div>                    <div className="pattern-advanced-panel__buttonRow">
                         <Tooltip
                             title={`Shortcut: ${keyboardShortcutMgr.getActionBindingLabel("DecrementInstrumentInSelection")}`}
                             disabled={!keyboardShortcutMgr.getActionBindingLabel("DecrementInstrumentInSelection")}
