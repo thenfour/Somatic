@@ -14,6 +14,23 @@ SOMATIC_MUSIC_DATA = {
 }
 -- END_SOMATIC_MUSIC_DATA
 
+-- note about temp buffer memory:
+
+-- - decoding a pattern column (lz and/or b85 encoded pattern column -- so let's say 240 bytes)
+-- - decoding sfx cfg, and another area for decompressing it (so, double)
+-- 	- 14 bytes * max number of sfx that use k-rate effects.
+-- 	- so it can be theoretically ALL of your instruments, like 64 (*14 = 896 bytes)
+-- 	  but that's truly insane and removes our ability to use pattern mem so let's set
+-- 	  a reasonable maximum of half of your instruments; let's say 512 bytes (36 max)
+-- 	  = we need 1kb.
+-- TIC-80's pattern memory is located at 0x11164, and is 11520 bytes long
+-- (the next named block is "MUSIC TRACKS" starting at 0x13E64).
+
+-- 0x13E64 - 1kb(0x400) = 0x13a64
+-- build will automatically insert the temp ptrs replacing the following symbols:
+-- __AUTOGEN_TEMP_PTR_A
+-- __AUTOGEN_TEMP_PTR_B
+
 -- Debug logging
 local LOG_LINES = 15
 local log_lines = {}
@@ -581,12 +598,12 @@ local function decode_morph_map()
 	if not m or not m.morphMapB85 or not m.morphMapCLen then
 		return
 	end
-	local TMP = 0x13B60
-	local DST = TMP + 0x200 -- enough headroom for small payloads
-	base85_decode_to_mem(m.morphMapB85, m.morphMapCLen, TMP)
-	local rawLen = lzdec_mem(TMP, m.morphMapCLen, DST)
-	local count = peek(DST)
-	local off = DST + 1
+
+	-- let's use a part of pattern mem for temp storage
+	base85_decode_to_mem(m.morphMapB85, m.morphMapCLen, __AUTOGEN_TEMP_PTR_A)
+	local rawLen = lzdec_mem(__AUTOGEN_TEMP_PTR_A, m.morphMapCLen, __AUTOGEN_TEMP_PTR_B)
+	local count = peek(__AUTOGEN_TEMP_PTR_B)
+	local off = __AUTOGEN_TEMP_PTR_B + 1
 	for _ = 1, count do
 		local id = peek(off)
 		local flags = peek(off + 1)
@@ -778,11 +795,10 @@ end
 local function blit_pattern_column(columnIndex0b, destPointer)
 	local patternString = SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1]
 	local patternLengthBytes = SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1]
-	local TEMP_DECODE_BUFFER = 0x13B60 -- put temp buffer towards end of the pattern memory
-	local decodedLen = base85_decode_to_mem(patternString, patternLengthBytes, TEMP_DECODE_BUFFER)
+	local decodedLen = base85_decode_to_mem(patternString, patternLengthBytes, __AUTOGEN_TEMP_PTR_A)
 
 	-- and decompress.
-	local decompressedLen = lzdec_mem(TEMP_DECODE_BUFFER, decodedLen, destPointer)
+	local decompressedLen = lzdec_mem(__AUTOGEN_TEMP_PTR_A, decodedLen, destPointer)
 
 	-- -- check payload.
 	-- log("pattern " .. tostring(columnIndex0b) .. " blitted")

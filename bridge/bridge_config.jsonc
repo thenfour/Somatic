@@ -56,6 +56,8 @@
         "MUSIC_STATE_FLAGS": "0x13fff",
         // Somatic playroutine state (kept in REGISTERS_ADDR region above)
         "MUSIC_STATE_SOMATIC_SONG_POSITION": "0x0f020",
-        "FPS": "0x0f021"
+        "FPS": "0x0f021",
+        "__AUTOGEN_TEMP_PTR_A": "0x13a64",
+        "__AUTOGEN_TEMP_PTR_B": "0x13c64"
     }
 }

@@ -158,12 +158,10 @@ do
 
 	local function dmorph()
 		local m = SOMATIC_MUSIC_DATA.instrumentMorphMap
-		local TMP = 0x13B60
-		local DST = TMP + 0x200
-		b85d(m.morphMapB85, m.morphMapCLen, TMP)
-		lzdm(TMP, m.morphMapCLen, DST)
-		local count = pe(DST)
-		local o = DST + 1
+		b85d(m.morphMapB85, m.morphMapCLen, __AUTOGEN_TEMP_PTR_A)
+		lzdm(__AUTOGEN_TEMP_PTR_A, m.morphMapCLen, __AUTOGEN_TEMP_PTR_B)
+		local count = pe(__AUTOGEN_TEMP_PTR_B)
+		local o = __AUTOGEN_TEMP_PTR_B + 1
 		for _ = 1, count do
 			local id = pe(o)
 			local flags = pe(o + 1)
@@ -189,7 +187,7 @@ do
 				lpSrc = (flags >> 5) & 0x01,
 				lfoC = (g2 >> 12) & 0x0fff,
 			}
-			-- BEGIN_FEATURE_WAVEFOLD
+			-- BEGIN_FEATURE_WAVEFOLD -- todo: these share values with hard sync; this code should be cleaned up a bit
 			z.wfAmt = 0
 			z.wfDcy = 0
 			z.wfCrv = 0
@@ -572,11 +570,11 @@ do
 
 	local function blitCol(columnIndex0b, destPointer)
 		lzdm(
-			0x13B60,
+			__AUTOGEN_TEMP_PTR_A,
 			b85d(
 				SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1],
 				SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1],
-				0x13B60
+				__AUTOGEN_TEMP_PTR_A
 			),
 			destPointer
 		)

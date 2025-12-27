@@ -119,6 +119,9 @@ export const TicMemoryMap = {
    PATTERNS_ADDR: parseAddress(mem.PATTERNS_ADDR),
    TRACKS_ADDR: parseAddress(mem.TRACKS_ADDR),
 
+   __AUTOGEN_TEMP_PTR_A: parseAddress(mem.__AUTOGEN_TEMP_PTR_A),
+   __AUTOGEN_TEMP_PTR_B: parseAddress(mem.__AUTOGEN_TEMP_PTR_B),
+
    MUSIC_STATE_TRACK: parseAddress(mem.MUSIC_STATE_TRACK),
    MUSIC_STATE_FRAME: parseAddress(mem.MUSIC_STATE_FRAME),
    MUSIC_STATE_ROW: parseAddress(mem.MUSIC_STATE_ROW),
