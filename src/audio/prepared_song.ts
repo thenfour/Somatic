@@ -43,7 +43,7 @@ export function prepareSongColumns(song: Song): PreparedSong {
 
    const songOrder: PreparedSongOrderItem[] = [];
    const maxPatternIndex = song.patterns.length - 1;
-   for (let i = 0; i < song.songOrder.length && i < Tic80Caps.song.maxSongLength; i++) {
+   for (let i = 0; i < song.songOrder.length; i++) {
       const orderEntry = song.songOrder[i];
       const patternIndex = clamp(orderEntry.patternIndex, 0, maxPatternIndex);
       const columnIndices: [number, number, number, number] = [0, 0, 0, 0];
