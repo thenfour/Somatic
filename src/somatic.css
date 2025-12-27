@@ -1096,10 +1096,11 @@ option {
 }
 
 .menu-transport .main-transport-time {
-    font-size: 22px;
+    font-size: 26px;
     background-color: var(--bg);
-    color: var(--accent);
-    margin: 0 12px;
+    color: var(--accent-strong);
+    margin: 0 28px;
+    font-family: var(--ff-mono);
 }
 
 .game *:focus {

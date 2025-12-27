@@ -68,7 +68,11 @@ type SongChangeArgs = {
 type EditorStateMutator = (state: EditorState) => void;
 type PatternCellType = 'note' | 'instrument' | 'command' | 'param';
 
-const FPS_UPDATE_INTERVAL_MS = 500;
+
+const DEFAULT_LOOP_STATE: { loopMode: LoopMode; lastNonOffLoopMode: LoopMode } = {
+    loopMode: "off",
+    lastNonOffLoopMode: "pattern",
+};
 
 const getActivePatternCellType = (): PatternCellType | null => {
     if (typeof document === 'undefined') return null;
@@ -108,7 +112,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const appPresence = useAppInstancePresence("somatic");
 
-    const [editorState, setEditorState] = useState(() => new EditorState());
+    const [loopState, setLoopState] = useLocalStorage<{ loopMode: LoopMode; lastNonOffLoopMode: LoopMode }>(
+        "somatic-loopState",
+        DEFAULT_LOOP_STATE,
+    );
+
+    const [editorState, setEditorState] = useState(() => new EditorState(loopState));
 
     const [patternEditorOpen, setPatternEditorOpen] = useLocalStorage("somatic-patternEditorOpen", true);
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useLocalStorage("somatic-instrumentPanelOpen", false);
@@ -246,9 +255,15 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const applyUndoSnapshot = useCallback((snapshot: UndoSnapshot) => {
         autoSave.flush();
-        setSong(Song.fromData(snapshot.song));
-        setEditorState(EditorState.fromData(snapshot.editor));
-    }, [autoSave]);
+        const nextSong = Song.fromData(snapshot.song);
+        const nextEditor = EditorState.fromData(snapshot.editor);
+        setSong(nextSong);
+        setEditorState(nextEditor);
+        setLoopState({
+            loopMode: nextEditor.loopMode,
+            lastNonOffLoopMode: nextEditor.lastNonOffLoopMode,
+        });
+    }, [autoSave, setLoopState]);
 
     const ensureUndoSnapshot = useCallback((description: string) => {
         undoStackRef.current?.record(description, getUndoSnapshot);
@@ -551,6 +566,10 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const setLoopMode = (mode: LoopMode) => {
         updateEditorState((s) => s.setLoopMode(mode));
+        setLoopState((prev) => ({
+            loopMode: mode,
+            lastNonOffLoopMode: mode !== "off" ? mode : prev.lastNonOffLoopMode,
+        }));
     };
 
     const handleLoopModeChange: React.ChangeEventHandler<HTMLSelectElement> = (evt) => {
