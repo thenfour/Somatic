@@ -414,6 +414,9 @@ do
 	end
 
 	local function has_k_rate(cfg)
+		if not cfg then
+			return false
+		end
 		local we = cfg.we
 		return (render_waveform_morph and we == 0)
 			or (render_waveform_pwm and we == 2)
