@@ -10,6 +10,7 @@ import { useConfirmDialog } from "./basic/confirm_dialog";
 import { Tooltip } from "./basic/tooltip";
 import { useWheelNavigator } from "../hooks/useWheelNavigator";
 import { SongOrderItem } from "../models/songOrder";
+import { SongOrderMarkerControl } from "./SongOrderMarker";
 
 const PAGE_SIZE = 4;
 
@@ -125,10 +126,12 @@ export const ArrangementEditor: React.FC<{
             mutator: (s) => {
                 if (positionIndex < 0 || positionIndex >= s.songOrder.length) return;
                 const currentItem = s.songOrder[positionIndex] ?? new SongOrderItem({ patternIndex: 0 });
-                let next = currentItem.patternIndex + delta;
-                next = clamp(next, 0, maxPatterns - 1);
-                next = ensurePatternExists(s, next);
-                s.songOrder[positionIndex] = new SongOrderItem({ patternIndex: next });
+                let nextPatternIndex = currentItem.patternIndex + delta;
+                nextPatternIndex = clamp(nextPatternIndex, 0, maxPatterns - 1);
+                nextPatternIndex = ensurePatternExists(s, nextPatternIndex);
+                const newItem = currentItem.clone();
+                newItem.patternIndex = nextPatternIndex;
+                s.songOrder[positionIndex] = newItem;
             },
         });
         onEditorStateChange((state) => {
@@ -670,8 +673,21 @@ export const ArrangementEditor: React.FC<{
                                         {">"}
                                     </button>
                                 </Tooltip>
+                                <span className="arrangement-editor__marker">
+                                    <SongOrderMarkerControl
+                                        value={orderItem.markerVariant}
+                                        onChange={(newVariant) => {
+                                            onSongChange({
+                                                description: 'Change song order marker',
+                                                undoable: true,
+                                                mutator: (s) => {
+                                                    s.songOrder[positionIndex]!.markerVariant = newVariant;
+                                                }
+                                            });
+                                        }}
+                                    />
+                                </span>
                                 <span className="arrangement-editor__position-id">
-                                    <span style={{ visibility: isSelected ? "visible" : "hidden" }}>{CharMap.RightTriangle}</span>
                                     {formatPatternIndex(positionIndex)}
                                 </span>
                                 <span
@@ -679,38 +695,16 @@ export const ArrangementEditor: React.FC<{
                                 >
                                     {formatPatternIndex(clampedPattern)}
                                 </span>
-                            </div>
-                            <div
-                                className="arrangement-editor__pattern-name-container"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {/* {editingPatternNameIndex === clampedPattern ? (
-                                    <input
-                                        type="text"
-                                        className="arrangement-editor__pattern-name-input"
-                                        value={editingPatternNameValue}
-                                        autoFocus
-                                        onChange={(e) => setEditingPatternNameValue(e.target.value)}
-                                        onBlur={commitEditingPatternName}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                                e.preventDefault();
-                                                commitEditingPatternName();
-                                            } else if (e.key === "Escape") {
-                                                e.preventDefault();
-                                                cancelEditingPatternName();
-                                            }
-                                        }}
-                                    />
-                                ) : ( */}
-                                <span
-                                    className="arrangement-editor__pattern-name"
-                                //title={patternDisplayName(clampedPattern)}
-                                //onDoubleClick={() => startEditingPatternName(clampedPattern)}
+                                <div
+                                    className="arrangement-editor__pattern-name-container"
+                                    style={{ flexGrow: 1 }}
                                 >
-                                    {patternDisplayName(clampedPattern)}
-                                </span>
-                                {/* )} */}
+                                    <span
+                                        className="arrangement-editor__pattern-name"
+                                    >
+                                        {patternDisplayName(clampedPattern)}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     );

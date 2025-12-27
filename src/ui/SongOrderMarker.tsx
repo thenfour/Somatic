@@ -1,0 +1,105 @@
+import { SongOrderMarkerVariant, SongOrderMarkerVariantValues } from "../models/songOrder";
+import { CharMap } from "../utils/utils";
+import { DesktopMenu } from "./DesktopMenu/DesktopMenu";
+import Icon from "@mdi/react";
+import {
+    mdiPlay,
+    mdiCheck,
+    mdiStar,
+    mdiHelp,
+    mdiExclamation,
+    mdiAsterisk,
+    mdiHeart,
+    mdiCardsDiamond,
+    mdiCardsClub,
+    mdiCardsSpade,
+    mdiArrowUp,
+    mdiCircle,
+
+} from "@mdi/js";
+
+import "./SongOrderMarker.css";
+
+interface SongOrderMarkerControlProps {
+    value: SongOrderMarkerVariant;
+    className?: string;
+    style?: React.CSSProperties;
+};
+
+export const SongOrderMarkerValue: React.FC<SongOrderMarkerControlProps> = (props) => {
+    const { value, className, style } = props;
+
+    const innerContent = (() => {
+        switch (value) {
+            default:
+            case "default":
+                return <div className="marker-icon default-icon"><Icon path={mdiPlay} size={1} /></div>;
+            case "check":
+                return <div className="marker-icon check-icon"><Icon path={mdiCheck} size={1} /></div>;
+            case "star":
+                return <div className="marker-icon star-icon"><Icon path={mdiStar} size={1} /></div>;
+            case "question":
+                return <div className="marker-icon question-icon"><Icon path={mdiHelp} size={1} /></div>;
+            case "exclamation":
+                return <div className="marker-icon exclamation-icon"><Icon path={mdiExclamation} size={1} /></div>;
+            case "asterisk":
+                return <div className="marker-icon asterisk-icon"><Icon path={mdiAsterisk} size={1} /></div>;
+            case "heart":
+                return <div className="marker-icon heart-icon"><Icon path={mdiHeart} size={1} /></div>;
+            case "diamond":
+                return <div className="marker-icon diamond-icon"><Icon path={mdiCardsDiamond} size={1} /></div>;
+            case "club":
+                return <div className="marker-icon club-icon"><Icon path={mdiCardsClub} size={1} /></div>;
+            case "spade":
+                return <div className="marker-icon spade-icon"><Icon path={mdiCardsSpade} size={1} /></div>;
+            case "circle":
+                return <div className="marker-icon circle-icon"><Icon path={mdiCircle} size={1} /></div>;
+            case "up":
+                return <div className="marker-icon up-icon"><Icon path={mdiArrowUp} size={1} /></div>;
+
+        }
+    })();
+
+    return (<div className={`song-order-marker ${className || ""}`} style={style}>
+        {innerContent}
+    </div>);
+};
+
+
+interface SongOrderMarkerControlProps {
+    value: SongOrderMarkerVariant;
+    onChange?: (newValue: SongOrderMarkerVariant) => void;
+    className?: string;
+    style?: React.CSSProperties;
+};
+
+export const SongOrderMarkerControl: React.FC<SongOrderMarkerControlProps> = (props) => {
+    const { value, onChange, className, style } = props;
+
+    return (
+        <DesktopMenu.Root>
+            <DesktopMenu.Trigger
+                className={`song-order-marker-control ${className || ""}`}
+                style={style}
+                caret={false}
+            >
+                <SongOrderMarkerValue value={value} />
+            </DesktopMenu.Trigger>
+            <DesktopMenu.Content>
+                {SongOrderMarkerVariantValues.map((variant) => (
+                    <DesktopMenu.Item
+                        key={variant}
+                        checked={value === variant}
+                        onSelect={() => {
+                            if (onChange) {
+                                onChange(variant);
+                            }
+                        }}
+                    >
+                        <SongOrderMarkerValue value={variant} />
+                    </DesktopMenu.Item>
+                ))}
+            </DesktopMenu.Content>
+        </DesktopMenu.Root>
+    );
+};

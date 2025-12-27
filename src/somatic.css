@@ -859,7 +859,7 @@ option {
     overflow: auto;
     flex: 1 1 auto;
     min-height: 0;
-    padding: 8px;
+    padding: 8px 1px;
     padding-bottom: 20vh;
 }
 
@@ -983,6 +983,12 @@ option {
 
 .arrangement-editor__controls {
     display: flex;
+    width: 100%;
+}
+
+.arrangement-editor .arrangement-editor__marker {
+    margin-left: 4px;
+    margin-right: 4px;
 }
 
 .arrangement-editor .arrangement-editor__pattern {

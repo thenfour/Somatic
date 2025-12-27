@@ -1,0 +1,17 @@
+.song-order-marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    fill: var(--muted);
+    color: var(--muted);
+}
+
+.song-order-marker .marker-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
