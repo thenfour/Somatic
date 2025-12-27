@@ -12,12 +12,12 @@ SOMATIC_MUSIC_DATA = {
 
 do
 	local initialized = false
-	local curOrd = 0 -- the "back buffer"
-	local playOrd = 0 -- the "front buffer"
+	local curOrd = 0 -- back buffer
+	local playOrd = 0 --front
 	local lastFrame = -1
 	local backA = false
 	local stopNext = false
-	local PBUF = 192 * 4
+	local PBUF = 768
 	local bufA = 0x11164
 	local bufB = bufA + PBUF
 
@@ -35,7 +35,6 @@ do
 	local WBYTES = 16 -- 32x 4-bit samples packed 2-per-byte
 	local WSAMPLES = 32
 	local TRK_BASE = 0x13E64
-	local PAT_BASE = 0x11164
 	local TRK_BYTES = 51
 	local PAT_BYTES = 192
 	local ROW_BYTES = 3
@@ -150,8 +149,7 @@ do
 	end
 
 	local function dmorph()
-		local smd = SOMATIC_MUSIC_DATA
-		local m = smd.instrumentMorphMap
+		local m = SOMATIC_MUSIC_DATA.instrumentMorphMap
 		local TMP = 0x13B60
 		local DST = TMP + 0x200
 		b85d(m.morphMapB85, m.morphMapCLen, TMP)
@@ -471,13 +469,8 @@ do
 			return 0, 0, 0, 0
 		end
 		local base = TRK_BASE + trackIndex * TRK_BYTES + frameIndex * 3
-		local b0 = pe(base)
-		local pak, s = b0 + u16(base + 1) * 256, 63
-		local p0 = pak & s
-		local p1 = (pak >> 6) & s
-		local p2 = (pak >> 12) & s
-		local p3 = (pak >> 18) & s
-		return p0, p1, p2, p3
+		local p, s = pe(base) + u16(base + 1) * 256, 63
+		return p & s, (p >> 6) & s, (p >> 12) & s, (p >> 18) & s
 	end
 
 	local function dpr(patternId1b, rowIndex)
@@ -485,7 +478,7 @@ do
 			return 0, 0
 		end
 		local pat0b = patternId1b - 1
-		local addr = PAT_BASE + pat0b * PAT_BYTES + rowIndex * ROW_BYTES
+		local addr = bufA + pat0b * PAT_BYTES + rowIndex * ROW_BYTES
 		local b0 = pe(addr)
 		local b1 = pe(addr + 1)
 		local b2 = pe(addr + 2)
@@ -558,16 +551,16 @@ do
 
 	dmorph()
 
-	local function orderN()
-		return #SOMATIC_MUSIC_DATA.songOrder
-	end
-
 	local function blitCol(columnIndex0b, destPointer)
-		local patternString = SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1]
-		local patternLengthBytes = SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1]
-		local TEMP_DECODE_BUFFER = 0x13B60 -- put temp buffer towards end of the pattern memory
-		local decodedLen = b85d(patternString, patternLengthBytes, TEMP_DECODE_BUFFER)
-		lzdm(TEMP_DECODE_BUFFER, decodedLen, destPointer)
+		lzdm(
+			0x13B60,
+			b85d(
+				SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1],
+				SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1],
+				0x13B60
+			),
+			destPointer
+		)
 	end
 
 	local function swapPO(songPosition0b, destPointer)
@@ -577,26 +570,6 @@ do
 			local dst = destPointer + ch * PAT_BYTES
 			blitCol(columnIndex0b, dst)
 		end
-	end
-
-	local function bufPtr()
-		if backA then
-			return bufA
-		end
-		return bufB
-	end
-
-	local function clrBuf(destPointer)
-		for i = 0, PBUF - 1 do
-			pk(destPointer + i, 0)
-		end
-	end
-
-	local function reset()
-		curOrd = 0
-		lastFrame = -1
-		backA = false
-		stopNext = false
 	end
 
 	local function somatic_init(songPosition, startRow)
@@ -636,17 +609,21 @@ do
 		end
 		if stopNext then
 			music()
-			reset()
+			curOrd = 0
+			lastFrame = -1
+			backA = false
+			stopNext = false
 			return
 		end
 		backA = not backA
 		lastFrame = currentFrame
 		playOrd = curOrd
 		curOrd = curOrd + 1
-		local destPointer = bufPtr()
-		local orderCount = orderN()
-		if orderCount == 0 or curOrd >= orderCount then
-			clrBuf(destPointer)
+		local destPointer = backA and bufA or bufB
+		if curOrd >= #SOMATIC_MUSIC_DATA.songOrder then
+			for i = 0, PBUF - 1 do
+				pk(destPointer + i, 0)
+			end
 			stopNext = true
 			return
 		end
