@@ -1,7 +1,7 @@
 import {clamp, IsNullOrWhitespace, SanitizeFilename} from "../utils/utils";
 
 import {Tic80Instrument, Tic80InstrumentDto} from "./instruments";
-import {Pattern, PatternDto} from "./pattern";
+import {Pattern, PatternDto, isNoteCut} from "./pattern";
 import {SongOrderDto, SongOrderItem} from "./songOrder";
 import {Tic80Caps} from "./tic80Capabilities";
 import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
@@ -135,6 +135,25 @@ export class Song {
 
    setRowsPerPattern(value: number) {
       this.rowsPerPattern = clamp(value, 1, Tic80Caps.pattern.maxRows);
+   }
+
+   countInstrumentNotesInPattern(patternIndex: number, instrumentIndex: number): number {
+      const pattern = this.patterns[patternIndex];
+      const rowLimit = clamp(this.rowsPerPattern, 0, Tic80Caps.pattern.maxRows);
+      let count = 0;
+
+      for (let ch = 0; ch < pattern.channels.length; ch += 1) {
+         const rows = pattern.channels[ch].rows;
+         const limit = Math.min(rows.length, rowLimit);
+         for (let r = 0; r < limit; r += 1) {
+            const cell = rows[r] || {};
+            if (cell.instrumentIndex === instrumentIndex && cell.midiNote !== undefined && !isNoteCut(cell)) {
+               count += 1;
+            }
+         }
+      }
+
+      return count;
    }
 
    getInstrument(index: number): Tic80Instrument|null {

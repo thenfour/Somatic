@@ -331,6 +331,25 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
     const [hoveredWaveform, setHoveredWaveform] = useState<WaveformCanvasHover | null>(null);
     const [selectedTab, setSelectedTab] = useState<string>('volume');
 
+    const songOrderKey = useMemo(
+        () => song.songOrder.map((item) => clamp(item.patternIndex ?? 0, 0, song.patterns.length - 1)).join(','),
+        [song.songOrder, song.patterns.length],
+    );
+
+    const patternSignatureKey = useMemo(
+        () => song.patterns.map((p) => p.contentSignature()).join('|'),
+        [song.patterns],
+    );
+
+    const instrumentUsageCount = useMemo(() => {
+        let total = 0;
+        for (const orderItem of song.songOrder) {
+            const patternIndex = clamp(orderItem.patternIndex ?? 0, 0, song.patterns.length - 1);
+            total += song.countInstrumentNotesInPattern(patternIndex, instrumentIndex);
+        }
+        return total;
+    }, [instrumentIndex, song.rowsPerPattern, songOrderKey, patternSignatureKey, song]);
+
     const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         onSongChange({
@@ -718,6 +737,11 @@ show render slot if there are k-rate effects enabled
                 </>
             )}
         >
+            <div className="instrument-usage">
+                {instrumentUsageCount > 0
+                    ? `Used ${instrumentUsageCount} ${instrumentUsageCount === 1 ? "time" : "times"} in the song.`
+                    : "Not used in the song."}
+            </div>
             <div>
                 {instrumentIndex === 0 && <div className='alertPanel'>!! instrument 0 is weird and should not be used.</div>}
                 {instrumentIndex === SomaticCaps.noteCutInstrumentIndex && <div className='alertPanel'>!! This is the note-off sfx and should not be edited.</div>}
