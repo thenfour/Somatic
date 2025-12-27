@@ -1,6 +1,6 @@
 -- BEGIN_SOMATIC_MUSIC_DATA
 SOMATIC_MUSIC_DATA = {
-	songOrder = { 0, 3, 2 },
+	songOrder = { { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 } },
 	patternLengths = {
 		-- (pattern lengths here ...)
 	},
@@ -738,23 +738,17 @@ local function getSongOrderCount()
 	return count
 end
 
-local function swapInPlayorder(songPosition0b, destPointer)
-	patternIndex0b = SOMATIC_MUSIC_DATA.songOrder[songPosition0b + 1]
-	patternString = SOMATIC_MUSIC_DATA.patterns[patternIndex0b + 1]
-	--local patternLengthBytes = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
-	local patternLengthBytes = SOMATIC_MUSIC_DATA.patternLengths[patternIndex0b + 1]
-	log(string.format("swapIn: pos=%d pat=%d len=%d", songPosition0b, patternIndex0b, #patternString))
-	--patternBytes = base85_decode_to_bytes(patternString, patternLengthBytes)
-
+local function blit_pattern_column(columnIndex0b, destPointer)
+	local patternString = SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1]
+	local patternLengthBytes = SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1]
 	local TEMP_DECODE_BUFFER = 0x13B60 -- put temp buffer towards end of the pattern memory
-
 	local decodedLen = base85_decode_to_mem(patternString, patternLengthBytes, TEMP_DECODE_BUFFER)
 
 	-- and decompress.
 	local decompressedLen = lzdec_mem(TEMP_DECODE_BUFFER, decodedLen, destPointer)
 
 	-- -- check payload.
-	-- log("pattern " .. tostring(patternIndex0b) .. " blitted")
+	-- log("pattern " .. tostring(columnIndex0b) .. " blitted")
 	-- log("COMPRESSED")
 	-- log(" size " .. tostring(decodedLen))
 	-- print_buffer_fingerprint(TEMP_DECODE_BUFFER, decodedLen)
@@ -762,6 +756,17 @@ local function swapInPlayorder(songPosition0b, destPointer)
 	-- log("UNCOMPRESSED")
 	-- log(" size " .. tostring(decompressedLen))
 	-- print_buffer_fingerprint(destPointer, decompressedLen)
+
+	return decompressedLen
+end
+
+local function swapInPlayorder(songPosition0b, destPointer)
+	local entry = SOMATIC_MUSIC_DATA.songOrder[songPosition0b + 1]
+	for ch = 0, 3 do
+		local columnIndex0b = entry[ch + 1] or 0
+		local dst = destPointer + ch * PATTERN_BYTES_PER_PATTERN
+		blit_pattern_column(columnIndex0b, dst)
+	end
 end
 
 -- =========================

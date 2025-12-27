@@ -1,5 +1,5 @@
 import {NOTE_INFOS} from "../defs";
-import {Pattern} from "../models/pattern";
+import {Pattern, PatternCell, PatternChannel} from "../models/pattern";
 import {Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {clamp} from "../utils/utils";
 
@@ -25,7 +25,9 @@ function encodePatternCellTriplet(
 }
 
 // outputs 4 patterns (one for each channel)
-export function encodePatternChannel(pattern: Pattern, channelIndex: Tic80ChannelIndex): Uint8Array {
+function encodePatternChannelRows(
+   getCell: (rowIndex: number) => PatternCell,
+   ): Uint8Array {
    // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#music-patterns
    // chunk type 15
    // RAM at 0x11164...0x13E63
@@ -46,7 +48,7 @@ export function encodePatternChannel(pattern: Pattern, channelIndex: Tic80Channe
    const buf = new Uint8Array(Tic80Caps.pattern.maxRows * 3);
 
    for (let row = 0; row < Tic80Caps.pattern.maxRows; row++) {
-      const cellData = pattern.getCell(channelIndex, row);
+      const cellData = getCell(row);
       const inst = cellData.instrumentIndex ?? 0;
       const commandArgX = cellData.effectX ?? 0;
       const commandArgY = cellData.effectY ?? 0;
@@ -60,6 +62,15 @@ export function encodePatternChannel(pattern: Pattern, channelIndex: Tic80Channe
    //}
 
    return buf;
+}
+
+export function encodePatternChannel(pattern: Pattern, channelIndex: Tic80ChannelIndex): Uint8Array {
+   return encodePatternChannelRows((rowIndex) => pattern.getCell(channelIndex, rowIndex));
+}
+
+export function encodePatternChannelDirect(channel: PatternChannel): Uint8Array {
+   const rows = channel.rows;
+   return encodePatternChannelRows((rowIndex) => rows[rowIndex]);
 }
 
 export function encodePattern(pattern: Pattern): [Uint8Array, Uint8Array, Uint8Array, Uint8Array] {

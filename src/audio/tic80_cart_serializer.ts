@@ -5,12 +5,13 @@ import type {ModSource, SomaticInstrumentWaveEngine, Tic80Instrument} from "../m
 import type {Song} from "../models/song";
 import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {BakedSong, BakeSong} from "../utils/bakeSong";
-import {analyzePlaybackFeatures, getMaxPatternUsedIndex, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
+import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
 import bridgeConfig from "../../bridge/bridge_config.jsonc";
 import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../utils/utils";
 import {LoopMode} from "./backend";
 import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
-import {encodePatternCombined} from "./pattern_encoding";
+import {encodePatternChannelDirect} from "./pattern_encoding";
+import {PreparedSong, prepareSongColumns} from "./prepared_song";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -303,28 +304,12 @@ function makeMorphMapLua(song: Song): string {
 }
 
 
-// each of OUR internal patterns is actually 4 tic80 patterns (channel A, B, C, D) in series.
-// so for double-buffering, the front buffer for the 4 channels is [0,1,2,3], and the back buffer is [4,5,6,7], etc.
-// we output as a 4-channel pattern quad in order so it can just be copied directly to TIC-80 memory.
-function encodeRealPatterns(song: Song): Uint8Array[] {
-   const ret: Uint8Array[] = [];
-   const patternCount = getMaxPatternUsedIndex(song) + 1;
-   for (let p = 0; p < patternCount; p++) {
-      const pattern = song.patterns[p]!;
-      const combined = encodePatternCombined(pattern);
-
-      // compress
-      const compressed = lzCompress(combined, gSomaticLZDefaultConfig);
-
-      //const fingerprintUncompressed = getBufferFingerprint(combined);
-      //console.log(`Pattern ${p} fingerprint uncompressed:`, fingerprintUncompressed);
-
-      // const fingerprintCompressed = getBufferFingerprint(compressed);
-      // console.log(`Pattern ${p} fingerprint compressed:`, fingerprintCompressed);
-
-      ret.push(compressed);
-   }
-   return ret;
+// Each channel column is serialized independently so columns can be deduped across patterns.
+function encodePreparedPatternColumns(prepared: PreparedSong): Uint8Array[] {
+   return prepared.patternColumns.map((col) => {
+      const encoded = encodePatternChannelDirect(col.channel);
+      return lzCompress(encoded, gSomaticLZDefaultConfig);
+   });
 }
 
 // function encodeNullPatterns(): Uint8Array {
@@ -556,6 +541,7 @@ export interface Tic80SerializeSongArgs {
 export interface Tic80SerializedSong {
    bakedSong: BakedSong;
    optimizeResult: OptimizeResult;
+   preparedSong: PreparedSong;
    waveformData: Uint8Array;
    sfxData: Uint8Array;
    trackData: Uint8Array;
@@ -566,13 +552,14 @@ export interface Tic80SerializedSong {
    // length + order itself
    songOrderData: Uint8Array;
 
-   // each somatic pattern is actually 4 patterns (channel A, B, C, D) in series. allows copying patterns in 1 go for all 4 channels.
+   // column-based payload; each entry is one channel column (192 bytes before compression)
    patternData: Uint8Array;
 }
 
 export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80SerializedSong {
    // first, bake loop info into the song.
    const bakedSong = BakeSong(args);
+   const preparedSong = prepareSongColumns(bakedSong.bakedSong);
 
    // NB: do not optimize waveforms / instruments.
    // it changes indices that the editor is using. so for example we optimize out an instrument that's not used in the song,
@@ -587,20 +574,25 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
    const trackData = encodeTrack(bakedSong.bakedSong);
    const morphMapData = encodeMorphMapForBridge(bakedSong.bakedSong);
 
-   const songOrderData = new Uint8Array(1 + SomaticCaps.maxSongLength);
-   songOrderData[0] = bakedSong.bakedSong.songOrder.length;
-   for (let i = 0; i < SomaticCaps.maxSongLength; i++) {
-      const patternIndex = bakedSong.bakedSong.songOrder[i]?.patternIndex ?? 0;
-      songOrderData[1 + i] = patternIndex & 0xff;
+   const songOrderData = new Uint8Array(1 + SomaticCaps.maxSongLength * Tic80Caps.song.audioChannels);
+   songOrderData[0] = preparedSong.songOrder.length;
+   for (let i = 0; i < preparedSong.songOrder.length; i++) {
+      const entry = preparedSong.songOrder[i];
+      const base = 1 + i * Tic80Caps.song.audioChannels;
+      songOrderData[base + 0] = entry.patternColumnIndices[0] & 0xff;
+      songOrderData[base + 1] = entry.patternColumnIndices[1] & 0xff;
+      songOrderData[base + 2] = entry.patternColumnIndices[2] & 0xff;
+      songOrderData[base + 3] = entry.patternColumnIndices[3] & 0xff;
    }
 
-   const realPatternData = encodeRealPatterns(bakedSong.bakedSong); // separate pattern data for playback use
+   const preparedPatternData = encodePreparedPatternColumns(preparedSong); // separate pattern data for playback use
    return {
       bakedSong,
+      preparedSong,
       //requireSongLoop: bakedSong.wantSongLoop,
       optimizeResult: {
          ...MakeOptimizeResultEmpty(bakedSong.bakedSong),
-         usedPatternCount: getMaxPatternUsedIndex(bakedSong.bakedSong) + 1,
+         usedPatternColumnCount: preparedSong.patternColumns.length,
          usedSfxCount: getMaxSfxUsedIndex(bakedSong.bakedSong) + 1,
          usedWaveformCount: getMaxWaveformUsedIndex(bakedSong.bakedSong) + 1,
          featureUsage: analyzePlaybackFeatures(bakedSong.bakedSong),
@@ -610,7 +602,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
       trackData,
       morphMapData,
       songOrderData,
-      patternData: ch_serializePatterns(realPatternData),
+      patternData: ch_serializePatterns(preparedPatternData),
    };
 }
 
@@ -732,21 +724,18 @@ function getCode(song: Song, variant: "debug"|"release", featureUsage?: Playback
 } {
    // Generate the SOMATIC_MUSIC_DATA section
    const features = featureUsage ?? analyzePlaybackFeatures(song);
-   const songOrder = song.songOrder.map(idx => idx.patternIndex.toString()).join(",");
+   const preparedSong = prepareSongColumns(song);
+   const songOrder =
+      preparedSong.songOrder.map((entry) => `{ ${entry.patternColumnIndices.map((v) => v.toString()).join(", ")} }`)
+         .join(",");
    const morphMapLua = makeMorphMapLua(song);
 
-   const maxPattern = getMaxPatternUsedIndex(song);
    const patternChunks: Uint8Array[] = [];
    const patternLengths: number[] = []; // size of the base85-decoded (still compressed) pattern data
 
-   const patternStringContents = song.patterns.slice(0, maxPattern + 1).map((pattern, patternIndex) => {
-      const encodedPattern = encodePatternCombined(pattern);
+   const patternStringContents = preparedSong.patternColumns.map((col, columnIndex) => {
+      const encodedPattern = encodePatternChannelDirect(col.channel);
       patternChunks.push(encodedPattern);
-
-      //const fingerprint = getBufferFingerprint(encodedPattern);
-      //console.log(`Pattern ${patternIndex} fingerprint:`, fingerprint);
-
-      // { TestBase85Encoding("04 00 42 00 00 00 0d 00 81"); }
 
       const compressed = lzCompress(encodedPattern, gSomaticLZDefaultConfig);
       patternLengths.push(compressed.length);
@@ -810,9 +799,10 @@ export function serializeSongToCartDetailed(
       song = result.optimizedSong;
       optimizeResult = result;
    } else {
+      const prepared = prepareSongColumns(song);
       optimizeResult = {
          ...optimizeResult,
-         usedPatternCount: getMaxPatternUsedIndex(song) + 1,
+         usedPatternColumnCount: prepared.patternColumns.length,
          usedSfxCount: getMaxSfxUsedIndex(song) + 1,
          usedWaveformCount: getMaxWaveformUsedIndex(song) + 1,
          featureUsage: analyzePlaybackFeatures(song),

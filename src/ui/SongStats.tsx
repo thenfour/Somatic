@@ -258,7 +258,7 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                     const kv = {
                         Cart: {
                             'Serialization took': `${input.cartridge.elapsedMillis} ms`,
-                            Patterns: input.cartridge.optimizeResult.usedPatternCount,
+                            Patterns: input.cartridge.optimizeResult.usedPatternColumnCount,
                             'Columns used/distinct': `${breakdown.patternColumnStats.totalColumns} / ${breakdown.patternColumnStats.distinctColumns}`,
                             SFX: input.cartridge.optimizeResult.usedSfxCount,
                             Waveforms: input.cartridge.optimizeResult.usedWaveformCount,
@@ -284,7 +284,7 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                         Bridge: {
                             Waveforms: <BarValue value={input.bridge.waveformData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedWaveformCount} (${input.bridge.waveformData.length} bytes)`} />,
                             SFX: <BarValue value={input.bridge.sfxData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedSfxCount} (${input.bridge.sfxData.length} bytes)`} />,
-                            Patterns: <BarValue value={input.bridge.patternData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedPatternCount} (${input.bridge.patternData.length} bytes)`} />,
+                            Patterns: <BarValue value={input.bridge.patternData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedPatternColumnCount} (${input.bridge.patternData.length} bytes)`} />,
                             Tracks: <BarValue value={input.bridge.trackData.length} max={bridgeMax} label={`${input.bridge.trackData.length} bytes`} />,
                             'Song order': <BarValue value={input.bridge.songOrderData.length} max={bridgeMax} label={`${input.bridge.songOrderData.length} bytes`} />,
                         },

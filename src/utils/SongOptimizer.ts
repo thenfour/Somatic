@@ -1,5 +1,6 @@
 import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "../audio/encoding";
-import {encodePatternChannel} from "../audio/pattern_encoding";
+import {encodePatternChannelDirect} from "../audio/pattern_encoding";
+import {prepareSongColumns} from "../audio/prepared_song";
 import {Tic80Instrument} from "../models/instruments";
 import {Pattern, PatternCell} from "../models/pattern";
 import {Song} from "../models/song";
@@ -9,12 +10,14 @@ import {Tic80Waveform} from "../models/waveform";
 import {clamp} from "./utils";
 
 export type SongUsage = {
-   usedPatterns: Set<number>;    //
-   usedInstruments: Set<number>; //
-   usedWaveforms: Set<number>;   //
-   maxPattern: number;           //
-   maxInstrument: number;        //
-   maxWaveform: number;          //
+   usedPatterns: Set<number>;       // whole-pattern usage
+   usedPatternColumns: Set<number>; // column-oriented usage
+   usedInstruments: Set<number>;    //
+   usedWaveforms: Set<number>;      //
+   maxPattern: number;              // whole-pattern max index
+   maxPatternColumn: number;        // max column index
+   maxInstrument: number;           //
+   maxWaveform: number;             //
 };
 
 // Traverses song order -> patterns -> instruments -> waveforms to find what is actually referenced.
@@ -56,10 +59,24 @@ export function calculateSongUsage(song: Song): SongUsage {
    });
 
    const maxPattern = usedPatterns.size === 0 ? 0 : Math.max(...usedPatterns);
+   const prepared = prepareSongColumns(song);
+   const usedPatternColumns = new Set<number>(
+      prepared.patternColumns.map((_, idx) => idx),
+   );
+   const maxPatternColumn = usedPatternColumns.size === 0 ? 0 : Math.max(...usedPatternColumns);
    const maxInstrument = usedInstruments.size === 0 ? 0 : Math.max(...usedInstruments);
    const maxWaveform = usedWaveforms.size === 0 ? 0 : Math.max(...usedWaveforms);
 
-   return {usedPatterns, usedInstruments, usedWaveforms, maxPattern, maxInstrument, maxWaveform};
+   return {
+      usedPatterns,
+      usedPatternColumns,
+      usedInstruments,
+      usedWaveforms,
+      maxPattern,
+      maxPatternColumn,
+      maxInstrument,
+      maxWaveform,
+   };
 }
 
 // returns the 0-based index of the waveform with the highest index that is used by
@@ -102,19 +119,13 @@ export function analyzePatternColumns(song: Song): PatternColumnAnalysisResult {
    const usedPatterns = usage.usedPatterns;
    const totalColumns = usedPatterns.size * Tic80Caps.song.audioChannels;
 
+   const prepared = prepareSongColumns(song);
    const columnDataBySignature = new Map<string, Uint8Array>();
-   usedPatterns.forEach((patternIdx) => {
-      const pattern = song.patterns[patternIdx];
-      if (!pattern)
+   prepared.patternColumns.forEach((col) => {
+      const sig = JSON.stringify({channel: col.channel.toData()});
+      if (columnDataBySignature.has(sig))
          return;
-
-      for (let channel = 0; channel < Tic80Caps.song.audioChannels; channel++) {
-         const ticChannel = channel as Tic80ChannelIndex;
-         const sig = pattern.contentSignatureForColumn(ticChannel);
-         if (columnDataBySignature.has(sig))
-            continue;
-         columnDataBySignature.set(sig, encodePatternChannel(pattern, ticChannel));
-      }
+      columnDataBySignature.set(sig, encodePatternChannelDirect(col.channel));
    });
 
    let rawBytes = 0;
@@ -141,7 +152,7 @@ export function analyzePatternColumns(song: Song): PatternColumnAnalysisResult {
 
 export interface OptimizeResult {
    optimizedSong: Song;
-   usedPatternCount: number;
+   usedPatternColumnCount: number;
    usedWaveformCount: number;
    // includes 0 and 1 sfx so this will always be at least 1 for instrument#0, and 2 if you only have a note cut in your whole song (weird), and >=3 for normal cases.
    usedSfxCount: number;
@@ -155,16 +166,18 @@ export interface OptimizeResult {
 export function MakeOptimizeResultEmpty(song: Song): OptimizeResult {
    return {
       optimizedSong: song,
-      usedPatternCount: 0,
+      usedPatternColumnCount: 0,
       usedWaveformCount: 0,
       usedSfxCount: 0,
       featureUsage: makeFeatureUsage(),
       changeLog: [],
       resultingStats: {
          usedPatterns: new Set(),
+         usedPatternColumns: new Set(),
          usedInstruments: new Set(),
          usedWaveforms: new Set(),
          maxPattern: 0,
+         maxPatternColumn: 0,
          maxInstrument: 0,
          maxWaveform: 0,
       },
@@ -411,14 +424,16 @@ export function OptimizeSong(song: Song): OptimizeResult {
       changeLog.push("Song order was empty; added pattern 0.");
    }
 
+   const preparedUsage = prepareSongColumns(working);
+
    return {
-      optimizedSong: working,                         //
-         usedPatternCount,                            //
-         usedWaveformCount,                           //
-         usedSfxCount,                                //
-         featureUsage,                                //
-         changeLog,                                   //
-         resultingStats: calculateSongUsage(working), //
+      optimizedSong: working,                                         //
+         usedPatternColumnCount: preparedUsage.patternColumns.length, //
+         usedWaveformCount,                                           //
+         usedSfxCount,                                                //
+         featureUsage,                                                //
+         changeLog,                                                   //
+         resultingStats: calculateSongUsage(working),                 //
    }
 };
 

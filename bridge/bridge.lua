@@ -1207,8 +1207,12 @@ local function blitPattern(patternIndex0b, destPointer)
 end
 
 local function swapInPlayorder(songPosition, destPointer)
-	local patternIndex0b = peek(ADDR.TF_ORDER_LIST_ENTRIES + songPosition)
-	blitPattern(patternIndex0b, destPointer)
+	local base = ADDR.TF_ORDER_LIST_ENTRIES + songPosition * 4
+	for ch = 0, 3 do
+		local columnIndex0b = peek(base + ch)
+		local dst = destPointer + ch * PATTERN_BYTES_PER_PATTERN
+		blitPattern(columnIndex0b, dst)
+	end
 end
 
 -- =========================

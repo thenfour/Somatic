@@ -1,6 +1,6 @@
 -- BEGIN_SOMATIC_MUSIC_DATA
 SOMATIC_MUSIC_DATA = {
-	songOrder = { 0, 3, 2 },
+	songOrder = { { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 } },
 	patternLengths = {
 		-- (pattern lengths here ...)
 	},
@@ -559,14 +559,21 @@ do
 		return #SOMATIC_MUSIC_DATA.songOrder
 	end
 
-	local function swapInPlayorder(songPosition0b, destPointer)
-		local patternIndex0b = SOMATIC_MUSIC_DATA.songOrder[songPosition0b + 1]
-		local patternString = SOMATIC_MUSIC_DATA.patterns[patternIndex0b + 1]
-		local patternLengthBytes = SOMATIC_MUSIC_DATA.patternLengths[patternIndex0b + 1]
-
+	local function blitPatternColumn(columnIndex0b, destPointer)
+		local patternString = SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1]
+		local patternLengthBytes = SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1]
 		local TEMP_DECODE_BUFFER = 0x13B60 -- put temp buffer towards end of the pattern memory
 		local decodedLen = base85_decode_to_mem(patternString, patternLengthBytes, TEMP_DECODE_BUFFER)
 		lzdec_mem(TEMP_DECODE_BUFFER, decodedLen, destPointer)
+	end
+
+	local function swapInPlayorder(songPosition0b, destPointer)
+		local entry = SOMATIC_MUSIC_DATA.songOrder[songPosition0b + 1]
+		for ch = 0, 3 do
+			local columnIndex0b = entry[ch + 1] or 0
+			local dst = destPointer + ch * PATTERN_BYTES_PER_PATTERN
+			blitPatternColumn(columnIndex0b, dst)
+		end
 	end
 
 	local function getBufferPointer()
