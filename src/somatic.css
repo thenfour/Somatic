@@ -133,6 +133,9 @@
     --marker-diamond: #73eff7;
     --marker-club: #566c86;
     --marker-spade: #333c57;
+    --transport-time-bg: #1a1c2c;
+    --transport-time-fg: #73eff7;
+    --transport-time-fg-subtle: #566c86;
 
 }
 
@@ -203,6 +206,9 @@
     --marker-diamond: #73eff7;
     --marker-club: #94b0c2;
     --marker-spade: #566c86;
+    --transport-time-bg: #1a1c2c;
+    --transport-time-fg: #73eff7;
+    --transport-time-fg-subtle: #566c86;
 }
 
 html,
@@ -1051,6 +1057,18 @@ option {
     color: var(--panel);
 }
 
+.transportTime {
+    background: var(--transport-time-bg);
+    color: var(--transport-time-fg);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.transportTime__ms {
+    font-size: 0.75em;
+    color: var(--transport-time-fg-subtle);
+}
+
 .arrangement-editor__row:hover .arrangement-editor__step,
 .arrangement-editor__row:hover .arrangement-editor__delete {
     opacity: 1;
@@ -1180,13 +1198,10 @@ option {
 
 .menu-transport {
     background-color: var(--bg);
-    ;
 }
 
 .menu-transport .main-transport-time {
     font-size: 26px;
-    background-color: var(--bg);
-    color: var(--accent-strong);
     margin: 0 28px;
     font-family: var(--ff-mono);
 }

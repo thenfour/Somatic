@@ -41,6 +41,11 @@ const THEME_VARS = {
         '--keyboard-white-text',
         '--keyboard-black-text',
     ],
+    "transport": [
+        '--transport-time-bg',
+        '--transport-time-fg',
+        '--transport-time-fg-subtle',
+    ],
     "Waveform Editor": [
         '--waveform-edit-background',
         '--waveform-edit-grid-line',
