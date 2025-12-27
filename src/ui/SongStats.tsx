@@ -10,8 +10,17 @@ import { gAllChannelsAudible, SomaticCaps } from "../models/tic80Capabilities";
 import { useRenderAlarm } from "../hooks/useRenderAlarm";
 import { KeyValueTable } from "./basic/KeyValueTable";
 import { AppPanelShell } from "./AppPanelShell";
+import { Tooltip } from "./basic/tooltip";
 
-const BarValue: React.FC<{ value: number; max: number; label: string }> = ({ value, max, label }) => {
+const SizeValue: React.FC<{ value: number; }> = ({ value }) => {
+    return (
+        <Tooltip title={`${value} bytes`}>
+            <div className="size-value" style={{ whiteSpace: "nowrap" }}>{formatBytes(value)}</div>
+        </Tooltip>
+    );
+};
+
+const BarValue: React.FC<{ value: number; max: number; label: React.ReactNode }> = ({ value, max, label }) => {
     const safeMax = Math.max(1, max);
     const pct = Math.max(0, Math.min(1, value / safeMax));
     return (
@@ -203,7 +212,7 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
     ) : (
         <div style={{ minWidth: 420 }}>
             <div style={{ marginBottom: 8, fontWeight: 600 }}>
-                Cart size: {formatBytes(input.cartridge.cartridge.length)}
+                Cart size: <SizeValue value={input.cartridge.cartridge.length} />
             </div>
 
             <div
@@ -228,8 +237,8 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                         <div style={{ width: 12, height: 12, background: c.color, borderRadius: 2 }} />
                         <div style={{ flex: 1 }}>{c.name}</div>
-                        <div style={{ color: 'var(--muted)', minWidth: 90, textAlign: 'right' }}>
-                            {formatBytes(c.size)} · {((c.size / totalSize) * 100).toFixed(1)}%
+                        <div style={{ color: 'var(--muted)', minWidth: 90, textAlign: 'right', display: "flex" }}>
+                            <SizeValue value={c.size} /> · {((c.size / totalSize) * 100).toFixed(1)}%
                         </div>
                     </div>
                 ))}
@@ -272,12 +281,12 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                             LFO: input.cartridge.optimizeResult.featureUsage.lfo,
                         },
                         'Pattern Payload Sizes': {
-                            'RAW (pattern-based)': <BarValue value={breakdown.patternPayload.rawBytes} max={rawMax} label={formatBytes(breakdown.patternPayload.rawBytes)} />,
-                            'RAW (column-based)': <BarValue value={breakdown.patternColumnStats.columnPayload.rawBytes} max={rawMax} label={formatBytes(breakdown.patternColumnStats.columnPayload.rawBytes)} />,
-                            'LZ (pattern-based)': <BarValue value={breakdown.patternPayload.compressedBytes} max={rawMax} label={formatBytes(breakdown.patternPayload.compressedBytes)} />,
-                            'LZ (column-based)': <BarValue value={breakdown.patternColumnStats.columnPayload.compressedBytes} max={rawMax} label={formatBytes(breakdown.patternColumnStats.columnPayload.compressedBytes)} />,
-                            'Lua (pattern data)': <BarValue value={breakdown.patternPayload.luaStringBytes} max={rawMax} label={formatBytes(breakdown.patternPayload.luaStringBytes)} />,
-                            'Lua (column data)': <BarValue value={breakdown.patternColumnStats.columnPayload.luaStringBytes} max={rawMax} label={formatBytes(breakdown.patternColumnStats.columnPayload.luaStringBytes)} />,
+                            //'RAW (pattern-based)': <BarValue value={breakdown.patternPayload.rawBytes} max={rawMax} label={formatBytes(breakdown.patternPayload.rawBytes)} />,
+                            'RAW': <BarValue value={breakdown.patternColumnStats.columnPayload.rawBytes} max={rawMax} label={<SizeValue value={breakdown.patternColumnStats.columnPayload.rawBytes} />} />,
+                            //'LZ (pattern-based)': <BarValue value={breakdown.patternPayload.compressedBytes} max={rawMax} label={formatBytes(breakdown.patternPayload.compressedBytes)} />,
+                            'LZ': <BarValue value={breakdown.patternColumnStats.columnPayload.compressedBytes} max={rawMax} label={<SizeValue value={breakdown.patternColumnStats.columnPayload.compressedBytes} />} />,
+                            //'Lua (pattern data)': <BarValue value={breakdown.patternPayload.luaStringBytes} max={rawMax} label={formatBytes(breakdown.patternPayload.luaStringBytes)} />,
+                            'Lua': <BarValue value={breakdown.patternColumnStats.columnPayload.luaStringBytes} max={rawMax} label={<SizeValue value={breakdown.patternColumnStats.columnPayload.luaStringBytes} />} />,
                             'Pattern compression ratio': `${(patternCompressionRatio * 100).toFixed(1)}%`,
                             Status: breakdown.roundTripStatus,
                         },
@@ -324,16 +333,17 @@ export const SongStats: React.FC<{ data: SongStatsData; onTogglePanel: () => voi
     });
 
     return (
-        <button
-            type="button"
-            className={`songStatsPanel ${data.error ? 'error' : ''}`}
-            onClick={onTogglePanel}
-            title="Toggle Song Stats panel"
-        >
-            <div className="cartSize__label" style={{ cursor: 'pointer' }}>
-                cart: {formatBytes(data.totalSize)}
-            </div>
-        </button>
+        <Tooltip title="Toggle Song Stats panel">
+            <button
+                type="button"
+                className={`songStatsPanel ${data.error ? 'error' : ''}`}
+                onClick={onTogglePanel}
+            >
+                <div className="cartSize__label" style={{ cursor: 'pointer' }}>
+                    cart: {formatBytes(data.totalSize)}
+                </div>
+            </button>
+        </Tooltip>
     );
 };
 
