@@ -11,15 +11,13 @@ import {Tic80Caps} from "./tic80Capabilities";
 export const SongOrderMarkerVariantValues = [
    "default",
    "star",
-   "asterisk",
+   //"asterisk",
 
    "question",
    "exclamation",
    "check",
-   "trash",
 
-   "blank",
-   "up",
+   //"up",
 
    "circle1",
    "circle2",
@@ -27,9 +25,11 @@ export const SongOrderMarkerVariantValues = [
    "circle4",
 
    "heart",
-   "diamond",
-   "club",
-   "spade",
+   // "diamond",
+   // "club",
+   // "spade",
+   "blank",
+   "trash",
 ] as const;
 
 export type SongOrderMarkerVariant = typeof SongOrderMarkerVariantValues[number];

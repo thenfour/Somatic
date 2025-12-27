@@ -17,6 +17,7 @@
 /* Color each marker variant with its theme variable */
 .marker-icon.default-icon {
     color: var(--marker-default);
+    opacity: 0.5;
 }
 
 .marker-icon.star-icon {

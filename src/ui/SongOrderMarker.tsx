@@ -9,7 +9,7 @@ import {
     mdiCardsDiamond,
     mdiCardsSpade,
     mdiCheck,
-    mdiExclamation,
+    mdiExclamationThick,
     mdiHeart,
     mdiHelp,
     mdiPlay,
@@ -41,15 +41,15 @@ export const SongOrderMarkerValue: React.FC<SongOrderMarkerControlProps> = (prop
             case "question":
                 return <div className="marker-icon question-icon"><Icon path={mdiHelp} size={1} /></div>;
             case "exclamation":
-                return <div className="marker-icon exclamation-icon"><Icon path={mdiExclamation} size={1} /></div>;
+                return <div className="marker-icon exclamation-icon"><Icon path={mdiExclamationThick} size={1} /></div>;
             case "check":
                 return <div className="marker-icon check-icon"><Icon path={mdiCheck} size={1} /></div>;
             case "blank":
                 return <div className="marker-icon blank-icon"></div>;
-            case "asterisk":
-                return <div className="marker-icon asterisk-icon"><Icon path={mdiAsterisk} size={1} /></div>;
-            case "up":
-                return <div className="marker-icon up-icon"><Icon path={mdiArrowUp} size={1} /></div>;
+            // case "asterisk":
+            //     return <div className="marker-icon asterisk-icon"><Icon path={mdiAsterisk} size={1} /></div>;
+            // case "up":
+            //     return <div className="marker-icon up-icon"><Icon path={mdiArrowUp} size={1} /></div>;
             case "circle1":
                 return <div className="marker-icon circle1-icon"><Icon path={mdiAlphaACircle} size={1} /></div>;
             case "circle2":
@@ -60,12 +60,12 @@ export const SongOrderMarkerValue: React.FC<SongOrderMarkerControlProps> = (prop
                 return <div className="marker-icon circle4-icon"><Icon path={mdiAlphaDCircle} size={1} /></div>;
             case "heart":
                 return <div className="marker-icon heart-icon"><Icon path={mdiHeart} size={1} /></div>;
-            case "diamond":
-                return <div className="marker-icon diamond-icon"><Icon path={mdiCardsDiamond} size={1} /></div>;
-            case "club":
-                return <div className="marker-icon club-icon"><Icon path={mdiCardsClub} size={1} /></div>;
-            case "spade":
-                return <div className="marker-icon spade-icon"><Icon path={mdiCardsSpade} size={1} /></div>;
+            // case "diamond":
+            //     return <div className="marker-icon diamond-icon"><Icon path={mdiCardsDiamond} size={1} /></div>;
+            // case "club":
+            //     return <div className="marker-icon club-icon"><Icon path={mdiCardsClub} size={1} /></div>;
+            // case "spade":
+            //     return <div className="marker-icon spade-icon"><Icon path={mdiCardsSpade} size={1} /></div>;
             case "trash":
                 return <div className="marker-icon trash-icon"><Icon path={mdiTrashCanOutline} size={1} /></div>;
         }
