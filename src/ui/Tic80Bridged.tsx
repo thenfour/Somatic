@@ -473,6 +473,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             pokeBlock(TicMemoryMap.TF_PATTERN_DATA, opts.data.patternData);
 
             const sfxConfigBytes = TicMemoryMap.MARKER_ADDR - TicMemoryMap.SOMATIC_SFX_CONFIG;
+            gLog.info(`sfxConfigBytes: ${sfxConfigBytes}`);
             assert(sfxConfigBytes > 0, "Invalid TicMemoryMap: MARKER_ADDR must be > SOMATIC_SFX_CONFIG");
             assert(
                 opts.data.morphMapData.length === sfxConfigBytes,

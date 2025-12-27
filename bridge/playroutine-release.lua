@@ -18,8 +18,6 @@ do
 	local backA = false
 	local stopNext = false
 	local PBUF = 768
-	local bufA = 0x11164
-	local bufB = bufA + PBUF
 
 	-- Wave morphing (music playback only)
 	local SFX_CHANNELS = 4
@@ -495,7 +493,7 @@ do
 			return 0, 0
 		end
 		local pat0b = patternId1b - 1
-		local addr = bufA + pat0b * PAT_BYTES + rowIndex * ROW_BYTES
+		local addr = __AUTOGEN_BUF_PTR_A + pat0b * PAT_BYTES + rowIndex * ROW_BYTES
 		local b0 = pe(addr)
 		local b1 = pe(addr + 1)
 		local b2 = pe(addr + 2)
@@ -569,15 +567,13 @@ do
 	dmorph()
 
 	local function blitCol(columnIndex0b, destPointer)
-		lzdm(
-			__AUTOGEN_TEMP_PTR_A,
-			b85d(
-				SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1],
-				SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1],
-				__AUTOGEN_TEMP_PTR_A
-			),
-			destPointer
-		)
+		local entry = SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1]
+		local clen = SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1]
+		if type(entry) == "number" then
+			lzdm(entry, clen, destPointer)
+		else
+			lzdm(__AUTOGEN_TEMP_PTR_A, b85d(entry, clen, __AUTOGEN_TEMP_PTR_A), destPointer)
+		end
 	end
 
 	local function swapPO(songPosition0b, destPointer)
@@ -600,7 +596,7 @@ do
 		backA = true
 		lastFrame = -1
 		stopNext = false
-		swapPO(curOrd, bufA)
+		swapPO(curOrd, __AUTOGEN_BUF_PTR_A)
 		music(0, 0, startRow, true, true)
 	end
 
@@ -636,7 +632,7 @@ do
 		lastFrame = currentFrame
 		playOrd = curOrd
 		curOrd = curOrd + 1
-		local destPointer = backA and bufA or bufB
+		local destPointer = backA and __AUTOGEN_BUF_PTR_A or __AUTOGEN_BUF_PTR_B
 		if curOrd >= #SOMATIC_MUSIC_DATA.songOrder then
 			for i = 0, PBUF - 1 do
 				pk(destPointer + i, 0)

@@ -359,10 +359,13 @@ function encodeTrack(song: Song): Uint8Array {
    // in order to keep swaps single-op, each pattern "buffer" is 4 patterns long (one per channel).
 
    const buf = new Uint8Array(3 * Tic80Caps.song.maxSongLength + 3); // 48 bytes positions + speed/rows/tempo
+   const frontBase = Tic80Caps.pattern.buffers.front.index as number;
+   const backBase = Tic80Caps.pattern.buffers.back.index as number;
    for (let i = 0; i < Tic80Caps.song.maxSongLength; i++) {
       const isFrontBuffer = (i % 2) === 0; // 0 or 1
-      // pattern id 0 is a "no pattern". they are 1-based in the track data.
-      const channelPatterns: [number, number, number, number] = isFrontBuffer ? [1, 2, 3, 4] : [5, 6, 7, 8];
+      const patternBase = isFrontBuffer ? frontBase : backBase;
+      const channelPatterns: [number, number, number, number] =
+         [patternBase, patternBase + 1, patternBase + 2, patternBase + 3];
       const [b0, b1, b2] = packTrackFrame(channelPatterns);
       const base = i * 3;
       buf[base + 0] = b0;
@@ -684,9 +687,10 @@ function getPlayroutineCode(variant: "debug"|"release"): string {
 };
 
 function getCode(song: Song, variant: "debug"|"release", featureUsage?: PlaybackFeatureUsage): {
-   code: string,               //
-   generatedCode: string,      //
-   patternChunks: Uint8Array[] //
+   code: string,                //
+   generatedCode: string,       //
+   patternChunks: Uint8Array[], // raw, uncompressed patterns for debugging/inspection
+   patternRamData: Uint8Array,  // packed compressed columns to seed into TIC-80 pattern memory
 } {
    // Generate the SOMATIC_MUSIC_DATA section
    const features = featureUsage ?? analyzePlaybackFeatures(song);
@@ -699,18 +703,32 @@ function getCode(song: Song, variant: "debug"|"release", featureUsage?: Playback
    const patternChunks: Uint8Array[] = [];
    const patternLengths: number[] = []; // size of the base85-decoded (still compressed) pattern data
 
-   const patternStringContents = preparedSong.patternColumns.map((col, columnIndex) => {
+   const patternMemoryCapacity = Math.max(0, Tic80Caps.pattern.memory.limit - Tic80Caps.pattern.memory.start);
+   const patternRamBuffer = new Uint8Array(patternMemoryCapacity);
+   let patternRamCursor = 0; // relative to pattern memory start
+
+   const patternEntries = preparedSong.patternColumns.map((col) => {
       const encodedPattern = encodePatternChannelDirect(col.channel);
       patternChunks.push(encodedPattern);
 
       const compressed = lzCompress(encodedPattern, gSomaticLZDefaultConfig);
       patternLengths.push(compressed.length);
 
-      const patternStr = base85Encode(compressed);
+      const fitsInPatternRam = (patternRamCursor + compressed.length) <= patternMemoryCapacity;
+      if (fitsInPatternRam) {
+         patternRamBuffer.set(compressed, patternRamCursor);
+         const absAddr = Tic80Caps.pattern.memory.start + patternRamCursor;
+         patternRamCursor += compressed.length;
+         return `0x${absAddr.toString(16)}`; // numeric Lua literal for memory-backed column
+      }
 
-      return patternStr;
+      // Spill to base85 string when RAM is full.
+      const patternStr = base85Encode(compressed);
+      return toLuaStringLiteral(patternStr);
    });
-   const patternArray = patternStringContents.map(p => toLuaStringLiteral(p)).join(",\n\t\t");
+
+   const patternRamData = patternRamBuffer.subarray(0, patternRamCursor);
+   const patternArray = patternEntries.join(",\n\t\t");
 
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
 SOMATIC_MUSIC_DATA = {
@@ -731,12 +749,15 @@ SOMATIC_MUSIC_DATA = {
    // Replace tokens __AUTOGEN_TEMP_PTR_A and __AUTOGEN_TEMP_PTR_B to be replaced in the lua code.
    // with numeric hex literals like 0x1234
    code = code.replace(/__AUTOGEN_TEMP_PTR_A/g, `0x${TicMemoryMap.__AUTOGEN_TEMP_PTR_A.toString(16)}`)
-             .replace(/__AUTOGEN_TEMP_PTR_B/g, `0x${TicMemoryMap.__AUTOGEN_TEMP_PTR_B.toString(16)}`);
+             .replace(/__AUTOGEN_TEMP_PTR_B/g, `0x${TicMemoryMap.__AUTOGEN_TEMP_PTR_B.toString(16)}`)
+             .replace(/__AUTOGEN_BUF_PTR_A/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_A.toString(16)}`)
+             .replace(/__AUTOGEN_BUF_PTR_B/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_B.toString(16)}`);
 
    return {
       code,
       generatedCode: musicDataSection,
       patternChunks,
+      patternRamData,
    };
 }
 
@@ -803,11 +824,12 @@ export function serializeSongToCartDetailed(
    // byte 1-2: payload length (u16 little-endian)
    // byte 3: reserved (0)
 
+   const {code, generatedCode, patternChunks, patternRamData} = getCode(song, variant, optimizeResult.featureUsage);
    const waveformChunk = createChunk(CHUNK.WAVEFORMS, encodeWaveforms(song, getMaxWaveformUsedIndex(song) + 1), true);
    const sfxChunk = createChunk(CHUNK.SFX, encodeSfx(song, getMaxSfxUsedIndex(song) + 1), true);
-   const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, new Uint8Array(1), true); // all zeros
+   const patternChunkPayload = patternRamData.length > 0 ? patternRamData : new Uint8Array(1); // all zeros when unused
+   const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, patternChunkPayload, true);
    const trackChunk = createChunk(CHUNK.MUSIC_TRACKS, encodeTrack(song), true);
-   const {code, generatedCode, patternChunks} = getCode(song, variant, optimizeResult.featureUsage);
    const codePayload = stringToAsciiPayload(code);
    const codeChunk = createChunk(CHUNK.CODE, codePayload, false, 0);
 

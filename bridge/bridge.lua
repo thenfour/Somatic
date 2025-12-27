@@ -1068,8 +1068,8 @@ backBufferIsA = false -- A means patterns 0,1,2,3; B = 4,5,6,7
 stopPlayingOnNextFrame = false
 loopSongForever = false
 local PATTERN_BUFFER_BYTES = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
-local bufferALocation = 0x11164 -- pointer to first pattern https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
-local bufferBLocation = bufferALocation + PATTERN_BUFFER_BYTES -- pointer to pattern 4
+local bufferALocation = 0x13324 -- pointer to first pattern https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
+local bufferBLocation = 0x13624 -- pointer to pattern 4
 
 -- =========================
 -- tracker-specific playroutine support

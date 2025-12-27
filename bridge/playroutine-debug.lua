@@ -54,8 +54,8 @@ lastPlayingFrame = -1
 backBufferIsA = false -- A means patterns 0,1,2,3; B = 4,5,6,7
 stopPlayingOnNextFrame = false
 local PATTERN_BUFFER_BYTES = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
-local bufferALocation = 0x11164 -- pointer to first pattern https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
-local bufferBLocation = bufferALocation + PATTERN_BUFFER_BYTES -- pointer to pattern 4
+local bufferALocation = __AUTOGEN_BUF_PTR_A -- pattern 46
+local bufferBLocation = __AUTOGEN_BUF_PTR_B -- pattern 50
 
 -- Wave morphing
 local SFX_CHANNELS = 4
@@ -793,12 +793,19 @@ local function getSongOrderCount()
 end
 
 local function blit_pattern_column(columnIndex0b, destPointer)
-	local patternString = SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1]
+	local entry = SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1]
 	local patternLengthBytes = SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1]
-	local decodedLen = base85_decode_to_mem(patternString, patternLengthBytes, __AUTOGEN_TEMP_PTR_A)
+	local srcPtr = __AUTOGEN_TEMP_PTR_A
+	local decodedLen
+	if type(entry) == "number" then
+		srcPtr = entry
+		decodedLen = patternLengthBytes
+	else
+		decodedLen = base85_decode_to_mem(entry, patternLengthBytes, srcPtr)
+	end
 
 	-- and decompress.
-	local decompressedLen = lzdec_mem(__AUTOGEN_TEMP_PTR_A, decodedLen, destPointer)
+	local decompressedLen = lzdec_mem(srcPtr, decodedLen, destPointer)
 
 	-- -- check payload.
 	-- log("pattern " .. tostring(columnIndex0b) .. " blitted")

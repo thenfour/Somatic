@@ -22,17 +22,24 @@
         "SFX_ADDR": "0x100e4",
         "PATTERNS_ADDR": "0x11164",
         "TRACKS_ADDR": "0x13e64",
+        // Pattern memory usable for packed compressed columns ends before PATTERN_MEM_LIMIT.
+        // Front blit buffer uses patterns 46-49 (pattern 46 at 0x133e4); back buffer uses 50-53 (pattern 50 at 0x136e4).
+        "PATTERN_MEM_LIMIT": "0x13324",
+        "PATTERN_BUFFER_A_INDEX": 46,
+        "PATTERN_BUFFER_B_INDEX": 50,
+        "PATTERN_BUFFER_A_ADDR": "0x13324",
+        "PATTERN_BUFFER_B_ADDR": "0x13624",
         // Somatic bridge state lives in the top of MAP (0x8000..0x0ff7f),
         // above all tracker-format pattern data.
         //
         // Layout within MAP:
-        //   0x0efa0..0x0efdf : packed morphing instrument config
+        //   0x0e400..0x0efff : packed morphing instrument config
         //   0x0f000..0x0f01f : marker & small header region
         //   0x0f020..0x0f03f : Somatic registers (song position, FPS, etc.)
         //   0x0f040..0x0f07f : INBOX (host -> cart mailbox)
         //   0x0f080..0x0f08f : OUTBOX header (cart -> host mailbox)
         //   0x0f090..0x0f17f : OUTBOX log ring buffer (LOG_SIZE bytes)
-        "SOMATIC_SFX_CONFIG": "0x0ef00", // 0x0f000 - payload_size
+        "SOMATIC_SFX_CONFIG": "0x0e800", // 0x0f000 - sfx_cfg_payload_size (~1kb)
         "MARKER_ADDR": "0x0f000",
         "REGISTERS_ADDR": "0x0f020",
         "INBOX_ADDR": "0x0f040",

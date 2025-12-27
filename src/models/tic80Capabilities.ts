@@ -4,6 +4,8 @@
 import {clamp, parseAddress} from "../utils/utils";
 import bridgeConfig from "../../bridge/bridge_config.jsonc";
 
+const mem = bridgeConfig.memory as Record<string, string|number>;
+
 export const SomaticCaps = {
    maxPatternCount: 256,
    maxSongLength: 256,
@@ -44,6 +46,20 @@ export const Tic80Caps = {
       count: 60,   // MUSIC_PATTERNS
       maxRows: 64, // MUSIC_PATTERN_ROWS
       octaveCount: 8,
+      memory: {
+         start: parseAddress(mem.PATTERNS_ADDR),
+         limit: parseAddress(mem.PATTERN_MEM_LIMIT),
+      },
+      buffers: {
+         front: {
+            index: mem.PATTERN_BUFFER_A_INDEX as number,
+            addr: parseAddress(mem.PATTERN_BUFFER_A_ADDR),
+         },
+         back: {
+            index: mem.PATTERN_BUFFER_B_INDEX as number,
+            addr: parseAddress(mem.PATTERN_BUFFER_B_ADDR),
+         },
+      },
       // and each row = 4 channels x 3 bytes [note, param1, param2, command, sfxhi, sfxlo, octave]
    },
 
@@ -67,6 +83,8 @@ export const Tic80Caps = {
    },
 } as const;
 
+export const Tic80PatternBytes = Tic80Caps.pattern.maxRows * 3; // 192 bytes per pattern
+
 export type Tic80ChannelIndex = 0|1|2|3;
 
 export const ToTic80ChannelIndex = (value: number): Tic80ChannelIndex => {
@@ -77,8 +95,6 @@ export const gChannelsArray =
    [0 as Tic80ChannelIndex, 1 as Tic80ChannelIndex, 2 as Tic80ChannelIndex, 3 as Tic80ChannelIndex] as const;
 
 export const gAllChannelsAudible = new Set<Tic80ChannelIndex>(gChannelsArray);
-
-const mem = bridgeConfig.memory as Record<string, string|number>;
 
 export const TicMemoryMap = {
    // BRIDGE_MEMORY_MAP (shared with bridge.lua via bridge_config.jsonc)
@@ -117,10 +133,17 @@ export const TicMemoryMap = {
    WAVEFORMS_ADDR: parseAddress(mem.WAVEFORMS_ADDR),
    SFX_ADDR: parseAddress(mem.SFX_ADDR),
    PATTERNS_ADDR: parseAddress(mem.PATTERNS_ADDR),
+   PATTERN_MEM_LIMIT: parseAddress(mem.PATTERN_MEM_LIMIT),
+   PATTERN_BUFFER_A_INDEX: mem.PATTERN_BUFFER_A_INDEX as number,
+   PATTERN_BUFFER_B_INDEX: mem.PATTERN_BUFFER_B_INDEX as number,
+   PATTERN_BUFFER_A_ADDR: parseAddress(mem.PATTERN_BUFFER_A_ADDR),
+   PATTERN_BUFFER_B_ADDR: parseAddress(mem.PATTERN_BUFFER_B_ADDR),
    TRACKS_ADDR: parseAddress(mem.TRACKS_ADDR),
 
    __AUTOGEN_TEMP_PTR_A: parseAddress(mem.__AUTOGEN_TEMP_PTR_A),
    __AUTOGEN_TEMP_PTR_B: parseAddress(mem.__AUTOGEN_TEMP_PTR_B),
+   __AUTOGEN_BUF_PTR_A: parseAddress(mem.PATTERN_BUFFER_A_ADDR),
+   __AUTOGEN_BUF_PTR_B: parseAddress(mem.PATTERN_BUFFER_B_ADDR),
 
    MUSIC_STATE_TRACK: parseAddress(mem.MUSIC_STATE_TRACK),
    MUSIC_STATE_FRAME: parseAddress(mem.MUSIC_STATE_FRAME),
