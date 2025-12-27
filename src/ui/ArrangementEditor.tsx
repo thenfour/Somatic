@@ -607,7 +607,7 @@ export const ArrangementEditor: React.FC<{
                     const rowClass = [
                         "arrangement-editor__row",
                         "arrangement-editor__row--selection-container",
-                        isSelected && "arrangement-editor__row--selected",
+                        isSelected && "arrangement-editor__row--cursor",
                         isInSelection && "arrangement-editor__row--in-selection",
                         isFirstInSelection && "arrangement-editor__row--selection-first",
                         isLastInSelection && "arrangement-editor__row--selection-last",
@@ -674,18 +674,20 @@ export const ArrangementEditor: React.FC<{
                                     </button>
                                 </Tooltip>
                                 <span className="arrangement-editor__marker">
-                                    <SongOrderMarkerControl
-                                        value={orderItem.markerVariant}
-                                        onChange={(newVariant) => {
-                                            onSongChange({
-                                                description: 'Change song order marker',
-                                                undoable: true,
-                                                mutator: (s) => {
-                                                    s.songOrder[positionIndex]!.markerVariant = newVariant;
-                                                }
-                                            });
-                                        }}
-                                    />
+                                    <Tooltip title="Set marker">
+                                        <SongOrderMarkerControl
+                                            value={orderItem.markerVariant}
+                                            onChange={(newVariant) => {
+                                                onSongChange({
+                                                    description: 'Change song order marker',
+                                                    undoable: true,
+                                                    mutator: (s) => {
+                                                        s.songOrder[positionIndex]!.markerVariant = newVariant;
+                                                    }
+                                                });
+                                            }}
+                                        />
+                                    </Tooltip>
                                 </span>
                                 <span className="arrangement-editor__position-id">
                                     {formatPatternIndex(positionIndex)}
@@ -764,6 +766,35 @@ export const ArrangementEditor: React.FC<{
                         >
                             {CharMap.BoldSixPointedAsterisk}
                         </button>
+                    </Tooltip>
+                    <Tooltip title="Set marker for selected items">
+                        <div className="arrangement-editor__command">
+                            <SongOrderMarkerControl
+                                value={(() => {
+                                    const selection = getSelectionRange();
+                                    if (selection.length > 0) {
+                                        return song.songOrder[selection[0]]?.markerVariant ?? "default";
+                                    }
+                                    return "default";
+                                })()}
+                                onChange={(newMarker) => {
+                                    const selection = getSelectionRange();
+                                    if (selection.length > 0) {
+                                        onSongChange({
+                                            description: 'Set marker for selected items',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                selection.forEach(pos => {
+                                                    if (pos >= 0 && pos < s.songOrder.length) {
+                                                        s.songOrder[pos]!.markerVariant = newMarker;
+                                                    }
+                                                });
+                                            }
+                                        });
+                                    }
+                                }}
+                            />
+                        </div>
                     </Tooltip>
                 </div>
                 <div className="arrangement-editor__footer-row">

@@ -94,15 +94,15 @@ type PaletteSwatchProps = {
 };
 
 const PaletteSwatch: React.FC<PaletteSwatchProps> = ({ color, contrast }) => {
-    const onDragStart = (ev: React.DragEvent<HTMLButtonElement>) => {
+    const onDragStart = (ev: React.DragEvent<HTMLDivElement>) => {
         ev.dataTransfer.effectAllowed = 'copy';
         ev.dataTransfer.setData('application/x-somatic-color', color);
         ev.dataTransfer.setData('text/plain', color);
     };
 
     return (
-        <button
-            type="button"
+        <div
+            //type="button"
             className="theme-panel__swatch"
             draggable
             onDragStart={onDragStart}
@@ -110,7 +110,7 @@ const PaletteSwatch: React.FC<PaletteSwatchProps> = ({ color, contrast }) => {
             title={`Drag to apply ${color}`}
         >
             {/* {color} */}
-        </button>
+        </div>
     );
 };
 

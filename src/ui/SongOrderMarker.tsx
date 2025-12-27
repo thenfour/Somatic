@@ -9,7 +9,6 @@ import {
     mdiCardsDiamond,
     mdiCardsSpade,
     mdiCheck,
-    mdiCircle,
     mdiExclamation,
     mdiHeart,
     mdiHelp,
@@ -46,7 +45,7 @@ export const SongOrderMarkerValue: React.FC<SongOrderMarkerControlProps> = (prop
             case "check":
                 return <div className="marker-icon check-icon"><Icon path={mdiCheck} size={1} /></div>;
             case "blank":
-                return <div className="marker-icon blank-icon"><Icon path={mdiCircle} size={1} /></div>;
+                return <div className="marker-icon blank-icon"></div>;
             case "asterisk":
                 return <div className="marker-icon asterisk-icon"><Icon path={mdiAsterisk} size={1} /></div>;
             case "up":

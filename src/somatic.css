@@ -118,21 +118,22 @@
     --solo-button-active-label: #1a1c2c;
     --marker-default: #3b5dc9;
     --marker-star: #ffcd75;
-    --marker-question: #41a6f6;
+    --marker-question: #ffcd75;
     --marker-exclamation: #ef7d57;
-    --marker-check: #38b764;
-    --marker-blank: #94b0c2;
-    --marker-asterisk: #a7f070;
+    --marker-trash: #566c86;
+    --marker-check: #a7f070;
+    --marker-blank: #566c86;
+    --marker-asterisk: #73eff7;
     --marker-up: #b13e53;
-    --marker-circle1: #566c86;
-    --marker-circle2: #73eff7;
-    --marker-circle3: #257179;
-    --marker-circle4: #5d275d;
-    --marker-heart: #ef7d57;
-    --marker-diamond: #41a6f6;
-    --marker-club: #257179;
-    --marker-spade: #1a1c2c;
-    --marker-trash: #1a1c2c;
+    --marker-circle1: #73eff7;
+    --marker-circle2: #a7f070;
+    --marker-circle3: #ffcd75;
+    --marker-circle4: #b13e53;
+    --marker-heart: #b13e53;
+    --marker-diamond: #73eff7;
+    --marker-club: #566c86;
+    --marker-spade: #333c57;
+
 }
 
 .theme-dark {
@@ -145,7 +146,7 @@
     --border-strong: #566c86;
     --accent: #41a6f6;
     --accent-strong: #73eff7;
-    --row-a: var(--tic-1);
+    --row-a: #5d275d;
     --row-b: #333c57;
     --row-active: #38b764;
     --tooltip-bg: #1a1c2c;
@@ -185,23 +186,23 @@
     --solo-button-active-bg: #ffcd75;
     --mute-button-active-label: #f4f4f4;
     --solo-button-active-label: #1a1c2c;
-    --marker-default: #41a6f6;
+    --marker-default: #3b5dc9;
     --marker-star: #ffcd75;
-    --marker-question: #73eff7;
+    --marker-question: #ffcd75;
     --marker-exclamation: #ef7d57;
+    --marker-trash: #41a6f6;
     --marker-check: #38b764;
     --marker-blank: #566c86;
-    --marker-asterisk: #a7f070;
+    --marker-asterisk: #73eff7;
     --marker-up: #b13e53;
-    --marker-circle1: #94b0c2;
-    --marker-circle2: #73eff7;
-    --marker-circle3: #41a6f6;
-    --marker-circle4: #257179;
-    --marker-heart: #ef7d57;
+    --marker-circle1: #73eff7;
+    --marker-circle2: #a7f070;
+    --marker-circle3: #ffcd75;
+    --marker-circle4: #b13e53;
+    --marker-heart: #b13e53;
     --marker-diamond: #73eff7;
-    --marker-club: #38b764;
-    --marker-spade: #f4f4f4;
-    --marker-trash: #f4f4f4;
+    --marker-club: #94b0c2;
+    --marker-spade: #566c86;
 }
 
 html,
@@ -913,9 +914,9 @@ option {
 
 .arrangement-editor__command,
 .arrangement-editor__add {
-    border: 1px solid var(--border);
-    background: var(--panel);
-    color: var(--text);
+    /* border: 1px solid var(--border); */
+    /* background: var(--panel);
+    color: var(--text); */
     cursor: pointer;
     border-radius: 0;
     font-size: 18px;
@@ -989,6 +990,14 @@ option {
     border-right: var(--selection-rect-border);
 }
 
+.arrangement-editor__row--selection-container.arrangement-editor__row--cursor {
+    background-color: #8888;
+}
+
+.theme-dark .arrangement-editor__row--selection-container.arrangement-editor__row--cursor {
+    background-color: #0008;
+}
+
 .arrangement-editor__row--selection-container.arrangement-editor__row--selection-first {
     border-top: var(--selection-rect-border);
     border-top-left-radius: 3px;
@@ -1006,7 +1015,7 @@ option {
     border-radius: 4px;
 }
 
-.arrangement-editor__row--selected.arrangement-editor__row--playing {
+.arrangement-editor__row--cursor.arrangement-editor__row--playing {
     box-shadow: 0 0 0 2px var(--tic-0) inset, 0 0 0 4px var(--row-active) inset;
 }
 
