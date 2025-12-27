@@ -23,6 +23,19 @@
     width: 400px;
 }
 
+.pattern-grid-top-controls .pattern-usage-indicator {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-style: italic;
+}
+
+.pattern-grid-top-controls .pattern-usage-indicator--multiple {
+    color: var(--accent-strong);
+    font-weight: bold;
+}
+
 .pattern-grid {
     font-family: var(--ff-mono);
     border-collapse: collapse;

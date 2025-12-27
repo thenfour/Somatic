@@ -1149,6 +1149,15 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                 }}
                             //disabled={!editingEnabled} always allow this.
                             />
+                            {(() => {
+                                const usageCount = song.songOrder.filter(item => item.patternIndex === safePatternIndex).length;
+                                const isMultiple = usageCount > 1;
+                                return (
+                                    <span className={`pattern-usage-indicator ${isMultiple ? 'pattern-usage-indicator--multiple' : ''}`}>
+                                        {`${usageCount} instances in song`}
+                                    </span>
+                                );
+                            })()}
                         </label>
                     </div>
                     <table className="pattern-grid">

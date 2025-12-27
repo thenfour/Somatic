@@ -1046,6 +1046,11 @@ option {
     box-shadow: 0 0 0 2px var(--tic-0) inset, 0 0 0 4px var(--row-active) inset;
 }
 
+.arrangement-editor__row--pattern-match .arrangement-editor__pattern {
+    background: var(--accent);
+    color: var(--panel);
+}
+
 .arrangement-editor__row:hover .arrangement-editor__step,
 .arrangement-editor__row:hover .arrangement-editor__delete {
     opacity: 1;
@@ -1065,12 +1070,13 @@ option {
 }
 
 .arrangement-editor .arrangement-editor__pattern {
-    margin-left: 12px;
-    margin-right: 16px;
+    margin-left: 8px;
+    margin-right: 8px;
     color: var(--text);
     /* background-color: var(--row-a); */
     display: flex;
     align-items: center;
+    padding: 0 4px;
 }
 
 .arrangement-editor__pattern-name-container {

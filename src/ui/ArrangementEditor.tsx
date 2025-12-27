@@ -24,6 +24,7 @@ export const ArrangementEditor: React.FC<{
     const { confirm } = useConfirmDialog();
     const maxPatterns = SomaticCaps.maxPatternCount;
     const maxPositions = SomaticCaps.maxSongLength;
+    const cursorPatternIndex = song.songOrder[editorState.activeSongPosition]?.patternIndex;
 
     //const [editingPatternNameIndex, setEditingPatternNameIndex] = useState<number | null>(null);
     //const [editingPatternNameValue, setEditingPatternNameValue] = useState("");
@@ -614,6 +615,7 @@ export const ArrangementEditor: React.FC<{
                     const isInSelection = sel?.includesCoord({ x: 0, y: positionIndex }) || false;
                     const isPlaying = activeSongPosition === positionIndex;
                     const canDelete = song.songOrder.length > 1;
+                    const isMatchingCursorPattern = cursorPatternIndex !== undefined && clampedPattern === cursorPatternIndex;
 
                     // Determine if this is the first or last in selection
                     const isFirstInSelection = positionIndex === sel?.topInclusive(); //editorState.selectedArrangementPositions sortedSelection.length > 0 && positionIndex === sortedSelection[0];
@@ -627,6 +629,7 @@ export const ArrangementEditor: React.FC<{
                         isFirstInSelection && "arrangement-editor__row--selection-first",
                         isLastInSelection && "arrangement-editor__row--selection-last",
                         isPlaying && "arrangement-editor__row--playing",
+                        isMatchingCursorPattern && "arrangement-editor__row--pattern-match",
                     ].filter(Boolean).join(" ");
 
                     const controlsClass = [
