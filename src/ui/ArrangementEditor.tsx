@@ -591,6 +591,21 @@ export const ArrangementEditor: React.FC<{
             // style overflow auto.
             //onWheel={(e) => handleWheel(e)}
             >
+                {/*
+                TODO: drag handle. but it's jank currently:
+                - ESC needs to be handled (useListDragDrop should register a shortcut mgr)
+                - scroll while dragging changes your selection; it should be locked in during drag
+                - dragging beyond bounds should auto-scroll
+                 {drag.hasSelection && drag.handleStyle && (
+                    <div
+                        className="arrangement-editor__drag-handle"
+                        style={drag.handleStyle}
+                        onMouseDown={drag.onHandleMouseDown}
+                        title={drag.isCopy ? "Copy selection (Ctrl/Cmd toggles)" : "Drag to move; hold Ctrl/Cmd to copy"}
+                    >
+                        {CharMap.UpDown}
+                    </div>
+                )} */}
                 {song.songOrder.map((orderItem, positionIndex) => {
                     const patternIndex = orderItem.patternIndex;
                     const clampedPattern = clamp(patternIndex ?? 0, 0, maxPatterns - 1);
@@ -619,6 +634,10 @@ export const ArrangementEditor: React.FC<{
                     ].filter(Boolean).join(" ");
 
                     return (
+                        // {drag.isDragging && drag.dropIndex === positionIndex && (
+                        //     <div className="arrangement-editor__drop-line" />
+                        // )}
+
                         <div
                             key={positionIndex}
                             className={rowClass}

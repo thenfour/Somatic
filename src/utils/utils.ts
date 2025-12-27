@@ -177,6 +177,7 @@ export const CharMap = {
    DownArrow: "⬇",
    LeftArrow: "⬅",
    RightArrow: "➡",
+   UpDown: "↕",
    Flag: "⚑",
 };
 
