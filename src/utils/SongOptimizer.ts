@@ -3,6 +3,7 @@ import {encodePatternChannel} from "../audio/pattern_encoding";
 import {Tic80Instrument} from "../models/instruments";
 import {Pattern, PatternCell} from "../models/pattern";
 import {Song} from "../models/song";
+import {SongOrderItem} from "../models/songOrder";
 import {Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {Tic80Waveform} from "../models/waveform";
 import {clamp} from "./utils";
@@ -25,7 +26,7 @@ export function calculateSongUsage(song: Song): SongUsage {
    // patterns that appear in the order list
    const maxPatternIndex = Math.max(song.patterns.length - 1, 0);
    for (let i = 0; i < song.songOrder.length; i++) {
-      const idx = clamp(song.songOrder[i], 0, maxPatternIndex);
+      const idx = clamp(song.songOrder[i].patternIndex, 0, maxPatternIndex);
       usedPatterns.add(idx);
    }
 
@@ -208,15 +209,15 @@ export function OptimizeSong(song: Song): OptimizeResult {
    });
 
    const usedPatternSet = new Set<number>();
-   working.songOrder = working.songOrder.map((idx, orderPos) => {
+   working.songOrder = working.songOrder.map((item, orderPos) => {
       // keep indexes inside bounds before remapping.
-      const clamped = clamp(idx, 0, Math.max(working.patterns.length - 1, 0));
-      if (clamped !== idx) {
-         changeLog.push(`Song order entry ${orderPos} clamped from ${idx} to ${clamped}.`);
+      const clamped = clamp(item.patternIndex, 0, Math.max(working.patterns.length - 1, 0));
+      if (clamped !== item.patternIndex) {
+         changeLog.push(`Song order entry ${orderPos} clamped from ${item.patternIndex} to ${clamped}.`);
       }
       const mapped = patternRemap.get(clamped) ?? clamped;
       usedPatternSet.add(mapped);
-      return mapped;
+      return new SongOrderItem({patternIndex: mapped});
    });
 
    // Step 2: move used patterns to the front; keep unused after.
@@ -238,7 +239,8 @@ export function OptimizeSong(song: Song): OptimizeResult {
       }
    });
 
-   working.songOrder = working.songOrder.map((idx) => newPatternIndex.get(idx) ?? 0);
+   working.songOrder =
+      working.songOrder.map((item) => new SongOrderItem({patternIndex: newPatternIndex.get(item.patternIndex) ?? 0}));
    working.patterns = newPatterns;
    const usedPatternCount = usedPatternSet.size;
    changeLog.push(`Moved ${usedPatternCount} used patterns to the front out of ${newPatterns.length}.`);
@@ -405,7 +407,7 @@ export function OptimizeSong(song: Song): OptimizeResult {
    //    changeLog.push(`Trimmed song order to ${Tic80Caps.arrangement.count} entries.`);
    // }
    if (working.songOrder.length === 0) {
-      working.songOrder = [0];
+      working.songOrder = [new SongOrderItem({patternIndex: 0})];
       changeLog.push("Song order was empty; added pattern 0.");
    }
 

@@ -115,8 +115,8 @@ export class EditorState {
 
    getEditingPattern(song: Song): Pattern|null {
       const activeSongPosition = clamp(this.activeSongPosition, 0, song.songOrder.length - 1);
-      const patternId = song.songOrder[activeSongPosition]!;
-      return song.patterns[patternId] || null;
+      const item = song.songOrder[activeSongPosition]!;
+      return song.patterns[item.patternIndex] || null;
    }
 
    getEditingCell(song: Song): PatternCell|null {

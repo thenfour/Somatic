@@ -9,6 +9,7 @@ import { CharMap, clamp } from "../utils/utils";
 import { useConfirmDialog } from "./basic/confirm_dialog";
 import { Tooltip } from "./basic/tooltip";
 import { useWheelNavigator } from "../hooks/useWheelNavigator";
+import { SongOrderItem } from "../models/songOrder";
 
 const PAGE_SIZE = 4;
 
@@ -99,7 +100,7 @@ export const ArrangementEditor: React.FC<{
 
     // Find multiple unused pattern indices
     const findUnusedPatternIndices = (s: Song, count: number): number[] => {
-        const usedPatterns = new Set(s.songOrder);
+        const usedPatterns = new Set(s.songOrder.map(item => item.patternIndex));
         const result: number[] = [];
         for (let i = 0; i < maxPatterns && result.length < count; i++) {
             if (!usedPatterns.has(i)) {
@@ -123,11 +124,11 @@ export const ArrangementEditor: React.FC<{
             undoable: true,
             mutator: (s) => {
                 if (positionIndex < 0 || positionIndex >= s.songOrder.length) return;
-                const current = s.songOrder[positionIndex] ?? 0;
-                let next = current + delta;
+                const currentItem = s.songOrder[positionIndex] ?? new SongOrderItem({ patternIndex: 0 });
+                let next = currentItem.patternIndex + delta;
                 next = clamp(next, 0, maxPatterns - 1);
                 next = ensurePatternExists(s, next);
-                s.songOrder[positionIndex] = next;
+                s.songOrder[positionIndex] = new SongOrderItem({ patternIndex: next });
             },
         });
         onEditorStateChange((state) => {
@@ -186,7 +187,7 @@ export const ArrangementEditor: React.FC<{
                 const insertPos = selection[0];
                 const newPatterns = findUnusedPatternIndices(s, 1);
                 if (newPatterns.length > 0) {
-                    s.songOrder.splice(insertPos, 0, newPatterns[0]);
+                    s.songOrder.splice(insertPos, 0, new SongOrderItem({ patternIndex: newPatterns[0] }));
                 }
             },
         });
@@ -206,7 +207,7 @@ export const ArrangementEditor: React.FC<{
                 if (s.songOrder.length >= maxPositions) return;
                 const newPatterns = findUnusedPatternIndices(s, 1);
                 if (newPatterns.length > 0) {
-                    s.songOrder.splice(insertPos, 0, newPatterns[0]);
+                    s.songOrder.splice(insertPos, 0, new SongOrderItem({ patternIndex: newPatterns[0] }));
                 }
             },
         });
@@ -264,12 +265,12 @@ export const ArrangementEditor: React.FC<{
             undoable: true,
             mutator: (s) => {
                 if (s.songOrder.length >= maxPositions) return;
-                const patterns = selection.map(idx => s.songOrder[idx]);
+                const newItems = selection.map(idx => s.songOrder[idx].clone());
 
                 // Check if we have room
-                if (s.songOrder.length + patterns.length > maxPositions) return;
+                if (s.songOrder.length + newItems.length > maxPositions) return;
 
-                s.songOrder.splice(insertPos, 0, ...patterns);
+                s.songOrder.splice(insertPos, 0, ...newItems);
             },
         });
 
@@ -290,24 +291,26 @@ export const ArrangementEditor: React.FC<{
             undoable: true,
             mutator: (s) => {
                 if (s.songOrder.length >= maxPositions) return;
-                const patterns = selection.map(idx => s.songOrder[idx]);
+                const orderItems = selection.map(idx => s.songOrder[idx]);
 
                 // Check if we have room
-                if (s.songOrder.length + patterns.length > maxPositions) return;
+                if (s.songOrder.length + orderItems.length > maxPositions) return;
 
                 // Reserve all needed pattern indices upfront
-                const newPatternIndices = findUnusedPatternIndices(s, patterns.length);
-                if (newPatternIndices.length < patterns.length) return; // not enough unused patterns
+                const newPatternIndices = findUnusedPatternIndices(s, orderItems.length);
+                if (newPatternIndices.length < orderItems.length) return; // not enough unused patterns
 
                 // Create new pattern copies
-                const duplicatedPatterns = patterns.map((patternIdx, i) => {
+                const duplicatedItems: SongOrderItem[] = orderItems.map((orderItem, i) => {
                     const newPatternIdx = newPatternIndices[i];
-                    const sourcePattern = s.patterns[patternIdx];
+                    const sourcePattern = s.patterns[orderItem.patternIndex];
                     s.patterns[newPatternIdx] = sourcePattern.clone();
-                    return newPatternIdx;
+                    const newItem = orderItem.clone();
+                    newItem.patternIndex = newPatternIdx;
+                    return newItem;
                 });
 
-                s.songOrder.splice(insertPos, 0, ...duplicatedPatterns);
+                s.songOrder.splice(insertPos, 0, ...duplicatedItems);
             },
         });
 
@@ -330,15 +333,15 @@ export const ArrangementEditor: React.FC<{
 
                 // Count how many times each pattern index appears in the whole arrangement.
                 const patternUsageCount = new Map<number, number>();
-                for (const patIndex of s.songOrder) {
-                    patternUsageCount.set(patIndex, (patternUsageCount.get(patIndex) ?? 0) + 1);
+                for (const orderItem of s.songOrder) {
+                    patternUsageCount.set(orderItem.patternIndex, (patternUsageCount.get(orderItem.patternIndex) ?? 0) + 1);
                 }
 
                 // Determine which selection positions need a unique clone
                 // (i.e. their pattern index is used more than once in the song).
                 const positionsNeedingClone: number[] = [];
                 for (const pos of selection) {
-                    const patIndex = s.songOrder[pos];
+                    const patIndex = s.songOrder[pos].patternIndex;
                     const count = patternUsageCount.get(patIndex) ?? 0;
                     if (count > 1) {
                         positionsNeedingClone.push(pos);
@@ -358,14 +361,14 @@ export const ArrangementEditor: React.FC<{
                 // and point this arrangement position at the clone.
                 for (let i = 0; i < positionsNeedingClone.length; i += 1) {
                     const pos = positionsNeedingClone[i];
-                    const sourcePatternIndex = s.songOrder[pos];
+                    const sourceItem = s.songOrder[pos];
                     const targetPatternIndex = newPatternIndices[i];
-
-                    const sourcePattern = s.patterns[sourcePatternIndex];
-                    if (!sourcePattern) continue;
+                    const sourcePattern = s.patterns[sourceItem.patternIndex];
 
                     s.patterns[targetPatternIndex] = sourcePattern.clone();
-                    s.songOrder[pos] = targetPatternIndex;
+                    const newItem = sourceItem.clone();
+                    newItem.patternIndex = targetPatternIndex;
+                    s.songOrder[pos] = newItem;
                 }
             },
         });
@@ -585,7 +588,8 @@ export const ArrangementEditor: React.FC<{
             // style overflow auto.
             //onWheel={(e) => handleWheel(e)}
             >
-                {song.songOrder.map((patternIndex, positionIndex) => {
+                {song.songOrder.map((orderItem, positionIndex) => {
+                    const patternIndex = orderItem.patternIndex;
                     const clampedPattern = clamp(patternIndex ?? 0, 0, maxPatterns - 1);
                     const isSelected = editorState.activeSongPosition === positionIndex;
                     const sel = editorState.selectedArrangementPositions;

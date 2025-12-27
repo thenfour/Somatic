@@ -2,6 +2,7 @@ import {LoopMode, SomaticTransportState, Tic80TransportState} from "../audio/bac
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {Pattern, PatternCell} from "../models/pattern";
 import {Song} from "../models/song";
+import {SongOrderItem} from "../models/songOrder";
 import {gChannelsArray, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 
 export interface BakeSongArgs {
@@ -244,14 +245,14 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
       case "pattern": {
          wantSongLoop = true;
 
-         const patternIndex = bakedSong.songOrder[cursorSongOrder];
+         const patternIndex = bakedSong.songOrder[cursorSongOrder].patternIndex;
          const srcPattern = bakedSong.patterns[patternIndex];
          if (srcPattern) {
             // Create a song with just this one pattern
             const sliceLength = bakedSong.rowsPerPattern;
             const newPattern = createSlicedPattern(srcPattern, 0, sliceLength);
             bakedSong.patterns = [newPattern];
-            bakedSong.songOrder = [0];
+            bakedSong.songOrder = [new SongOrderItem({patternIndex: 0})];
             bakedSong.rowsPerPattern = computeRepeatedRowCount(sliceLength);
          }
          resultStartPosition = 0;
@@ -276,7 +277,8 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          if (!rangeSize) {
             break;
          }
-         const selectedOrders = bakedSong.songOrder.slice(rangeStart, rangeStart + rangeSize);
+         const selectedOrders =
+            bakedSong.songOrder.slice(rangeStart, rangeStart + rangeSize).map((item) => item.patternIndex);
          const patternMap = new Map<number, number>();
          const newPatterns: Pattern[] = [];
          const newSongOrder: number[] = [];
@@ -291,7 +293,7 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
             newSongOrder.push(mappedIndex);
          }
          bakedSong.patterns = newPatterns;
-         bakedSong.songOrder = newSongOrder;
+         bakedSong.songOrder = newSongOrder.map((pi) => new SongOrderItem({patternIndex: pi}));
          resultStartPosition = 0;
          resultStartRow = 0;
          somaticSongOrderLoop = {
@@ -307,7 +309,7 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          // Loop the half of the pattern containing the cursor row
          wantSongLoop = true;
 
-         const patternIndex = bakedSong.songOrder[cursorSongOrder] ?? 0;
+         const patternIndex = bakedSong.songOrder[cursorSongOrder].patternIndex;
          const srcPattern = bakedSong.patterns[patternIndex];
          if (srcPattern) {
             const rowsPerPattern = bakedSong.rowsPerPattern;
@@ -318,7 +320,7 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
 
             const newPattern = createSlicedPattern(srcPattern, halfStart, halfLength);
             bakedSong.patterns = [newPattern];
-            bakedSong.songOrder = [0];
+            bakedSong.songOrder = [new SongOrderItem({patternIndex: 0})];
             bakedSong.rowsPerPattern = computeRepeatedRowCount(halfLength);
          }
          resultStartPosition = 0;
@@ -343,7 +345,7 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          // Loop the quarter of the pattern containing the cursor row
          wantSongLoop = true;
 
-         const patternIndex = bakedSong.songOrder[cursorSongOrder] ?? 0;
+         const patternIndex = bakedSong.songOrder[cursorSongOrder].patternIndex;
          const srcPattern = bakedSong.patterns[patternIndex];
          if (srcPattern) {
             const rowsPerPattern = bakedSong.rowsPerPattern;
@@ -354,7 +356,7 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
 
             const newPattern = createSlicedPattern(srcPattern, quarterStart, quarterLength);
             bakedSong.patterns = [newPattern];
-            bakedSong.songOrder = [0];
+            bakedSong.songOrder = [new SongOrderItem({patternIndex: 0})];
             bakedSong.rowsPerPattern = computeRepeatedRowCount(quarterLength);
          }
          resultStartPosition = 0;
@@ -379,7 +381,7 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          wantSongLoop = true;
          songOrderOffset = cursorSongOrder;
 
-         const patternIndex = bakedSong.songOrder[cursorSongOrder] ?? 0;
+         const patternIndex = bakedSong.songOrder[cursorSongOrder].patternIndex;
          const srcPattern = bakedSong.patterns[patternIndex];
 
          if (srcPattern && patternSelection) {
@@ -390,7 +392,7 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
 
             const newPattern = createSlicedPattern(srcPattern, selTop, selectionRowCount);
             bakedSong.patterns = [newPattern];
-            bakedSong.songOrder = [0];
+            bakedSong.songOrder = [new SongOrderItem({patternIndex: 0})];
             bakedSong.rowsPerPattern = computeRepeatedRowCount(selectionRowCount);
             somaticPatternRowLoop = {
                beginSomaticPatternRow: selTop,
@@ -404,7 +406,7 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
                const sliceLength = bakedSong.rowsPerPattern;
                const newPattern = createSlicedPattern(srcPattern, 0, sliceLength);
                bakedSong.patterns = [newPattern];
-               bakedSong.songOrder = [0];
+               bakedSong.songOrder = [new SongOrderItem({patternIndex: 0})];
                bakedSong.rowsPerPattern = computeRepeatedRowCount(sliceLength);
             }
          }

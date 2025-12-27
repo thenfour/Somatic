@@ -2,6 +2,7 @@ import {clamp, IsNullOrWhitespace, SanitizeFilename} from "../utils/utils";
 
 import {Tic80Instrument, Tic80InstrumentDto} from "./instruments";
 import {Pattern, PatternDto} from "./pattern";
+import {SongOrderDto, SongOrderItem} from "./songOrder";
 import {Tic80Caps} from "./tic80Capabilities";
 import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
 
@@ -22,8 +23,7 @@ export type SongDto = {
    instruments: Tic80InstrumentDto[]; //
    waveforms: Tic80WaveformDto[];
    patterns: PatternDto[];
-   songOrder: number[]; // index into patterns
-
+   songOrder: (number|SongOrderDto)[]; // index into patterns
 };
 
 const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {
@@ -91,7 +91,7 @@ export class Song {
    instruments: Tic80Instrument[];
    waveforms: Tic80Waveform[];
    patterns: Pattern[];
-   songOrder: number[]; // index into patterns
+   songOrder: SongOrderItem[]; // index into patterns
    rowsPerPattern: number;
    // positions: number[];
 
@@ -107,7 +107,7 @@ export class Song {
    constructor(data: Partial<SongDto> = {}) {
       this.instruments = makeInstrumentList(data.instruments || []);
       this.patterns = makePatternList(data.patterns || []);
-      this.songOrder = data.songOrder || [0]; // default to first pattern
+      this.songOrder = (data.songOrder || [0]).map((item) => new SongOrderItem(item)); // default to first pattern
       this.waveforms = makeWaveformList(data.waveforms || []);
       this.rowsPerPattern = clamp(data.rowsPerPattern ?? Tic80Caps.pattern.maxRows, 1, Tic80Caps.pattern.maxRows);
       this.tempo = clamp(data.tempo ?? 120, 1, 255);
@@ -153,7 +153,7 @@ export class Song {
          instruments: this.instruments.map((inst) => inst.toData()),
          patterns: this.patterns.map((pattern) => pattern.toData()),
          waveforms: this.waveforms.map((wave) => wave.toData()),
-         songOrder: [...this.songOrder],
+         songOrder: this.songOrder.map((item) => item.toData()),
          tempo: this.tempo,
          speed: this.speed,
          rowsPerPattern: this.rowsPerPattern,

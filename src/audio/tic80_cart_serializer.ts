@@ -590,7 +590,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
    const songOrderData = new Uint8Array(1 + SomaticCaps.maxSongLength);
    songOrderData[0] = bakedSong.bakedSong.songOrder.length;
    for (let i = 0; i < SomaticCaps.maxSongLength; i++) {
-      const patternIndex = bakedSong.bakedSong.songOrder[i] ?? 0;
+      const patternIndex = bakedSong.bakedSong.songOrder[i]?.patternIndex ?? 0;
       songOrderData[1 + i] = patternIndex & 0xff;
    }
 
@@ -732,7 +732,7 @@ function getCode(song: Song, variant: "debug"|"release", featureUsage?: Playback
 } {
    // Generate the SOMATIC_MUSIC_DATA section
    const features = featureUsage ?? analyzePlaybackFeatures(song);
-   const songOrder = song.songOrder.map(idx => idx.toString()).join(",");
+   const songOrder = song.songOrder.map(idx => idx.patternIndex.toString()).join(",");
    const morphMapLua = makeMorphMapLua(song);
 
    const maxPattern = getMaxPatternUsedIndex(song);

@@ -21,8 +21,8 @@ type SongEditorProps = {
 };
 
 export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSongChange, onEditorStateChange, audio }) => {
-    const patternId = song.songOrder[editorState.activeSongPosition]!;
-    const pattern = song.patterns[patternId]!;
+    const patternId = song.songOrder[editorState.activeSongPosition].patternIndex ?? 0;
+    //const pattern = song.patterns[patternId]!;
     const mgr = useShortcutManager();
 
     const onSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {

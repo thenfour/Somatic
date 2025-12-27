@@ -110,9 +110,10 @@ const normalizeInstrumentValue = (value: number): number => {
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
     ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange, advancedEditPanelOpen, onSetAdvancedEditPanelOpen }, ref) => {
         const mgr = useShortcutManager<GlobalActionId>();
-        const currentPosition = Math.max(0, Math.min(song.songOrder.length - 1, editorState.activeSongPosition || 0));
-        const currentPatternIndex = song.songOrder[currentPosition] ?? 0;
-        const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, song.patterns.length - 1));
+        const currentPosition = clamp(editorState.activeSongPosition ?? 0, 0, song.songOrder.length - 1); // Math.max(0, Math.min(song.songOrder.length - 1, editorState.activeSongPosition || 0));
+        const currentSongOrderItem = song.songOrder[currentPosition] ?? null;
+        const currentPatternIndex = currentSongOrderItem?.patternIndex ?? 0;
+        const safePatternIndex = clamp(currentPatternIndex, 0, song.patterns.length - 1);
         const [currentColumnIndex, setCurrentColumnIndex] = useState(0);
         const pattern: Pattern = song.patterns[safePatternIndex];
         const playbackAnalysis = useMemo(
@@ -566,9 +567,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const playbackSongPosition = musicState.currentSomaticSongPosition ?? -1;
         const playbackRowIndexRaw = musicState.currentSomaticRowIndex ?? -1;
-        const playbackPatternIndex = playbackSongPosition >= 0 && song.songOrder.length > 0
+        const playbackSongOrderItem = playbackSongPosition >= 0 && song.songOrder.length > 0
             ? song.songOrder[Math.min(playbackSongPosition, song.songOrder.length - 1)] ?? null
             : null;
+        const playbackPatternIndex = playbackSongOrderItem?.patternIndex ?? null;
         const isViewingActivePattern = playbackPatternIndex !== null && playbackPatternIndex === safePatternIndex;
         const activeRow = isViewingActivePattern && playbackRowIndexRaw >= 0
             ? Math.max(0, Math.min(song.rowsPerPattern - 1, playbackRowIndexRaw))
