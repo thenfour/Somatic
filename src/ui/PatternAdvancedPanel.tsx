@@ -117,37 +117,31 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ song
                 </section>
 
                 <section className="pattern-advanced-panel__section">
-                    <label className="pattern-advanced-panel__stacked">
-                        <div className="pattern-advanced-panel__inputRow">
-                            <Dropdown
-                                value={setInstrumentValue}
-                                onChange={(inst) => setSetInstrumentValue(inst)}
-                                options={instrumentOptions}
-                            />
-                            {/* 
-                            <input
-                                type="number"
-                                min={0}
-                                max={63}
-                                value={setInstrumentValue}
-                                onChange={(e) => setSetInstrumentValue(Number(e.target.value))}
-                            /> */}
-                            <button
-                                type="button"
-                                className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
-                                onClick={() => onSetInstrument(setInstrumentValue, scope)}
-                                disabled={!enabled}
-                            >
-                                Set instrument
-                            </button>
-                        </div>
-                    </label>
+                    <div className="pattern-advanced-panel__inputRow">
+                        <Dropdown
+                            value={setInstrumentValue}
+                            onChange={(inst) => setSetInstrumentValue(inst)}
+                            options={instrumentOptions}
+                        />
+                    </div>
+                    <div className="pattern-advanced-panel__inputRow">
+                        <button
+                            type="button"
+                            className="pattern-advanced-panel__button pattern-advanced-panel__button--primary"
+                            onClick={() => onSetInstrument(setInstrumentValue, scope)}
+                            disabled={!enabled}
+                        >
+                            Set instrument
+                        </button>
+                    </div>
                     <div className="pattern-advanced-panel__inputRow">
                         <Dropdown
                             value={changeInstrumentFrom}
                             onChange={(inst) => setChangeInstrumentFrom(inst)}
                             options={instrumentOptions}
                         />
+                    </div>
+                    <div className="pattern-advanced-panel__inputRow">
                         <span className="pattern-advanced-panel__arrow">{CharMap.RightTriangle}</span>
                         <Dropdown
                             value={changeInstrumentTo}
@@ -162,7 +156,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({ song
                             onClick={() => onChangeInstrument(changeInstrumentFrom, changeInstrumentTo, scope)}
                             disabled={!enabled}
                         >
-                            Change Inst
+                            Change Instrument
                         </button>
                     </div>                    <div className="pattern-advanced-panel__buttonRow">
                         <Tooltip

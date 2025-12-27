@@ -64,7 +64,7 @@ const makeInstrumentList = (data: Tic80InstrumentDto[]): Tic80Instrument[] => {
          } else if (i === 1) {
             ret.name = "off";
          } else {
-            ret.name = `SFX ${i}`;
+            ret.name = `new inst ${i.toString(16).toUpperCase().padStart(2, "0")}`;
          }
       }
       return ret;

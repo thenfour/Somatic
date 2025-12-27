@@ -1,17 +1,26 @@
 .chip {
-    font-size: 12px;
+    font-size: 13px;
     background-color: var(--row-a);
     border-radius: 3px;
     border: 1px solid var(--border);
     display: flex;
     align-items: center;
-    padding: 2px 8px;
+    padding: 3px 10px;
     white-space: nowrap;
+    max-width: 150px;
 }
 
 .chip .instrument-chip-index,
 .chip .instrument-chip-name {
     color: var(--cell-instrument);
+}
+
+
+.chip .instrument-chip-name {
+    text-overflow: ellipsis;
+    display: inline-block;
+    overflow: hidden;
+
 }
 
 .chip .instrument-chip-krate-badge {
