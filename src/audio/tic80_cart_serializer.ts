@@ -696,7 +696,7 @@ function getCode(song: Song, variant: "debug"|"release", featureUsage?: Playback
    const features = featureUsage ?? analyzePlaybackFeatures(song);
    const preparedSong = prepareSongColumns(song);
    const songOrder =
-      preparedSong.songOrder.map((entry) => `{ ${entry.patternColumnIndices.map((v) => v.toString()).join(", ")} }`)
+      preparedSong.songOrder.map((entry) => `{${entry.patternColumnIndices.map((v) => v.toString()).join(",")}}`)
          .join(",");
    const morphMapLua = makeMorphMapLua(song);
 
@@ -717,9 +717,10 @@ function getCode(song: Song, variant: "debug"|"release", featureUsage?: Playback
       const fitsInPatternRam = (patternRamCursor + compressed.length) <= patternMemoryCapacity;
       if (fitsInPatternRam) {
          patternRamBuffer.set(compressed, patternRamCursor);
-         const absAddr = Tic80Caps.pattern.memory.start + patternRamCursor;
+         const absAddr = /*Tic80Caps.pattern.memory.start + */ patternRamCursor;
          patternRamCursor += compressed.length;
-         return `0x${absAddr.toString(16)}`; // numeric Lua literal for memory-backed column
+         //return `0x${absAddr.toString(16)}`; // numeric Lua literal for memory-backed column
+         return `${absAddr.toString()}`; // numeric Lua literal for memory-backed column
       }
 
       // Spill to base85 string when RAM is full.
@@ -728,13 +729,13 @@ function getCode(song: Song, variant: "debug"|"release", featureUsage?: Playback
    });
 
    const patternRamData = patternRamBuffer.subarray(0, patternRamCursor);
-   const patternArray = patternEntries.join(",\n\t\t");
+   const patternArray = patternEntries.join(",");
 
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
 SOMATIC_MUSIC_DATA = {
  songOrder = { ${songOrder} },
  instrumentMorphMap = ${morphMapLua},
- patternLengths = { ${patternLengths.join(", ")} },
+ patternLengths = { ${patternLengths.join(",")} },
  patterns = {
   ${patternArray}
  },
