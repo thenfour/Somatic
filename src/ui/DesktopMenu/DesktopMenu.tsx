@@ -168,19 +168,61 @@ const focusFirstItem = (container: HTMLElement | null) => {
     }
 };
 
-const getMenuPosition = (placement: MenuPlacement, trigger: HTMLElement | null) => {
+const getMenuPosition = (placement: MenuPlacement, trigger: HTMLElement | null, menuContent: HTMLElement | null) => {
     if (!trigger) return { top: 0, left: 0, minWidth: undefined as number | undefined };
     const rect = trigger.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+
+    // Estimate menu dimensions (will be refined once rendered)
+    const menuHeight = menuContent?.offsetHeight ?? 300; // Default estimate
+    const menuWidth = menuContent?.offsetWidth ?? 200; // Default estimate
+
     if (placement === 'right-start') {
+        let top = rect.top;
+        let left = rect.right;
+
+        // Adjust horizontal position if menu would overflow right edge
+        if (left + menuWidth > viewportWidth) {
+            left = rect.left - menuWidth;
+        }
+
+        // Adjust vertical position if menu would overflow bottom
+        if (top + menuHeight > viewportHeight) {
+            top = Math.max(8, viewportHeight - menuHeight - 8);
+        }
+
         return {
-            top: rect.top,
-            left: rect.right,
+            top,
+            left,
             minWidth: undefined,
         };
     }
+
+    // bottom-start placement
+    let top = rect.bottom;
+    let left = rect.left;
+
+    // Adjust vertical position if menu would overflow bottom
+    if (top + menuHeight > viewportHeight) {
+        // Try to position above the trigger instead
+        const topPosition = rect.top - menuHeight;
+        if (topPosition >= 8) {
+            top = topPosition;
+        } else {
+            // Not enough room above either, position at top with padding
+            top = Math.max(8, viewportHeight - menuHeight - 8);
+        }
+    }
+
+    // Adjust horizontal position if menu would overflow right edge
+    if (left + menuWidth > viewportWidth) {
+        left = Math.max(8, viewportWidth - menuWidth - 8);
+    }
+
     return {
-        top: rect.bottom,
-        left: rect.left,
+        top,
+        left,
         minWidth: rect.width,
     };
 };
@@ -401,12 +443,12 @@ const MenuContentBody: React.FC<MenuContentBodyProps> = ({ ctx, classes, content
 
 const MenuContent = React.forwardRef<HTMLDivElement, MenuContentProps>(({ children, className = '', minWidth, style, autoFocus = true }, forwardedRef) => {
     const ctx = useMenuContext('DesktopMenu.Content');
-    const [position, setPosition] = useState(() => getMenuPosition(ctx.placement, ctx.triggerRef.current));
+    const [position, setPosition] = useState(() => getMenuPosition(ctx.placement, ctx.triggerRef.current, null));
     const combinedRef = composeRefs<HTMLDivElement>(forwardedRef, (node) => { ctx.contentRef.current = node; });
 
     useLayoutEffect(() => {
         if (!ctx.isOpen) return;
-        const update = () => setPosition(getMenuPosition(ctx.placement, ctx.triggerRef.current));
+        const update = () => setPosition(getMenuPosition(ctx.placement, ctx.triggerRef.current, ctx.contentRef.current));
         update();
         window.addEventListener('resize', update);
         window.addEventListener('scroll', update, true);
@@ -414,7 +456,7 @@ const MenuContent = React.forwardRef<HTMLDivElement, MenuContentProps>(({ childr
             window.removeEventListener('resize', update);
             window.removeEventListener('scroll', update, true);
         };
-    }, [ctx.isOpen, ctx.placement, ctx.triggerRef]);
+    }, [ctx.isOpen, ctx.placement, ctx.triggerRef, ctx.contentRef]);
 
     useEffect(() => {
         if (!ctx.isOpen) return;
