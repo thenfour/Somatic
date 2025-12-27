@@ -798,7 +798,7 @@ local function blit_pattern_column(columnIndex0b, destPointer)
 	local srcPtr = __AUTOGEN_TEMP_PTR_A
 	local decodedLen
 	if type(entry) == "number" then
-		srcPtr = entry
+		srcPtr = entry + PATTERNS_BASE
 		decodedLen = patternLengthBytes
 	else
 		decodedLen = base85_decode_to_mem(entry, patternLengthBytes, srcPtr)

@@ -571,7 +571,7 @@ do
 		local entry = SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1]
 		local clen = SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1]
 		if type(entry) == "number" then
-			lzdm(entry, clen, destPointer)
+			lzdm(entry + PAT_BASE, clen, destPointer)
 		else
 			lzdm(__AUTOGEN_TEMP_PTR_A, b85d(entry, clen, __AUTOGEN_TEMP_PTR_A), destPointer)
 		end
