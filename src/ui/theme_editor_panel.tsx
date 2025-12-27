@@ -90,6 +90,12 @@ const THEME_VARS = {
         '--marker-club',
         '--marker-spade',
     ],
+    "Arrangement Thumbnails": [
+        '--arr-thumb-bg',
+        '--arr-thumb-fill',
+        '--arr-thumb-highlight',
+        '--arr-thumb-border',
+    ],
 
 } as const;
 

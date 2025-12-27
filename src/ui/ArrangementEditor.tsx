@@ -1,18 +1,28 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { SomaticTransportState, Tic80TransportState } from "../audio/backend";
+import React, { useEffect, useMemo, useRef } from "react";
+import type { SomaticTransportState } from "../audio/backend";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 import { SelectionRect2D, useRectSelection2D } from "../hooks/useRectSelection2D";
+import { useWheelNavigator } from "../hooks/useWheelNavigator";
 import { EditorState } from "../models/editor_state";
 import { Pattern } from "../models/pattern";
 import { formatPatternIndex, Song } from "../models/song";
+import { SongOrderItem } from "../models/songOrder";
 import { SomaticCaps } from "../models/tic80Capabilities";
 import { CharMap, clamp } from "../utils/utils";
 import { useConfirmDialog } from "./basic/confirm_dialog";
 import { Tooltip } from "./basic/tooltip";
-import { useWheelNavigator } from "../hooks/useWheelNavigator";
-import { SongOrderItem } from "../models/songOrder";
+import { renderThumbnail, ThumbnailPrefs } from "./PatternThumbnail";
 import { SongOrderMarkerControl } from "./SongOrderMarker";
+import Icon from "@mdi/react";
+import { mdiImageMultipleOutline } from "@mdi/js";
+import './ArrangementEditor.css';
 
 const PAGE_SIZE = 4;
+
+const DEFAULT_THUMB_PREFS: ThumbnailPrefs = {
+    size: "full",
+    mode: "currentInstrument",
+};
 
 export const ArrangementEditor: React.FC<{
     song: Song;
@@ -25,6 +35,11 @@ export const ArrangementEditor: React.FC<{
     const maxPatterns = SomaticCaps.maxPatternCount;
     const maxPositions = SomaticCaps.maxSongLength;
     const cursorPatternIndex = song.songOrder[editorState.activeSongPosition]?.patternIndex;
+
+    const [thumbnailPrefs, setThumbnailPrefs] = useLocalStorage<ThumbnailPrefs>(
+        "somatic-arrangement-thumbnails",
+        DEFAULT_THUMB_PREFS,
+    );
 
     //const [editingPatternNameIndex, setEditingPatternNameIndex] = useState<number | null>(null);
     //const [editingPatternNameValue, setEditingPatternNameValue] = useState("");
@@ -424,6 +439,13 @@ export const ArrangementEditor: React.FC<{
         nudgeSelectionAndFocusAnchor(1);
     };
 
+    const toggleThumbnails = () => {
+        setThumbnailPrefs((prev) => ({
+            ...prev,
+            size: prev.size === "off" ? "full" : "off",
+        }));
+    };
+
     const patternDisplayName = (patternIndex: number) => {
         const pat = song.patterns[patternIndex]!;
         if (!pat) return "";
@@ -583,6 +605,13 @@ export const ArrangementEditor: React.FC<{
 
     const activeSongPosition = musicState.currentSomaticSongPosition ?? -1;
 
+    const thumbnailCache = useMemo(() => new Map<string, React.ReactNode>(), []);
+    const thumbnailsEnabled = thumbnailPrefs.size !== "off";
+    const thumbnailToggleClass = [
+        "arrangement-editor__command",
+        thumbnailsEnabled && "arrangement-editor__command--active",
+    ].filter(Boolean).join(" ");
+
     return (
         <div className="arrangement-editor">
             <div className="arrangement-editor__header">
@@ -610,12 +639,20 @@ export const ArrangementEditor: React.FC<{
                 {song.songOrder.map((orderItem, positionIndex) => {
                     const patternIndex = orderItem.patternIndex;
                     const clampedPattern = clamp(patternIndex ?? 0, 0, maxPatterns - 1);
+                    const pattern = song.patterns[clampedPattern];
                     const isSelected = editorState.activeSongPosition === positionIndex;
                     const sel = editorState.selectedArrangementPositions;
                     const isInSelection = sel?.includesCoord({ x: 0, y: positionIndex }) || false;
                     const isPlaying = activeSongPosition === positionIndex;
                     const canDelete = song.songOrder.length > 1;
                     const isMatchingCursorPattern = cursorPatternIndex !== undefined && clampedPattern === cursorPatternIndex;
+                    const thumbKey = pattern ? pattern.contentSignature() : `nopat-${clampedPattern}`;
+                    const cacheKey = `${thumbKey}|${thumbnailPrefs.size}|${thumbnailPrefs.mode}|${editorState.currentInstrument}|${song.rowsPerPattern}`;
+                    let thumbnail = thumbnailCache.get(cacheKey);
+                    if (thumbnail === undefined) {
+                        thumbnail = renderThumbnail(pattern, song.rowsPerPattern, thumbnailPrefs, editorState.currentInstrument);
+                        thumbnailCache.set(cacheKey, thumbnail);
+                    }
 
                     // Determine if this is the first or last in selection
                     const isFirstInSelection = positionIndex === sel?.topInclusive(); //editorState.selectedArrangementPositions sortedSelection.length > 0 && positionIndex === sortedSelection[0];
@@ -695,6 +732,19 @@ export const ArrangementEditor: React.FC<{
                                         {">"}
                                     </button>
                                 </Tooltip>
+                                <span className="arrangement-editor__position-id">
+                                    {formatPatternIndex(positionIndex)}
+                                </span>
+                                <span
+                                    className="arrangement-editor__pattern"
+                                >
+                                    {formatPatternIndex(clampedPattern)}
+                                </span>
+                                {thumbnail && (
+                                    <div className="arrangement-editor__thumbnail-container" aria-hidden="true">
+                                        {thumbnail}
+                                    </div>
+                                )}
                                 <span className="arrangement-editor__marker">
                                     <Tooltip title="Set marker">
                                         <SongOrderMarkerControl
@@ -710,14 +760,6 @@ export const ArrangementEditor: React.FC<{
                                             }}
                                         />
                                     </Tooltip>
-                                </span>
-                                <span className="arrangement-editor__position-id">
-                                    {formatPatternIndex(positionIndex)}
-                                </span>
-                                <span
-                                    className="arrangement-editor__pattern"
-                                >
-                                    {formatPatternIndex(clampedPattern)}
                                 </span>
                                 <div
                                     className="arrangement-editor__pattern-name-container"
@@ -851,6 +893,17 @@ export const ArrangementEditor: React.FC<{
                             aria-label="Move down"
                         >
                             {CharMap.DownArrow}
+                        </button>
+                    </Tooltip>
+                    <Tooltip title={thumbnailsEnabled ? "Hide thumbnails" : "Show thumbnails"}>
+                        <button
+                            type="button"
+                            className={thumbnailToggleClass}
+                            onClick={toggleThumbnails}
+                            aria-pressed={thumbnailsEnabled}
+                            aria-label="Toggle thumbnails"
+                        >
+                            <Icon path={mdiImageMultipleOutline} size={1} />
                         </button>
                     </Tooltip>
                 </div>

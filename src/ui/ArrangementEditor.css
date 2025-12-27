@@ -1,0 +1,285 @@
+.arrangement-editor {
+    display: flex;
+    flex-direction: column;
+    border-right: 2px solid var(--border);
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.arrangement-editor__header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 2px 4px;
+    flex-shrink: 0;
+}
+
+/* scrollable content area (not including footer with controls) */
+.arrangement-editor__content {
+    overflow: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 8px 1px;
+    padding-bottom: 20vh;
+    position: relative;
+}
+
+.arrangement-editor__footer {
+    flex-shrink: 0;
+    padding: 0;
+    border-top: 1px solid var(--border);
+}
+
+.arrangement-editor__footer-row {
+    gap: 6px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 4px 8px;
+}
+
+.arrangement-editor__command,
+.arrangement-editor__add {
+    /* border: 1px solid var(--border); */
+    /* background: var(--panel);
+    color: var(--text); */
+    cursor: pointer;
+    border-radius: 0;
+    font-size: 18px;
+    width: 28px;
+    display: flex;
+    align-items: center;
+}
+
+.arrangement-editor button.arrangement-editor__command--active {
+    background: var(--panel-strong);
+    color: var(--text);
+}
+
+.arrangement-editor__command--active:hover:not(:disabled) {
+    background: var(--accent-strong);
+}
+
+.arrangement-editor__command:hover:not(:disabled),
+.arrangement-editor__add:hover:not(:disabled) {
+    background: var(--panel-strong);
+    border-color: var(--accent);
+}
+
+.arrangement-editor__command:disabled,
+.arrangement-editor__add:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.arrangement-editor__toggle-names {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 1px 4px;
+}
+
+
+
+.arrangement-editor button {
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.arrangement-editor__step,
+.arrangement-editor__delete {
+    opacity: 0;
+}
+
+.arrangement-editor__row {
+    display: flex;
+    color: var(--muted);
+    outline: none;
+    cursor: pointer;
+}
+
+.arrangement-editor__drag-handle {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: var(--bg);
+    cursor: grab;
+    border-radius: 2px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    z-index: 5;
+    pointer-events: auto;
+}
+
+.arrangement-editor__drag-handle:active {
+    cursor: grabbing;
+}
+
+.arrangement-editor__drop-line {
+    height: 2px;
+    background: var(--accent-strong);
+    margin: 2px 4px;
+}
+
+
+.arrangement-editor__controls:focus {
+    /* outline: 2px solid var(--accent-strong);
+    outline-offset: -2px; */
+    outline: 0;
+}
+
+
+
+.arrangement-editor__row--selection-container {
+    border-left: 1px solid transparent;
+    border-right: 1px solid transparent;
+    border-top: 1px solid transparent;
+    border-bottom: 1px solid transparent;
+
+    --selection-rect-border: 1px solid var(--accent);
+}
+
+.arrangement-editor__row--selection-container.arrangement-editor__row--in-selection {
+    background-color: #8883;
+    border-left: var(--selection-rect-border);
+    border-right: var(--selection-rect-border);
+}
+
+.arrangement-editor__row--selection-container.arrangement-editor__row--cursor {
+    background-color: #8888;
+}
+
+.theme-dark .arrangement-editor__row--selection-container.arrangement-editor__row--cursor {
+    background-color: #0008;
+}
+
+.arrangement-editor__row--selection-container.arrangement-editor__row--selection-first {
+    border-top: var(--selection-rect-border);
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+}
+
+.arrangement-editor__row--selection-last {
+    border-bottom: var(--selection-rect-border);
+    /* nope: drag handle now is visible. border-bottom-left-radius: 3px; */
+    border-bottom-right-radius: 3px;
+}
+
+.arrangement-editor__row--playing {
+    box-shadow: 0 0 0 2px var(--row-active) inset;
+    border-radius: 4px;
+}
+
+.arrangement-editor__row--cursor.arrangement-editor__row--playing {
+    box-shadow: 0 0 0 2px var(--tic-0) inset, 0 0 0 4px var(--row-active) inset;
+}
+
+.arrangement-editor__row--pattern-match .arrangement-editor__pattern {
+    background: var(--accent);
+    color: var(--panel);
+}
+
+.transportTime {
+    background: var(--transport-time-bg);
+    color: var(--transport-time-fg);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.transportTime__ms {
+    font-size: 0.75em;
+    color: var(--transport-time-fg-subtle);
+}
+
+.arrangement-editor__row:hover .arrangement-editor__step,
+.arrangement-editor__row:hover .arrangement-editor__delete {
+    opacity: 1;
+}
+
+.arrangement-editor__controls {
+    display: flex;
+    width: 100%;
+}
+
+.arrangement-editor .arrangement-editor__marker {
+    margin-left: 4px;
+    margin-right: 4px;
+    display: flex;
+    align-items: center;
+
+}
+
+.arrangement-editor .arrangement-editor__pattern {
+    margin-left: 8px;
+    margin-right: 8px;
+    color: var(--text);
+    /* background-color: var(--row-a); */
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+}
+
+.arrangement-editor__pattern-name-container {
+    margin-left: 6px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.arrangement-editor__pattern-name {
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* min-width: 40px;
+    max-width: 120px; */
+    display: inline-block;
+    cursor: pointer;
+    color: var(--accent);
+}
+
+.arrangement-editor__pattern-name-input {
+    font-family: var(--ff-mono);
+    font-size: 11px;
+    width: 100%;
+    padding: 1px 2px;
+    border: 1px solid var(--border);
+}
+
+
+.arrangement-editor__position-id {
+    display: flex;
+    align-items: center;
+}
+
+.arrangement-editor__thumbnail-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 6px;
+    margin-right: 6px;
+    min-width: 34px;
+}
+
+.arrangement-editor__thumbnail {
+    display: block;
+    width: 32px;
+    height: auto;
+    background: var(--arr-thumb-bg);
+    /* border: 1px solid var(--arr-thumb-border); */
+    border-bottom: 1px solid var(--arr-thumb-border);
+    /* box-sizing: content-box; */
+}
+
+.arrangement-editor__thumbnail rect[data-role="fill"] {
+    fill: var(--arr-thumb-fill);
+}
+
+.arrangement-editor__thumbnail rect[data-role="highlight"] {
+    fill: var(--arr-thumb-highlight);
+}

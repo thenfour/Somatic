@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { typedValues } from '../utils/utils';
+import './toasts.css';
 
 export type ToastVariant = 'info' | 'success' | 'error';
 
