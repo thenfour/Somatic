@@ -34,6 +34,7 @@ do
 	local WSAMPLES = 32
 	local TRK_BASE = 0x13E64
 	local TRK_BYTES = 51
+	local PAT_BASE = 0x11164
 	local PAT_BYTES = 192
 	local ROW_BYTES = 3
 
@@ -493,7 +494,7 @@ do
 			return 0, 0
 		end
 		local pat0b = patternId1b - 1
-		local addr = __AUTOGEN_BUF_PTR_A + pat0b * PAT_BYTES + rowIndex * ROW_BYTES
+		local addr = PAT_BASE + pat0b * PAT_BYTES + rowIndex * ROW_BYTES
 		local b0 = pe(addr)
 		local b1 = pe(addr + 1)
 		local b2 = pe(addr + 2)
