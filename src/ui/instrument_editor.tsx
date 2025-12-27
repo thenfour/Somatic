@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AudioController } from '../audio/controller';
 import { Song } from '../models/song';
-import { ModSource, SomaticInstrumentWaveEngine, Tic80Instrument, Tic80InstrumentDto } from '../models/instruments';
+import { ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument, Tic80InstrumentDto } from '../models/instruments';
 import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { assert, clamp } from '../utils/utils';
 import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
@@ -38,14 +38,6 @@ const PWMDepthConfig: ContinuousParamConfig = {
     convertTo01: (v) => v / 31,
     convertFrom01: (v01) => v01 * 31,
     format: (v) => v.toFixed(0),
-};
-
-const PWMPhaseConfig: ContinuousParamConfig = {
-    resolutionSteps: 100,
-    default: 0,
-    convertTo01: (v) => v,
-    convertFrom01: (v01) => v01,
-    format: (v) => `${Math.round(v * 100)}%`,
 };
 
 const MorphDurationConfig: ContinuousParamConfig = {
@@ -542,17 +534,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
-    const setPWMPhase = (value: number) => {
-        onSongChange({
-            description: 'Set PWM phase',
-            undoable: true,
-            mutator: (s) => {
-                const inst = s.instruments[instrumentIndex];
-                inst.pwmPhase01 = clamp(value, 0, 1);
-            },
-        });
-    };
-
     const setMorphDuration = (value: number) => {
         onSongChange({
             description: 'Set morph duration',
@@ -597,50 +578,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
-    const setHardSyncEnabled = (enabled: boolean) => {
-        onSongChange({
-            description: 'Toggle hard sync',
-            undoable: true,
-            mutator: (s) => {
-                const inst = s.instruments[instrumentIndex];
-                inst.hardSyncEnabled = enabled;
-            },
-        });
-    };
-
-    const setHardSyncStrength = (value: number) => {
-        onSongChange({
-            description: 'Set hard sync strength',
-            undoable: true,
-            mutator: (s) => {
-                const inst = s.instruments[instrumentIndex];
-                inst.hardSyncStrength = clamp(value, 1, 8);
-            },
-        });
-    };
-
-    const setHardSyncDecay = (value: number) => {
-        onSongChange({
-            description: 'Set hard sync decay',
-            undoable: true,
-            mutator: (s) => {
-                const inst = s.instruments[instrumentIndex];
-                inst.hardSyncDecaySeconds = clamp(value, 0, 4);
-            },
-        });
-    };
-
-    const setHardSyncCurve = (value: number) => {
-        onSongChange({
-            description: 'Set hard sync curve',
-            undoable: true,
-            mutator: (s) => {
-                const inst = s.instruments[instrumentIndex];
-                inst.hardSyncCurveN11 = clamp(value, -1, 1);
-            },
-        });
-    };
-
     const setLfoRate = (value: number) => {
         onSongChange({
             description: 'Set LFO rate',
@@ -663,57 +600,71 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
-    const setWavefoldModSource = (source: ModSource) => {
+    const setEffectKind = (kind: SomaticEffectKind) => {
         onSongChange({
-            description: 'Set wavefold mod source',
+            description: 'Set effect kind',
             undoable: true,
             mutator: (s) => {
                 const inst = s.instruments[instrumentIndex];
-                inst.wavefoldModSource = source;
+                inst.effectKind = kind;
+                if (kind === 'none') {
+                    inst.effectAmount = 0;
+                    inst.effectDurationSeconds = 0;
+                    inst.effectCurveN11 = 0;
+                } else if (kind === 'wavefold' && inst.effectAmount < 0) {
+                    inst.effectAmount = 0;
+                } else if (kind === 'hardSync' && inst.effectAmount < 1) {
+                    inst.effectAmount = 1;
+                }
             },
         });
     };
 
-    const setHardSyncModSource = (source: ModSource) => {
+    const setEffectModSource = (source: ModSource) => {
         onSongChange({
-            description: 'Set hard sync mod source',
+            description: 'Set effect mod source',
             undoable: true,
             mutator: (s) => {
                 const inst = s.instruments[instrumentIndex];
-                inst.hardSyncModSource = source;
+                inst.effectModSource = source;
             },
         });
     };
 
-    const setWavefoldAmount = (value: number) => {
+    const setEffectAmount = (value: number) => {
         onSongChange({
-            description: 'Set wavefold amount',
+            description: 'Set effect amount',
             undoable: true,
             mutator: (s) => {
                 const inst = s.instruments[instrumentIndex];
-                inst.wavefoldAmt = clamp(value, 0, 255);
+                const k = inst.effectKind;
+                if (k === 'hardSync') {
+                    inst.effectAmount = clamp(value, 1, 8);
+                } else {
+                    inst.effectAmount = clamp(value, 0, 255);
+                }
             },
         });
     };
 
-    const setWavefoldDuration = (value: number) => {
+    const setEffectDuration = (value: number) => {
         onSongChange({
-            description: 'Set wavefold duration',
+            description: 'Set effect duration',
             undoable: true,
             mutator: (s) => {
                 const inst = s.instruments[instrumentIndex];
-                inst.wavefoldDurationSeconds = clamp(value, 0, 4);
+                inst.effectDurationSeconds = clamp(value, 0, 4);
             },
         });
     };
 
-    const setWavefoldCurve = (value: number) => {
+    const setEffectCurve = (value: number) => {
         onSongChange({
-            description: 'Set wavefold curve',
+            description: 'Set effect curve',
             undoable: true,
             mutator: (s) => {
                 const inst = s.instruments[instrumentIndex];
-                inst.wavefoldCurveN11 = clamp(value, -1, 1);
+                inst.effectCurveN11 = clamp(value, -1, 1);
             },
         });
     };
@@ -739,12 +690,9 @@ show render slot if there are k-rate effects enabled
             className="instrument-panel"
             title={<>
                 Instrument
-                {instrument.isKRateProcessing() && (
-                    // indicate when the instrument uses k-rate effects
-                    <Tooltip title="This instrument uses effects processing that will render at 60Hz">
-                        <span className="k-rate-badge">K-rate</span>
-                    </Tooltip>
-                )}
+                <Tooltip title="This instrument uses effects processing that will render at 60Hz" disabled={!instrument.isKRateProcessing()}>
+                    <span className="k-rate-badge" style={{ visibility: instrument.isKRateProcessing() ? undefined : "hidden" }}>K-rate</span>
+                </Tooltip>
             </>}
             actions={(
                 <>
@@ -948,15 +896,6 @@ show render slot if there are k-rate effects enabled
                                         onChange={setPWMDepth}
                                     />
                                 </div>
-
-                                <div className="field-row">
-                                    <ContinuousKnob
-                                        label='PWM phase'
-                                        value={instrument.pwmPhase01}
-                                        config={PWMPhaseConfig}
-                                        onChange={setPWMPhase}
-                                    />
-                                </div>
                             </div>
                         )}
 
@@ -1101,85 +1040,44 @@ show render slot if there are k-rate effects enabled
                                 <span style={{ marginLeft: 8 }}>Global; not retriggered.</span>
                             </div>
                         </div>
-
                         <div style={{ marginTop: 12 }}>
-                            <h4>Hard Sync</h4>
+                            <h4>Effect (wavefold / hard sync)</h4>
                             <div className="field-row">
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        checked={instrument.hardSyncEnabled}
-                                        onChange={(e) => setHardSyncEnabled(e.target.checked)}
-                                    />
-                                    Enabled
-                                </label>
+                                <label>Type</label>
+                                <RadioButton selected={instrument.effectKind === 'none'} onClick={() => setEffectKind('none')}>None</RadioButton>
+                                <RadioButton selected={instrument.effectKind === 'wavefold'} onClick={() => setEffectKind('wavefold')}>Wavefold</RadioButton>
+                                <RadioButton selected={instrument.effectKind === 'hardSync'} onClick={() => setEffectKind('hardSync')}>Hard Sync</RadioButton>
                             </div>
                             <div className="field-row">
                                 <label>Mod source</label>
-                                <RadioButton selected={instrument.hardSyncModSource === 'envelope'} onClick={() => setHardSyncModSource('envelope')}>Envelope</RadioButton>
-                                <RadioButton selected={instrument.hardSyncModSource === 'lfo'} onClick={() => setHardSyncModSource('lfo')}>LFO</RadioButton>
+                                <RadioButton selected={instrument.effectModSource === 'envelope'} onClick={() => setEffectModSource('envelope')}>Envelope</RadioButton>
+                                <RadioButton selected={instrument.effectModSource === 'lfo'} onClick={() => setEffectModSource('lfo')}>LFO</RadioButton>
                             </div>
                             <div className="field-row">
                                 <ContinuousKnob
-                                    label='strength'
-                                    value={instrument.hardSyncStrength}
-                                    config={HardSyncStrengthConfig}
-                                    onChange={setHardSyncStrength}
+                                    label={instrument.effectKind === 'hardSync' ? 'strength (x)' : 'strength'}
+                                    value={instrument.effectAmount}
+                                    config={instrument.effectKind === 'hardSync' ? HardSyncStrengthConfig : WavefoldAmountConfig}
+                                    onChange={setEffectAmount}
                                 />
                             </div>
                             <div className="field-row">
                                 <ContinuousKnob
                                     label='decay'
-                                    value={instrument.hardSyncDecaySeconds}
-                                    config={HardSyncDecayConfig}
-                                    onChange={setHardSyncDecay}
+                                    value={instrument.effectDurationSeconds}
+                                    config={instrument.effectKind === 'hardSync' ? HardSyncDecayConfig : WavefoldDurationConfig}
+                                    onChange={setEffectDuration}
                                 />
                             </div>
                             <div>
-                                {Math.floor(instrument.hardSyncDecaySeconds * 1000 / (1000 / 60))} ticks @ 60Hz
+                                {Math.floor(instrument.effectDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
                             </div>
                             <div className="field-row">
                                 <ContinuousKnob
                                     label='curve'
-                                    value={instrument.hardSyncCurveN11}
-                                    config={HardSyncCurveConfig}
-                                    onChange={setHardSyncCurve}
-                                />
-                            </div>
-                        </div>
-
-                        <div style={{ marginTop: 12 }}>
-                            <h4>Wavefold</h4>
-                            <div className="field-row">
-                                <label>Mod source</label>
-                                <RadioButton selected={instrument.wavefoldModSource === 'envelope'} onClick={() => setWavefoldModSource('envelope')}>Envelope</RadioButton>
-                                <RadioButton selected={instrument.wavefoldModSource === 'lfo'} onClick={() => setWavefoldModSource('lfo')}>LFO</RadioButton>
-                            </div>
-                            <div className="field-row">
-                                <ContinuousKnob
-                                    label='strength'
-                                    value={instrument.wavefoldAmt}
-                                    config={WavefoldAmountConfig}
-                                    onChange={setWavefoldAmount}
-                                />
-                            </div>
-                            <div className="field-row">
-                                <ContinuousKnob
-                                    label='decay'
-                                    value={instrument.wavefoldDurationSeconds}
-                                    config={WavefoldDurationConfig}
-                                    onChange={setWavefoldDuration}
-                                />
-                            </div>
-                            <div>
-                                {Math.floor(instrument.wavefoldDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
-                            </div>
-                            <div className="field-row">
-                                <ContinuousKnob
-                                    label='curve'
-                                    value={instrument.wavefoldCurveN11}
-                                    config={WavefoldCurveConfig}
-                                    onChange={setWavefoldCurve}
+                                    value={instrument.effectCurveN11}
+                                    config={instrument.effectKind === 'hardSync' ? HardSyncCurveConfig : WavefoldCurveConfig}
+                                    onChange={setEffectCurve}
                                 />
                             </div>
                         </div>

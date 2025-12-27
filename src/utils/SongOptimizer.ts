@@ -362,10 +362,8 @@ export function OptimizeSong(song: Song): OptimizeResult {
       if (inst.waveEngine === "pwm") {
          featureUsage.pwm = true;
       } else {
-         inst.pwmSpeedHz = 0;
          inst.pwmDuty = 0;
          inst.pwmDepth = 0;
-         inst.pwmPhase01 = 0;
       }
 
       if (inst.lowpassEnabled) {
@@ -376,37 +374,28 @@ export function OptimizeSong(song: Song): OptimizeResult {
          inst.lowpassModSource = "envelope";
       }
 
-      if (inst.wavefoldAmt > 0) {
+      if (inst.effectKind === "wavefold" && inst.effectAmount > 0) {
          featureUsage.wavefold = true;
-      } else {
-         inst.wavefoldDurationSeconds = 0;
-         inst.wavefoldCurveN11 = 0;
-         inst.wavefoldModSource = "envelope";
-      }
-
-      if (inst.hardSyncEnabled && inst.hardSyncStrength > 0) {
+      } else if (inst.effectKind === "hardSync" && inst.effectAmount > 0) {
          featureUsage.hardSync = true;
       } else {
-         inst.hardSyncEnabled = false;
-         inst.hardSyncStrength = 0;
-         inst.hardSyncDecaySeconds = 0;
-         inst.hardSyncCurveN11 = 0;
-         inst.hardSyncModSource = "envelope";
+         inst.effectKind = "none";
+         inst.effectAmount = 0;
+         inst.effectDurationSeconds = 0;
+         inst.effectCurveN11 = 0;
+         inst.effectModSource = "envelope";
       }
 
       const lfoUsed = inst.lfoRateHz > 0 &&
-         (inst.lowpassModSource === "lfo" || inst.wavefoldModSource === "lfo" || inst.hardSyncModSource === "lfo" ||
-          inst.waveEngine === "pwm");
+         (inst.lowpassModSource === "lfo" || inst.effectModSource === "lfo" || inst.waveEngine === "pwm");
       if (lfoUsed) {
          featureUsage.lfo = true;
       } else {
          inst.lfoRateHz = 0;
          if (inst.lowpassModSource === "lfo")
             inst.lowpassModSource = "envelope";
-         if (inst.wavefoldModSource === "lfo")
-            inst.wavefoldModSource = "envelope";
-         if (inst.hardSyncModSource === "lfo")
-            inst.hardSyncModSource = "envelope";
+         if (inst.effectModSource === "lfo")
+            inst.effectModSource = "envelope";
       }
    });
 
@@ -448,12 +437,11 @@ export function analyzePlaybackFeatures(song: Song): PlaybackFeatureUsage {
       }
       if (inst.lowpassEnabled)
          usage.lowpass = true;
-      if (inst.wavefoldAmt > 0)
+      if (inst.effectKind === "wavefold" && inst.effectAmount > 0)
          usage.wavefold = true;
-      if (inst.hardSyncEnabled && inst.hardSyncStrength > 0)
+      if (inst.effectKind === "hardSync" && inst.effectAmount > 0)
          usage.hardSync = true;
-      const lfoUsed = inst.lfoRateHz > 0 &&
-         (inst.lowpassModSource === "lfo" || inst.wavefoldModSource === "lfo" || inst.hardSyncModSource === "lfo");
+      const lfoUsed = inst.lfoRateHz > 0 && (inst.lowpassModSource === "lfo" || inst.effectModSource === "lfo");
       if (lfoUsed)
          usage.lfo = true;
    });

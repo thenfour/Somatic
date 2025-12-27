@@ -1,7 +1,7 @@
 import playroutineDebug from "../../bridge/playroutine-debug.lua";
 import playroutineRelease from "../../bridge/playroutine-release.lua";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
-import type {ModSource, SomaticInstrumentWaveEngine, Tic80Instrument} from "../models/instruments";
+import type {ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument} from "../models/instruments";
 import type {Song} from "../models/song";
 import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {BakedSong, BakeSong} from "../utils/bakeSong";
@@ -37,38 +37,33 @@ function ToWaveEngineId(engine: SomaticInstrumentWaveEngine): number {
    throw new Error(`Unknown wave engine: ${engine}`);
 };
 
+type MorphEffectKind = SomaticEffectKind;
+
 type Tic80MorphInstrumentConfig = {
    waveEngine: SomaticInstrumentWaveEngine; //
    waveEngineId: number;
-   sourceWaveformIndex: number; //
-   morphWaveB: number;          //
-   renderWaveformSlot: number;  // also for PWM!
-   morphDurationInTicks: number;
+   sourceWaveformIndex: number; // 0-15
+   morphWaveB: number;          // 0-15
+   renderWaveformSlot: number;  // 0-15 also for PWM!
 
-   // Curve parameters are currently undefined behavior-wise.
-   // They are serialized as signed 8-bit values (s8).
-   morphCurveS8: number;
-   pwmCycleInTicks: number;
-   pwmDuty: number;    // 0-31
-   pwmDepth: number;   // 0-31
-   pwmPhaseU8: number; // 0-255; phase offset within PWM duty modulation cycle
+   morphDurationTicks12: number; // 0-4095
+   morphCurveS6: number;         // signed 6-bit (-32..31)
+
+   pwmDuty5: number;  // 0-31
+   pwmDepth5: number; // 0-31
 
    lowpassEnabled: boolean;
-   lowpassDurationInTicks: number;
-   lowpassCurveS8: number;
-   wavefoldAmt: number; // 0-255
-   wavefoldDurationInTicks: number;
-   wavefoldCurveS8: number;
+   lowpassDurationTicks12: number; // 0-4095
+   lowpassCurveS6: number;         // signed 6-bit
+   lowpassModSource: number;       // 0=envelope,1=lfo
 
-   hardSyncEnabled: boolean;
-   hardSyncStrengthU8: number; // 0-255 mapped to multiplier 1..8 on cart
-   hardSyncDecayInTicks: number;
-   hardSyncCurveS8: number;
+   effectKind: MorphEffectKind;
+   effectAmtU8: number;           // 0-255 (wavefold amount or hardSync strength)
+   effectDurationTicks12: number; // 0-4095
+   effectCurveS6: number;         // signed 6-bit
+   effectModSource: number;       // 0=envelope,1=lfo
 
-   lfoCycleInTicks: number;
-   lowpassModSource: number; // 0=envelope,1=lfo
-   wavefoldModSource: number;
-   hardSyncModSource: number;
+   lfoCycleTicks12: number; // 0-4095
 };
 
 function getSomaticSfxConfigBytes(): number {
@@ -83,17 +78,17 @@ function getSomaticSfxConfigBytes(): number {
    return bytes;
 }
 
-function curveN11ToS8(curveN11: number|null|undefined): number {
+function curveN11ToS6(curveN11: number|null|undefined): number {
    const x0 = Number.isFinite(curveN11 as number) ? (curveN11 as number) : 0;
    const x = clamp(x0, -1, 1);
-   // Simple linear mapping; exact semantics TBD.
-   return clamp(Math.round(x * 127), -128, 127);
+   // Map -1..1 to signed 6-bit (-32..31).
+   return clamp(Math.round(x * 31), -32, 31);
 }
 
-function durationSecondsToTicks60Hz(seconds: number): number {
+function durationSecondsToTicks12(seconds: number): number {
    // Match the UI's convention (floor), and keep it integer.
    const s = Math.max(0, seconds ?? 0);
-   return Math.floor(s * Tic80Caps.frameRate);
+   return clamp(Math.floor(s * Tic80Caps.frameRate), 0, 0x0fff);
 }
 
 function hardSyncStrengthToU8(strength: number|null|undefined): number {
@@ -113,13 +108,6 @@ function RateInHzToTicks60HzAllowZero(rateHz: number): number {
    return clamp(ticks, 1, 0xffff);
 }
 
-// takes rate in Hz, returns # of ticks per cycle at 60Hz
-function RateInHzToTicks60Hz(rateHz: number): number {
-   const r0 = Number.isFinite(rateHz) ? rateHz : 0;
-   const r = Math.max(0.001, r0);
-   return Math.min(8000, Math.floor(Tic80Caps.frameRate / r));
-}
-
 // Extract the wave-morphing instrument config from the song.
 function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrumentConfig;}[] {
    const entries: {instrumentId: number; cfg: Tic80MorphInstrumentConfig;}[] = [];
@@ -132,47 +120,45 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
       // This prevents overwriting the bridge marker/mailboxes in RAM.
       const waveEngine: SomaticInstrumentWaveEngine = inst.waveEngine ?? "native";
       const lowpassEnabled = !!inst.lowpassEnabled;
-      const wavefoldAmt = clamp(inst.wavefoldAmt | 0, 0, 255);
-      const hardSyncEnabled = !!inst.hardSyncEnabled;
-      const needsRuntimeConfig = waveEngine !== "native" || lowpassEnabled || wavefoldAmt !== 0 || hardSyncEnabled;
+      const effectKind: MorphEffectKind = inst.effectKind ?? "none";
+      const needsRuntimeConfig = waveEngine !== "native" || lowpassEnabled || effectKind !== "none";
       if (!needsRuntimeConfig)
          continue;
 
-      const morphDurationInTicks = durationSecondsToTicks60Hz(inst.morphDurationSeconds);
-      const lowpassDurationInTicks = durationSecondsToTicks60Hz(inst.lowpassDurationSeconds);
-      const wavefoldDurationInTicks = durationSecondsToTicks60Hz(inst.wavefoldDurationSeconds);
-      const hardSyncDecayInTicks = durationSecondsToTicks60Hz(inst.hardSyncDecaySeconds);
-      const lfoCycleInTicks = RateInHzToTicks60HzAllowZero(inst.lfoRateHz ?? 0);
+      const morphDurationTicks12 = durationSecondsToTicks12(inst.morphDurationSeconds);
+      const lowpassDurationTicks12 = durationSecondsToTicks12(inst.lowpassDurationSeconds);
+      const effectDurationTicks12 = durationSecondsToTicks12(inst.effectDurationSeconds);
+      const lfoCycleTicks12 = clamp(RateInHzToTicks60HzAllowZero(inst.lfoRateHz ?? 0), 0, 0x0fff);
+      const effectModSource = modSourceToU8(inst.effectModSource);
+      const effectCurveS6 = curveN11ToS6(inst.effectCurveN11);
+      const effectAmtU8 =
+         effectKind === "hardSync" ? hardSyncStrengthToU8(inst.effectAmount) : clamp(inst.effectAmount | 0, 0, 255);
       entries.push({
          instrumentId,
          cfg: {
             sourceWaveformIndex: clamp(inst.sourceWaveformIndex | 0, 0, Tic80Caps.waveform.count - 1),
             morphWaveB: clamp(inst.morphWaveB | 0, 0, Tic80Caps.waveform.count - 1),
             renderWaveformSlot: clamp(inst.renderWaveformSlot | 0, 0, Tic80Caps.waveform.count - 1),
-            morphDurationInTicks,
 
-            morphCurveS8: curveN11ToS8(inst.morphCurveN11),
+            morphDurationTicks12,
+            morphCurveS6: curveN11ToS6(inst.morphCurveN11),
             waveEngine,
-            pwmCycleInTicks: clamp(RateInHzToTicks60Hz(inst.pwmSpeedHz ?? 0) | 0, 0, 0xffff),
-            pwmDuty: clamp(inst.pwmDuty | 0, 0, 31),
-            pwmDepth: clamp(inst.pwmDepth | 0, 0, 31),
-            pwmPhaseU8: clamp(Math.round(clamp(inst.pwmPhase01 ?? 0, 0, 1) * 255), 0, 255),
-            lowpassEnabled,
-            lowpassDurationInTicks,
-            lowpassCurveS8: curveN11ToS8(inst.lowpassCurveN11),
-            wavefoldAmt,
-            wavefoldDurationInTicks,
+            pwmDuty5: clamp(inst.pwmDuty | 0, 0, 31),
+            pwmDepth5: clamp(inst.pwmDepth | 0, 0, 31),
 
-            wavefoldCurveS8: curveN11ToS8(inst.wavefoldCurveN11),
-            waveEngineId: ToWaveEngineId(waveEngine),
-            hardSyncEnabled,
-            hardSyncStrengthU8: hardSyncStrengthToU8(inst.hardSyncStrength),
-            hardSyncDecayInTicks,
-            hardSyncCurveS8: curveN11ToS8(inst.hardSyncCurveN11),
-            lfoCycleInTicks,
+            lowpassEnabled,
+            lowpassDurationTicks12,
+            lowpassCurveS6: curveN11ToS6(inst.lowpassCurveN11),
             lowpassModSource: modSourceToU8(inst.lowpassModSource),
-            wavefoldModSource: modSourceToU8(inst.wavefoldModSource),
-            hardSyncModSource: modSourceToU8(inst.hardSyncModSource),
+
+            effectKind,
+            effectAmtU8,
+            effectDurationTicks12,
+            effectCurveS6,
+            effectModSource,
+
+            waveEngineId: ToWaveEngineId(waveEngine),
+            lfoCycleTicks12,
          }
       });
    }
@@ -182,38 +168,30 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
    return entries;
 }
 
-const MORPH_BYTES_PER_ENTRY = 31;
+const MORPH_BYTES_PER_ENTRY = 14;
 const MORPH_HEADER_BYTES = 1;
-
 // Packed as:
 // [0] = entryCount (u8)
-// per entry:
-// - instrumentId (u8)
-// - waveEngine (u8) 0=morph,1=native,2=pwm
-// - sourceWaveformIndex (u8)
-// - morphWaveB (u8)
-// - renderWaveformSlot (u8)
-// - morphDurationTicks (u16 LE)
-// - pwmSpeedTicks (u16 LE)
-// - pwmDuty (u8)
-// - pwmDepth (u8)
-// - pwmPhase (u8)
-// - lowpassEnabled (u8) 0/1
-// - lowpassDurationTicks (u16 LE)
-// - wavefoldAmt (u8)
-// - wavefoldDurationTicks (u16 LE)
-// - morphCurve (s8)
-// - lowpassCurve (s8)
-// - wavefoldCurve (s8)
-// - hardSyncEnabled (u8)
-// - hardSyncStrength (u8) // cart maps to multiplier
-// - hardSyncDecayTicks (u16 LE)
-// - hardSyncCurve (s8)
-// - lfoCycleTicks (u16 LE)
-// - lowpassModSource (u8) 0=envelope,1=lfo
-// - wavefoldModSource (u8) 0=envelope,1=lfo
-// - hardSyncModSource (u8) 0=envelope,1=lfo
-// total payload = 1 + entryCount * 31 bytes
+// per entry (14 bytes):
+// 0: instrumentId (u8)
+// 1: flags (bits: waveEngineId[0..1], lowpassEnabled[2], effectKind[3..4], lowpassModSrc[5], effectModSrc[6], reserved[7])
+// 2: wave indices: sourceWaveformIndex[0..3] | morphWaveB[4..7]
+// 3-6: packedG0 (LE32): renderWaveformSlot[0..3], pwmDuty5[4..8], pwmDepth5[9..13], morphDurationTicks12[14..25], morphCurveS6[26..31]
+// 7-10: packedG1 (LE32): lowpassDurationTicks12[0..11], lowpassCurveS6[12..17], effectAmtU8[18..25], effectDurationTicks12_low6[26..31]
+// 11-13: packedG2 (LE24): effectDurationTicks12_high6[0..5], effectCurveS6[6..11], lfoCycleTicks12[12..23]
+// total payload = 1 + entryCount * 14 bytes
+function effectKindToId(k: MorphEffectKind): number {
+   switch (k) {
+      case "none":
+         return 0;
+      case "wavefold":
+         return 1;
+      case "hardSync":
+         return 2;
+   }
+   return 0;
+}
+
 function packMorphEntries(
    entries: {instrumentId: number; cfg: Tic80MorphInstrumentConfig;}[],
    totalBytes?: number,
@@ -229,52 +207,40 @@ function packMorphEntries(
    let w = 1;
    for (let i = 0; i < entryCount; i++) {
       const {instrumentId, cfg} = entries[i];
-      const morphDurationTicks = clamp(cfg.morphDurationInTicks | 0, 0, 0xffff);
+      const effectDuration = cfg.effectDurationTicks12 & 0x0fff;
+
+      const flags = (cfg.waveEngineId & 0x03) | ((cfg.lowpassEnabled ? 1 : 0) << 2) |
+         ((effectKindToId(cfg.effectKind) & 0x03) << 3) | ((cfg.lowpassModSource & 0x01) << 5) |
+         ((cfg.effectModSource & 0x01) << 6);
+
+      const waves = (cfg.sourceWaveformIndex & 0x0f) | ((cfg.morphWaveB & 0x0f) << 4);
+
+      const packedG0 = (cfg.renderWaveformSlot & 0x0f) | ((cfg.pwmDuty5 & 0x1f) << 4) | ((cfg.pwmDepth5 & 0x1f) << 9) |
+         ((cfg.morphDurationTicks12 & 0x0fff) << 14) | ((cfg.morphCurveS6 & 0x3f) << 26);
+
+      const packedG1 = (cfg.lowpassDurationTicks12 & 0x0fff) | ((cfg.lowpassCurveS6 & 0x3f) << 12) |
+         ((cfg.effectAmtU8 & 0xff) << 18) | ((effectDuration & 0x3f) << 26);
+
+      const packedG2 =
+         ((effectDuration >> 6) & 0x3f) | ((cfg.effectCurveS6 & 0x3f) << 6) | ((cfg.lfoCycleTicks12 & 0x0fff) << 12);
+
       out[w++] = clamp(instrumentId | 0, 0, 255);
-      out[w++] = cfg.waveEngineId & 0xff;
-      out[w++] = clamp(cfg.sourceWaveformIndex | 0, 0, 255);
-      out[w++] = clamp(cfg.morphWaveB | 0, 0, 255);
-      out[w++] = clamp(cfg.renderWaveformSlot | 0, 0, 255);
-      out[w++] = morphDurationTicks & 0xff;
-      out[w++] = (morphDurationTicks >> 8) & 0xff;
+      out[w++] = flags & 0xff;
+      out[w++] = waves & 0xff;
 
-      const pwmCycleTicks = clamp(cfg.pwmCycleInTicks | 0, 0, 0xffff);
-      out[w++] = pwmCycleTicks & 0xff;
-      out[w++] = (pwmCycleTicks >> 8) & 0xff;
-      out[w++] = clamp(cfg.pwmDuty | 0, 0, 255);
-      out[w++] = clamp(cfg.pwmDepth | 0, 0, 255);
-      out[w++] = clamp(cfg.pwmPhaseU8 | 0, 0, 255);
-      out[w++] = cfg.lowpassEnabled ? 1 : 0;
+      out[w++] = packedG0 & 0xff;
+      out[w++] = (packedG0 >> 8) & 0xff;
+      out[w++] = (packedG0 >> 16) & 0xff;
+      out[w++] = (packedG0 >> 24) & 0xff;
 
-      const lowpassDurationTicks = clamp(cfg.lowpassDurationInTicks | 0, 0, 0xffff);
-      out[w++] = lowpassDurationTicks & 0xff;
-      out[w++] = (lowpassDurationTicks >> 8) & 0xff;
-      out[w++] = clamp(cfg.wavefoldAmt | 0, 0, 255);
+      out[w++] = packedG1 & 0xff;
+      out[w++] = (packedG1 >> 8) & 0xff;
+      out[w++] = (packedG1 >> 16) & 0xff;
+      out[w++] = (packedG1 >> 24) & 0xff;
 
-      const wavefoldDurationTicks = clamp(cfg.wavefoldDurationInTicks | 0, 0, 0xffff);
-      out[w++] = wavefoldDurationTicks & 0xff;
-      out[w++] = (wavefoldDurationTicks >> 8) & 0xff;
-
-      out[w++] = cfg.morphCurveS8 & 0xff;
-      out[w++] = cfg.lowpassCurveS8 & 0xff;
-      out[w++] = cfg.wavefoldCurveS8 & 0xff;
-
-      out[w++] = cfg.hardSyncEnabled ? 1 : 0;
-      out[w++] = clamp(cfg.hardSyncStrengthU8 | 0, 0, 255);
-
-      const hardSyncDecayTicks = clamp(cfg.hardSyncDecayInTicks | 0, 0, 0xffff);
-      out[w++] = hardSyncDecayTicks & 0xff;
-      out[w++] = (hardSyncDecayTicks >> 8) & 0xff;
-
-      out[w++] = cfg.hardSyncCurveS8 & 0xff;
-
-      const lfoCycleTicks = clamp(cfg.lfoCycleInTicks | 0, 0, 0xffff);
-      out[w++] = lfoCycleTicks & 0xff;
-      out[w++] = (lfoCycleTicks >> 8) & 0xff;
-
-      out[w++] = clamp(cfg.lowpassModSource | 0, 0, 3);
-      out[w++] = clamp(cfg.wavefoldModSource | 0, 0, 3);
-      out[w++] = clamp(cfg.hardSyncModSource | 0, 0, 3);
+      out[w++] = packedG2 & 0xff;
+      out[w++] = (packedG2 >> 8) & 0xff;
+      out[w++] = (packedG2 >> 16) & 0xff;
    }
    return out;
 }

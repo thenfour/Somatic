@@ -24,6 +24,36 @@ export type ModSource = "envelope"|"lfo";
 
 export type SomaticWaveformEffect = "none"|"lowpass"|"wavefold";
 
+export type SomaticEffectKind = "none"|"wavefold"|"hardSync";
+
+function coerceWaveEngine(v: any): SomaticInstrumentWaveEngine {
+   if (v === "morph" || v === "native" || v === "pwm")
+      return v;
+   if (v === 0)
+      return "morph";
+   if (v === 1)
+      return "native";
+   if (v === 2)
+      return "pwm";
+   return "native";
+}
+
+function coerceModSource(v: any): ModSource {
+   if (v === "lfo" || v === 1 || v === true)
+      return "lfo";
+   return "envelope";
+}
+
+function coerceEffectKind(v: any, fallback: SomaticEffectKind): SomaticEffectKind {
+   if (v === "none" || v === "wavefold" || v === "hardSync")
+      return v;
+   if (v === 1)
+      return "wavefold";
+   if (v === 2)
+      return "hardSync";
+   return fallback;
+}
+
 //export const SFX_FRAME_COUNT = 30;
 
 export interface Tic80InstrumentDto {
@@ -69,28 +99,21 @@ export interface Tic80InstrumentDto {
    morphCurveN11: number;       // -1 to +1; 0 = linear. -1 = fast start, slow end; +1 = slow start, fast end
    morphDurationSeconds: number;
 
-   pwmSpeedHz: number;
-   pwmDuty: number;    // 0-31
-   pwmDepth: number;   // 0-31
-   pwmPhase01: number; // 0-1; phase offset for PWM duty-cycle modulation
+   pwmDuty: number;  // 0-31
+   pwmDepth: number; // 0-31
 
    lowpassEnabled: boolean;
    lowpassDurationSeconds: number;
    lowpassCurveN11: number;
 
-   wavefoldAmt: number; // 0-255 amplifies the waveform, folding it back into the valid range
-   wavefoldDurationSeconds: number;
-   wavefoldCurveN11: number;
-
-   hardSyncEnabled: boolean;
-   hardSyncStrength: number;     // multiplier 1-8
-   hardSyncDecaySeconds: number; // decay envelope for hard sync strength
-   hardSyncCurveN11: number;     // curve shaping for the decay
+   effectKind: SomaticEffectKind;
+   effectAmount: number; // wavefold: 0-255; hardSync: multiplier 1-8
+   effectDurationSeconds: number;
+   effectCurveN11: number;
+   effectModSource: ModSource;
 
    lfoRateHz: number;
    lowpassModSource: ModSource;
-   wavefoldModSource: ModSource;
-   hardSyncModSource: ModSource;
 }
 
 // aka "SFX" aka "sample" (from tic.h / sound.c)
@@ -132,29 +155,21 @@ export class Tic80Instrument {
    morphCurveN11: number;
    morphDurationSeconds: number;
 
-   pwmSpeedHz: number;
-   pwmDuty: number;    // 0-31
-   pwmDepth: number;   // 0-31
-   pwmPhase01: number; // 0-1
+   pwmDuty: number;  // 0-31
+   pwmDepth: number; // 0-31
 
    lowpassEnabled: boolean;
    lowpassDurationSeconds: number;
    lowpassCurveN11: number;
 
-   // wavefold
-   wavefoldAmt: number; // 0-255
-   wavefoldDurationSeconds: number;
-   wavefoldCurveN11: number;
-
-   hardSyncEnabled: boolean;
-   hardSyncStrength: number; // multiplier 1-8
-   hardSyncDecaySeconds: number;
-   hardSyncCurveN11: number;
+   effectKind: SomaticEffectKind;
+   effectAmount: number; // wavefold: 0-255; hardSync: 1-8 multiplier
+   effectDurationSeconds: number;
+   effectCurveN11: number;
+   effectModSource: ModSource;
 
    lfoRateHz: number;
    lowpassModSource: ModSource;
-   wavefoldModSource: ModSource;
-   hardSyncModSource: ModSource;
 
 
    // editor-only...
@@ -213,7 +228,7 @@ export class Tic80Instrument {
       this.pitchLoopLength = clamp(data.pitchLoopLength ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
       this.pitch16x = CoalesceBoolean(data.pitch16x, false);
 
-      this.waveEngine = data.waveEngine ?? "native";
+      this.waveEngine = coerceWaveEngine(data.waveEngine ?? "native");
       // Back-compat: older saved data used 'morphWaveA'.
       const legacyMorphWaveA = (data as any).morphWaveA;
       this.sourceWaveformIndex =
@@ -223,29 +238,52 @@ export class Tic80Instrument {
       this.morphCurveN11 = clamp(data.morphCurveN11 ?? 0, -1, 1);
       this.morphDurationSeconds = Math.max(0, data.morphDurationSeconds ?? 1.0);
 
-      this.pwmSpeedHz = Math.max(0, data.pwmSpeedHz ?? 1.5);
       this.pwmDuty = clamp(data.pwmDuty ?? 16, 0, 31);
       this.pwmDepth = clamp(data.pwmDepth ?? 10, 0, 31);
-      this.pwmPhase01 = clamp(data.pwmPhase01 ?? 6, 0, 1);
 
       this.lowpassEnabled = CoalesceBoolean(data.lowpassEnabled, false);
       this.lowpassDurationSeconds = Math.max(0, data.lowpassDurationSeconds ?? 0.5);
       this.lowpassCurveN11 = clamp(data.lowpassCurveN11 ?? 0, -1, 1);
 
-      this.wavefoldAmt = clamp(data.wavefoldAmt ?? 0, 0, 255);
-      // 0 means "no decay" (constant max strength), preserving legacy behavior.
-      this.wavefoldDurationSeconds = Math.max(0, data.wavefoldDurationSeconds ?? 0);
-      this.wavefoldCurveN11 = clamp(data.wavefoldCurveN11 ?? 0, -1, 1);
+      const legacyWavefoldAmt = clamp((data as any).wavefoldAmt ?? 0, 0, 255);
+      const legacyWavefoldDur = Math.max(0, (data as any).wavefoldDurationSeconds ?? 0);
+      const legacyWavefoldCurve = clamp((data as any).wavefoldCurveN11 ?? 0, -1, 1);
+      const legacyHardSyncEnabled = CoalesceBoolean((data as any).hardSyncEnabled, false);
+      const legacyHardSyncStrength = clamp((data as any).hardSyncStrength ?? 3, 1, 8);
+      const legacyHardSyncDecay = Math.max(0, (data as any).hardSyncDecaySeconds ?? 1.5);
+      const legacyHardSyncCurve = clamp((data as any).hardSyncCurveN11 ?? 0, -1, 1);
+      const legacyWavefoldModSourceRaw = (data as any).wavefoldModSource;
+      const legacyHardSyncModSourceRaw = (data as any).hardSyncModSource;
+      const legacyWavefoldModSource =
+         legacyWavefoldModSourceRaw === undefined ? undefined : coerceModSource(legacyWavefoldModSourceRaw);
+      const legacyHardSyncModSource =
+         legacyHardSyncModSourceRaw === undefined ? undefined : coerceModSource(legacyHardSyncModSourceRaw);
 
-      this.hardSyncEnabled = CoalesceBoolean(data.hardSyncEnabled, false);
-      this.hardSyncStrength = clamp(data.hardSyncStrength ?? 3, 1, 8);
-      this.hardSyncDecaySeconds = Math.max(0, data.hardSyncDecaySeconds ?? 1.5);
-      this.hardSyncCurveN11 = clamp(data.hardSyncCurveN11 ?? 0, -1, 1);
+      const legacyEffectKind = legacyWavefoldAmt > 0 ? "wavefold" : (legacyHardSyncEnabled ? "hardSync" : "none");
+      const requestedEffectKind = coerceEffectKind(data.effectKind, legacyEffectKind);
+      this.effectKind = requestedEffectKind;
+      if (this.effectKind === "wavefold") {
+         this.effectAmount = clamp(data.effectAmount ?? legacyWavefoldAmt ?? 0, 0, 255);
+         this.effectDurationSeconds = Math.max(0, data.effectDurationSeconds ?? legacyWavefoldDur ?? 0);
+         this.effectCurveN11 = clamp(data.effectCurveN11 ?? legacyWavefoldCurve ?? 0, -1, 1);
+         this.effectModSource = coerceModSource(data.effectModSource ?? legacyWavefoldModSource ?? "envelope");
+      } else if (this.effectKind === "hardSync") {
+         this.effectAmount = clamp(data.effectAmount ?? legacyHardSyncStrength ?? 3, 1, 8);
+         this.effectDurationSeconds = Math.max(0, data.effectDurationSeconds ?? legacyHardSyncDecay ?? 1.5);
+         this.effectCurveN11 = clamp(data.effectCurveN11 ?? legacyHardSyncCurve ?? 0, -1, 1);
+         this.effectModSource = coerceModSource(data.effectModSource ?? legacyHardSyncModSource ?? "lfo");
+      } else {
+         this.effectAmount = clamp(data.effectAmount ?? 0, 0, 255);
+         this.effectDurationSeconds = Math.max(0, data.effectDurationSeconds ?? 0);
+         this.effectCurveN11 = clamp(data.effectCurveN11 ?? 0, -1, 1);
+         this.effectModSource = coerceModSource(data.effectModSource ?? "envelope");
+      }
 
-      this.lfoRateHz = Math.max(0, data.lfoRateHz ?? 2);
-      this.lowpassModSource = data.lowpassModSource ?? "envelope";
-      this.wavefoldModSource = data.wavefoldModSource ?? "envelope";
-      this.hardSyncModSource = data.hardSyncModSource ?? "lfo";
+      const legacyPwmSpeedHz = (data as any).pwmSpeedHz;
+      const legacyLfoRate = (data as any).lfoRateHz ?? (data as any).lfoHz;
+      const inferredLfoRate = data.lfoRateHz ?? legacyPwmSpeedHz ?? legacyLfoRate ?? 2;
+      this.lfoRateHz = Math.max(0, inferredLfoRate);
+      this.lowpassModSource = coerceModSource(data.lowpassModSource ?? "envelope");
    }
 
    static fromData(data?: Partial<Tic80InstrumentDto>): Tic80Instrument {
@@ -281,24 +319,18 @@ export class Tic80Instrument {
          renderWaveformSlot: this.renderWaveformSlot,
          morphCurveN11: this.morphCurveN11,
          morphDurationSeconds: this.morphDurationSeconds,
-         pwmSpeedHz: this.pwmSpeedHz,
          pwmDuty: this.pwmDuty,
          pwmDepth: this.pwmDepth,
-         pwmPhase01: this.pwmPhase01,
          lowpassEnabled: this.lowpassEnabled,
          lowpassDurationSeconds: this.lowpassDurationSeconds,
          lowpassCurveN11: this.lowpassCurveN11,
-         wavefoldAmt: this.wavefoldAmt,
-         wavefoldDurationSeconds: this.wavefoldDurationSeconds,
-         wavefoldCurveN11: this.wavefoldCurveN11,
-         hardSyncEnabled: this.hardSyncEnabled,
-         hardSyncStrength: this.hardSyncStrength,
-         hardSyncDecaySeconds: this.hardSyncDecaySeconds,
-         hardSyncCurveN11: this.hardSyncCurveN11,
+         effectKind: this.effectKind,
+         effectAmount: this.effectAmount,
+         effectDurationSeconds: this.effectDurationSeconds,
+         effectCurveN11: this.effectCurveN11,
+         effectModSource: this.effectModSource,
          lfoRateHz: this.lfoRateHz,
          lowpassModSource: this.lowpassModSource,
-         wavefoldModSource: this.wavefoldModSource,
-         hardSyncModSource: this.hardSyncModSource,
       };
    };
 
@@ -329,10 +361,7 @@ export class Tic80Instrument {
       if (this.lowpassEnabled) {
          return true;
       }
-      if (this.wavefoldAmt > 0) {
-         return true;
-      }
-      if (this.hardSyncEnabled) {
+      if (this.effectKind !== "none") {
          return true;
       }
       return false;

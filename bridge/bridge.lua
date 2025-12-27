@@ -211,7 +211,7 @@ local ch_sfx_ticks = { 0, 0, 0, 0 } -- 0-based channel -> duration since note-on
 local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
 
 local MORPH_HEADER_BYTES = 1
-local MORPH_ENTRY_BYTES = 31
+local MORPH_ENTRY_BYTES = 14
 
 -- SOMATIC_SFX_CONFIG lives below the MARKER region; fail fast if layout or payload is inconsistent.
 local MORPH_MAP_BYTES = ADDR.MARKER - MORPH_MAP_BASE
@@ -221,6 +221,21 @@ local function u8_to_s8(b)
 		return b - 0x100
 	end
 	return b
+end
+
+local function s6_to_s8(b)
+	local v = b & 0x3f
+	if v >= 0x20 then
+		v = v - 0x40 -- sign-extend 6-bit
+	end
+	-- map -32..31 to roughly -128..127 for the existing curve helper
+	local s8 = math.floor((v * 127) / 31 + 0.5)
+	if s8 < -128 then
+		s8 = -128
+	elseif s8 > 127 then
+		s8 = 127
+	end
+	return s8
 end
 
 local MOD_SRC_ENVELOPE = 0
@@ -266,34 +281,16 @@ end
 -- equal power (sqrt or sine law) makes a better xfade, but it doesn't preserve the waveshapes at either end so... not the best idea
 local lerp_nibble = lerp_nibble_lin
 
--- Packed as:
--- [0] = entryCount (u8)
--- per entry:
--- - instrumentId (u8)
--- - waveEngine (u8) 0=morph,1=native,2=pwm
--- - sourceWaveformIndex (u8)
--- - morphWaveB (u8)
--- - renderWaveformSlot (u8) (also for PWM!)
--- - morphDurationTicks (u16 LE)
--- - pwmSpeedTicks (u16 LE)
--- - pwmDuty (u8)
--- - pwmDepth (u8)
--- - pwmPhase (u8)
--- - lowpassEnabled (u8) 0/1
--- - lowpassDurationTicks (u16 LE)
--- - wavefoldAmt (u8)
--- - wavefoldDurationTicks (u16 LE)
--- - morphCurve (s8)
--- - lowpassCurve (s8)
--- - wavefoldCurve (s8)
--- - hardSyncEnabled (u8)
--- - hardSyncStrength (u8)
--- - hardSyncDecayTicks (u16 LE)
--- - hardSyncCurve (s8)
--- - lfoCycleTicks (u16 LE)
--- - lowpassModSource (u8)
--- - wavefoldModSource (u8)
--- - hardSyncModSource (u8)
+-- Packed as (14 bytes per entry):
+-- [0] entryCount (u8)
+-- per entry
+--  0: instrumentId (u8)
+--  1: flags (bits: waveEngineId[0..1], lowpassEnabled[2], effectKind[3..4], lowpassModSrc[5], effectModSrc[6], reserved[7])
+--  2: wave indices: sourceWaveformIndex[0..3] | morphWaveB[4..7]
+--  3-6: packedG0 (LE32): renderWaveformSlot[0..3], pwmDuty5[4..8], pwmDepth5[9..13], morphDurationTicks12[14..25], morphCurveS6[26..31]
+--  7-10: packedG1 (LE32): lowpassDurationTicks12[0..11], lowpassCurveS6[12..17], effectAmtU8[18..25], effectDurationTicks12_low6[26..31]
+--  11-13: packedG2 (LE24): effectDurationTicks12_high6[0..5], effectCurveS6[6..11], lfoCycleTicks12[12..23]
+-- total payload = 1 + entryCount * 14 bytes
 local function read_sfx_cfg(instrumentId)
 	local rawCount = peek(MORPH_MAP_BASE)
 	local maxCount = math.floor((MORPH_MAP_BYTES - MORPH_HEADER_BYTES) / MORPH_ENTRY_BYTES)
@@ -308,30 +305,59 @@ local function read_sfx_cfg(instrumentId)
 		local off = MORPH_MAP_BASE + MORPH_HEADER_BYTES + i * MORPH_ENTRY_BYTES
 		local id = peek(off)
 		if id == instrumentId then
-			local waveEngine = peek(off + 1)
-			local sourceWaveformIndex = peek(off + 2)
-			local morphWaveB = peek(off + 3)
-			local renderWaveformSlot = peek(off + 4)
-			local morphDurationInTicks = peek(off + 5) + peek(off + 6) * 256
-			local pwmCycleInTicks = peek(off + 7) + peek(off + 8) * 256
-			local pwmDuty = peek(off + 9)
-			local pwmDepth = peek(off + 10)
-			local pwmPhaseU8 = peek(off + 11)
-			local lowpassEnabled = peek(off + 12)
-			local lowpassDurationInTicks = peek(off + 13) + peek(off + 14) * 256
-			local wavefoldAmt = peek(off + 15)
-			local wavefoldDurationInTicks = peek(off + 16) + peek(off + 17) * 256
-			local morphCurveS8 = u8_to_s8(peek(off + 18))
-			local lowpassCurveS8 = u8_to_s8(peek(off + 19))
-			local wavefoldCurveS8 = u8_to_s8(peek(off + 20))
-			local hardSyncEnabled = peek(off + 21)
-			local hardSyncStrengthU8 = peek(off + 22)
-			local hardSyncDecayInTicks = peek(off + 23) + peek(off + 24) * 256
-			local hardSyncCurveS8 = u8_to_s8(peek(off + 25))
-			local lfoCycleInTicks = peek(off + 26) + peek(off + 27) * 256
-			local lowpassModSource = peek(off + 28)
-			local wavefoldModSource = peek(off + 29)
-			local hardSyncModSource = peek(off + 30)
+			local flags = peek(off + 1)
+			local waves = peek(off + 2)
+			local packedG0 = peek(off + 3) | (peek(off + 4) << 8) | (peek(off + 5) << 16) | (peek(off + 6) << 24)
+			local packedG1 = peek(off + 7) | (peek(off + 8) << 8) | (peek(off + 9) << 16) | (peek(off + 10) << 24)
+			local packedG2 = peek(off + 11) | (peek(off + 12) << 8) | (peek(off + 13) << 16)
+
+			local waveEngine = flags & 0x03
+			local lowpassEnabled = ((flags >> 2) & 0x01) ~= 0
+			local effectKindId = (flags >> 3) & 0x03 -- 0=none,1=wavefold,2=hardSync
+			local lowpassModSource = (flags >> 5) & 0x01
+			local effectModSource = (flags >> 6) & 0x01
+
+			local sourceWaveformIndex = waves & 0x0f
+			local morphWaveB = (waves >> 4) & 0x0f
+
+			local renderWaveformSlot = packedG0 & 0x0f
+			local pwmDuty = (packedG0 >> 4) & 0x1f
+			local pwmDepth = (packedG0 >> 9) & 0x1f
+			local morphDurationInTicks = (packedG0 >> 14) & 0x0fff
+			local morphCurveS8 = s6_to_s8((packedG0 >> 26) & 0x3f)
+
+			local lowpassDurationInTicks = packedG1 & 0x0fff
+			local lowpassCurveS8 = s6_to_s8((packedG1 >> 12) & 0x3f)
+			local effectAmtU8 = (packedG1 >> 18) & 0xff
+			local effectDurationLow6 = (packedG1 >> 26) & 0x3f
+
+			local effectDurationHigh6 = packedG2 & 0x3f
+			local effectCurveS8 = s6_to_s8((packedG2 >> 6) & 0x3f)
+			local lfoCycleInTicks = (packedG2 >> 12) & 0x0fff
+			local effectDurationInTicks = (effectDurationHigh6 << 6) | effectDurationLow6
+
+			local wavefoldAmt = 0
+			local wavefoldDurationInTicks = 0
+			local wavefoldCurveS8 = 0
+			local wavefoldModSource = 0
+			local hardSyncEnabled = false
+			local hardSyncStrengthU8 = 0
+			local hardSyncDecayInTicks = 0
+			local hardSyncCurveS8 = 0
+			local hardSyncModSource = effectModSource
+
+			if effectKindId == 1 then
+				wavefoldAmt = effectAmtU8
+				wavefoldDurationInTicks = effectDurationInTicks
+				wavefoldCurveS8 = effectCurveS8
+				wavefoldModSource = effectModSource
+			elseif effectKindId == 2 then
+				hardSyncEnabled = true
+				hardSyncStrengthU8 = effectAmtU8
+				hardSyncDecayInTicks = effectDurationInTicks
+				hardSyncCurveS8 = effectCurveS8
+				hardSyncModSource = effectModSource
+			end
 
 			-- Shape matches makeMorphMapLua(): values are numeric IDs.
 			return {
@@ -341,17 +367,15 @@ local function read_sfx_cfg(instrumentId)
 				renderWaveformSlot = renderWaveformSlot,
 				morphDurationInTicks = morphDurationInTicks,
 				morphCurveS8 = morphCurveS8,
-				pwmCycleInTicks = pwmCycleInTicks,
 				pwmDuty = pwmDuty,
 				pwmDepth = pwmDepth,
-				pwmPhaseU8 = pwmPhaseU8,
-				lowpassEnabled = lowpassEnabled ~= 0,
+				lowpassEnabled = lowpassEnabled,
 				lowpassDurationInTicks = lowpassDurationInTicks,
 				lowpassCurveS8 = lowpassCurveS8,
 				wavefoldAmt = wavefoldAmt,
 				wavefoldDurationInTicks = wavefoldDurationInTicks,
 				wavefoldCurveS8 = wavefoldCurveS8,
-				hardSyncEnabled = hardSyncEnabled ~= 0,
+				hardSyncEnabled = hardSyncEnabled,
 				hardSyncStrengthU8 = hardSyncStrengthU8,
 				hardSyncDecayInTicks = hardSyncDecayInTicks,
 				hardSyncCurveS8 = hardSyncCurveS8,
@@ -359,6 +383,8 @@ local function read_sfx_cfg(instrumentId)
 				lowpassModSource = lowpassModSource,
 				wavefoldModSource = wavefoldModSource,
 				hardSyncModSource = hardSyncModSource,
+				effectKind = effectKindId,
+				effectModSource = effectModSource,
 			}
 		end
 	end
@@ -598,7 +624,7 @@ local function render_waveform_morph(cfg, ticksPlayed, outSamples)
 end
 
 local function render_waveform_pwm(cfg, ticksPlayed, instrumentId, lfoTicks, outSamples)
-	-- PWM is driven by the per-instrument LFO; pwmCycleInTicks and phase offset are ignored.
+	-- PWM is driven by the per-instrument LFO
 	local cycle = cfg.lfoCycleInTicks or 0
 	local phase
 	if cycle <= 0 then

@@ -84,6 +84,14 @@ local function u8_to_s8(b)
 	return b
 end
 
+local function s6_to_s8(b)
+	local v = b & 0x3f
+	if v >= 0x20 then
+		v = v - 0x40
+	end
+	return math.floor(v * 127 / 31)
+end
+
 local function apply_curveN11(t01, curveS8)
 	local t = clamp01(t01 or 0)
 	if t <= 0 then
@@ -579,40 +587,69 @@ local function decode_morph_map()
 	local rawLen = lzdec_mem(TMP, m.morphMapCLen, DST)
 	local count = peek(DST)
 	local off = DST + 1
-	local function u16(loAddr)
-		local lo = peek(loAddr)
-		return lo + peek(loAddr + 1) * 256
-	end
 	for _ = 1, count do
 		local id = peek(off)
+		local flags = peek(off + 1)
+		local waves = peek(off + 2)
+		local g0 = peek(off + 3) | (peek(off + 4) << 8) | (peek(off + 5) << 16) | (peek(off + 6) << 24)
+		local g1 = peek(off + 7) | (peek(off + 8) << 8) | (peek(off + 9) << 16) | (peek(off + 10) << 24)
+		local g2 = peek(off + 11) | (peek(off + 12) << 8) | (peek(off + 13) << 16)
+		local effKind = (flags >> 3) & 0x03
+		local effSrc = (flags >> 6) & 0x01
+		local effAmt = (g1 >> 18) & 0xff
+		local effDur = ((g1 >> 26) & 0x3f) | ((g2 & 0x3f) << 6)
+		local effCrv = s6_to_s8((g2 >> 6) & 0x3f)
 		local cfg = {
-			waveEngine = peek(off + 1),
-			sourceWaveformIndex = peek(off + 2),
-			morphWaveB = peek(off + 3),
-			renderWaveformSlot = peek(off + 4),
-			morphDurationInTicks = u16(off + 5),
-			pwmCycleInTicks = u16(off + 7),
-			pwmDuty = peek(off + 9),
-			pwmDepth = peek(off + 10),
-			pwmPhaseU8 = peek(off + 11),
-			lowpassEnabled = peek(off + 12) ~= 0,
-			lowpassDurationInTicks = u16(off + 13),
-			wavefoldAmt = peek(off + 15),
-			wavefoldDurationInTicks = u16(off + 16),
-			morphCurveS8 = u8_to_s8(peek(off + 18)),
-			lowpassCurveS8 = u8_to_s8(peek(off + 19)),
-			wavefoldCurveS8 = u8_to_s8(peek(off + 20)),
-			hardSyncEnabled = peek(off + 21) ~= 0,
-			hardSyncStrengthU8 = peek(off + 22),
-			hardSyncDecayInTicks = u16(off + 23),
-			hardSyncCurveS8 = u8_to_s8(peek(off + 25)),
-			lfoCycleInTicks = u16(off + 26),
-			lowpassModSource = peek(off + 28),
-			wavefoldModSource = peek(off + 29),
-			hardSyncModSource = peek(off + 30),
+			waveEngineId = flags & 0x03,
+			waveEngine = flags & 0x03,
+			sourceWaveformIndex = waves & 0x0f,
+			morphWaveB = (waves >> 4) & 0x0f,
+			renderWaveformSlot = g0 & 0x0f,
+			morphDurationInTicks = (g0 >> 14) & 0x0fff,
+			morphCurveS8 = s6_to_s8((g0 >> 26) & 0x3f),
+			pwmDuty = (g0 >> 4) & 0x1f,
+			pwmDepth = (g0 >> 9) & 0x1f,
+			pwmCycleInTicks = 0,
+			pwmPhaseU8 = 0,
+			lowpassEnabled = ((flags >> 2) & 0x01) ~= 0,
+			lowpassDurationInTicks = g1 & 0x0fff,
+			lowpassCurveS8 = s6_to_s8((g1 >> 12) & 0x3f),
+			lowpassModSource = (flags >> 5) & 0x01,
+			lfoCycleInTicks = (g2 >> 12) & 0x0fff,
 		}
+		if effKind == 1 then
+			cfg.wavefoldAmt = effAmt
+			cfg.wavefoldDurationInTicks = effDur
+			cfg.wavefoldCurveS8 = effCrv
+			cfg.wavefoldModSource = effSrc
+			cfg.hardSyncEnabled = false
+			cfg.hardSyncStrengthU8 = 0
+			cfg.hardSyncDecayInTicks = 0
+			cfg.hardSyncCurveS8 = 0
+			cfg.hardSyncModSource = effSrc
+		elseif effKind == 2 then
+			cfg.wavefoldAmt = 0
+			cfg.wavefoldDurationInTicks = 0
+			cfg.wavefoldCurveS8 = 0
+			cfg.wavefoldModSource = effSrc
+			cfg.hardSyncEnabled = true
+			cfg.hardSyncStrengthU8 = effAmt
+			cfg.hardSyncDecayInTicks = effDur
+			cfg.hardSyncCurveS8 = effCrv
+			cfg.hardSyncModSource = effSrc
+		else
+			cfg.wavefoldAmt = 0
+			cfg.wavefoldDurationInTicks = 0
+			cfg.wavefoldCurveS8 = 0
+			cfg.wavefoldModSource = effSrc
+			cfg.hardSyncEnabled = false
+			cfg.hardSyncStrengthU8 = 0
+			cfg.hardSyncDecayInTicks = 0
+			cfg.hardSyncCurveS8 = 0
+			cfg.hardSyncModSource = effSrc
+		end
 		morphMap[id] = cfg
-		off = off + 31
+		off = off + 14
 	end
 end
 

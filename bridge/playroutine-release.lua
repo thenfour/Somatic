@@ -126,6 +126,14 @@ do
 		return b
 	end
 
+	local function s6s8(b)
+		local v = b & 0x3f
+		if v >= 0x20 then
+			v = v - 0x40
+		end
+		return fl(v * 127 / 31)
+	end
+
 	local function crvN11(t01, curveS8)
 		local t = cl01(t01)
 		if t <= 0 then
@@ -158,46 +166,57 @@ do
 		local o = DST + 1
 		for _ = 1, count do
 			local id = pe(o)
+			local flags = pe(o + 1)
+			local waves = pe(o + 2)
+			local g0 = pe(o + 3) | (pe(o + 4) << 8) | (pe(o + 5) << 16) | (pe(o + 6) << 24)
+			local g1 = pe(o + 7) | (pe(o + 8) << 8) | (pe(o + 9) << 16) | (pe(o + 10) << 24)
+			local g2 = pe(o + 11) | (pe(o + 12) << 8) | (pe(o + 13) << 16)
+			local effKind = (flags >> 3) & 0x03
+			local effSrc = (flags >> 6) & 0x01
+			local effDur = ((g1 >> 26) & 0x3f) | ((g2 & 0x3f) << 6)
 			local z = {
-				we = pe(o + 1),
-				sA = pe(o + 2),
-				r = pe(o + 4),
+				we = flags & 0x03,
+				sA = waves & 0x0f,
+				sB = (waves >> 4) & 0x0f,
+				r = g0 & 0x0f,
+				pwmD = (g0 >> 4) & 0x1f,
+				pwmDp = (g0 >> 9) & 0x1f,
+				xDcy = (g0 >> 14) & 0x0fff,
+				xCrv = s6s8((g0 >> 26) & 0x3f),
+				lpE = (flags >> 2) & 0x01,
+				lpDcy = g1 & 0x0fff,
+				lpCrv = s6s8((g1 >> 12) & 0x3f),
+				lpSrc = (flags >> 5) & 0x01,
+				lfoC = (g2 >> 12) & 0x0fff,
 			}
-			-- BEGIN_FEATURE_WAVEMORPH
-			z.sB = pe(o + 3)
-			z.xDcy = u16(o + 5)
-			z.xCrv = u8s8(pe(o + 18))
-			-- END_FEATURE_WAVEMORPH
-			-- BEGIN_FEATURE_PWM
-			z.pwmC = u16(o + 7)
-			z.pwmD = pe(o + 9)
-			z.pwmDp = pe(o + 10)
-			z.pwmPh = pe(o + 11)
-			-- END_FEATURE_PWM
-			-- BEGIN_FEATURE_LOWPASS
-			z.lpE = pe(o + 12)
-			z.lpDcy = u16(o + 13)
-			z.lpCrv = u8s8(pe(o + 19))
-			z.lpSrc = pe(o + 28)
-			-- END_FEATURE_LOWPASS
 			-- BEGIN_FEATURE_WAVEFOLD
-			z.wfAmt = pe(o + 15)
-			z.wfDcy = u16(o + 16)
-			z.wfCrv = u8s8(pe(o + 20))
-			z.wfSrc = pe(o + 29)
+			z.wfAmt = 0
+			z.wfDcy = 0
+			z.wfCrv = 0
+			z.wfSrc = effSrc
+			if effKind == 1 then
+				z.wfAmt = (g1 >> 18) & 0xff
+				z.wfDcy = effDur
+				z.wfCrv = s6s8((g2 >> 6) & 0x3f)
+				z.wfSrc = effSrc
+			end
 			-- END_FEATURE_WAVEFOLD
 			-- BEGIN_FEATURE_HARDSYNC
-			z.hsE = pe(o + 21)
-			z.hsStr = pe(o + 22)
-			z.hsDcy = u16(o + 23)
-			z.hsCrv = u8s8(pe(o + 25))
-			z.hsSrc = pe(o + 30)
+			z.hsE = 0
+			z.hsStr = 0
+			z.hsDcy = 0
+			z.hsCrv = 0
+			z.hsSrc = effSrc
+			if effKind == 2 then
+				z.hsE = 1
+				z.hsStr = (g1 >> 18) & 0xff
+				z.hsDcy = effDur
+				z.hsCrv = s6s8((g2 >> 6) & 0x3f)
+				z.hsSrc = effSrc
+			end
 			-- END_FEATURE_HARDSYNC
-			-- BEGIN_FEATURE_LFO
-			z.lfoC = u16(o + 26)
-			-- END_FEATURE_LFO
 			morphs[id] = z
-			o = o + 31
+			o = o + 14
 		end
 	end
 
