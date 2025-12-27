@@ -1,8 +1,10 @@
 .chip {
     font-size: 13px;
-    background-color: var(--row-a);
+    /* background-color: var(--row-a); */
     border-radius: 3px;
-    border: 1px solid var(--border);
+    /* border: 0; 1px solid var(--border); */
+    border: 0;
+    background-color: var(--bg);
     display: flex;
     align-items: center;
     padding: 3px 10px;
