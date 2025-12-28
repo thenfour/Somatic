@@ -45,6 +45,7 @@ import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
 import { CharMap } from './utils/utils';
 import { GlobalActionId } from './keyb/ActionIds';
+import { DiscordLogo, GithubLogo } from './ui/basic/Socicon';
 
 const TIC80_FRAME_SIZES = [
 
@@ -944,17 +945,30 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             <DesktopMenu.Root>
                                 <DesktopMenu.Trigger caret={false}>Help</DesktopMenu.Trigger>
                                 <DesktopMenu.Content>
-                                    <DesktopMenu.Item onSelect={() => window.open('https://github.com/thenfour/Somatic', '_blank', 'noopener')}>Visit Project on GitHub</DesktopMenu.Item>
-                                    <DesktopMenu.Item onSelect={() => window.open('https://discord.gg/kkf9gQfKAd', '_blank', 'noopener')}>The 7jam Discord</DesktopMenu.Item>
 
-                                    <DesktopMenu.Divider />
                                     <DesktopMenu.Item onSelect={() => window.open('https://reverietracker.github.io/chromatic/', '_blank', 'noopener')}>This project was based on Chromatic by Gasman</DesktopMenu.Item>
+                                    <DesktopMenu.Divider />
+                                    <DesktopMenu.Item onSelect={() => window.open('https://tic80.com/', '_blank', 'noopener')}>TIC-80 Homepage</DesktopMenu.Item>
                                     <DesktopMenu.Item onSelect={() => window.open('https://github.com/nesbox/TIC-80/wiki/Music-Editor', '_blank', 'noopener')}>TIC-80 Music Editor</DesktopMenu.Item>
                                     <DesktopMenu.Item onSelect={() => window.open('https://github.com/nesbox/TIC-80/wiki/ram', '_blank', 'noopener')}>TIC-80 memory map</DesktopMenu.Item>
 
                                     <DesktopMenu.Divider />
+
+                                    <DesktopMenu.Item onSelect={() => window.open('https://github.com/thenfour/Somatic', '_blank', 'noopener')}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            Visit Project on GitHub
+                                            <GithubLogo />
+                                        </div>
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item onSelect={() => window.open('https://discord.gg/kkf9gQfKAd', '_blank', 'noopener')}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            Discord
+                                            <DiscordLogo />
+                                        </div>
+                                    </DesktopMenu.Item>
+
                                     <DesktopMenu.Item onSelect={() => window.open('https://ko-fi.com/E1E71QVJ5Z', '_blank', 'noopener')}>
-                                        <div style={{ maxWidth: 300, marginBottom: 8 }}>Somatic is free; if you find it useful, please consider supporting me 🙏:</div>
+                                        <div style={{ maxWidth: 300, marginBottom: 8 }}>Somatic is free; if you find it useful, please support by spreading the word or:</div>
                                         <img height='36' style={{ border: 0, height: 36 }} src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' alt='Buy Me a Coffee at ko-fi.com' />
                                     </DesktopMenu.Item>
 

@@ -728,6 +728,12 @@ option {
     cursor: pointer;
 
     gap: 12px;
+    background:
+        radial-gradient(circle at center,
+            rgba(0, 0, 0, .1) 50%,
+            rgba(0, 0, 0, .2) 75%,
+            rgba(0, 0, 0, .3) 100%);
+
 }
 
 .splash-screen h1 {

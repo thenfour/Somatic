@@ -701,7 +701,7 @@ show render slot if there are k-rate effects enabled
     const showRenderWaveformSlot = instrument.isKRateProcessing();
     const showMorphB = instrument.waveEngine === 'morph';
     const showNativeWaveformEnvelope = !instrument.isKRateProcessing();
-    const showSourceWaveform = !showNativeWaveformEnvelope;
+    const showSourceWaveform = !showNativeWaveformEnvelope && instrument.waveEngine !== 'pwm';
 
 
     return (

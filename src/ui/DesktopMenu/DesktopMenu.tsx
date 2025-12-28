@@ -671,6 +671,7 @@ const MenuSubTrigger = React.forwardRef<HTMLDivElement, MenuSubTriggerProps>(({ 
             ref={combinedRef}
             data-menu-item="true"
         >
+            <span className="desktop-menu-item__leading"></span>
             <span className="desktop-menu-item__label">{children}</span>
             <span className="desktop-menu-item__shortcut">{CharMap.RightTriangle}</span>
         </div>

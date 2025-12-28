@@ -46,7 +46,7 @@ export const MidiStatusIndicator: React.FC<MidiStatusIndicatorProps> = ({
         if (midiStatus === 'denied') return 'MIDI access denied';
         if (midiStatus === 'error') return 'MIDI error';
         if (!midiEnabled) return 'MIDI off';
-        if (listening.length > 0) return `MIDI listening (${listening.length}/${connected.length})`;
+        if (listening.length > 0) return `MIDI (${listening.length}/${connected.length})`;
         if (connected.length > 0) return `MIDI ready (${connected.length} available, none listening)`;
         return 'MIDI ready (no devices)';
     })();
