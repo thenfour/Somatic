@@ -1,5 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { useAppStatusBar } from '../../hooks/useAppStatusBar';
 
 type TooltipProps = {
     title: React.ReactNode;
@@ -24,6 +25,20 @@ export const Tooltip: React.FC<TooltipProps> = ({
     const [open, setOpen] = React.useState(false);
     const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null);
     const [cursorPos, setCursorPos] = React.useState<{ x: number; y: number } | null>(null);
+    const { setMessage, clearMessage } = useAppStatusBar();
+
+    // Update status bar when tooltip opens/closes with string content
+    React.useEffect(() => {
+        if (open && typeof title === 'string' && title.trim()) {
+            setMessage(title, 10); // Priority 10 for tooltips
+        } else {
+            clearMessage();
+        }
+
+        return () => {
+            clearMessage();
+        };
+    }, [open, title, setMessage, clearMessage]);
 
     const updatePosition = React.useCallback(() => {
         const el = triggerRef.current;

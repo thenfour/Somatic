@@ -613,11 +613,10 @@ option {
     padding: 12px;
 }
 
-.footer {
+.main-app-footer {
     background: var(--panel);
     border-top: 2px solid var(--border-strong);
-    padding: 8px 12px;
-    /* position: sticky; */
+    padding: 4px 12px;
     bottom: 0;
     z-index: 15;
 }

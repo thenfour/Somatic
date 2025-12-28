@@ -1165,7 +1165,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     />
                 )}
             </div>
-            <div className="footer appRow">
+            <div className="main-app-footer appRow">
                 {showingOnScreenKeyboard && <Keyboard
                     onNoteOn={handleNoteOn}
                     onNoteOff={handleNoteOff}

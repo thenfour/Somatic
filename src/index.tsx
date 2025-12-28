@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./Somatic";
 import { ClipboardProvider } from "./hooks/useClipboard";
 import { useLocalStorage } from "./hooks/useLocalStorage";
+import { StatusBarProvider } from "./hooks/useAppStatusBar";
 import { gActionRegistry } from "./keyb/ActionRegistry";
 import { ShortcutManagerProvider } from "./keyb/KeyboardShortcutManager";
 import { ConfirmDialogProvider } from "./ui/basic/confirm_dialog";
@@ -89,9 +90,11 @@ const AppWrapper: React.FC = () => {
             <ToastProvider>
                 <ConfirmDialogProvider>
                     <ClipboardProvider>
-                        {hasContinued
-                            ? <App theme={theme} onToggleTheme={toggleTheme} />
-                            : <SplashScreen onContinue={() => setHasContinued(true)} />}
+                        <StatusBarProvider>
+                            {hasContinued
+                                ? <App theme={theme} onToggleTheme={toggleTheme} />
+                                : <SplashScreen onContinue={() => setHasContinued(true)} />}
+                        </StatusBarProvider>
                     </ClipboardProvider>
                 </ConfirmDialogProvider>
             </ToastProvider>
