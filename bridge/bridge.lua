@@ -8,7 +8,7 @@
 
 -- BRIDGE_AUTOGEN_END
 
--- Derived constants from BRIDGE_CONFIG (Lua view bridge_config.json)
+-- Derived constants from BRIDGE_CONFIG (Lua view bridge_config.js)
 local ADDR = {
 	MARKER = BRIDGE_CONFIG.memory.MARKER_ADDR,
 	REGISTERS = BRIDGE_CONFIG.memory.REGISTERS_ADDR,
@@ -89,7 +89,7 @@ local OUTBOX = {
 -- =========================
 -- OUTBOX layout (cart -> host)
 -- =========================
--- Fields and base address are defined in bridge_config.json (memory.OUTBOX_ADDR).
+-- Fields and base address are defined in bridge_config.js (memory.OUTBOX_ADDR).
 -- This section documents how the cart currently uses them:
 -- OUTBOX.MAGIC        : magic byte; set to 'B' (0x42) at boot so the host can detect the bridge.
 -- OUTBOX.VERSION      : protocol version; currently hard-coded to 1 at boot.

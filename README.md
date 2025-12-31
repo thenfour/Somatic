@@ -17,21 +17,30 @@ features you might find interesting:
   * wavefolding shaper
   * hard sync
   * lfo modulation
-* Undo/redo support
-* Mute/Solo per channel
+* tracker goodies
+  * show carried-over effect status at end of pattern
+  * show usage of patterns / instruments
+  * allow naming patterns
+  * song order marking
+* transport
+  * Mute/Solo per channel
+  * looping modes
 * editing features
   * box selection in song order + operations like duplicate, move selection
   * block operations
   * transpose, instrument, command interpolation
-* Copy/paste supported everywhere
+  * Copy/paste supported everywhere
+  * arranger editing
+  * Undo/redo support
 * waveform manipulation tools like smoothing, normalization, mixing in harmonics
 * instrument editor (sfx) shows the waveform sequence
 * Themes: dark/light supported
 * keyboard note input uses physically bound key shortcuts to be more keyboard layout compatible
 * Guaranteed sound accuracy because it uses a real TIC-80 as the sound engine.
-* Song optimization: unused waveforms, sfx, and patterns don't become part of the exported cart.
-* Song compression: pattern data is bloaty and gets compressed to keep code size down
-* Live insights about the size of the song (size of resulting code, playroutine, song data, cart size...)
+* Song optimizations
+  * Show unused waveforms, sfx, and patterns don't become part of the exported cart.
+  * Show compression journey: pattern data is bloaty and gets optimized and compressed
+  * Live insights about the size of the song (size of resulting code, playroutine, song data, cart size...)
 
 # try it
 
@@ -119,11 +128,19 @@ npx serve
 
 ```
 
-## changes to bridge.lua
+## changes to bridge.lua or playroutines
 
 Used to be manual process: load it in a tic80 instance and save the cart to `/public/bridge.tic`. that's what gets loaded @ runtime.
 
-It's now an automated build process.
+It's now an automated build process (see the webpack plugin `build-bridge.js` and `bridge-watch-plugin.js`).
+
+Bridge.tic depends on `bridge.lua` and `bridge_config.js`.
+
+* You change `bridge.lua`, and the bridge watcher detects it and builds the `.tic` cart.
+* Or you change `bridge_config.js` and the same chain happens.
+
+`playroutine-*.lua` is also not a raw lua; it's a template that gets preprocessed by the tic80 cart serializer.
+
 
 ## sanity checks
 

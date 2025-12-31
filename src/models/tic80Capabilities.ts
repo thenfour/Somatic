@@ -2,7 +2,7 @@
 // avoid hardcoding these values elsewhere in the codebase.
 
 import {clamp, parseAddress} from "../utils/utils";
-import bridgeConfig from "../../bridge/bridge_config.jsonc";
+import bridgeConfig from "../../bridge/bridge_config.js";
 
 const mem = bridgeConfig.memory as Record<string, string|number>;
 
@@ -97,7 +97,7 @@ export const gChannelsArray =
 export const gAllChannelsAudible = new Set<Tic80ChannelIndex>(gChannelsArray);
 
 export const TicMemoryMap = {
-   // BRIDGE_MEMORY_MAP (shared with bridge.lua via bridge_config.jsonc)
+   // BRIDGE_MEMORY_MAP (shared with bridge.lua via bridge_config.js)
    MARKER_ADDR: parseAddress(mem.MARKER_ADDR),
    REGISTERS_ADDR: parseAddress(mem.REGISTERS_ADDR),
    INBOX_ADDR: parseAddress(mem.INBOX_ADDR),
@@ -126,7 +126,7 @@ export const TicMemoryMap = {
    TF_PATTERN_DATA: parseAddress(
       mem.TF_PATTERN_DATA), // theoretically you can support the whole tile+sprite+map area for pattern data.
 
-   // Packed morphing instrument config (host -> cart). See bridge_config.jsonc for binary layout.
+   // Packed morphing instrument config (host -> cart). See bridge_config.js for binary layout.
    SOMATIC_SFX_CONFIG: parseAddress(mem.SOMATIC_SFX_CONFIG),
 
    // RAM destinations for the chunk payloads (bank 0)

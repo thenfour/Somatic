@@ -1,3 +1,6 @@
+// gathers build info (git tag, etc).
+// meant for baking into the sources for display in the about dialog.
+
 const childProcess = require('child_process');
 
 function safeExec(command) {
