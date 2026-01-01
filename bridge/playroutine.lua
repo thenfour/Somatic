@@ -792,7 +792,7 @@ do
 		if stopPlayingOnNextFrame then
 			log("tick: stopping") -- DEBUG_ONLY
 			music() -- stops playback.
-			tf_music_reset_state()
+			somatic_reset_state()
 			return
 		end
 

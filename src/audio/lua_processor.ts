@@ -1,6 +1,7 @@
 
 import * as luaparse from "luaparse";
 import {replaceLuaBlock, toLuaStringLiteral} from "../utils/utils";
+import {renameLocalVariablesInAST} from "./lua_renamer";
 
 export type OptimizationRuleOptions = {
    stripComments: boolean;            //
@@ -69,10 +70,6 @@ function getPrecedence(node: luaparse.Expression): number {
    }
 }
 
-// export interface LuaPrinterOptions {
-//    minified?: boolean; // if false, you can add more newlines/indent later
-// }
-
 export class LuaPrinter {
    private buf: string[] = [];
    private options: OptimizationRuleOptions;
@@ -88,9 +85,7 @@ export class LuaPrinter {
    print(chunk: luaparse.Chunk): string {
       this.buf = [];
       this.indentLevel = 0;
-
       this.printBlock(chunk.body);
-
       return this.buf.join("");
    }
 
@@ -666,7 +661,7 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
       processedCode = filteredLines.join(eol);
    }
 
-   const ast = parseLua(processedCode);
+   let ast = parseLua(processedCode);
    if (!ast) {
       console.error("Failed to parse Lua code; returning original code.");
       return code;
@@ -675,6 +670,10 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
 
    if (ruleOptions.stripComments) {
       ast.comments = [];
+   }
+
+   if (ruleOptions.renameLocalVariables) {
+      ast = renameLocalVariablesInAST(ast);
    }
 
    return unparseLua(ast, ruleOptions);

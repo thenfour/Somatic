@@ -4,18 +4,24 @@ import { AppPanelShell } from './AppPanelShell';
 import { OptimizationRuleOptions, processLua } from '../audio/lua_processor';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-    const [inputLua, setInputLua] = useState<string>(`-- Sample Lua code
-function test()
+    const [inputLua, setInputLua] = useState<string>(`-- Sample Lua code with local variables
+local myVariable = 10
+local anotherVar = 20
+
+function calculateSum(firstNumber, secondNumber)
+   local result = firstNumber + secondNumber
    -- BEGIN_DEBUG_ONLY
-   log("debug message")
+   log("Sum calculated: " .. result)
    -- END_DEBUG_ONLY
-   
-   -- Regular code
-   return 42
+   return result
 end
 
--- DEBUG_ONLY
-trace("single line debug")
+for loopIndex = 1, 5 do
+   local tempValue = loopIndex * 2
+   print(tempValue) -- DEBUG_ONLY
+end
+
+local sum = calculateSum(myVariable, anotherVar)
 `);
 
     const [options, setOptions] = useState<OptimizationRuleOptions>({
