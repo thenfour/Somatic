@@ -1,4 +1,4 @@
-import {MemoryRegion} from "./bitpack";
+import {RegionForMusicPattern, RegionForSfx, RegionForWaveform, SomaticMemoryLayout, Tic80MemoryMap} from "./memory_layout";
 
 // IN GENERAL, we can only really use pattern memory for our own use for the playroutines.
 // we cannot make any guarantees about other code in the demo (to live beside playroutines),
@@ -34,49 +34,7 @@ import {MemoryRegion} from "./bitpack";
 // | 0x14E04 | GAMEPAD MAPPING   | 32     | keycodes for gamepad mappings
 // | 0x14E36 | ** RESERVED **    | 12,764 |
 // '--------------------------------------'
-const Tic80MemoryMap = {
-   VRam: new MemoryRegion("VRam", 0x00000, 0x4000),
-   Tiles: new MemoryRegion("Tiles", 0x04000, 0x2000),
-   Sprites: new MemoryRegion("Sprites", 0x06000, 0x2000),
-   Map: new MemoryRegion("Map", 0x08000, 0x7FF0),
-   Gamepads: new MemoryRegion("Gamepads", 0x0FF80, 0x04),
-   Mouse: new MemoryRegion("Mouse", 0x0FF84, 0x04),
-   Keyboard: new MemoryRegion("Keyboard", 0x0FF88, 0x04),
-   SfxState: new MemoryRegion("SfxState", 0x0FF8C, 0x10),
-   SoundRegisters: new MemoryRegion("SoundRegisters", 0x0FF9C, 0x48),
-   Waveforms: new MemoryRegion("Waveforms", 0x0FFE4, 0x100),
-   Sfx: new MemoryRegion("Sfx", 0x100E4, 0x1080),
-   MusicPatterns: new MemoryRegion("MusicPatterns", 0x11164, 0x2D00),
-   MusicTracks: new MemoryRegion("MusicTracks", 0x13E64, 0x198),
-   SoundState: new MemoryRegion("SoundState", 0x13FFC, 0x04),
-   StereoVolume: new MemoryRegion("StereoVolume", 0x14000, 0x04),
-   PersistentMemory: new MemoryRegion("PersistentMemory", 0x14004, 0x400),
-   SpriteFlags: new MemoryRegion("SpriteFlags", 0x14404, 0x200),
-   SystemFont: new MemoryRegion("SystemFont", 0x14604, 0x800),
-   GamepadMapping: new MemoryRegion("GamepadMapping", 0x14E04, 0x20),
-   Reserved: new MemoryRegion("Reserved", 0x14E36, 0x3204),
-};
-
-const Tic80MemoryConstants = {
-   // Q: is it ALWAYS 192? (even when rows per pattern is fewer than 64?)
-   BYTES_PER_MUSIC_PATTERN: 192,
-   BYTES_PER_SFX: 66,
-   BYTES_PER_WAVEFORM: 16,
-};
-
-// tic80 helpers
-export function RegionForMusicPattern(patternIndex: number) {
-   return Tic80MemoryMap.MusicPatterns.getCell(Tic80MemoryConstants.BYTES_PER_MUSIC_PATTERN, patternIndex);
-}
-
-export function RegionForSfx(sfxIndex: number) {
-   return Tic80MemoryMap.Sfx.getCell(Tic80MemoryConstants.BYTES_PER_SFX, sfxIndex);
-}
-
-export function RegionForWaveform(waveformIndex: number) {
-   return Tic80MemoryMap.Waveforms.getCell(Tic80MemoryConstants.BYTES_PER_WAVEFORM, waveformIndex);
-}
-
+// NOTE: Tic80MemoryMap is now defined in memory_layout.ts to avoid circular dependencies
 
 
 // determine the NEEDS of our various systems.
@@ -95,10 +53,20 @@ const bridgeConfig = {
    markerText: "SOMATIC_TIC80_V1",
 
    // Outbox command IDs (cart -> host)
-   outboxCommands: {LOG: 1},
+   outboxCommands: {
+      LOG: 1 //
+   },
 
    // Inbox command IDs (host -> cart)
-   inboxCommands: {NOP: 0, TRANSMIT_AND_PLAY: 1, STOP: 2, PING: 3, TRANSMIT: 4, PLAY_SFX_ON: 6, PLAY_SFX_OFF: 7},
+   inboxCommands: {
+      NOP: 0,               //
+      TRANSMIT_AND_PLAY: 1, //
+      STOP: 2,
+      PING: 3, //
+      TRANSMIT: 4,
+      PLAY_SFX_ON: 6,
+      PLAY_SFX_OFF: 7 //
+   },
 
    tic80MemoryMap: Tic80MemoryMap,
 
@@ -116,45 +84,40 @@ const bridgeConfig = {
 
       // Pattern memory usable for packed compressed columns ends before PATTERN_MEM_LIMIT.
       // Front blit buffer uses patterns 46-49 (pattern 46 at 0x133e4); back buffer uses 50-53 (pattern 50 at 0x136e4).
-      PATTERN_MEM_LIMIT: "0x13324",
-      PATTERN_BUFFER_A_INDEX: 46,
-      PATTERN_BUFFER_B_INDEX: 50,
-      PATTERN_BUFFER_A_ADDR: "0x13324",
-      PATTERN_BUFFER_B_ADDR: "0x13624",
+      PATTERN_MEM_LIMIT: SomaticMemoryLayout.computed.PATTERN_MEM_LIMIT,
+      PATTERN_BUFFER_A_INDEX: SomaticMemoryLayout.computed.PATTERN_BUFFER_A_INDEX,
+      PATTERN_BUFFER_B_INDEX: SomaticMemoryLayout.computed.PATTERN_BUFFER_B_INDEX,
+      PATTERN_BUFFER_A_ADDR: SomaticMemoryLayout.computed.PATTERN_BUFFER_A_ADDR,
+      PATTERN_BUFFER_B_ADDR: SomaticMemoryLayout.computed.PATTERN_BUFFER_B_ADDR,
 
       // Somatic bridge state lives in the top of MAP (0x8000..0x0ff7f),
       // above all tracker-format pattern data.
       //
       // Layout within MAP:
-      //   0x0e400..0x0efff : packed morphing instrument config
-      //   0x0f000..0x0f01f : marker & small header region
-      //   0x0f020..0x0f03f : Somatic registers (song position, FPS, etc.)
-      //   0x0f040..0x0f07f : INBOX (host -> cart mailbox)
-      //   0x0f080..0x0f08f : OUTBOX header (cart -> host mailbox)
-      //   0x0f090..0x0f17f : OUTBOX log ring buffer (LOG_SIZE bytes)
-      SOMATIC_SFX_CONFIG: "0x0e800", // 0x0f000 - sfx_cfg_payload_size (~1kb)
-      MARKER_ADDR: "0x0f000",
-      REGISTERS_ADDR: "0x0f020",
-      INBOX_ADDR: "0x0f040",
-      OUTBOX_ADDR: "0x0f080",
-      LOG_SIZE: 240,
+      //   See memory_layout.ts for complete allocation strategy
+      SOMATIC_SFX_CONFIG: SomaticMemoryLayout.computed.SOMATIC_SFX_CONFIG,
+      MARKER_ADDR: SomaticMemoryLayout.computed.MARKER_ADDR,
+      REGISTERS_ADDR: SomaticMemoryLayout.computed.REGISTERS_ADDR,
+      INBOX_ADDR: SomaticMemoryLayout.computed.INBOX_ADDR,
+      OUTBOX_ADDR: SomaticMemoryLayout.computed.OUTBOX_ADDR,
+      LOG_SIZE: SomaticMemoryLayout.computed.LOG_SIZE,
 
       // Tracker-format (Somatic) song data encoded into TIC-80 RAM
-      TILE_BASE: "0x4000",
-      TF_ORDER_LIST: "0x4000",
-      TF_ORDER_LIST_COUNT: "0x4000",
-      TF_ORDER_LIST_ENTRIES: "0x4001",
-      TF_PATTERN_DATA: "0x4101",
+      TILE_BASE: 0x4000,
+      TF_ORDER_LIST: 0x4000,
+      TF_ORDER_LIST_COUNT: 0x4000,
+      TF_ORDER_LIST_ENTRIES: 0x4001,
+      TF_PATTERN_DATA: 0x4101,
 
       // Music state snapshot written by TIC-80 runtime
-      MUSIC_STATE_TRACK: "0x13ffc",
-      MUSIC_STATE_FRAME: "0x13ffd",
-      MUSIC_STATE_ROW: "0x13ffe",
-      MUSIC_STATE_FLAGS: "0x13fff",
+      MUSIC_STATE_TRACK: 0x13ffc,
+      MUSIC_STATE_FRAME: 0x13ffd,
+      MUSIC_STATE_ROW: 0x13ffe,
+      MUSIC_STATE_FLAGS: 0x13fff,
 
       // Somatic playroutine state (kept in REGISTERS_ADDR region above)
-      MUSIC_STATE_SOMATIC_SONG_POSITION: "0x0f020",
-      FPS: "0x0f021",
+      MUSIC_STATE_SOMATIC_SONG_POSITION: 0x0f020,
+      FPS: 0x0f021,
 
       // temp buffer for decompressing and decoding.
       // We can use pattern memory for anything we want but it's limited. These 2 buffers need to be
@@ -167,8 +130,8 @@ const bridgeConfig = {
       // [temp buffer A, must be able to hold sfx cfg after decompression]
       // [temp buffer B, must also be able to hold sfx cfg after decompression]
       MAX_KRATE_SFX: 32, // IF sfx payload is 15 bytes per entry, 32 sfx = 480 bytes + overhead = fits ok.
-      __AUTOGEN_TEMP_PTR_A: "0x13a64",
-      __AUTOGEN_TEMP_PTR_B: "0x13c64"
+      __AUTOGEN_TEMP_PTR_A: SomaticMemoryLayout.computed.TEMP_BUFFER_A_ADDR,
+      __AUTOGEN_TEMP_PTR_B: SomaticMemoryLayout.computed.TEMP_BUFFER_B_ADDR
    }
 };
 

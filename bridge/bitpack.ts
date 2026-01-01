@@ -1,4 +1,3 @@
-// Bitpacking helpers shared across host (TS) and generated Lua decoders.
 
 export type BitSize = number|"variable";
 
@@ -71,6 +70,33 @@ class MemoryRegion {
          throw new Error(`MemoryRegion ${this.name} cannot provide cell index ${cellIndex} (out of range)`);
       }
       return new MemoryRegion(`${this.name}_cell${cellIndex}`, cellAddr, cellSize);
+   }
+   // Allocate a region from the top (end) of this region, moving downward
+   allocFromTop(size: number, name?: string): MemoryRegion {
+      const newAddr = this.endAddress() - size;
+      if (newAddr < this.address) {
+         throw new Error(`Cannot allocate ${size} bytes from top of ${this.name} (would underflow)`);
+      }
+      return new MemoryRegion(name || `${this.name}_top`, newAddr, size);
+   }
+   // Allocate a region from the bottom (start) of this region, moving upward
+   allocFromBottom(size: number, name?: string): MemoryRegion {
+      if (size > this.size) {
+         throw new Error(`Cannot allocate ${size} bytes from bottom of ${this.name} (exceeds size)`);
+      }
+      return new MemoryRegion(name || `${this.name}_bottom`, this.address, size);
+   }
+   // Get the address as a hex string suitable for Lua or config
+   toHexString(): string {
+      return `0x${this.address.toString(16)}`;
+   }
+   // Get a new region representing the remaining space after allocating from bottom
+   remaining(allocatedFromBottom: number): MemoryRegion {
+      if (allocatedFromBottom > this.size) {
+         throw new Error(`Allocated ${allocatedFromBottom} exceeds size ${this.size} of ${this.name}`);
+      }
+      return new MemoryRegion(
+         `${this.name}_remaining`, this.address + allocatedFromBottom, this.size - allocatedFromBottom);
    }
 }
 

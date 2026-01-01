@@ -228,12 +228,15 @@ export class Tic80Backend {
       const b = this.bridge()!;
 
       const row = b.peekU8(TicMemoryMap.MUSIC_STATE_ROW);
-      const somaticSongPosition = b.peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_SONG_POSITION);
+      const somaticSongPosition = b.peekS8(TicMemoryMap.MUSIC_STATE_SOMATIC_SONG_POSITION);
+
+      //console.log(`[Tic80Backend] getTic80TransportState: row=${row} somaticSongPosition=${somaticSongPosition}`);
+
 
       const next: Tic80TransportState = {
          tic80RowIndex: row,
-         reportedSongPosition: somaticSongPosition === 255 ? -1 : somaticSongPosition,
-         isPlaying: somaticSongPosition !== 255,
+         reportedSongPosition: somaticSongPosition,
+         isPlaying: somaticSongPosition >= 0,
       };
       return next;
 

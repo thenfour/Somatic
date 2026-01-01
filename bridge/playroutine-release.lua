@@ -46,12 +46,9 @@ do
 
 	local morphs = {}
 
-	local WBASE = 0x0FFE4
 	local WBYTES = 16 -- 32x 4-bit samples packed 2-per-byte
 	local WSAMPLES = 32
-	local TRK_BASE = 0x13E64
 	local TRK_BYTES = 51
-	local PAT_BASE = 0x11164
 	local PAT_BYTES = 192
 	local ROW_BYTES = 3
 
@@ -207,7 +204,7 @@ do
 
 	-- Deserialize a waveform (packed nibbles in RAM) into a 0-based array of samples (0..15).
 	local function wread(waveIndex, outSamples)
-		local base = WBASE + waveIndex * WBYTES
+		local base = WAVE_BASE + waveIndex * WBYTES
 		local si = 0
 		for i = 0, WBYTES - 1 do
 			local b = pe(base + i)
@@ -218,7 +215,7 @@ do
 	end
 
 	local function wwrite(waveIndex, samples)
-		local base = WBASE + waveIndex * WBYTES
+		local base = WAVE_BASE + waveIndex * WBYTES
 		local si = 0
 		for i = 0, WBYTES - 1 do
 			local s0 = cnr(samples[si])
@@ -469,7 +466,7 @@ do
 		if trackIndex == nil or trackIndex < 0 then
 			return 0, 0, 0, 0
 		end
-		local base = TRK_BASE + trackIndex * TRK_BYTES + frameIndex * 3
+		local base = TRACKS_BASE + trackIndex * TRK_BYTES + frameIndex * 3
 		local p, s = pe(base) + u16(base + 1) * 256, 63
 		return p & s, (p >> 6) & s, (p >> 12) & s, (p >> 18) & s
 	end
@@ -479,7 +476,7 @@ do
 			return 0, 0
 		end
 		local pat0b = patternId1b - 1
-		local addr = PAT_BASE + pat0b * PAT_BYTES + rowIndex * ROW_BYTES
+		local addr = PATTERNS_BASE + pat0b * PAT_BYTES + rowIndex * ROW_BYTES
 		local b0 = pe(addr)
 		local b1 = pe(addr + 1)
 		local b2 = pe(addr + 2)
@@ -556,7 +553,7 @@ do
 		local entry = SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1]
 		local clen = SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1]
 		if type(entry) == "number" then
-			lzdm(entry + PAT_BASE, clen, destPointer)
+			lzdm(entry + PATTERNS_BASE, clen, destPointer)
 		else
 			lzdm(__AUTOGEN_TEMP_PTR_A, b85d(entry, clen, __AUTOGEN_TEMP_PTR_A), destPointer)
 		end

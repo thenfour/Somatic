@@ -73,11 +73,8 @@ local last_music_row = -1
 
 local morphMap = {}
 
-local WAVE_BASE = 0x0FFE4
 local WAVE_BYTES_PER_WAVE = 16
 local WAVE_SAMPLES_PER_WAVE = 32
-local TRACKS_BASE = 0x13E64
-local PATTERNS_BASE = 0x11164
 local TRACK_BYTES_PER_TRACK = 51
 local PATTERN_BYTES_PER_PATTERN = 192
 local ROW_BYTES = 3

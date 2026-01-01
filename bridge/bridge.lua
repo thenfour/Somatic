@@ -54,16 +54,6 @@ local INBOX = {
 	TOKEN = ADDR.INBOX + 14, -- host increments per command; echoed back on completion
 }
 
-local CH_REGISTERS = {
-	-- NB: KEEP IN SYNC WITH HOST (search FOR "BRIDGE_MEMORY_MAP")
-	SONG_POSITION = ADDR.REGISTERS + 0, -- current song position (0..255)
-	FPS = ADDR.REGISTERS + 1, -- current FPS
-}
-
-local function ch_set_playroutine_regs(songPosition)
-	poke(CH_REGISTERS.SONG_POSITION, songPosition & 0xFF)
-end
-
 -- Cart->host synchronization registers (mirrors the above for OUTBOX)
 
 local OUTBOX = {
@@ -284,10 +274,8 @@ local function read_sfx_cfg(instrumentId)
 	for i = 0, count - 1 do
 		local off = MORPH_MAP_BASE + MORPH_HEADER_BYTES + i * MORPH_ENTRY_BYTES
 		local entry = decode_MorphEntry(off)
-		log("Read cfg/iID " .. tostring(entry.instrumentId))
 		if entry.instrumentId == instrumentId then
 			local effectKindId = entry.effectKind -- EFFECT_KIND_* values
-			log("SFX ID " .. tostring(instrumentId) .. " uses effectKind " .. tostring(effectKindId))
 
 			-- Shape matches makeMorphMapLua(): values are numeric IDs.
 			return {
@@ -462,7 +450,6 @@ end
 
 local hs_scratch = {}
 local function apply_hardsync_effect_to_samples(samples, multiplier)
-	log("HS effect with mult=" .. tostring(multiplier))
 	local m = multiplier or 1
 	if m <= 1.001 then
 		return
@@ -504,7 +491,6 @@ local function cfg_is_k_rate_processing(cfg)
 	if (cfg.effectKind == EFFECT_KIND_HARDSYNC) and (cfg.effectAmtU8 or 0) > 0 then
 		return true
 	end
-	log("SFX is native waveform with no k-rate effects")
 	return false
 end
 
@@ -598,11 +584,8 @@ end
 
 local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks)
 	if not cfg_is_k_rate_processing(cfg) then
-		log("Skipping non-k-rate SFX ID " .. tostring(instrumentId))
 		return
 	end
-
-	log("Rendering SFX ID " .. tostring(instrumentId) .. " tick " .. tostring(ticksPlayed))
 
 	local rendered = render_waveform_samples(cfg, ticksPlayed, instrumentId, lfoTicks, render_out)
 	if not rendered then
@@ -671,7 +654,6 @@ local function prime_render_slot_for_note_on(instrumentId)
 		return
 	end
 	if not cfg_is_k_rate_processing(cfg) then
-		log("SFX ID " .. tostring(instrumentId) .. " is not k-rate processed; skipping prime")
 		return
 	end
 	-- Render tick 0 so audio starts with a defined wavetable.
@@ -688,14 +670,12 @@ local function sfx_tick_channel(channel)
 	local ticksPlayed = ch_sfx_ticks[channel + 1]
 	local cfg = read_sfx_cfg(idx)
 	if cfg == nil then
-		log("No SFX config for ID " .. tostring(idx) .. "; skipping")
 		ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 		return
 	end
 
 	-- Stable pipeline: if not k-rate processing, do nothing.
 	if not cfg_is_k_rate_processing(cfg) then
-		log("SFX ID " .. tostring(idx) .. " is not k-rate processed; skipping tick")
 		ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 		return
 	end
@@ -718,6 +698,10 @@ local function sfx_tick()
 	for ch = 0, SFX_CHANNELS - 1 do
 		sfx_tick_channel(ch)
 	end
+end
+
+local function ch_set_playroutine_regs(songPosition)
+	poke(BRIDGE_CONFIG.memory.MUSIC_STATE_SOMATIC_SONG_POSITION, songPosition & 0xFF)
 end
 
 -- =========================
@@ -963,7 +947,7 @@ end
 
 local function draw_status()
 	local y = 2
-	print("Somat9ic", 40, y, 12)
+	print("Somatic", 40, y, 12)
 	y = y + 8
 	print("fps:" .. tostring(fps), 40, y, 13)
 	y = y + 8
@@ -994,8 +978,8 @@ backBufferIsA = false -- A means patterns 0,1,2,3; B = 4,5,6,7
 stopPlayingOnNextFrame = false
 loopSongForever = false
 local PATTERN_BUFFER_BYTES = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
-local bufferALocation = 0x13324 -- pointer to first pattern https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
-local bufferBLocation = 0x13624 -- pointer to pattern 4
+local bufferALocation = PATTERN_BUFFER_A
+local bufferBLocation = PATTERN_BUFFER_B
 
 -- =========================
 -- tracker-specific playroutine support
@@ -1309,7 +1293,7 @@ function TIC()
 		fps_last_time = current_time
 	end
 
-	poke(CH_REGISTERS.FPS, fps & 0xFF)
+	poke(BRIDGE_CONFIG.memory.FPS, fps & 0xFF)
 
 	-- heartbeat
 	out_set(OUTBOX.HEARTBEAT, (out_get(OUTBOX.HEARTBEAT) + 1) & 0xFF)

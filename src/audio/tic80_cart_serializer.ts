@@ -14,6 +14,7 @@ import {LoopMode} from "./backend";
 import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
 import {encodePatternChannelDirect} from "./pattern_encoding";
 import {PreparedSong, prepareSongColumns} from "./prepared_song";
+import {SomaticMemoryLayout, Tic80MemoryMap} from "../../bridge/memory_layout";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -667,8 +668,19 @@ SOMATIC_MUSIC_DATA = {
 }
 -- END_SOMATIC_MUSIC_DATA`;
 
-   // Generate the autogen section with the morph decoder
+   // Generate the autogen section with the morph decoder and memory constants
    const autogenSection = `-- AUTO-GENERATED. DO NOT EDIT BY HAND.
+
+-- Memory Constants (generated from memory_layout.ts)
+local WAVE_BASE = ${Tic80MemoryMap.Waveforms.address}
+local SFX_BASE = ${Tic80MemoryMap.Sfx.address}
+local PATTERNS_BASE = ${Tic80MemoryMap.MusicPatterns.address}
+local TRACKS_BASE = ${Tic80MemoryMap.MusicTracks.address}
+local TEMP_BUFFER_A = ${SomaticMemoryLayout.tempBufferA.address}
+local TEMP_BUFFER_B = ${SomaticMemoryLayout.tempBufferB.address}
+local PATTERN_BUFFER_A = ${SomaticMemoryLayout.patternBufferA.address}
+local PATTERN_BUFFER_B = ${SomaticMemoryLayout.patternBufferB.address}
+local SOMATIC_SFX_CONFIG = ${SomaticMemoryLayout.somaticSfxConfig.address}
 
 -- Morph schema (generated)
 local MORPH_HEADER_BYTES = ${MORPH_HEADER_BYTES}
