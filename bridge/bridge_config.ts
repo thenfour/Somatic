@@ -1,5 +1,12 @@
 import {MemoryRegion} from "./bitpack";
 
+// IN GENERAL, we can only really use pattern memory for our own use for the playroutines.
+// we cannot make any guarantees about other code in the demo (to live beside playroutines),
+// so for example map / sprite memory can't be used even if it's tempting.
+//
+// BUT for bridge, we don't need to support other code living beside the playroutine,
+// so we CAN use other memory regions. For the mailbox system therefore we can use map memory.
+
 // .--------------------------------------.
 // |         96KB IO ADDRESS SPACE        |
 // |--------------------------------------|
@@ -149,7 +156,17 @@ const bridgeConfig = {
       MUSIC_STATE_SOMATIC_SONG_POSITION: "0x0f020",
       FPS: "0x0f021",
 
-      // temp buffer for decompressing and decoding
+      // temp buffer for decompressing and decoding.
+      // We can use pattern memory for anything we want but it's limited. These 2 buffers need to be
+      // large enough to hold things like pattern columns, sfx, waveform.
+      // but the biggest payload to be used here is the sfx config payload (~1kb).
+      // we can't aim to support ALL 64 sfx at once, but a reasonable limit is 32.
+      // for us, pattern memory looks like:
+      // [compressed_pattern_data]
+      // [8 patterns to be actually be played, used as front/back buffers]
+      // [temp buffer A, must be able to hold sfx cfg after decompression]
+      // [temp buffer B, must also be able to hold sfx cfg after decompression]
+      MAX_KRATE_SFX: 32, // IF sfx payload is 15 bytes per entry, 32 sfx = 480 bytes + overhead = fits ok.
       __AUTOGEN_TEMP_PTR_A: "0x13a64",
       __AUTOGEN_TEMP_PTR_B: "0x13c64"
    }
