@@ -1,6 +1,6 @@
 
 import * as luaparse from "luaparse";
-import {toLuaStringLiteral} from "../utils/utils";
+import {replaceLuaBlock, toLuaStringLiteral} from "../utils/utils";
 
 export type OptimizationRuleOptions = {
    stripComments: boolean;    //
@@ -646,15 +646,22 @@ export function parseLua(code: string): luaparse.Chunk|null {
 }
 
 export function processLua(code: string, ruleOptions?: OptimizationRuleOptions): string {
-   const ast = parseLua(code);
+   // Apply optimization rules
+   const options = {...DEFAULT_OPTIMIZATION_RULES, ...ruleOptions};
+
+   // Strip debug blocks before parsing (line-based string matching)
+   let processedCode = code;
+   if (options.stripDebugBlocks) {
+      processedCode = replaceLuaBlock(processedCode, "-- BEGIN_DEBUG_ONLY", "-- END_DEBUG_ONLY", "");
+   }
+
+   const ast = parseLua(processedCode);
    if (!ast) {
       console.error("Failed to parse Lua code; returning original code.");
       return code;
    }
    console.log("Parsed Lua AST:", ast);
 
-   // Apply optimization rules
-   const options = {...DEFAULT_OPTIMIZATION_RULES, ...ruleOptions};
    if (options.stripComments) {
       // Remove all comments from AST
       ast.comments = [];

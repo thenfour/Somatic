@@ -78,7 +78,7 @@ export type SongStatsData = {
     error: boolean;
 };
 
-export const useSongStatsData = (song: Song): SongStatsData => {
+export const useSongStatsData = (song: Song, variant: "debug" | "release"): SongStatsData => {
     const [input, setInput] = useState<SongSerialized | null>(null);
 
     // These are tuning constants; we currently don't expose UI to tweak them.
@@ -117,7 +117,7 @@ export const useSongStatsData = (song: Song): SongStatsData => {
         }
 
         try {
-            const cartDetails = serializeSongToCartDetailed(debouncedSong, true, 'release', gAllChannelsAudible);
+            const cartDetails = serializeSongToCartDetailed(debouncedSong, true, variant, gAllChannelsAudible);
 
             const optimizedDoc = OptimizeSong(debouncedSong).optimizedSong;
             const bridge = serializeSongForTic80Bridge({
@@ -138,7 +138,7 @@ export const useSongStatsData = (song: Song): SongStatsData => {
             console.error("Error generating song stats:", error);
             setInput(null);
         }
-    }, [debouncedSong]);
+    }, [debouncedSong, variant]);
 
     const breakdown = useMemo<Stats>(() => {
         if (!input) return {
@@ -222,7 +222,7 @@ export const useSongStatsData = (song: Song): SongStatsData => {
     return { input, breakdown, totalSize, patternCompressionRatio, error };
 };
 
-export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => void }> = ({ data, onClose }) => {
+export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => void; variant: "debug" | "release"; onVariantChange: (variant: "debug" | "release") => void }> = ({ data, onClose, variant, onVariantChange }) => {
     const { input, breakdown, totalSize, patternCompressionRatio } = data;
     const clipboard = useClipboard();
 
@@ -234,6 +234,28 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
         <div>No data yet.</div>
     ) : (
         <div style={{ minWidth: 420 }}>
+            <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 16 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                    <input
+                        type="radio"
+                        name="variant"
+                        value="debug"
+                        checked={variant === "debug"}
+                        onChange={() => onVariantChange("debug")}
+                    />
+                    Debug
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                    <input
+                        type="radio"
+                        name="variant"
+                        value="release"
+                        checked={variant === "release"}
+                        onChange={() => onVariantChange("release")}
+                    />
+                    Release
+                </label>
+            </div>
             <div style={{ marginBottom: 8, fontWeight: 600 }}>
                 Cart size: <SizeValue value={input.cartridge.cartridge.length} />
             </div>

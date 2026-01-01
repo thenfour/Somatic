@@ -216,6 +216,7 @@ do
 		end
 	end
 
+	-- BEGIN_FEATURE_LOWPASS
 	local function lp_diffuse_wrap(x, y, n, amt)
 		for i = 0, n - 1 do
 			local xm1 = x[(i - 1) % n]
@@ -251,7 +252,9 @@ do
 			samples[i] = x[i]
 		end
 	end
+	-- END_FEATURE_LOWPASS
 
+	-- BEGIN_FEATURE_WAVEFOLD
 	local function fold_reflect(u)
 		local v = (u + 1) % 4
 		if v > 2 then
@@ -279,7 +282,9 @@ do
 			samples[i] = math.floor(out + 0.5)
 		end
 	end
+	-- END_FEATURE_WAVEFOLD
 
+	-- BEGIN_FEATURE_HARDSYNC
 	local hs_scratch = {}
 	local function apply_hardsync_effect_to_samples(samples, multiplier)
 		local m = multiplier or 1
@@ -309,13 +314,17 @@ do
 			samples[i] = v
 		end
 	end
+	-- END_FEATURE_HARDSYNC
 
 	local render_src_a = {}
 	local render_src_b = {}
 	local render_out = {}
+	-- BEGIN_FEATURE_LFO
 	local lfo_ticks_by_sfx = {}
+	-- END_FEATURE_LFO
 
 	local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)
+		-- BEGIN_FEATURE_LFO
 		if modSource == MOD_SRC_LFO then
 			local cycle = lfoCycleTicks
 			if cycle <= 0 then
@@ -324,6 +333,7 @@ do
 			local phase01 = (lfoTicks % cycle) / cycle
 			return (1 - math.cos(phase01 * math.pi * 2)) * 0.5
 		end
+		-- END_FEATURE_LFO
 
 		if durationTicks == nil or durationTicks <= 0 then
 			return fallbackT
@@ -336,22 +346,36 @@ do
 			return false
 		end
 		local we = cfg.waveEngine
-		if we == WAVE_ENGINE_MORPH or we == WAVE_ENGINE_PWM then
+		-- BEGIN_FEATURE_WAVEMORPH
+		if we == WAVE_ENGINE_MORPH then
 			return true
 		end
+		-- END_FEATURE_WAVEMORPH
+		-- BEGIN_FEATURE_PWM
+		if we == WAVE_ENGINE_PWM then
+			return true
+		end
+		-- END_FEATURE_PWM
+		-- BEGIN_FEATURE_LOWPASS
 		if cfg.lowpassEnabled then
 			return true
 		end
+		-- END_FEATURE_LOWPASS
+		-- BEGIN_FEATURE_WAVEFOLD
 		local effectKind = cfg.effectKind
 		if effectKind == EFFECT_KIND_WAVEFOLD and (cfg.effectAmtU8 or 0) > 0 then
 			return true
 		end
+		-- END_FEATURE_WAVEFOLD
+		-- BEGIN_FEATURE_HARDSYNC
 		if effectKind == EFFECT_KIND_HARDSYNC and (cfg.effectAmtU8 or 0) > 0 then
 			return true
 		end
+		-- END_FEATURE_HARDSYNC
 		return false
 	end
 
+	-- BEGIN_FEATURE_WAVEMORPH
 	local function render_waveform_morph(cfg, ticksPlayed, outSamples)
 		local durationTicks = cfg.morphDurationInTicks
 		local t
@@ -369,7 +393,9 @@ do
 		end
 		return true
 	end
+	-- END_FEATURE_WAVEMORPH
 
+	-- BEGIN_FEATURE_PWM
 	local function render_waveform_pwm(cfg, ticksPlayed, outSamples, lfoTicks)
 		-- PWM speed is driven by the instrument LFO; pwmCycleInTicks and phase offset are ignored.
 		local cycle = cfg.lfoCycleInTicks or 0
@@ -397,6 +423,7 @@ do
 		end
 		return true
 	end
+	-- END_FEATURE_PWM
 
 	local function render_waveform_native(cfg, outSamples)
 		wave_read_samples(cfg.sourceWaveformIndex, outSamples)
@@ -405,11 +432,17 @@ do
 
 	local function render_waveform_samples(cfg, ticksPlayed, outSamples, lfoTicks)
 		local we = cfg.waveEngine or WAVE_ENGINE_NATIVE
+		-- BEGIN_FEATURE_WAVEMORPH
 		if we == WAVE_ENGINE_MORPH then
 			return render_waveform_morph(cfg, ticksPlayed, outSamples)
-		elseif we == WAVE_ENGINE_PWM then
+		end
+		-- END_FEATURE_WAVEMORPH
+		-- BEGIN_FEATURE_PWM
+		if we == WAVE_ENGINE_PWM then
 			return render_waveform_pwm(cfg, ticksPlayed, outSamples, lfoTicks)
-		elseif we == WAVE_ENGINE_NATIVE then
+		end
+		-- END_FEATURE_PWM
+		if we == WAVE_ENGINE_NATIVE then
 			return render_waveform_native(cfg, outSamples)
 		end
 		return false
@@ -423,6 +456,7 @@ do
 			return
 		end
 		local effectKind = cfg.effectKind or EFFECT_KIND_NONE
+		-- BEGIN_FEATURE_HARDSYNC
 		if effectKind == EFFECT_KIND_HARDSYNC and (cfg.effectAmtU8 or 0) > 0 then
 			local hsT = calculate_mod_t(
 				cfg.effectModSource or MOD_SRC_ENVELOPE,
@@ -436,6 +470,8 @@ do
 			local multiplier = 1 + ((cfg.effectAmtU8 or 0) / 255) * 7 * env
 			apply_hardsync_effect_to_samples(render_out, multiplier)
 		end
+		-- END_FEATURE_HARDSYNC
+		-- BEGIN_FEATURE_WAVEFOLD
 		local effectModSource = cfg.effectModSource or MOD_SRC_ENVELOPE
 		local wavefoldHasTime = (effectModSource == MOD_SRC_LFO and (cfg.lfoCycleInTicks or 0) > 0)
 			or ((cfg.effectDurationInTicks or 0) > 0)
@@ -453,6 +489,8 @@ do
 			local strength = maxAmt * envShaped
 			apply_wavefold_effect_to_samples(render_out, strength)
 		end
+		-- END_FEATURE_WAVEFOLD
+		-- BEGIN_FEATURE_LOWPASS
 		if cfg.lowpassEnabled then
 			local lpT = calculate_mod_t(
 				cfg.lowpassModSource or MOD_SRC_ENVELOPE,
@@ -465,6 +503,7 @@ do
 			local strength = apply_curveN11(lpT, cfg.lowpassCurveS6)
 			apply_lowpass_effect_to_samples(render_out, strength)
 		end
+		-- END_FEATURE_LOWPASS
 		wave_write_samples(cfg.renderWaveformSlot, render_out)
 	end
 
@@ -551,9 +590,11 @@ do
 
 	local function somatic_sfx_tick(track, frame, row)
 		apply_music_row_to_sfx_state(track, frame, row)
+		-- BEGIN_FEATURE_LFO
 		for id, _ in pairs(morphMap) do
 			lfo_ticks_by_sfx[id] = (lfo_ticks_by_sfx[id] or 0) + 1
 		end
+		-- END_FEATURE_LFO
 		for ch = 0, SFX_CHANNELS - 1 do
 			sfx_tick_channel(ch)
 		end

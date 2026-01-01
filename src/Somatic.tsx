@@ -132,6 +132,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
     const [songStatsPanelOpen, setSongStatsPanelOpen] = useState(false);
+    const [songStatsVariant, setSongStatsVariant] = useState<"debug" | "release">("release");
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
     const [somaticTransportState, setSomaticTransportState] = useState<SomaticTransportState>(() => audio.getSomaticTransportState());
@@ -140,7 +141,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [embedMode, setEmbedMode] = useState<"iframe" | "toplevel">("iframe");
     const clipboard = useClipboard();
 
-    const songStatsData = useSongStatsData(song);
+    const songStatsData = useSongStatsData(song, songStatsVariant);
 
     // in order of cycle
     const LOOP_MODE_OPTIONS: { value: LoopMode; label: string }[] = [
@@ -1162,6 +1163,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     <SongStatsAppPanel
                         data={songStatsData}
                         onClose={() => setSongStatsPanelOpen(false)}
+                        variant={songStatsVariant}
+                        onVariantChange={setSongStatsVariant}
                     />
                 )}
             </div>
