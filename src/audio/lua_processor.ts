@@ -2,25 +2,16 @@
 import * as luaparse from "luaparse";
 import {replaceLuaBlock, toLuaStringLiteral} from "../utils/utils";
 import {renameLocalVariablesInAST} from "./lua_renamer";
+import {aliasRepeatedExpressionsInAST} from "./lua_alias_expressions";
 
 export type OptimizationRuleOptions = {
-   stripComments: boolean;            //
-   stripDebugBlocks: boolean;         //
-   maxIndentLevel: number;            // limits indentation to N levels; beyond that, everything is flattened
-   renameLocalVariables: boolean;     // TODO
-   bakeConstants: boolean;            // TODO
-   aliasRepeatedExpressions: boolean; // TODO
+   stripComments: boolean;    //
+   stripDebugBlocks: boolean; //
+   maxIndentLevel: number;    // limits indentation to N levels; beyond that, everything is flattened
+   renameLocalVariables: boolean;
+   bakeConstants: boolean; // TODO
+   aliasRepeatedExpressions: boolean;
 };
-
-// const DEFAULT_OPTIMIZATION_RULES: OptimizationRuleOptions = {
-//    stripComments: false,
-//    stripDebugBlocks: false,
-//    maxIndentLevel: 50,
-//    renameLocalVariables: false,
-//    bakeConstants: false,
-//    aliasRepeatedExpressions: false,
-// };
-
 
 // Precedence tables, low → high
 const LOGICAL_PRECEDENCE: Record<string, number> = {
@@ -670,6 +661,10 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
 
    if (ruleOptions.stripComments) {
       ast.comments = [];
+   }
+
+   if (ruleOptions.aliasRepeatedExpressions) {
+      ast = aliasRepeatedExpressionsInAST(ast);
    }
 
    if (ruleOptions.renameLocalVariables) {

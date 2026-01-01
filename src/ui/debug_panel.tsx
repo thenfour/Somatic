@@ -2,11 +2,13 @@ import React, { useState, useMemo } from 'react';
 import './debug_panel.css';
 import { AppPanelShell } from './AppPanelShell';
 import { OptimizationRuleOptions, processLua } from '../audio/lua_processor';
+import { CharMap } from '../utils/utils';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-    const [inputLua, setInputLua] = useState<string>(`-- Sample Lua code with local variables
-local myVariable = 10
-local anotherVar = 20
+    const [inputLua, setInputLua] = useState<string>(`-- Sample Lua code with repeated expressions
+local x = math.cos(1) + math.cos(2) + math.cos(3)
+local y = math.sin(1) + math.sin(2) + math.sin(3)
+local z = string.sub("hello", 1, 2) .. string.sub("world", 1, 2)
 
 function calculateSum(firstNumber, secondNumber)
    local result = firstNumber + secondNumber
@@ -16,12 +18,8 @@ function calculateSum(firstNumber, secondNumber)
    return result
 end
 
-for loopIndex = 1, 5 do
-   local tempValue = loopIndex * 2
-   print(tempValue) -- DEBUG_ONLY
-end
-
-local sum = calculateSum(myVariable, anotherVar)
+local angle = math.cos(0.5)
+local pos = {x = math.cos(angle), y = math.sin(angle)}
 `);
 
     const [options, setOptions] = useState<OptimizationRuleOptions>({
@@ -141,7 +139,7 @@ local sum = calculateSum(myVariable, anotherVar)
                 </div>
 
                 <div className="debug-panel-output">
-                    <div className="debug-panel-output-label">Processed Output:</div>
+                    <div className="debug-panel-output-label">Processed Output ({inputLua.length}{CharMap.RightArrow}{outputLua.length}):</div>
                     <div className="debug-panel-output-content">{outputLua}</div>
                 </div>
             </div>
