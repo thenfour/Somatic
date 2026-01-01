@@ -8,7 +8,7 @@
 
 -- BRIDGE_AUTOGEN_END
 
--- Derived constants from BRIDGE_CONFIG (Lua view bridge_config.js)
+-- Derived constants from BRIDGE_CONFIG (Lua view bridge_config.ts)
 local ADDR = {
 	MARKER = BRIDGE_CONFIG.memory.MARKER_ADDR,
 	REGISTERS = BRIDGE_CONFIG.memory.REGISTERS_ADDR,
@@ -89,7 +89,7 @@ local OUTBOX = {
 -- =========================
 -- OUTBOX layout (cart -> host)
 -- =========================
--- Fields and base address are defined in bridge_config.js (memory.OUTBOX_ADDR).
+-- Fields and base address are defined in bridge_config.ts (memory.OUTBOX_ADDR).
 -- This section documents how the cart currently uses them:
 -- OUTBOX.MAGIC        : magic byte; set to 'B' (0x42) at boot so the host can detect the bridge.
 -- OUTBOX.VERSION      : protocol version; currently hard-coded to 1 at boot.
@@ -108,15 +108,15 @@ local OUTBOX = {
 -- OUTBOX.TOKEN        : echoed host token when finishing a command (copied from INBOX.TOKEN in publish_cmd).
 -- OUTBOX.LOG_BASE .. LOG_BASE+LOG_SIZE-1 : reserved region for a future outbox command ring buffer.
 --
--- Note: LOG_CMD_LOG and the LOG_* ring-buffer protocol are specified in bridge_config.json
+-- Note: LOG_CMD_LOG and the LOG_* ring-buffer protocol are specified in bridge_config.ts
 -- and are not currently implemented on the cart side.
 
 -- =========================
 -- INBOX layout (host -> cart)
 -- =========================
--- Fields and base address are defined in bridge_config.json (memory.INBOX_ADDR).
+-- Fields and base address are defined in bridge_config.ts (memory.INBOX_ADDR).
 -- This section documents how the cart currently interprets them:
--- INBOX.CMD          : inbox command code; numeric IDs are defined in bridge_config.json.inboxCommands.
+-- INBOX.CMD          : inbox command code; numeric IDs are defined in bridge_config.ts.inboxCommands.
 -- INBOX.SONG_POSITION: overloaded by several commands;
 --                      used as song order position for PLAY, and as sfx id for PLAY_SFX_ON.
 -- INBOX.ROW          : overloaded by several commands; used as row index for PLAY, and as note for PLAY_SFX_ON.

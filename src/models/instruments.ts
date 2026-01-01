@@ -2,22 +2,6 @@
 import {clamp, CoalesceBoolean} from "../utils/utils";
 import {Tic80Caps} from "./tic80Capabilities";
 
-// per frame
-// u8 volume:4;
-// u8 wave index:4;
-// u8 chord:4; // aka arpeggio
-// s8 pitch:4;
-
-// sfx data layout (after frames)
-// u8 octave:3;
-// u8 pitch16x:1; // pitch factor
-// s8 speed:SFX_SPEED_BITS;
-// u8 reverse:1; // chord reverse
-// u8 note:4;
-// u8 stereo_left:1;
-// u8 stereo_right:1;
-// u8 temp:2;
-
 export type SomaticInstrumentWaveEngine = "morph"|"native"|"pwm";
 
 export type ModSource = "envelope"|"lfo";
@@ -94,9 +78,10 @@ export interface Tic80InstrumentDto {
    waveEngine: SomaticInstrumentWaveEngine;
 
    sourceWaveformIndex: number; // 0-15 (used as morph A for morph engine; used as source for native+effects)
-   morphWaveB: number;          // 0-15
    renderWaveformSlot: number;  // 0-15 -- which waveform slot to use for live k-rate processing.
-   morphCurveN11: number;       // -1 to +1; 0 = linear. -1 = fast start, slow end; +1 = slow start, fast end
+
+   morphWaveB: number;    // 0-15
+   morphCurveN11: number; // -1 to +1; 0 = linear. -1 = fast start, slow end; +1 = slow start, fast end
    morphDurationSeconds: number;
 
    pwmDuty: number;  // 0-31

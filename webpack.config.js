@@ -1,9 +1,11 @@
+require('ts-node').register({ transpileOnly: true, compilerOptions: { module: 'commonjs' } });
+
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const webpack = require('webpack');
-const { BridgeWatchPlugin } = require('./scripts/bridge-watch-plugin');
+const { BridgeWatchPlugin } = require('./scripts/bridge-watch-plugin.ts');
 const fs = require('fs');
 const dotenv = require('dotenv');
 const { buildSeoConfig } = require('./scripts/buildSeoConfig');

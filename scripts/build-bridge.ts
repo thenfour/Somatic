@@ -1,0 +1,188 @@
+// Build bridge.tic from bridge.lua
+// TIC-80 .tic file format: https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
+// .tic is a series of chunks
+//   - 4-byte header (1 byte type, 2 bytes size, 1 byte reserved) + data
+//   - Chunk type 5 = CODE chunk (Lua text)
+//
+//   ts-node scripts/build-bridge.ts
+//   npm run build-bridge
+
+import fs from "fs";
+import path from "path";
+import {BUILD_INFO, getBridgeCartFilename} from "./buildInfo";
+import bridgeConfig, {BridgeConfig} from "../bridge/bridge_config";
+
+const BRIDGE_LUA_PATH = path.resolve(__dirname, "../bridge/bridge.lua");
+const OUTPUT_GENERATED_BRIDGE_LUA_PATH = path.resolve(__dirname, "../temp/bridge-generated.lua");
+const OUTPUT_TIC_PATH = path.resolve(__dirname, "../public", getBridgeCartFilename(BUILD_INFO));
+
+// TIC-80 chunk types (subset)
+const CHUNK_CODE = 5;
+
+function loadBridgeConfig(): BridgeConfig {
+   return bridgeConfig;
+}
+
+function escapeLuaString(str: string): string {
+   return String(str).replace(/\\/g, "\\\\").replace(/"/g, "\\\"").replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+}
+
+function jsonToLua(value: unknown, indent: number): string {
+   const pad = "\t".repeat(indent);
+   const padInner = "\t".repeat(indent + 1);
+
+   if (Array.isArray(value)) {
+      if (value.length === 0)
+         return "{}";
+      const parts = value.map(v => padInner + jsonToLua(v, indent + 1) + ",");
+      return "{\n" + parts.join("\n") + "\n" + pad + "}";
+   }
+
+   if (value && typeof value === "object") {
+      const entries = Object.entries(value as Record<string, unknown>);
+      if (entries.length === 0)
+         return "{}";
+      const parts = entries.map(([key, v]) => {
+         const isIdent = /^[A-Za-z_][A-Za-z0-9_]*$/.test(key);
+         const luaKey = isIdent ? key : `["${escapeLuaString(key)}"]`;
+         return padInner + luaKey + " = " + jsonToLua(v, indent + 1) + ",";
+      });
+      return "{\n" + parts.join("\n") + "\n" + pad + "}";
+   }
+
+   if (typeof value === "string") {
+      return "\"" + escapeLuaString(value) + "\"";
+   }
+   if (typeof value === "number") {
+      return String(value);
+   }
+   if (typeof value === "boolean") {
+      return value ? "true" : "false";
+   }
+   if (value == null) {
+      return "nil";
+   }
+   return "nil";
+}
+
+function generateLuaAutogenBlock(config: BridgeConfig): string {
+   const luaTable = jsonToLua(config, 0);
+   const lines = [];
+   lines.push("-- AUTO-GENERATED FROM bridge_config.ts. DO NOT EDIT BY HAND.");
+   lines.push("");
+   lines.push("local BRIDGE_CONFIG = " + luaTable);
+   lines.push("");
+   return lines.join("\n");
+}
+
+function buildTicCart(luaSource: string): Buffer {
+   const codeBytes = Buffer.from(luaSource, "utf8");
+
+   // Chunk header: type (1 byte) + size (2 bytes little-endian) + bank (1 byte)
+   const chunkHeaderSize = 4;
+   const chunkHeader = Buffer.alloc(chunkHeaderSize);
+   chunkHeader.writeUInt8(CHUNK_CODE, 0);          // chunk type
+   chunkHeader.writeUInt16LE(codeBytes.length, 1); // size (little-endian)
+   chunkHeader.writeUInt8(0, 3);                   // bank = 0
+
+   // Combine header + code
+   return Buffer.concat([chunkHeader, codeBytes]);
+}
+
+function cleanOldBridgeCarts(): void {
+   const publicDir = path.resolve(__dirname, "../public");
+   const currentName = path.basename(OUTPUT_TIC_PATH);
+   if (!fs.existsSync(publicDir))
+      return;
+
+   const entries = fs.readdirSync(publicDir, {withFileTypes: true});
+   for (const entry of entries) {
+      if (!entry.isFile())
+         continue;
+      const name = entry.name;
+      if (name === currentName)
+         continue;
+      if (name.startsWith("bridge-") && name.endsWith(".tic")) {
+         const fullPath = path.join(publicDir, name);
+         try {
+            fs.unlinkSync(fullPath);
+            console.log("[build-bridge] Removed old bridge cart", fullPath);
+         } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.warn("[build-bridge] Failed to remove old bridge cart", fullPath, msg);
+         }
+      }
+   }
+}
+
+export function buildBridge(): void {
+   console.log("[build-bridge] Reading", BRIDGE_LUA_PATH);
+
+   if (!fs.existsSync(BRIDGE_LUA_PATH)) {
+      throw new Error(`bridge.lua not found at ${BRIDGE_LUA_PATH}`);
+   }
+
+   const config = loadBridgeConfig();
+   const autogen = generateLuaAutogenBlock(config);
+
+   const luaTemplate = fs.readFileSync(BRIDGE_LUA_PATH, "utf8");
+   console.log(`[build-bridge] Lua template: ${luaTemplate.length} bytes`);
+
+   const markerStart = "BRIDGE_AUTOGEN_START";
+   const markerEnd = "BRIDGE_AUTOGEN_END";
+   const startIdx = luaTemplate.indexOf(markerStart);
+   const endIdx = luaTemplate.indexOf(markerEnd);
+   if (startIdx === -1 || endIdx === -1 || endIdx <= startIdx) {
+      throw new Error("BRIDGE_AUTOGEN_START/END markers not found or malformed in bridge.lua");
+   }
+
+   // We want to preserve the full lines that contain the markers, including
+   // the leading "-- ", and replace only the content *between* them.
+   const startLineEndIdx = luaTemplate.indexOf("\n", startIdx);
+   const before = startLineEndIdx === -1 ? luaTemplate : luaTemplate.slice(0, startLineEndIdx + 1);
+
+   let endLineStartIdx = luaTemplate.lastIndexOf("\n", endIdx);
+   if (endLineStartIdx === -1)
+      endLineStartIdx = 0;
+   else
+      endLineStartIdx += 1;
+   const after = luaTemplate.slice(endLineStartIdx);
+
+   const luaSource = `${before}\n\n${autogen}\n\n${after}`;
+   console.log(`[build-bridge] Lua source (with autogen): ${luaSource.length} bytes`);
+
+   // write out the generated Lua for inspection
+   {
+      if (!fs.existsSync(path.dirname(OUTPUT_GENERATED_BRIDGE_LUA_PATH))) {
+         fs.mkdirSync(path.dirname(OUTPUT_GENERATED_BRIDGE_LUA_PATH), {recursive: true});
+      }
+      fs.writeFileSync(OUTPUT_GENERATED_BRIDGE_LUA_PATH, luaSource);
+      console.log("[build-bridge] Written generated Lua to", OUTPUT_GENERATED_BRIDGE_LUA_PATH);
+   }
+
+   const ticCart = buildTicCart(luaSource);
+   console.log(`[build-bridge] TIC cart: ${ticCart.length} bytes`);
+
+   const outputDir = path.dirname(OUTPUT_TIC_PATH);
+   if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, {recursive: true});
+   }
+   // Remove any older bridge-*.tic so public/ (and thus dist/) stays clean.
+   cleanOldBridgeCarts();
+
+   fs.writeFileSync(OUTPUT_TIC_PATH, ticCart);
+   console.log("[build-bridge] Written", OUTPUT_TIC_PATH);
+}
+
+// direct execution...
+if (require.main === module) {
+   try {
+      buildBridge();
+      console.log("[build-bridge] Success!");
+   } catch (err) {
+      console.error("[build-bridge] Error:", err);
+      process.exit(1);
+   }
+}
+
+export default buildBridge;

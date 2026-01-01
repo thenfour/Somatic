@@ -132,12 +132,12 @@ npx serve
 
 Used to be manual process: load it in a tic80 instance and save the cart to `/public/bridge.tic`. that's what gets loaded @ runtime.
 
-It's now an automated build process (see the webpack plugin `build-bridge.js` and `bridge-watch-plugin.js`).
+It's now an automated build process (see the webpack plugin `build-bridge.ts` and `bridge-watch-plugin.ts`).
 
-Bridge.tic depends on `bridge.lua` and `bridge_config.js`.
+Bridge.tic depends on `bridge.lua` and `bridge_config.ts`.
 
 * You change `bridge.lua`, and the bridge watcher detects it and builds the `.tic` cart.
-* Or you change `bridge_config.js` and the same chain happens.
+* Or you change `bridge_config.ts` and the same chain happens.
 
 `playroutine-*.lua` is also not a raw lua; it's a template that gets preprocessed by the tic80 cart serializer.
 

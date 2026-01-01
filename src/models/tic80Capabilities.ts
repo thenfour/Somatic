@@ -2,9 +2,11 @@
 // avoid hardcoding these values elsewhere in the codebase.
 
 import {clamp, parseAddress} from "../utils/utils";
-import bridgeConfig from "../../bridge/bridge_config.js";
+import bridgeConfig from "../../bridge/bridge_config";
 
-const mem = bridgeConfig.memory as Record<string, string|number>;
+//const mem = bridgeConfig.memory as Record<string, string|number>;
+
+const mem = bridgeConfig.memory;
 
 export const SomaticCaps = {
    maxPatternCount: 256,
@@ -97,7 +99,7 @@ export const gChannelsArray =
 export const gAllChannelsAudible = new Set<Tic80ChannelIndex>(gChannelsArray);
 
 export const TicMemoryMap = {
-   // BRIDGE_MEMORY_MAP (shared with bridge.lua via bridge_config.js)
+   // BRIDGE_MEMORY_MAP (shared with bridge.lua via bridge_config.ts)
    MARKER_ADDR: parseAddress(mem.MARKER_ADDR),
    REGISTERS_ADDR: parseAddress(mem.REGISTERS_ADDR),
    INBOX_ADDR: parseAddress(mem.INBOX_ADDR),
@@ -115,18 +117,13 @@ export const TicMemoryMap = {
    LOG_BASE: parseAddress(mem.OUTBOX_ADDR) + 16,
    LOG_SIZE: mem.LOG_SIZE as number,
 
-   CHANNEL_VOLUME_0: parseAddress(mem.CHANNEL_VOLUME_0),
-   CHANNEL_VOLUME_1: parseAddress(mem.CHANNEL_VOLUME_1),
-   CHANNEL_VOLUME_2: parseAddress(mem.CHANNEL_VOLUME_2),
-   CHANNEL_VOLUME_3: parseAddress(mem.CHANNEL_VOLUME_3),
-
    // NB: IF THIS CHANGES YOU HAVE TO UPDATE maxPatternLengthToBridge IN SomaticCaps
    TILE_BASE: parseAddress(mem.TILE_BASE),
    TF_ORDER_LIST: parseAddress(mem.TF_ORDER_LIST), // TILE_BASE: 1 length byte + 256 entries.
    TF_PATTERN_DATA: parseAddress(
       mem.TF_PATTERN_DATA), // theoretically you can support the whole tile+sprite+map area for pattern data.
 
-   // Packed morphing instrument config (host -> cart). See bridge_config.js for binary layout.
+   // Packed morphing instrument config (host -> cart). See bridge_config.ts for binary layout.
    SOMATIC_SFX_CONFIG: parseAddress(mem.SOMATIC_SFX_CONFIG),
 
    // RAM destinations for the chunk payloads (bank 0)
