@@ -5,21 +5,20 @@ import { OptimizationRuleOptions, processLua } from '../audio/lua_processor';
 import { CharMap } from '../utils/utils';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-    const [inputLua, setInputLua] = useState<string>(`-- Sample Lua code with repeated expressions
+    const [inputLua, setInputLua] = useState<string>(`-- Expressions used globally
 local x = math.cos(1) + math.cos(2) + math.cos(3)
 local y = math.sin(1) + math.sin(2) + math.sin(3)
-local z = string.sub("hello", 1, 2) .. string.sub("world", 1, 2)
 
-function calculateSum(firstNumber, secondNumber)
-   local result = firstNumber + secondNumber
-   -- BEGIN_DEBUG_ONLY
-   log("Sum calculated: " .. result)
-   -- END_DEBUG_ONLY
-   return result
+-- Expressions used only in this function
+function draw()
+   local a = string.sub("test", 1, 2)
+   local b = string.sub("demo", 1, 2)
+   local c = string.sub("code", 1, 2)
+   print(a .. b .. c)
 end
 
+-- math.cos used again at global scope
 local angle = math.cos(0.5)
-local pos = {x = math.cos(angle), y = math.sin(angle)}
 `);
 
     const [options, setOptions] = useState<OptimizationRuleOptions>({
