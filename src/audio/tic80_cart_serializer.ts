@@ -610,7 +610,8 @@ function stripUnusedFeatureBlocks(template: string, usage: PlaybackFeatureUsage)
 }
 
 function getPlayroutineCode(variant: "debug"|"release"): string {
-   return variant === "debug" ? playroutineDebug : playroutineRelease;
+   return playroutineDebug;
+   //return variant === "debug" ? playroutineDebug : playroutineRelease;
 };
 
 function getCode(song: Song, variant: "debug"|"release", featureUsage?: PlaybackFeatureUsage): {

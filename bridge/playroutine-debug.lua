@@ -297,7 +297,7 @@ local function cfg_is_k_rate_processing(cfg)
 	if we == WAVE_ENGINE_MORPH or we == WAVE_ENGINE_PWM then
 		return true
 	end
-	if cfg.lowpassEnabled ~= 0 then
+	if cfg.lowpassEnabled then
 		return true
 	end
 	local effectKind = cfg.effectKind
@@ -405,7 +405,7 @@ local function render_tick_cfg(cfg, instId, ticksPlayed, lfoTicks)
 		local strength = maxAmt * envShaped
 		apply_wavefold_effect_to_samples(render_out, strength)
 	end
-	if (cfg.lowpassEnabled or 0) ~= 0 then
+	if cfg.lowpassEnabled then
 		local lpT = calculate_mod_t(
 			cfg.lowpassModSource or MOD_SRC_ENVELOPE,
 			cfg.lowpassDurationInTicks,
@@ -414,7 +414,7 @@ local function render_tick_cfg(cfg, instId, ticksPlayed, lfoTicks)
 			cfg.lfoCycleInTicks,
 			1
 		)
-		local strength = apply_curveN11(lpT, cfg.lowpassCurveS6 or 0)
+		local strength = apply_curveN11(lpT, cfg.lowpassCurveS6)
 		apply_lowpass_effect_to_samples(render_out, strength)
 	end
 	wave_write_samples(cfg.renderWaveformSlot, render_out)
