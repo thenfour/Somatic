@@ -73,6 +73,16 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       ],
    },
 
+   "ToggleDebugPanel": {
+      id: "ToggleDebugPanel",
+      title: "toggle debug panel",
+      description: "open or close the debug panel for testing Lua processing.",
+      category: "View",
+      defaultBindings: [
+         {kind: "character", key: "/", primary: true},
+      ],
+   },
+
    "FocusPattern": {
       id: "FocusPattern",
       title: "focus pattern editor",

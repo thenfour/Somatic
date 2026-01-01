@@ -34,6 +34,7 @@ import { PreferencesPanel } from './ui/preferences_panel';
 import { SongEditor } from './ui/song_editor';
 import { SongStats, SongStatsAppPanel, useSongStatsData } from './ui/SongStats';
 import { Theme, ThemeEditorPanel } from './ui/theme_editor_panel';
+import { DebugPanel } from './ui/debug_panel';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { useToasts } from './ui/toast_provider';
 import { Tooltip } from './ui/basic/tooltip';
@@ -131,6 +132,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
+    const [debugPanelOpen, setDebugPanelOpen] = useState(false);
     const [songStatsPanelOpen, setSongStatsPanelOpen] = useState(false);
     const [songStatsVariant, setSongStatsVariant] = useState<"debug" | "release">("release");
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
@@ -606,6 +608,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("Undo", handleUndo);
     useActionHandler("Redo", handleRedo);
     useActionHandler("TogglePreferencesPanel", () => setPreferencesPanelOpen(open => !open));
+    useActionHandler("ToggleDebugPanel", () => setDebugPanelOpen(open => !open));
     useActionHandler("FocusPattern", () => patternGridRef.current?.focusPattern());
     useActionHandler("ToggleWaveformEditor", () => setWaveformEditorPanelOpen(open => !open));
     useActionHandler("ToggleInstrumentPanel", () => setInstrumentPanelOpen(open => !open));
@@ -903,6 +906,13 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         Theme Editor
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
+                                        checked={debugPanelOpen}
+                                        onSelect={() => setDebugPanelOpen((open) => !open)}
+                                        shortcut={mgr.getActionBindingLabel("ToggleDebugPanel")}
+                                    >
+                                        Debug Panel
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
                                         checked={tic80FrameSizeIndex !== 0}
                                         closeOnSelect={false}
                                         onSelect={() => cycleTic80FrameSize()}
@@ -1158,6 +1168,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 )}
                 {themePanelOpen && (
                     <ThemeEditorPanel onClose={() => setThemePanelOpen(false)} />
+                )}
+                {debugPanelOpen && (
+                    <DebugPanel onClose={() => setDebugPanelOpen(false)} />
                 )}
                 {songStatsPanelOpen && (
                     <SongStatsAppPanel

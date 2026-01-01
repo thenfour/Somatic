@@ -10,6 +10,7 @@ export const GlobalActions = {
    Undo: "Undo",
    Redo: "Redo",
    TogglePreferencesPanel: "TogglePreferencesPanel",
+   ToggleDebugPanel: "ToggleDebugPanel",
    FocusPattern: "FocusPattern",
    ToggleWaveformEditor: "ToggleWaveformEditor",
    ToggleInstrumentPanel: "ToggleInstrumentPanel",
