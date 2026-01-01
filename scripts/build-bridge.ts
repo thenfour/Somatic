@@ -11,6 +11,8 @@ import fs from "fs";
 import path from "path";
 import {BUILD_INFO, getBridgeCartFilename} from "./buildInfo";
 import bridgeConfig, {BridgeConfig} from "../bridge/bridge_config";
+import {emitLuaDecoder} from "../bridge/emitLuaDecoder";
+import {MorphEntryCodec, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES} from "../bridge/morphSchema";
 
 const BRIDGE_LUA_PATH = path.resolve(__dirname, "../bridge/bridge.lua");
 const OUTPUT_GENERATED_BRIDGE_LUA_PATH = path.resolve(__dirname, "../temp/bridge-generated.lua");
@@ -67,10 +69,20 @@ function jsonToLua(value: unknown, indent: number): string {
 
 function generateLuaAutogenBlock(config: BridgeConfig): string {
    const luaTable = jsonToLua(config, 0);
-   const lines = [];
-   lines.push("-- AUTO-GENERATED FROM bridge_config.ts. DO NOT EDIT BY HAND.");
+   const lines: string[] = [];
+   lines.push("-- AUTO-GENERATED FROM bridge_config.ts and morphSchema.ts. DO NOT EDIT BY HAND.");
    lines.push("");
    lines.push("local BRIDGE_CONFIG = " + luaTable);
+   lines.push("");
+   lines.push("-- Morph schema (generated)");
+   lines.push(`local MORPH_HEADER_BYTES = ${MORPH_HEADER_BYTES}`);
+   lines.push(`local MORPH_ENTRY_BYTES = ${MORPH_ENTRY_BYTES}`);
+   lines.push("");
+   lines.push(emitLuaDecoder(MorphEntryCodec, {
+                 functionName: "decode_MorphEntry",
+                 baseArgName: "base",
+                 includeLayoutComments: true,
+              }).trim());
    lines.push("");
    return lines.join("\n");
 }

@@ -7,6 +7,7 @@ import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex, TicMemor
 import {BakedSong, BakeSong} from "../utils/bakeSong";
 import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
 import bridgeConfig from "../../bridge/bridge_config";
+import {encodeMorphPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES} from "../../bridge/morphSchema";
 import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../utils/utils";
 import {LoopMode} from "./backend";
 import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
@@ -168,101 +169,24 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
    return entries;
 }
 
-const MORPH_BYTES_PER_ENTRY = 14;
-const MORPH_HEADER_BYTES = 1;
-// Packed as:
-// [0] = entryCount (u8)
-// per entry (14 bytes):
-// 0: instrumentId (u8)
-// 1: flags (bits: waveEngineId[0..1], lowpassEnabled[2], effectKind[3..4], lowpassModSrc[5], effectModSrc[6], reserved[7])
-// 2: wave indices: sourceWaveformIndex[0..3] | morphWaveB[4..7]
-// 3-6: packedG0 (LE32): renderWaveformSlot[0..3], pwmDuty5[4..8], pwmDepth5[9..13], morphDurationTicks12[14..25], morphCurveS6[26..31]
-// 7-10: packedG1 (LE32): lowpassDurationTicks12[0..11], lowpassCurveS6[12..17], effectAmtU8[18..25], effectDurationTicks12_low6[26..31]
-// 11-13: packedG2 (LE24): effectDurationTicks12_high6[0..5], effectCurveS6[6..11], lfoCycleTicks12[12..23]
-// total payload = 1 + entryCount * 14 bytes
-function effectKindToId(k: MorphEffectKind): number {
-   switch (k) {
-      case "none":
-         return 0;
-      case "wavefold":
-         return 1;
-      case "hardSync":
-         return 2;
-   }
-   return 0;
-}
-
-function packMorphEntries(
-   entries: {instrumentId: number; cfg: Tic80MorphInstrumentConfig;}[],
-   totalBytes?: number,
-   ): Uint8Array {
-   const entryCount = entries.length;
-   const neededBytes = MORPH_HEADER_BYTES + entryCount * MORPH_BYTES_PER_ENTRY;
-   if (typeof totalBytes === "number") {
-      assert(neededBytes <= totalBytes, `SOMATIC_SFX_CONFIG overflow: need ${neededBytes} bytes, have ${totalBytes}`);
-   }
-   const out = new Uint8Array(totalBytes ?? neededBytes);
-   out[0] = entryCount & 0xff;
-
-   let w = 1;
-   for (let i = 0; i < entryCount; i++) {
-      const {instrumentId, cfg} = entries[i];
-      const effectDuration = cfg.effectDurationTicks12 & 0x0fff;
-
-      const flags = (cfg.waveEngineId & 0x03) | ((cfg.lowpassEnabled ? 1 : 0) << 2) |
-         ((effectKindToId(cfg.effectKind) & 0x03) << 3) | ((cfg.lowpassModSource & 0x01) << 5) |
-         ((cfg.effectModSource & 0x01) << 6);
-
-      const waves = (cfg.sourceWaveformIndex & 0x0f) | ((cfg.morphWaveB & 0x0f) << 4);
-
-      const packedG0 = (cfg.renderWaveformSlot & 0x0f) | ((cfg.pwmDuty5 & 0x1f) << 4) | ((cfg.pwmDepth5 & 0x1f) << 9) |
-         ((cfg.morphDurationTicks12 & 0x0fff) << 14) | ((cfg.morphCurveS6 & 0x3f) << 26);
-
-      const packedG1 = (cfg.lowpassDurationTicks12 & 0x0fff) | ((cfg.lowpassCurveS6 & 0x3f) << 12) |
-         ((cfg.effectAmtU8 & 0xff) << 18) | ((effectDuration & 0x3f) << 26);
-
-      const packedG2 =
-         ((effectDuration >> 6) & 0x3f) | ((cfg.effectCurveS6 & 0x3f) << 6) | ((cfg.lfoCycleTicks12 & 0x0fff) << 12);
-
-      out[w++] = clamp(instrumentId | 0, 0, 255);
-      out[w++] = flags & 0xff;
-      out[w++] = waves & 0xff;
-
-      out[w++] = packedG0 & 0xff;
-      out[w++] = (packedG0 >> 8) & 0xff;
-      out[w++] = (packedG0 >> 16) & 0xff;
-      out[w++] = (packedG0 >> 24) & 0xff;
-
-      out[w++] = packedG1 & 0xff;
-      out[w++] = (packedG1 >> 8) & 0xff;
-      out[w++] = (packedG1 >> 16) & 0xff;
-      out[w++] = (packedG1 >> 24) & 0xff;
-
-      out[w++] = packedG2 & 0xff;
-      out[w++] = (packedG2 >> 8) & 0xff;
-      out[w++] = (packedG2 >> 16) & 0xff;
-   }
-   return out;
-}
-
 function encodeMorphMapForBridge(song: Song): Uint8Array {
    const entries = getMorphMap(song);
    const totalBytes = getSomaticSfxConfigBytes();
-   const maxEntryCount = Math.floor((totalBytes - MORPH_HEADER_BYTES) / MORPH_BYTES_PER_ENTRY);
+   const maxEntryCount = Math.floor((totalBytes - MORPH_HEADER_BYTES) / MORPH_ENTRY_BYTES);
    assert(entries.length <= 255, `SOMATIC_SFX_CONFIG overflow: too many entries (${entries.length})`);
    assert(
       entries.length <= maxEntryCount,
-      `SOMATIC_SFX_CONFIG overflow: need ${MORPH_HEADER_BYTES + entries.length * MORPH_BYTES_PER_ENTRY} bytes, have ${
+      `SOMATIC_SFX_CONFIG overflow: need ${MORPH_HEADER_BYTES + entries.length * MORPH_ENTRY_BYTES} bytes, have ${
          totalBytes} bytes`);
 
    // Fixed-size buffer so we always fully overwrite the region (avoids stale entries)
    // and never overwrite the marker/mailboxes above it.
-   return packMorphEntries(entries, totalBytes);
+   return encodeMorphPayload(entries, totalBytes);
 }
 
 function makeMorphMapLua(song: Song): string {
    const entries = getMorphMap(song);
-   const packed = packMorphEntries(entries);
+   const packed = encodeMorphPayload(entries);
    const compressed = lzCompress(packed, gSomaticLZDefaultConfig);
    const b85 = base85Encode(compressed);
 

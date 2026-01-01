@@ -11,6 +11,7 @@ import { useRenderAlarm } from "../hooks/useRenderAlarm";
 import { KeyValueTable } from "./basic/KeyValueTable";
 import { AppPanelShell } from "./AppPanelShell";
 import { Tooltip } from "./basic/tooltip";
+import { MORPH_ENTRY_BYTES } from "../../bridge/morphSchema";
 
 const SizeValue: React.FC<{ value: number; }> = ({ value }) => {
     return (
@@ -297,6 +298,7 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                             Tracks: <BarValue value={input.bridge.trackData.length} max={bridgeMax} label={`${input.bridge.trackData.length} bytes`} />,
                             'Song order': <BarValue value={input.bridge.songOrderData.length} max={bridgeMax} label={`${input.bridge.songOrderData.length} bytes`} />,
                         },
+                        "MORPH_ENTRY_BYTES": MORPH_ENTRY_BYTES,
                     };
 
                     return (
