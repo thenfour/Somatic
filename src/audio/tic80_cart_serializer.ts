@@ -718,16 +718,16 @@ ${emitLuaDecoder(MorphEntryCodec, {
       stripDebugBlocks: true,
       maxIndentLevel: 1,
       aliasRepeatedExpressions: true,
-      bakeConstants: true,
       renameLocalVariables: true,
+      aliasLiterals: true,
    } : //
       {
          stripComments: false,
          stripDebugBlocks: false,
          maxIndentLevel: 50,
          aliasRepeatedExpressions: false,
-         bakeConstants: false,
          renameLocalVariables: false,
+         aliasLiterals: false,
       };
    code = processLua(code, optimizationRuleOptions);
 

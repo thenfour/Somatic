@@ -3,22 +3,20 @@ import './debug_panel.css';
 import { AppPanelShell } from './AppPanelShell';
 import { OptimizationRuleOptions, processLua } from '../audio/lua_processor';
 import { CharMap } from '../utils/utils';
+import { BarValue, SizeValue } from './BarValue';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-    const [inputLua, setInputLua] = useState<string>(`-- Expressions used globally
+    const [inputLua, setInputLua] = useState<string>(`-- Test repeated expressions and literals
 local x = math.cos(1) + math.cos(2) + math.cos(3)
-local y = math.sin(1) + math.sin(2) + math.sin(3)
+local y = "hello" .. "world" .. "hello" .. "hello"
+local z = 65535 + 65535 + 65535
 
--- Expressions used only in this function
 function draw()
    local a = string.sub("test", 1, 2)
    local b = string.sub("demo", 1, 2)
    local c = string.sub("code", 1, 2)
-   print(a .. b .. c)
+   print("test" .. "test" .. "test")
 end
-
--- math.cos used again at global scope
-local angle = math.cos(0.5)
 `);
 
     const [options, setOptions] = useState<OptimizationRuleOptions>({
@@ -26,7 +24,7 @@ local angle = math.cos(0.5)
         stripDebugBlocks: true,
         maxIndentLevel: 10,
         aliasRepeatedExpressions: false,
-        bakeConstants: false,
+        aliasLiterals: false,
         renameLocalVariables: false,
     });
 
@@ -89,10 +87,10 @@ local angle = math.cos(0.5)
                         <label>
                             <input
                                 type="checkbox"
-                                checked={options.bakeConstants}
-                                onChange={() => handleOptionChange('bakeConstants')}
+                                checked={options.aliasLiterals}
+                                onChange={() => handleOptionChange('aliasLiterals')}
                             />
-                            Bake Constants
+                            Alias Literals
                         </label>
                     </div>
                     <div className="debug-panel-option-group">
@@ -138,7 +136,17 @@ local angle = math.cos(0.5)
                 </div>
 
                 <div className="debug-panel-output">
-                    <div className="debug-panel-output-label">Processed Output ({inputLua.length}{CharMap.RightArrow}{outputLua.length}):</div>
+                    <div className="debug-panel-output-label">Processed Output ({inputLua.length}{CharMap.RightArrow}{outputLua.length}, {(outputLua.length / Math.max(inputLua.length, outputLua.length) * 100).toFixed(0)}%):</div>
+                    {/* // flex column with max width so the bars are stacked and same width */}
+                    <div style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.25rem",
+                        maxWidth: "300px",
+                    }}>
+                        <BarValue value={inputLua.length} max={Math.max(inputLua.length, outputLua.length)} label={<SizeValue value={inputLua.length} />} />
+                        <BarValue value={outputLua.length} max={Math.max(inputLua.length, outputLua.length)} label={<SizeValue value={outputLua.length} />} />
+                    </div>
                     <div className="debug-panel-output-content">{outputLua}</div>
                 </div>
             </div>

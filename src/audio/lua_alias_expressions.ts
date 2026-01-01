@@ -1,28 +1,18 @@
 import * as luaparse from "luaparse";
-import {isIdentifier, LUA_RESERVED_WORDS} from "./lua_ast";
+import {AliasTracker, AliasInfo, buildScopeHierarchy, findCommonAncestor, insertDeclarationsIntoScopes} from "./lua_alias_shared";
 
 // ============================================================================
 // Expression Aliasing - Create local aliases for repeated expressions
 // ============================================================================
 
 // Configuration
-const ALIAS_THRESHOLD = 3; // Minimum occurrences before creating an alias
-const ALIAS_PREFIX = "_";  // Prefix for generated alias names
+const ALIAS_THRESHOLD = 3;     // Minimum occurrences before creating an alias
+const EXPR_ALIAS_PREFIX = "_"; // Prefix for generated alias names
 
-// Generate a unique alias name
-function generateAliasName(index: number, prefix: string = ALIAS_PREFIX): string {
-   const alphabet = "abcdefghijklmnopqrstuvwxyz";
-   let name = prefix;
-   let n = index;
-   do {
-      name += alphabet[n % 26];
-      n = Math.floor(n / 26) - 1;
-   } while (n >= 0);
-   return name;
-}
+type StringLiteralNode = luaparse.StringLiteral&{value?: string | null};
 
 // Serialize an expression to a string key for comparison
-function serializeExpression(node: any): string|null {
+function serializeExpression(node: luaparse.Expression|null|undefined): string|null {
    if (!node)
       return null;
 
@@ -46,8 +36,11 @@ function serializeExpression(node: any): string|null {
          return `index:${base}[${index}]`;
       }
 
-      case "StringLiteral":
-         return `str:"${node.value}"`;
+      case "StringLiteral": {
+         const strNode = node as StringLiteralNode;
+         const raw = strNode.raw ?? (strNode.value != null ? JSON.stringify(strNode.value) : "\"\"");
+         return `str:${raw}`;
+      }
 
       case "NumericLiteral":
          return `num:${node.value}`;
@@ -58,14 +51,13 @@ function serializeExpression(node: any): string|null {
       case "NilLiteral":
          return "nil";
 
-      // Don't alias complex expressions for now
       default:
          return null;
    }
 }
 
 // Check if an expression is worth aliasing
-function isAliasableExpression(node: any): boolean {
+function isAliasableExpression(node: luaparse.Expression|null|undefined): boolean {
    if (!node)
       return false;
 
@@ -91,125 +83,80 @@ function isAliasableExpression(node: any): boolean {
    }
 }
 
-// Clone an expression node (shallow clone of structure)
-function cloneExpression(node: any): any {
+// Recursively replace expressions with aliases
+function replaceExpression(node: luaparse.Expression, tracker: AliasTracker): luaparse.Expression {
    if (!node)
-      return null;
+      return node;
 
-   const clone: any = {type: node.type};
+   const key = serializeExpression(node);
+   if (key) {
+      const alias = tracker.getAlias(key);
+      if (alias) {
+         return {
+            type: "Identifier",
+            name: alias,
+         } as luaparse.Identifier;
+      }
+   }
 
+   // Recursively replace in child expressions
    switch (node.type) {
-      case "Identifier":
-         clone.name = node.name;
+      case "BinaryExpression":
+      case "LogicalExpression":
+         node.left = replaceExpression(node.left, tracker);
+         node.right = replaceExpression(node.right, tracker);
+         break;
+
+      case "UnaryExpression":
+         node.argument = replaceExpression(node.argument, tracker);
+         break;
+
+      case "CallExpression":
+         node.base = replaceExpression(node.base, tracker);
+         if (node.arguments) {
+            node.arguments = node.arguments.map(arg => replaceExpression(arg, tracker));
+         }
+         break;
+
+      case "TableCallExpression":
+         node.base = replaceExpression(node.base, tracker);
+         node.arguments = replaceExpression(node.arguments, tracker) as luaparse.TableConstructorExpression;
+         break;
+
+      case "StringCallExpression":
+         node.base = replaceExpression(node.base, tracker);
          break;
 
       case "MemberExpression":
-         clone.base = cloneExpression(node.base);
-         clone.identifier = cloneExpression(node.identifier);
-         clone.indexer = node.indexer;
+         // Don't replace the base if this whole expression is being aliased
+         if (!serializeExpression(node) || !tracker.getAlias(serializeExpression(node)!)) {
+            node.base = replaceExpression(node.base, tracker);
+         }
          break;
 
       case "IndexExpression":
-         clone.base = cloneExpression(node.base);
-         clone.index = cloneExpression(node.index);
-         break;
-
-      case "StringLiteral":
-         clone.value = node.value;
-         clone.raw = node.raw;
-         break;
-
-      case "NumericLiteral":
-         clone.value = node.value;
-         clone.raw = node.raw;
-         break;
-
-      case "BooleanLiteral":
-         clone.value = node.value;
-         clone.raw = node.raw;
-         break;
-
-      case "NilLiteral":
-         // No additional properties
-         break;
-   }
-
-   return clone;
-}
-
-// Track expression occurrences in a scope
-interface ExpressionInfo {
-   serialized: string;
-   expression: any;
-   count: number; // Total number of occurrences
-   scopes: any[]; // Array of scope nodes where this expression appears
-   aliasName?: string;
-   targetScope?: any; // The scope where the alias should be declared
-}
-
-class ExpressionTracker {
-   private expressions = new Map<string, ExpressionInfo>();
-   private aliasCounter = 0;
-
-   // Record an occurrence of an expression in a given scope
-   record(node: any, scope: any): void {
-      if (!isAliasableExpression(node))
-         return;
-
-      const key = serializeExpression(node);
-      if (!key)
-         return;
-
-      const existing = this.expressions.get(key);
-      if (existing) {
-         // Increment count for every occurrence
-         existing.count++;
-         // Add this scope if not already present
-         if (!existing.scopes.includes(scope)) {
-            existing.scopes.push(scope);
+         // Don't replace base/index if this whole expression is being aliased
+         if (!serializeExpression(node) || !tracker.getAlias(serializeExpression(node)!)) {
+            node.base = replaceExpression(node.base, tracker);
+            node.index = replaceExpression(node.index, tracker);
          }
-      } else {
-         this.expressions.set(key, {
-            serialized: key,
-            expression: cloneExpression(node),
-            count: 1,
-            scopes: [scope],
-         });
-      }
-   }
+         break;
 
-   // Get expressions that should be aliased
-   getAliasableExpressions(): ExpressionInfo[] {
-      const result: ExpressionInfo[] = [];
-
-      for (const info of this.expressions.values()) {
-         if (info.count >= ALIAS_THRESHOLD) {
-            // Generate an alias name
-            let aliasName: string;
-            do {
-               aliasName = generateAliasName(this.aliasCounter++);
-            } while (LUA_RESERVED_WORDS.has(aliasName));
-
-            info.aliasName = aliasName;
-            result.push(info);
+      case "TableConstructorExpression":
+         if (node.fields) {
+            node.fields.forEach((field: luaparse.TableKey|luaparse.TableKeyString|luaparse.TableValue) => {
+               if (field.type === "TableKey" || field.type === "TableKeyString") {
+                  if (field.key)
+                     field.key = replaceExpression(field.key, tracker);
+               }
+               if (field.value)
+                  field.value = replaceExpression(field.value, tracker);
+            });
          }
-      }
-
-      return result;
+         break;
    }
 
-   // Look up an alias for an expression
-   getAlias(node: any): string|null {
-      if (!isAliasableExpression(node))
-         return null;
-
-      const key = serializeExpression(node);
-      if (!key)
-         return null;
-
-      const info = this.expressions.get(key);
-      return info?.aliasName || null;
-   }
+   return node;
 }
 
 /**
@@ -220,28 +167,31 @@ class ExpressionTracker {
  * scope where they are used.
  * 
  * Example:
- *   local x = math.cos(1) + math.cos(2)
- *   local y = math.sin(3) + math.sin(4)
+ *   local x = math.cos(1) + math.cos(2) + math.cos(3)
+ *   local y = math.sin(1) + math.sin(2) + math.sin(3)
  * 
  * Becomes:
  *   local _a = math.cos
  *   local _b = math.sin
- *   local x = _a(1) + _a(2)
- *   local y = _b(3) + _b(4)
+ *   local x = _a(1) + _a(2) + _a(3)
+ *   local y = _b(1) + _b(2) + _b(3)
  */
 export function aliasRepeatedExpressionsInAST(ast: luaparse.Chunk): luaparse.Chunk {
-   // Track scope hierarchy: each scope maps to its parent scope
-   const scopeParents = new WeakMap<any, any>();
+   const tracker = new AliasTracker(EXPR_ALIAS_PREFIX);
 
-   // First pass: count expression occurrences and track scopes
-   const tracker = new ExpressionTracker();
+   type ScopeNode = luaparse.Chunk|luaparse.Statement;
 
-   function countExpressions(node: any, currentScope: any): void {
+   // Count expressions
+   function countExpressions(node: luaparse.Expression, currentScope: ScopeNode): void {
       if (!node)
          return;
 
-      // Record this expression with its scope
-      tracker.record(node, currentScope);
+      if (isAliasableExpression(node)) {
+         const key = serializeExpression(node);
+         if (key) {
+            tracker.record(key, node, currentScope);
+         }
+      }
 
       // Recursively count in child expressions
       switch (node.type) {
@@ -258,7 +208,7 @@ export function aliasRepeatedExpressionsInAST(ast: luaparse.Chunk): luaparse.Chu
          case "CallExpression":
             countExpressions(node.base, currentScope);
             if (node.arguments) {
-               node.arguments.forEach((arg: any) => countExpressions(arg, currentScope));
+               node.arguments.forEach(arg => countExpressions(arg, currentScope));
             }
             break;
 
@@ -282,9 +232,11 @@ export function aliasRepeatedExpressionsInAST(ast: luaparse.Chunk): luaparse.Chu
 
          case "TableConstructorExpression":
             if (node.fields) {
-               node.fields.forEach((field: any) => {
-                  if (field.key)
-                     countExpressions(field.key, currentScope);
+               node.fields.forEach((field: luaparse.TableKey|luaparse.TableKeyString|luaparse.TableValue) => {
+                  if (field.type === "TableKey" || field.type === "TableKeyString") {
+                     if (field.key)
+                        countExpressions(field.key, currentScope);
+                  }
                   if (field.value)
                      countExpressions(field.value, currentScope);
                });
@@ -293,29 +245,34 @@ export function aliasRepeatedExpressionsInAST(ast: luaparse.Chunk): luaparse.Chu
       }
    }
 
-   function processScope(stmts: any[], currentScope: any, parentScope: any): void {
-      // Track parent relationship
+   // Process scope and statements
+   function processScope(
+      stmts: luaparse.Statement[],
+      currentScope: ScopeNode,
+      parentScope: ScopeNode|null,
+      scopeParents: WeakMap<ScopeNode, ScopeNode>): void {
       if (parentScope) {
          scopeParents.set(currentScope, parentScope);
       }
 
-      stmts.forEach(stmt => countInStatement(stmt, currentScope));
+      stmts.forEach(stmt => countInStatement(stmt, currentScope, scopeParents));
    }
 
-   function countInStatement(stmt: any, currentScope: any): void {
+   function countInStatement(
+      stmt: luaparse.Statement, currentScope: ScopeNode, scopeParents: WeakMap<ScopeNode, ScopeNode>): void {
       if (!stmt)
          return;
 
       switch (stmt.type) {
          case "LocalStatement":
             if (stmt.init) {
-               stmt.init.forEach((expr: any) => countExpressions(expr, currentScope));
+               stmt.init.forEach(expr => countExpressions(expr, currentScope));
             }
             break;
 
          case "AssignmentStatement":
-            stmt.variables.forEach((v: any) => countExpressions(v, currentScope));
-            stmt.init.forEach((expr: any) => countExpressions(expr, currentScope));
+            stmt.variables.forEach(v => countExpressions(v, currentScope));
+            stmt.init.forEach(expr => countExpressions(expr, currentScope));
             break;
 
          case "CallStatement":
@@ -323,25 +280,25 @@ export function aliasRepeatedExpressionsInAST(ast: luaparse.Chunk): luaparse.Chu
             break;
 
          case "ReturnStatement":
-            stmt.arguments.forEach((arg: any) => countExpressions(arg, currentScope));
+            stmt.arguments.forEach(arg => countExpressions(arg, currentScope));
             break;
 
          case "IfStatement":
-            stmt.clauses.forEach((clause: any) => {
-               if (clause.condition)
+            stmt.clauses.forEach(clause => {
+               if (clause.type !== "ElseClause" && clause.condition) {
                   countExpressions(clause.condition, currentScope);
-               // Each clause body is a new scope
-               processScope(clause.body, clause, currentScope);
+               }
+               processScope(clause.body, stmt, currentScope, scopeParents);
             });
             break;
 
          case "WhileStatement":
             countExpressions(stmt.condition, currentScope);
-            processScope(stmt.body, stmt, currentScope);
+            processScope(stmt.body, stmt, currentScope, scopeParents);
             break;
 
          case "RepeatStatement":
-            processScope(stmt.body, stmt, currentScope);
+            processScope(stmt.body, stmt, currentScope, scopeParents);
             countExpressions(stmt.condition, currentScope);
             break;
 
@@ -350,92 +307,41 @@ export function aliasRepeatedExpressionsInAST(ast: luaparse.Chunk): luaparse.Chu
             countExpressions(stmt.end, currentScope);
             if (stmt.step)
                countExpressions(stmt.step, currentScope);
-            processScope(stmt.body, stmt, currentScope);
+            processScope(stmt.body, stmt, currentScope, scopeParents);
             break;
 
          case "ForGenericStatement":
-            stmt.iterators.forEach((it: any) => countExpressions(it, currentScope));
-            processScope(stmt.body, stmt, currentScope);
+            stmt.iterators.forEach(it => countExpressions(it, currentScope));
+            processScope(stmt.body, stmt, currentScope, scopeParents);
             break;
 
          case "FunctionDeclaration":
-            processScope(stmt.body, stmt, currentScope);
+            processScope(stmt.body, stmt, currentScope, scopeParents);
             break;
 
          case "DoStatement":
-            processScope(stmt.body, stmt, currentScope);
+            processScope(stmt.body, stmt, currentScope, scopeParents);
             break;
       }
    }
 
-   // Start from the chunk (root scope)
-   processScope(ast.body, ast, null);
+   // Build scope hierarchy
+   const scopeParents = buildScopeHierarchy(ast, processScope);
 
-   const aliasableExpressions = tracker.getAliasableExpressions();
+   // Get expressions that meet the threshold
+   const aliasableExpressions = tracker.getAliasableItems(info => info.count >= ALIAS_THRESHOLD);
 
-   // If no expressions to alias, return unchanged
    if (aliasableExpressions.length === 0) {
       return ast;
    }
 
-   // Find the common ancestor scope for each expression
-   function findCommonAncestor(scopes: any[]): any {
-      if (scopes.length === 0)
-         return ast;
-      if (scopes.length === 1)
-         return scopes[0];
-
-      // Get all ancestors for the first scope
-      const ancestors = new Set<any>();
-      let current: any = scopes[0];
-      while (current) {
-         ancestors.add(current);
-         current = scopeParents.get(current);
-      }
-
-      // Find the first common ancestor for all other scopes
-      for (let i = 1; i < scopes.length; i++) {
-         let scope = scopes[i];
-         while (scope && !ancestors.has(scope)) {
-            scope = scopeParents.get(scope);
-         }
-         if (scope) {
-            // This is a common ancestor, but we need to find the highest one
-            // that is common to all scopes we've checked so far
-            const newAncestors = new Set<any>();
-            let current = scope;
-            while (current) {
-               if (ancestors.has(current)) {
-                  newAncestors.add(current);
-               }
-               current = scopeParents.get(current);
-            }
-            ancestors.clear();
-            newAncestors.forEach(a => ancestors.add(a));
-         }
-      }
-
-      // Return the deepest common ancestor
-      for (const scope of scopes) {
-         let current = scope;
-         while (current) {
-            if (ancestors.has(current)) {
-               return current;
-            }
-            current = scopeParents.get(current);
-         }
-      }
-
-      return ast; // Fallback to root
-   }
-
    // Determine target scope for each expression
    aliasableExpressions.forEach(info => {
-      info.targetScope = findCommonAncestor(info.scopes);
+      info.targetScope = findCommonAncestor(info.scopes, scopeParents, ast);
    });
 
-   // Group expressions by target scope
-   const declarationsByScope = new Map<any, ExpressionInfo[]>();
+   // Group by target scope
+   const declarationsByScope = new Map<ScopeNode, AliasInfo[]>();
    aliasableExpressions.forEach(info => {
       const scope = info.targetScope!;
       if (!declarationsByScope.has(scope)) {
@@ -444,205 +350,79 @@ export function aliasRepeatedExpressionsInAST(ast: luaparse.Chunk): luaparse.Chu
       declarationsByScope.get(scope)!.push(info);
    });
 
-   // Second pass: replace expressions with aliases
-   function replaceExpression(node: any): any {
-      if (!node)
-         return node;
-
-      const alias = tracker.getAlias(node);
-      if (alias) {
-         // Replace with an identifier reference
-         return {
-            type: "Identifier",
-            name: alias,
-         };
-      }
-
-      // Recursively replace in child expressions
-      switch (node.type) {
-         case "BinaryExpression":
-         case "LogicalExpression":
-            node.left = replaceExpression(node.left);
-            node.right = replaceExpression(node.right);
-            break;
-
-         case "UnaryExpression":
-            node.argument = replaceExpression(node.argument);
-            break;
-
-         case "CallExpression":
-            node.base = replaceExpression(node.base);
-            if (node.arguments) {
-               node.arguments = node.arguments.map((arg: any) => replaceExpression(arg));
-            }
-            break;
-
-         case "TableCallExpression":
-            node.base = replaceExpression(node.base);
-            node.arguments = replaceExpression(node.arguments);
-            break;
-
-         case "StringCallExpression":
-            node.base = replaceExpression(node.base);
-            break;
-
-         case "MemberExpression":
-            // Don't replace the base if this whole expression is being aliased
-            if (!tracker.getAlias(node)) {
-               node.base = replaceExpression(node.base);
-            }
-            break;
-
-         case "IndexExpression":
-            // Don't replace base/index if this whole expression is being aliased
-            if (!tracker.getAlias(node)) {
-               node.base = replaceExpression(node.base);
-               node.index = replaceExpression(node.index);
-            }
-            break;
-
-         case "TableConstructorExpression":
-            if (node.fields) {
-               node.fields.forEach((field: any) => {
-                  if (field.key)
-                     field.key = replaceExpression(field.key);
-                  if (field.value)
-                     field.value = replaceExpression(field.value);
-               });
-            }
-            break;
-      }
-
-      return node;
-   }
-
-   function replaceInStatement(stmt: any): void {
+   // Replace expressions with aliases
+   function replaceInStatement(stmt: luaparse.Statement): void {
       if (!stmt)
          return;
 
       switch (stmt.type) {
          case "LocalStatement":
             if (stmt.init) {
-               stmt.init = stmt.init.map((expr: any) => replaceExpression(expr));
+               stmt.init = stmt.init.map(expr => replaceExpression(expr, tracker));
             }
             break;
 
          case "AssignmentStatement":
-            stmt.variables = stmt.variables.map((v: any) => replaceExpression(v));
-            stmt.init = stmt.init.map((expr: any) => replaceExpression(expr));
+            stmt.variables = stmt.variables.map(
+               v => replaceExpression(v, tracker) as luaparse.Identifier | luaparse.MemberExpression |
+                  luaparse.IndexExpression);
+            stmt.init = stmt.init.map(expr => replaceExpression(expr, tracker));
             break;
 
          case "CallStatement":
-            stmt.expression = replaceExpression(stmt.expression);
+            stmt.expression = replaceExpression(stmt.expression, tracker) as luaparse.CallExpression |
+               luaparse.TableCallExpression | luaparse.StringCallExpression;
             break;
 
          case "ReturnStatement":
-            stmt.arguments = stmt.arguments.map((arg: any) => replaceExpression(arg));
+            stmt.arguments = stmt.arguments.map(arg => replaceExpression(arg, tracker));
             break;
 
          case "IfStatement":
-            stmt.clauses.forEach((clause: any) => {
-               if (clause.condition)
-                  clause.condition = replaceExpression(clause.condition);
-               clause.body.forEach((s: any) => replaceInStatement(s));
+            stmt.clauses.forEach(clause => {
+               if (clause.type !== "ElseClause" && clause.condition)
+                  clause.condition = replaceExpression(clause.condition, tracker);
+               clause.body.forEach(s => replaceInStatement(s));
             });
             break;
 
          case "WhileStatement":
-            stmt.condition = replaceExpression(stmt.condition);
-            stmt.body.forEach((s: any) => replaceInStatement(s));
+            stmt.condition = replaceExpression(stmt.condition, tracker);
+            stmt.body.forEach(s => replaceInStatement(s));
             break;
 
          case "RepeatStatement":
-            stmt.body.forEach((s: any) => replaceInStatement(s));
-            stmt.condition = replaceExpression(stmt.condition);
+            stmt.body.forEach(s => replaceInStatement(s));
+            stmt.condition = replaceExpression(stmt.condition, tracker);
             break;
 
          case "ForNumericStatement":
-            stmt.start = replaceExpression(stmt.start);
-            stmt.end = replaceExpression(stmt.end);
+            stmt.start = replaceExpression(stmt.start, tracker);
+            stmt.end = replaceExpression(stmt.end, tracker);
             if (stmt.step)
-               stmt.step = replaceExpression(stmt.step);
-            stmt.body.forEach((s: any) => replaceInStatement(s));
+               stmt.step = replaceExpression(stmt.step, tracker);
+            stmt.body.forEach(s => replaceInStatement(s));
             break;
 
          case "ForGenericStatement":
-            stmt.iterators = stmt.iterators.map((it: any) => replaceExpression(it));
-            stmt.body.forEach((s: any) => replaceInStatement(s));
+            stmt.iterators = stmt.iterators.map(it => replaceExpression(it, tracker));
+            stmt.body.forEach(s => replaceInStatement(s));
             break;
 
          case "FunctionDeclaration":
-            stmt.body.forEach((s: any) => replaceInStatement(s));
+            stmt.body.forEach(s => replaceInStatement(s));
             break;
 
          case "DoStatement":
-            stmt.body.forEach((s: any) => replaceInStatement(s));
+            stmt.body.forEach(s => replaceInStatement(s));
             break;
       }
    }
 
-   // Replace expressions in all statements
    ast.body.forEach(stmt => replaceInStatement(stmt));
 
-   // Third pass: insert alias declarations at the beginning of their target scopes
-   function insertDeclarations(scope: any): void {
-      const declarations = declarationsByScope.get(scope);
-      if (!declarations || declarations.length === 0)
-         return;
-
-      // Create alias declaration statements
-      const aliasDeclarations: luaparse.LocalStatement[] = declarations.map(info => ({
-                                                                               type: "LocalStatement",
-                                                                               variables: [{
-                                                                                  type: "Identifier",
-                                                                                  name: info.aliasName!,
-                                                                               }],
-                                                                               init: [info.expression],
-                                                                            }));
-
-      // Get the body array for this scope
-      let body: any[];
-      if (scope === ast) {
-         body = ast.body;
-      } else if (scope.body) {
-         body = scope.body;
-      } else {
-         return; // Can't insert into this scope
-      }
-
-      // Prepend declarations to the scope body
-      body.unshift(...aliasDeclarations);
-   }
-
-   // Insert declarations into each scope that needs them
-   function processStatementsForInsertion(stmts: any[]): void {
-      stmts.forEach(stmt => {
-         switch (stmt.type) {
-            case "IfStatement":
-               stmt.clauses.forEach((clause: any) => {
-                  insertDeclarations(clause);
-                  processStatementsForInsertion(clause.body);
-               });
-               break;
-
-            case "WhileStatement":
-            case "RepeatStatement":
-            case "ForNumericStatement":
-            case "ForGenericStatement":
-            case "FunctionDeclaration":
-            case "DoStatement":
-               insertDeclarations(stmt);
-               processStatementsForInsertion(stmt.body);
-               break;
-         }
-      });
-   }
-
-   // Insert at root level first
-   insertDeclarations(ast);
-
-   // Then recursively insert into nested scopes
-   processStatementsForInsertion(ast.body);
+   // Insert declarations
+   insertDeclarationsIntoScopes(ast, declarationsByScope);
 
    return ast;
 }

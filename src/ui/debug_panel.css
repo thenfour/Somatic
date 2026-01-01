@@ -28,6 +28,7 @@
 
 
 .debug-panel-output {
+    user-select: text;
     flex: 1;
     min-height: 0;
     display: flex;

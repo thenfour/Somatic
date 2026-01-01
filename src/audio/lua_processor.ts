@@ -2,6 +2,7 @@
 import * as luaparse from "luaparse";
 import {replaceLuaBlock, toLuaStringLiteral} from "../utils/utils";
 import {renameLocalVariablesInAST} from "./lua_renamer";
+import {aliasLiteralsInAST} from "./lua_alias_literals";
 import {aliasRepeatedExpressionsInAST} from "./lua_alias_expressions";
 
 export type OptimizationRuleOptions = {
@@ -9,8 +10,13 @@ export type OptimizationRuleOptions = {
    stripDebugBlocks: boolean; //
    maxIndentLevel: number;    // limits indentation to N levels; beyond that, everything is flattened
    renameLocalVariables: boolean;
-   bakeConstants: boolean; // TODO
    aliasRepeatedExpressions: boolean;
+
+   // literal values like "hello" or numbers like 65535 that appear enough times can be
+   // replaced with a local variable to save space.
+   // * only done for values that appear enough times to offset the cost of the local declaration.
+   // * alias declaration placed in the narrowest possible scope that contains all uses.
+   aliasLiterals: boolean;
 };
 
 // Precedence tables, low → high
@@ -661,6 +667,10 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
 
    if (ruleOptions.stripComments) {
       ast.comments = [];
+   }
+
+   if (ruleOptions.aliasLiterals) {
+      ast = aliasLiteralsInAST(ast);
    }
 
    if (ruleOptions.aliasRepeatedExpressions) {
