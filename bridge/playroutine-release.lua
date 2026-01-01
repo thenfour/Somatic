@@ -1,3 +1,9 @@
+-- PLAYROUTINE_AUTOGEN_START
+
+-- injected at build time.
+
+-- PLAYROUTINE_AUTOGEN_END
+
 -- BEGIN_SOMATIC_MUSIC_DATA
 SOMATIC_MUSIC_DATA = {
 	songOrder = { { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 } },
@@ -160,42 +166,36 @@ do
 		b85d(m.morphMapB85, m.morphMapCLen, __AUTOGEN_TEMP_PTR_A)
 		lzdm(__AUTOGEN_TEMP_PTR_A, m.morphMapCLen, __AUTOGEN_TEMP_PTR_B)
 		local count = pe(__AUTOGEN_TEMP_PTR_B)
-		local o = __AUTOGEN_TEMP_PTR_B + 1
+		local o = __AUTOGEN_TEMP_PTR_B + MORPH_HEADER_BYTES
 		for _ = 1, count do
-			local id = pe(o)
-			local flags = pe(o + 1)
-			local waves = pe(o + 2)
-			local g0 = pe(o + 3) | (pe(o + 4) << 8) | (pe(o + 5) << 16) | (pe(o + 6) << 24)
-			local g1 = pe(o + 7) | (pe(o + 8) << 8) | (pe(o + 9) << 16) | (pe(o + 10) << 24)
-			local g2 = pe(o + 11) | (pe(o + 12) << 8) | (pe(o + 13) << 16)
-			local effKind = (flags >> 3) & 0x03
-			local effSrc = (flags >> 6) & 0x01
-			local effDur = ((g1 >> 26) & 0x3f) | ((g2 & 0x3f) << 6)
+			local entry = decode_MorphEntry(o)
+			local id = entry.instrumentId
+			local effKind = entry.effectKind
 			local z = {
-				we = flags & 0x03,
-				sA = waves & 0x0f,
-				sB = (waves >> 4) & 0x0f,
-				r = g0 & 0x0f,
-				pwmD = (g0 >> 4) & 0x1f,
-				pwmDp = (g0 >> 9) & 0x1f,
-				xDcy = (g0 >> 14) & 0x0fff,
-				xCrv = s6s8((g0 >> 26) & 0x3f),
-				lpE = (flags >> 2) & 0x01,
-				lpDcy = g1 & 0x0fff,
-				lpCrv = s6s8((g1 >> 12) & 0x3f),
-				lpSrc = (flags >> 5) & 0x01,
-				lfoC = (g2 >> 12) & 0x0fff,
+				we = entry.waveEngineId,
+				sA = entry.sourceWaveformIndex,
+				sB = entry.morphWaveB,
+				r = entry.renderWaveformSlot,
+				pwmD = entry.pwmDuty5,
+				pwmDp = entry.pwmDepth5,
+				xDcy = entry.morphDurationTicks12,
+				xCrv = s6s8(entry.morphCurveS6),
+				lpE = entry.lowpassEnabled,
+				lpDcy = entry.lowpassDurationTicks12,
+				lpCrv = s6s8(entry.lowpassCurveS6),
+				lpSrc = entry.lowpassModSource,
+				lfoC = entry.lfoCycleTicks12,
 			}
 			-- BEGIN_FEATURE_WAVEFOLD -- todo: these share values with hard sync; this code should be cleaned up a bit
 			z.wfAmt = 0
 			z.wfDcy = 0
 			z.wfCrv = 0
-			z.wfSrc = effSrc
+			z.wfSrc = entry.effectModSource
 			if effKind == 1 then
-				z.wfAmt = (g1 >> 18) & 0xff
-				z.wfDcy = effDur
-				z.wfCrv = s6s8((g2 >> 6) & 0x3f)
-				z.wfSrc = effSrc
+				z.wfAmt = entry.effectAmtU8
+				z.wfDcy = entry.effectDurationTicks12
+				z.wfCrv = s6s8(entry.effectCurveS6)
+				z.wfSrc = entry.effectModSource
 			end
 			-- END_FEATURE_WAVEFOLD
 			-- BEGIN_FEATURE_HARDSYNC
@@ -203,17 +203,17 @@ do
 			z.hsStr = 0
 			z.hsDcy = 0
 			z.hsCrv = 0
-			z.hsSrc = effSrc
+			z.hsSrc = entry.effectModSource
 			if effKind == 2 then
 				z.hsE = 1
-				z.hsStr = (g1 >> 18) & 0xff
-				z.hsDcy = effDur
-				z.hsCrv = s6s8((g2 >> 6) & 0x3f)
-				z.hsSrc = effSrc
+				z.hsStr = entry.effectAmtU8
+				z.hsDcy = entry.effectDurationTicks12
+				z.hsCrv = s6s8(entry.effectCurveS6)
+				z.hsSrc = entry.effectModSource
 			end
 			-- END_FEATURE_HARDSYNC
 			morphs[id] = z
-			o = o + 14
+			o = o + MORPH_ENTRY_BYTES
 		end
 	end
 

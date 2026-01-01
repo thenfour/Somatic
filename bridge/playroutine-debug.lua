@@ -1,3 +1,9 @@
+-- PLAYROUTINE_AUTOGEN_START
+
+-- injected at build time.
+
+-- PLAYROUTINE_AUTOGEN_END
+
 -- BEGIN_SOMATIC_MUSIC_DATA
 SOMATIC_MUSIC_DATA = {
 	songOrder = { { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 } },
@@ -603,70 +609,63 @@ local function decode_morph_map()
 	base85_decode_to_mem(m.morphMapB85, m.morphMapCLen, __AUTOGEN_TEMP_PTR_A)
 	local rawLen = lzdec_mem(__AUTOGEN_TEMP_PTR_A, m.morphMapCLen, __AUTOGEN_TEMP_PTR_B)
 	local count = peek(__AUTOGEN_TEMP_PTR_B)
-	local off = __AUTOGEN_TEMP_PTR_B + 1
+	local off = __AUTOGEN_TEMP_PTR_B + MORPH_HEADER_BYTES
 	for _ = 1, count do
-		local id = peek(off)
-		local flags = peek(off + 1)
-		local waves = peek(off + 2)
-		local g0 = peek(off + 3) | (peek(off + 4) << 8) | (peek(off + 5) << 16) | (peek(off + 6) << 24)
-		local g1 = peek(off + 7) | (peek(off + 8) << 8) | (peek(off + 9) << 16) | (peek(off + 10) << 24)
-		local g2 = peek(off + 11) | (peek(off + 12) << 8) | (peek(off + 13) << 16)
-		local effKind = (flags >> 3) & 0x03
-		local effSrc = (flags >> 6) & 0x01
-		local effAmt = (g1 >> 18) & 0xff
-		local effDur = ((g1 >> 26) & 0x3f) | ((g2 & 0x3f) << 6)
-		local effCrv = s6_to_s8((g2 >> 6) & 0x3f)
+		local entry = decode_MorphEntry(off)
+		local id = entry.instrumentId
+		local effectKindId = entry.effectKind
+
 		local cfg = {
-			waveEngineId = flags & 0x03,
-			waveEngine = flags & 0x03,
-			sourceWaveformIndex = waves & 0x0f,
-			morphWaveB = (waves >> 4) & 0x0f,
-			renderWaveformSlot = g0 & 0x0f,
-			morphDurationInTicks = (g0 >> 14) & 0x0fff,
-			morphCurveS8 = s6_to_s8((g0 >> 26) & 0x3f),
-			pwmDuty = (g0 >> 4) & 0x1f,
-			pwmDepth = (g0 >> 9) & 0x1f,
+			waveEngineId = entry.waveEngineId,
+			waveEngine = entry.waveEngineId,
+			sourceWaveformIndex = entry.sourceWaveformIndex,
+			morphWaveB = entry.morphWaveB,
+			renderWaveformSlot = entry.renderWaveformSlot,
+			morphDurationInTicks = entry.morphDurationTicks12,
+			morphCurveS8 = s6_to_s8(entry.morphCurveS6),
+			pwmDuty = entry.pwmDuty5,
+			pwmDepth = entry.pwmDepth5,
 			pwmCycleInTicks = 0,
 			pwmPhaseU8 = 0,
-			lowpassEnabled = ((flags >> 2) & 0x01) ~= 0,
-			lowpassDurationInTicks = g1 & 0x0fff,
-			lowpassCurveS8 = s6_to_s8((g1 >> 12) & 0x3f),
-			lowpassModSource = (flags >> 5) & 0x01,
-			lfoCycleInTicks = (g2 >> 12) & 0x0fff,
+			lowpassEnabled = entry.lowpassEnabled ~= 0,
+			lowpassDurationInTicks = entry.lowpassDurationTicks12,
+			lowpassCurveS8 = s6_to_s8(entry.lowpassCurveS6),
+			lowpassModSource = entry.lowpassModSource,
+			lfoCycleInTicks = entry.lfoCycleTicks12,
 		}
-		if effKind == 1 then
-			cfg.wavefoldAmt = effAmt
-			cfg.wavefoldDurationInTicks = effDur
-			cfg.wavefoldCurveS8 = effCrv
-			cfg.wavefoldModSource = effSrc
+		if effectKindId == 1 then -- wavefold
+			cfg.wavefoldAmt = entry.effectAmtU8
+			cfg.wavefoldDurationInTicks = entry.effectDurationTicks12
+			cfg.wavefoldCurveS8 = s6_to_s8(entry.effectCurveS6)
+			cfg.wavefoldModSource = entry.effectModSource
 			cfg.hardSyncEnabled = false
 			cfg.hardSyncStrengthU8 = 0
 			cfg.hardSyncDecayInTicks = 0
 			cfg.hardSyncCurveS8 = 0
-			cfg.hardSyncModSource = effSrc
-		elseif effKind == 2 then
+			cfg.hardSyncModSource = entry.effectModSource
+		elseif effectKindId == 2 then -- hardSync
 			cfg.wavefoldAmt = 0
 			cfg.wavefoldDurationInTicks = 0
 			cfg.wavefoldCurveS8 = 0
-			cfg.wavefoldModSource = effSrc
+			cfg.wavefoldModSource = entry.effectModSource
 			cfg.hardSyncEnabled = true
-			cfg.hardSyncStrengthU8 = effAmt
-			cfg.hardSyncDecayInTicks = effDur
-			cfg.hardSyncCurveS8 = effCrv
-			cfg.hardSyncModSource = effSrc
-		else
+			cfg.hardSyncStrengthU8 = entry.effectAmtU8
+			cfg.hardSyncDecayInTicks = entry.effectDurationTicks12
+			cfg.hardSyncCurveS8 = s6_to_s8(entry.effectCurveS6)
+			cfg.hardSyncModSource = entry.effectModSource
+		else -- none
 			cfg.wavefoldAmt = 0
 			cfg.wavefoldDurationInTicks = 0
 			cfg.wavefoldCurveS8 = 0
-			cfg.wavefoldModSource = effSrc
+			cfg.wavefoldModSource = entry.effectModSource
 			cfg.hardSyncEnabled = false
 			cfg.hardSyncStrengthU8 = 0
 			cfg.hardSyncDecayInTicks = 0
 			cfg.hardSyncCurveS8 = 0
-			cfg.hardSyncModSource = effSrc
+			cfg.hardSyncModSource = entry.effectModSource
 		end
 		morphMap[id] = cfg
-		off = off + 14
+		off = off + MORPH_ENTRY_BYTES
 	end
 end
 

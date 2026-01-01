@@ -7,7 +7,8 @@ import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex, TicMemor
 import {BakedSong, BakeSong} from "../utils/bakeSong";
 import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
 import bridgeConfig from "../../bridge/bridge_config";
-import {encodeMorphPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES} from "../../bridge/morphSchema";
+import {encodeMorphPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec} from "../../bridge/morphSchema";
+import {emitLuaDecoder} from "../../bridge/emitLuaDecoder";
 import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../utils/utils";
 import {LoopMode} from "./backend";
 import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
@@ -666,10 +667,37 @@ SOMATIC_MUSIC_DATA = {
 }
 -- END_SOMATIC_MUSIC_DATA`;
 
+   // Generate the autogen section with the morph decoder
+   const autogenSection = `-- AUTO-GENERATED. DO NOT EDIT BY HAND.
+
+-- Morph schema (generated)
+local MORPH_HEADER_BYTES = ${MORPH_HEADER_BYTES}
+local MORPH_ENTRY_BYTES = ${MORPH_ENTRY_BYTES}
+
+${emitLuaDecoder(MorphEntryCodec, {
+      functionName: "decode_MorphEntry",
+      baseArgName: "base",
+      includeLayoutComments: true,
+   }).trim()}`;
+
    // Replace the SOMATIC_MUSIC_DATA section in the template
    const playroutineTemplate = stripUnusedFeatureBlocks(getPlayroutineCode(variant), features);
    let code = replaceLuaBlock(
       playroutineTemplate, "-- BEGIN_SOMATIC_MUSIC_DATA", "-- END_SOMATIC_MUSIC_DATA", musicDataSection);
+
+   // Inject the autogen section at the top (after the first comment block if present)
+   // Look for a marker or just insert it before BEGIN_SOMATIC_MUSIC_DATA
+   const autogenMarker = "-- PLAYROUTINE_AUTOGEN_START";
+   if (code.includes(autogenMarker)) {
+      code = replaceLuaBlock(code, "-- PLAYROUTINE_AUTOGEN_START", "-- PLAYROUTINE_AUTOGEN_END", autogenSection);
+   } else {
+      // If marker doesn't exist, insert before BEGIN_SOMATIC_MUSIC_DATA
+      const musicDataMarker = "-- BEGIN_SOMATIC_MUSIC_DATA";
+      const insertPos = code.indexOf(musicDataMarker);
+      if (insertPos >= 0) {
+         code = code.slice(0, insertPos) + autogenSection + "\n\n" + code.slice(insertPos);
+      }
+   }
 
    // Replace tokens __AUTOGEN_TEMP_PTR_A and __AUTOGEN_TEMP_PTR_B to be replaced in the lua code.
    // with numeric hex literals like 0x1234
