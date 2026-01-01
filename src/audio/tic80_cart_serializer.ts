@@ -1,5 +1,4 @@
-import playroutineDebug from "../../bridge/playroutine-debug.lua";
-import playroutineRelease from "../../bridge/playroutine-release.lua";
+import playroutineDebug from "../../bridge/playroutine.lua";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import type {ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument} from "../models/instruments";
 import type {Song} from "../models/song";

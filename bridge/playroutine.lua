@@ -600,7 +600,7 @@ do
 
 	decode_morph_map()
 
-	-- #if DEBUG
+	-- BEGIN_DEBUG_ONLY
 	-- Computes a simple checksum and first-bytes hex preview for a memory region.
 	-- addr:      start address in memory
 	-- total_len: number of bytes to include in the checksum
@@ -630,7 +630,7 @@ do
 		log(" checksum: " .. checksum)
 		log(" firstBytes: [" .. firstBytes .. "]")
 	end
-	-- #end
+	-- END_DEBUG_ONLY
 	local function getSongOrderCount()
 		local count = #SOMATIC_MUSIC_DATA.songOrder
 		log("getSongOrderCount: " .. tostring(count))
