@@ -660,7 +660,7 @@ function getCode(song: Song, variant: "debug"|"release", featureUsage?: Playback
    const patternArray = patternEntries.join(",");
 
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
-SOMATIC_MUSIC_DATA = {
+local SOMATIC_MUSIC_DATA = {
  songOrder = { ${songOrder} },
  instrumentMorphMap = ${morphMapLua},
  patternLengths = { ${patternLengths.join(",")} },
@@ -683,8 +683,6 @@ local TEMP_BUFFER_B = ${SomaticMemoryLayout.tempBufferB.address}
 local PATTERN_BUFFER_A = ${SomaticMemoryLayout.patternBufferA.address}
 local PATTERN_BUFFER_B = ${SomaticMemoryLayout.patternBufferB.address}
 local SOMATIC_SFX_CONFIG = ${SomaticMemoryLayout.somaticSfxConfig.address}
-
--- Morph schema (generated)
 local MORPH_HEADER_BYTES = ${MORPH_HEADER_BYTES}
 local MORPH_ENTRY_BYTES = ${MORPH_ENTRY_BYTES}
 
