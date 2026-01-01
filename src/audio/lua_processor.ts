@@ -3,18 +3,22 @@ import * as luaparse from "luaparse";
 import {replaceLuaBlock, toLuaStringLiteral} from "../utils/utils";
 
 export type OptimizationRuleOptions = {
-   stripComments: boolean;    //
-   stripDebugBlocks: boolean; //
-   //stripWhitespace: boolean;  // strips (reasonable) whitespace entirely
-   maxIndentLevel: number; // limits indentation to N levels; beyond that, everything is flattened
+   stripComments: boolean;            //
+   stripDebugBlocks: boolean;         //
+   maxIndentLevel: number;            // limits indentation to N levels; beyond that, everything is flattened
+   renameLocalVariables: boolean;     // TODO
+   bakeConstants: boolean;            // TODO
+   aliasRepeatedExpressions: boolean; // TODO
 };
 
-const DEFAULT_OPTIMIZATION_RULES: OptimizationRuleOptions = {
-   stripComments: false,
-   stripDebugBlocks: true,
-   //stripWhitespace: false,
-   maxIndentLevel: 10,
-};
+// const DEFAULT_OPTIMIZATION_RULES: OptimizationRuleOptions = {
+//    stripComments: false,
+//    stripDebugBlocks: false,
+//    maxIndentLevel: 50,
+//    renameLocalVariables: false,
+//    bakeConstants: false,
+//    aliasRepeatedExpressions: false,
+// };
 
 
 // Precedence tables, low → high
@@ -645,13 +649,13 @@ export function parseLua(code: string): luaparse.Chunk|null {
    return null;
 }
 
-export function processLua(code: string, ruleOptions?: OptimizationRuleOptions): string {
+export function processLua(code: string, ruleOptions: OptimizationRuleOptions): string {
    // Apply optimization rules
-   const options = {...DEFAULT_OPTIMIZATION_RULES, ...ruleOptions};
+   //const options = {...DEFAULT_OPTIMIZATION_RULES, ...ruleOptions};
 
    // Strip debug blocks and lines before parsing (line-based string matching)
    let processedCode = code;
-   if (options.stripDebugBlocks) {
+   if (ruleOptions.stripDebugBlocks) {
       // Strip debug blocks
       processedCode = replaceLuaBlock(processedCode, "-- BEGIN_DEBUG_ONLY", "-- END_DEBUG_ONLY", "");
 
@@ -669,9 +673,9 @@ export function processLua(code: string, ruleOptions?: OptimizationRuleOptions):
    }
    console.log("Parsed Lua AST:", ast);
 
-   if (options.stripComments) {
+   if (ruleOptions.stripComments) {
       ast.comments = [];
    }
 
-   return unparseLua(ast, options);
+   return unparseLua(ast, ruleOptions);
 }
