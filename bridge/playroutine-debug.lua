@@ -115,7 +115,7 @@ local function s6_to_s8(b)
 	return math.floor(v * 127 / 31)
 end
 
-local function apply_curveN11(t01, curveS8)
+local function apply_curveN11(t01, curveS6)
 	local t = clamp01(t01 or 0)
 	if t <= 0 then
 		return 0
@@ -124,7 +124,7 @@ local function apply_curveN11(t01, curveS8)
 		return 1
 	end
 
-	local k = (curveS8 or 0) / 127
+	local k = (curveS6 or 0) / 31 -- curveS6 is signed 6-bit (-32..31)
 	if k < -1 then
 		k = -1
 	elseif k > 1 then
@@ -146,6 +146,14 @@ end
 
 local MOD_SRC_ENVELOPE = 0
 local MOD_SRC_LFO = 1
+
+local WAVE_ENGINE_MORPH = 0
+local WAVE_ENGINE_NATIVE = 1
+local WAVE_ENGINE_PWM = 2
+
+local EFFECT_KIND_NONE = 0
+local EFFECT_KIND_WAVEFOLD = 1
+local EFFECT_KIND_HARDSYNC = 2
 
 local function wave_read_samples(waveIndex, outSamples)
 	local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
@@ -270,7 +278,7 @@ local lfo_ticks_by_sfx = {}
 
 local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)
 	if modSource == MOD_SRC_LFO then
-		local cycle = lfoCycleTicks or 0
+		local cycle = lfoCycleTicks
 		if cycle <= 0 then
 			return 0
 		end
@@ -279,7 +287,7 @@ local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, 
 	end
 
 	if durationTicks == nil or durationTicks <= 0 then
-		return fallbackT or 0
+		return fallbackT
 	end
 	return clamp01(ticksPlayed / durationTicks)
 end
@@ -288,17 +296,18 @@ local function cfg_is_k_rate_processing(cfg)
 	if not cfg then
 		return false
 	end
-	local we = cfg.waveEngine or cfg.waveEngineId or 1
-	if we == 0 or we == 2 then
+	local we = cfg.waveEngine
+	if we == WAVE_ENGINE_MORPH or we == WAVE_ENGINE_PWM then
 		return true
 	end
-	if (cfg.lowpassEnabled or 0) ~= 0 then
+	if cfg.lowpassEnabled ~= 0 then
 		return true
 	end
-	if (cfg.wavefoldAmt or 0) > 0 then
+	local effectKind = cfg.effectKind
+	if effectKind == EFFECT_KIND_WAVEFOLD and (cfg.effectAmtU8 or 0) > 0 then
 		return true
 	end
-	if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then
+	if effectKind == EFFECT_KIND_HARDSYNC and (cfg.effectAmtU8 or 0) > 0 then
 		return true
 	end
 	return false
@@ -356,12 +365,12 @@ local function render_waveform_native(cfg, outSamples)
 end
 
 local function render_waveform_samples(cfg, ticksPlayed, outSamples, lfoTicks)
-	local we = cfg.waveEngine or cfg.waveEngineId or 1
-	if we == 0 then
+	local we = cfg.waveEngine or WAVE_ENGINE_NATIVE
+	if we == WAVE_ENGINE_MORPH then
 		return render_waveform_morph(cfg, ticksPlayed, outSamples)
-	elseif we == 2 then
+	elseif we == WAVE_ENGINE_PWM then
 		return render_waveform_pwm(cfg, ticksPlayed, outSamples, lfoTicks)
-	elseif we == 1 then
+	elseif we == WAVE_ENGINE_NATIVE then
 		return render_waveform_native(cfg, outSamples)
 	end
 	return false
@@ -374,33 +383,28 @@ local function render_tick_cfg(cfg, instId, ticksPlayed, lfoTicks)
 	if not render_waveform_samples(cfg, ticksPlayed, render_out, lfoTicks) then
 		return
 	end
-	if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then
+	local effectKind = cfg.effectKind or EFFECT_KIND_NONE
+	if effectKind == EFFECT_KIND_HARDSYNC and (cfg.effectAmtU8 or 0) > 0 then
 		local hsT = calculate_mod_t(
-			cfg.hardSyncModSource or MOD_SRC_ENVELOPE,
-			cfg.hardSyncDecayInTicks,
+			cfg.effectModSource or MOD_SRC_ENVELOPE,
+			cfg.effectDurationInTicks,
 			ticksPlayed,
 			lfoTicks,
 			cfg.lfoCycleInTicks,
 			0
 		)
-		local env = 1 - apply_curveN11(hsT, u8_to_s8(cfg.hardSyncCurveS8 or 0))
-		local multiplier = 1 + ((cfg.hardSyncStrengthU8 or 0) / 255) * 7 * env
+		local env = 1 - apply_curveN11(hsT, cfg.effectCurveS6 or 0)
+		local multiplier = 1 + ((cfg.effectAmtU8 or 0) / 255) * 7 * env
 		apply_hardsync_effect_to_samples(render_out, multiplier)
 	end
-	local wavefoldModSource = cfg.wavefoldModSource or MOD_SRC_ENVELOPE
-	local wavefoldHasTime = (wavefoldModSource == MOD_SRC_LFO and (cfg.lfoCycleInTicks or 0) > 0)
-		or ((cfg.wavefoldDurationInTicks or 0) > 0)
-	if (cfg.wavefoldAmt or 0) > 0 and wavefoldHasTime then
-		local maxAmt = clamp01((cfg.wavefoldAmt or 0) / 255)
-		local wfT = calculate_mod_t(
-			wavefoldModSource,
-			cfg.wavefoldDurationInTicks,
-			ticksPlayed,
-			lfoTicks,
-			cfg.lfoCycleInTicks,
-			0
-		)
-		local envShaped = 1 - apply_curveN11(wfT, u8_to_s8(cfg.wavefoldCurveS8 or 0))
+	local effectModSource = cfg.effectModSource or MOD_SRC_ENVELOPE
+	local wavefoldHasTime = (effectModSource == MOD_SRC_LFO and (cfg.lfoCycleInTicks or 0) > 0)
+		or ((cfg.effectDurationInTicks or 0) > 0)
+	if effectKind == EFFECT_KIND_WAVEFOLD and (cfg.effectAmtU8 or 0) > 0 and wavefoldHasTime then
+		local maxAmt = clamp01((cfg.effectAmtU8 or 0) / 255)
+		local wfT =
+			calculate_mod_t(effectModSource, cfg.effectDurationInTicks, ticksPlayed, lfoTicks, cfg.lfoCycleInTicks, 0)
+		local envShaped = 1 - apply_curveN11(wfT, cfg.effectCurveS6 or 0)
 		local strength = maxAmt * envShaped
 		apply_wavefold_effect_to_samples(render_out, strength)
 	end
@@ -413,7 +417,7 @@ local function render_tick_cfg(cfg, instId, ticksPlayed, lfoTicks)
 			cfg.lfoCycleInTicks,
 			1
 		)
-		local strength = apply_curveN11(lpT, u8_to_s8(cfg.lowpassCurveS8 or 0))
+		local strength = apply_curveN11(lpT, cfg.lowpassCurveS6 or 0)
 		apply_lowpass_effect_to_samples(render_out, strength)
 	end
 	wave_write_samples(cfg.renderWaveformSlot, render_out)
@@ -613,57 +617,27 @@ local function decode_morph_map()
 	for _ = 1, count do
 		local entry = decode_MorphEntry(off)
 		local id = entry.instrumentId
-		local effectKindId = entry.effectKind
 
 		local cfg = {
-			waveEngineId = entry.waveEngineId,
 			waveEngine = entry.waveEngineId,
 			sourceWaveformIndex = entry.sourceWaveformIndex,
 			morphWaveB = entry.morphWaveB,
 			renderWaveformSlot = entry.renderWaveformSlot,
 			morphDurationInTicks = entry.morphDurationTicks12,
-			morphCurveS8 = s6_to_s8(entry.morphCurveS6),
+			morphCurveS6 = entry.morphCurveS6,
 			pwmDuty = entry.pwmDuty5,
 			pwmDepth = entry.pwmDepth5,
-			pwmCycleInTicks = 0,
-			pwmPhaseU8 = 0,
 			lowpassEnabled = entry.lowpassEnabled ~= 0,
 			lowpassDurationInTicks = entry.lowpassDurationTicks12,
-			lowpassCurveS8 = s6_to_s8(entry.lowpassCurveS6),
+			lowpassCurveS6 = entry.lowpassCurveS6,
 			lowpassModSource = entry.lowpassModSource,
+			effectKind = entry.effectKind,
+			effectAmtU8 = entry.effectAmtU8,
+			effectDurationInTicks = entry.effectDurationTicks12,
+			effectCurveS6 = entry.effectCurveS6,
+			effectModSource = entry.effectModSource,
 			lfoCycleInTicks = entry.lfoCycleTicks12,
 		}
-		if effectKindId == 1 then -- wavefold
-			cfg.wavefoldAmt = entry.effectAmtU8
-			cfg.wavefoldDurationInTicks = entry.effectDurationTicks12
-			cfg.wavefoldCurveS8 = s6_to_s8(entry.effectCurveS6)
-			cfg.wavefoldModSource = entry.effectModSource
-			cfg.hardSyncEnabled = false
-			cfg.hardSyncStrengthU8 = 0
-			cfg.hardSyncDecayInTicks = 0
-			cfg.hardSyncCurveS8 = 0
-			cfg.hardSyncModSource = entry.effectModSource
-		elseif effectKindId == 2 then -- hardSync
-			cfg.wavefoldAmt = 0
-			cfg.wavefoldDurationInTicks = 0
-			cfg.wavefoldCurveS8 = 0
-			cfg.wavefoldModSource = entry.effectModSource
-			cfg.hardSyncEnabled = true
-			cfg.hardSyncStrengthU8 = entry.effectAmtU8
-			cfg.hardSyncDecayInTicks = entry.effectDurationTicks12
-			cfg.hardSyncCurveS8 = s6_to_s8(entry.effectCurveS6)
-			cfg.hardSyncModSource = entry.effectModSource
-		else -- none
-			cfg.wavefoldAmt = 0
-			cfg.wavefoldDurationInTicks = 0
-			cfg.wavefoldCurveS8 = 0
-			cfg.wavefoldModSource = entry.effectModSource
-			cfg.hardSyncEnabled = false
-			cfg.hardSyncStrengthU8 = 0
-			cfg.hardSyncDecayInTicks = 0
-			cfg.hardSyncCurveS8 = 0
-			cfg.hardSyncModSource = entry.effectModSource
-		end
 		morphMap[id] = cfg
 		off = off + MORPH_ENTRY_BYTES
 	end

@@ -25,6 +25,17 @@ do
 	local stopNext = false
 	local PBUF = 768
 
+	local MOD_SRC_ENVELOPE = 0
+	local MOD_SRC_LFO = 1
+
+	local WAVE_ENGINE_MORPH = 0
+	local WAVE_ENGINE_NATIVE = 1
+	local WAVE_ENGINE_PWM = 2
+
+	local EFFECT_KIND_NONE = 0
+	local EFFECT_KIND_WAVEFOLD = 1
+	local EFFECT_KIND_HARDSYNC = 2
+
 	-- Wave morphing (music playback only)
 	local SFX_CHANNELS = 4
 	local chId = { -1, -1, -1, -1 }
@@ -139,7 +150,7 @@ do
 		return fl(v * 127 / 31)
 	end
 
-	local function crvN11(t01, curveS8)
+	local function crvN11(t01, curveS6)
 		local t = cl01(t01)
 		if t <= 0 then
 			return 0
@@ -147,7 +158,7 @@ do
 			return 1
 		end
 
-		local k = curveS8 / 127
+		local k = curveS6 / 31 -- curveS6 is signed 6-bit (-32..31)
 		if k < -1 then
 			k = -1
 		elseif k > 1 then
@@ -169,8 +180,6 @@ do
 		local o = __AUTOGEN_TEMP_PTR_B + MORPH_HEADER_BYTES
 		for _ = 1, count do
 			local entry = decode_MorphEntry(o)
-			local id = entry.instrumentId
-			local effKind = entry.effectKind
 			local z = {
 				we = entry.waveEngineId,
 				sA = entry.sourceWaveformIndex,
@@ -179,46 +188,22 @@ do
 				pwmD = entry.pwmDuty5,
 				pwmDp = entry.pwmDepth5,
 				xDcy = entry.morphDurationTicks12,
-				xCrv = s6s8(entry.morphCurveS6),
+				xCrv = entry.morphCurveS6,
 				lpE = entry.lowpassEnabled,
 				lpDcy = entry.lowpassDurationTicks12,
-				lpCrv = s6s8(entry.lowpassCurveS6),
+				lpCrv = entry.lowpassCurveS6,
 				lpSrc = entry.lowpassModSource,
+				effK = entry.effectKind,
+				effAmt = entry.effectAmtU8,
+				effDcy = entry.effectDurationTicks12,
+				effCrv = entry.effectCurveS6,
+				effSrc = entry.effectModSource,
 				lfoC = entry.lfoCycleTicks12,
 			}
-			-- BEGIN_FEATURE_WAVEFOLD -- todo: these share values with hard sync; this code should be cleaned up a bit
-			z.wfAmt = 0
-			z.wfDcy = 0
-			z.wfCrv = 0
-			z.wfSrc = entry.effectModSource
-			if effKind == 1 then
-				z.wfAmt = entry.effectAmtU8
-				z.wfDcy = entry.effectDurationTicks12
-				z.wfCrv = s6s8(entry.effectCurveS6)
-				z.wfSrc = entry.effectModSource
-			end
-			-- END_FEATURE_WAVEFOLD
-			-- BEGIN_FEATURE_HARDSYNC
-			z.hsE = 0
-			z.hsStr = 0
-			z.hsDcy = 0
-			z.hsCrv = 0
-			z.hsSrc = entry.effectModSource
-			if effKind == 2 then
-				z.hsE = 1
-				z.hsStr = entry.effectAmtU8
-				z.hsDcy = entry.effectDurationTicks12
-				z.hsCrv = s6s8(entry.effectCurveS6)
-				z.hsSrc = entry.effectModSource
-			end
-			-- END_FEATURE_HARDSYNC
-			morphs[id] = z
+			morphs[entry.instrumentId] = z
 			o = o + MORPH_ENTRY_BYTES
 		end
 	end
-
-	local MOD_SRC_ENVELOPE = 0
-	local MOD_SRC_LFO = 1
 
 	-- Deserialize a waveform (packed nibbles in RAM) into a 0-based array of samples (0..15).
 	local function wread(waveIndex, outSamples)
@@ -409,20 +394,20 @@ do
 	end
 
 	local function r_wave(cfg, ticksPlayed, outSamples, lfoTicks)
-		local we = cfg.we or 1
-		if we == 0 then
+		local we = cfg.we
+		if we == WAVE_ENGINE_MORPH then
 			if r_morph then
 				r_morph(cfg, ticksPlayed, outSamples)
 			else
 				r_native(cfg, outSamples)
 			end
-		elseif we == 2 then
+		elseif we == WAVE_ENGINE_PWM then
 			if r_pwm then
 				r_pwm(cfg, ticksPlayed, outSamples, lfoTicks)
 			else
 				r_native(cfg, outSamples)
 			end
-		elseif we == 1 then
+		elseif we == WAVE_ENGINE_NATIVE then
 			r_native(cfg, outSamples)
 		end
 	end
@@ -432,11 +417,11 @@ do
 			return false
 		end
 		local we = cfg.we
-		return (r_morph and we == 0)
-			or (r_pwm and we == 2)
+		return (r_morph and we == WAVE_ENGINE_MORPH)
+			or (r_pwm and we == WAVE_ENGINE_PWM)
 			or (lfp and cfg.lpE ~= 0)
-			or (wfold and cfg.wfAmt > 0)
-			or (hsync and cfg.hsE ~= 0 and cfg.hsStr > 0)
+			or (wfold and cfg.effK == EFFECT_KIND_WAVEFOLD and cfg.effAmt > 0)
+			or (hsync and cfg.effK == EFFECT_KIND_HARDSYNC and cfg.effAmt > 0)
 	end
 
 	local function rtick(cfg, instId, ticksPlayed, lfoTicks)
@@ -444,25 +429,25 @@ do
 			return
 		end
 		r_wave(cfg, ticksPlayed, render, lfoTicks)
-		if hsync and cfg.hsE ~= 0 and cfg.hsStr > 0 then
-			local hsT = ct(cfg.hsSrc, cfg.hsDcy, ticksPlayed, lfoTicks, cfg.lfoC)
-			local env = 1 - crvN11(hsT, u8s8(cfg.hsCrv))
-			local multiplier = 1 + (cfg.hsStr / 255) * 7 * env
+		if hsync and cfg.effK == EFFECT_KIND_HARDSYNC and cfg.effAmt > 0 then
+			local hsT = ct(cfg.effSrc, cfg.effDcy, ticksPlayed, lfoTicks, cfg.lfoC)
+			local env = 1 - crvN11(hsT, cfg.effCrv)
+			local multiplier = 1 + (cfg.effAmt / 255) * 7 * env
 			hsync(render, multiplier)
 		end
 		if wfold then
-			local wavefoldHasTime = (cfg.wfSrc == MOD_SRC_LFO and cfg.lfoC > 0) or (cfg.wfDcy > 0)
-			if cfg.wfAmt > 0 and wavefoldHasTime then
-				local maxAmt = cl01(cfg.wfAmt / 255)
-				local wfT = ct(cfg.wfSrc, cfg.wfDcy, ticksPlayed, lfoTicks, cfg.lfoC)
-				local envShaped = 1 - crvN11(wfT, u8s8(cfg.wfCrv))
+			local wavefoldHasTime = (cfg.effSrc == MOD_SRC_LFO and cfg.lfoC > 0) or (cfg.effDcy > 0)
+			if cfg.effK == EFFECT_KIND_WAVEFOLD and cfg.effAmt > 0 and wavefoldHasTime then
+				local maxAmt = cl01(cfg.effAmt / 255)
+				local wfT = ct(cfg.effSrc, cfg.effDcy, ticksPlayed, lfoTicks, cfg.lfoC)
+				local envShaped = 1 - crvN11(wfT, cfg.effCrv)
 				local strength = maxAmt * envShaped
 				wfold(render, strength)
 			end
 		end
 		if lfp and cfg.lpE ~= 0 then
 			local lpT = ct(cfg.lpSrc, cfg.lpDcy, ticksPlayed, lfoTicks, cfg.lfoC)
-			local strength = crvN11(lpT, u8s8(cfg.lpCrv))
+			local strength = crvN11(lpT, cfg.lpCrv)
 			lfp(render, strength)
 		end
 		wwrite(cfg.r, render)
