@@ -12,6 +12,7 @@ import { KeyValueTable } from "./basic/KeyValueTable";
 import { AppPanelShell } from "./AppPanelShell";
 import { Tooltip } from "./basic/tooltip";
 import { MORPH_ENTRY_BYTES } from "../../bridge/morphSchema";
+import { gLog } from "../utils/logger";
 
 const SizeValue: React.FC<{ value: number; }> = ({ value }) => {
     return (
@@ -86,37 +87,58 @@ export const useSongStatsData = (song: Song): SongStatsData => {
     const maxMatchLength = 30;
     const useRLE = false;
 
-    const cartWriter = useWriteBehindEffect<Song, SongSerialized>(async (doc) => {
-        const cartDetails = serializeSongToCartDetailed(doc, true, 'release', gAllChannelsAudible);
+    const [debouncedSong, setDebouncedSong] = useState<Song | null>(null);
 
-        const optimizedDoc = OptimizeSong(doc).optimizedSong;
-        const bridge = serializeSongForTic80Bridge({
-            song: optimizedDoc,
-            loopMode: "off",
-            cursorSongOrder: 0,
-            cursorChannelIndex: 0,
-            cursorRowIndex: 0,
-            patternSelection: null,
-            audibleChannels: gAllChannelsAudible,
-            startPosition: 0,
-            startRow: 0,
-            songOrderSelection: null,
-        });
-        return { cartridge: cartDetails, bridge };
+    // Minimal work in useWriteBehindEffect - just handle debouncing
+    const cartWriter = useWriteBehindEffect<Song, Song>(async (doc) => {
+        // Just pass through the song
+        return doc;
     }, {
         debounceMs: 1200,
         maxWaitMs: 5000,
         onSuccess: (next) => {
-            setInput(next);
+            setDebouncedSong(next);
         },
-        onError: () => {
-            setInput(null);
+        onError: (error) => {
+            console.error("Error in debounce:", error);
+            setDebouncedSong(null);
         },
     });
 
     useEffect(() => {
         cartWriter.enqueue(song);
     }, [song]);
+
+    // Do all the heavy work synchronously
+    useEffect(() => {
+        if (!debouncedSong) {
+            setInput(null);
+            return;
+        }
+
+        try {
+            const cartDetails = serializeSongToCartDetailed(debouncedSong, true, 'release', gAllChannelsAudible);
+
+            const optimizedDoc = OptimizeSong(debouncedSong).optimizedSong;
+            const bridge = serializeSongForTic80Bridge({
+                song: optimizedDoc,
+                loopMode: "off",
+                cursorSongOrder: 0,
+                cursorChannelIndex: 0,
+                cursorRowIndex: 0,
+                patternSelection: null,
+                audibleChannels: gAllChannelsAudible,
+                startPosition: 0,
+                startRow: 0,
+                songOrderSelection: null,
+            });
+
+            setInput({ cartridge: cartDetails, bridge });
+        } catch (error) {
+            console.error("Error generating song stats:", error);
+            setInput(null);
+        }
+    }, [debouncedSong]);
 
     const breakdown = useMemo<Stats>(() => {
         if (!input) return {

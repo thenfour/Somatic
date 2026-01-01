@@ -15,6 +15,7 @@ import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
 import {encodePatternChannelDirect} from "./pattern_encoding";
 import {PreparedSong, prepareSongColumns} from "./prepared_song";
 import {SomaticMemoryLayout, Tic80MemoryMap} from "../../bridge/memory_layout";
+import {processLua} from "./lua_processor";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -718,6 +719,9 @@ ${emitLuaDecoder(MorphEntryCodec, {
              .replace(/__AUTOGEN_BUF_PTR_A/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_A.toString(16)}`)
              .replace(/__AUTOGEN_BUF_PTR_B/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_B.toString(16)}`);
 
+   // optimize code
+   code = processLua(code);
+
    return {
       code,
       generatedCode: musicDataSection,
@@ -746,7 +750,11 @@ export type SongCartDetails = {
 }
 
 export function serializeSongToCartDetailed(
-   song: Song, optimize: boolean, variant: "debug"|"release", audibleChannels: Set<Tic80ChannelIndex>):
+   song: Song,                             //
+   optimize: boolean,                      //
+   variant: "debug"|"release",             //
+   audibleChannels: Set<Tic80ChannelIndex> //
+   ):
    SongCartDetails //
 {
    const startTime = performance.now();
