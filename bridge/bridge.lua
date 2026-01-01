@@ -220,23 +220,16 @@ local function u8_to_s8(b)
 	return b
 end
 
-local function s6_to_s8(b)
-	local v = b & 0x3f
-	if v >= 0x20 then
-		v = v - 0x40 -- sign-extend 6-bit
-	end
-	-- map -32..31 to roughly -128..127 for the existing curve helper
-	local s8 = math.floor((v * 127) / 31 + 0.5)
-	if s8 < -128 then
-		s8 = -128
-	elseif s8 > 127 then
-		s8 = 127
-	end
-	return s8
-end
-
 local MOD_SRC_ENVELOPE = 0
 local MOD_SRC_LFO = 1
+
+local WAVE_ENGINE_MORPH = 0
+local WAVE_ENGINE_NATIVE = 1
+local WAVE_ENGINE_PWM = 2
+
+local EFFECT_KIND_NONE = 0
+local EFFECT_KIND_WAVEFOLD = 1
+local EFFECT_KIND_HARDSYNC = 2
 
 local WAVE_BASE = BRIDGE_CONFIG.memory.WAVEFORMS_ADDR
 local WAVE_BYTES_PER_WAVE = 16 -- 32x 4-bit samples packed 2-per-byte
@@ -291,33 +284,10 @@ local function read_sfx_cfg(instrumentId)
 	for i = 0, count - 1 do
 		local off = MORPH_MAP_BASE + MORPH_HEADER_BYTES + i * MORPH_ENTRY_BYTES
 		local entry = decode_MorphEntry(off)
+		log("Read cfg/iID " .. tostring(entry.instrumentId))
 		if entry.instrumentId == instrumentId then
-			local effectKindId = entry.effectKind -- 0=none,1=wavefold,2=hardSync
-			local effectCurveS8 = s6_to_s8(entry.effectCurveS6)
-			local morphCurveS8 = s6_to_s8(entry.morphCurveS6)
-			local lowpassCurveS8 = s6_to_s8(entry.lowpassCurveS6)
-
-			local wavefoldAmt = 0
-			local wavefoldDurationInTicks = 0
-			local wavefoldCurveS8 = 0
-			local wavefoldModSource = entry.effectModSource
-			local hardSyncEnabled = false
-			local hardSyncStrengthU8 = 0
-			local hardSyncDecayInTicks = 0
-			local hardSyncCurveS8 = 0
-			local hardSyncModSource = entry.effectModSource
-
-			if effectKindId == 1 then
-				wavefoldAmt = entry.effectAmtU8
-				wavefoldDurationInTicks = entry.effectDurationTicks12
-				wavefoldCurveS8 = effectCurveS8
-			elseif effectKindId == 2 then
-				hardSyncEnabled = true
-				hardSyncStrengthU8 = entry.effectAmtU8
-				hardSyncDecayInTicks = entry.effectDurationTicks12
-				hardSyncCurveS8 = effectCurveS8
-				hardSyncModSource = entry.effectModSource
-			end
+			local effectKindId = entry.effectKind -- EFFECT_KIND_* values
+			log("SFX ID " .. tostring(instrumentId) .. " uses effectKind " .. tostring(effectKindId))
 
 			-- Shape matches makeMorphMapLua(): values are numeric IDs.
 			return {
@@ -326,25 +296,19 @@ local function read_sfx_cfg(instrumentId)
 				morphWaveB = entry.morphWaveB,
 				renderWaveformSlot = entry.renderWaveformSlot,
 				morphDurationInTicks = entry.morphDurationTicks12,
-				morphCurveS8 = morphCurveS8,
+				morphCurveS6 = entry.morphCurveS6,
 				pwmDuty = entry.pwmDuty5,
 				pwmDepth = entry.pwmDepth5,
 				lowpassEnabled = entry.lowpassEnabled ~= 0,
 				lowpassDurationInTicks = entry.lowpassDurationTicks12,
-				lowpassCurveS8 = lowpassCurveS8,
-				wavefoldAmt = wavefoldAmt,
-				wavefoldDurationInTicks = wavefoldDurationInTicks,
-				wavefoldCurveS8 = wavefoldCurveS8,
-				hardSyncEnabled = hardSyncEnabled,
-				hardSyncStrengthU8 = hardSyncStrengthU8,
-				hardSyncDecayInTicks = hardSyncDecayInTicks,
-				hardSyncCurveS8 = hardSyncCurveS8,
+				lowpassCurveS6 = entry.lowpassCurveS6,
+				effectKind = effectKindId,
+				effectAmtU8 = entry.effectAmtU8,
+				effectDurationInTicks = entry.effectDurationTicks12,
+				effectCurveS6 = entry.effectCurveS6,
+				effectModSource = entry.effectModSource,
 				lfoCycleInTicks = entry.lfoCycleTicks12,
 				lowpassModSource = entry.lowpassModSource,
-				wavefoldModSource = wavefoldModSource,
-				hardSyncModSource = hardSyncModSource,
-				effectKind = effectKindId,
-				effectModSource = entry.effectModSource,
 			}
 		end
 	end
@@ -379,8 +343,8 @@ local function wave_write_samples(waveIndex, samples)
 end
 
 -- s8: -128..127 mapped to -1..+1
-local function apply_curveN11(t01, curveS8)
-	local t = clamp01(t01 or 0)
+local function apply_curveN11(t01, curveS6)
+	local t = clamp01(t01)
 	if t <= 0 then
 		return 0
 	end
@@ -388,7 +352,7 @@ local function apply_curveN11(t01, curveS8)
 		return 1
 	end
 
-	local k = (curveS8 or 0) / 127
+	local k = curveS6 / 31 -- curveS6 is signed 6-bit (-32..31)
 	if k < -1 then
 		k = -1
 	elseif k > 1 then
@@ -498,6 +462,7 @@ end
 
 local hs_scratch = {}
 local function apply_hardsync_effect_to_samples(samples, multiplier)
+	log("HS effect with mult=" .. tostring(multiplier))
 	local m = multiplier or 1
 	if m <= 1.001 then
 		return
@@ -527,18 +492,19 @@ local function apply_hardsync_effect_to_samples(samples, multiplier)
 end
 
 local function cfg_is_k_rate_processing(cfg)
-	if cfg.waveEngine == 0 or cfg.waveEngine == 2 then
+	if cfg.waveEngine == WAVE_ENGINE_MORPH or cfg.waveEngine == WAVE_ENGINE_PWM then
 		return true
 	end
 	if cfg.lowpassEnabled then
 		return true
 	end
-	if (cfg.wavefoldAmt or 0) > 0 then
+	if (cfg.effectKind == EFFECT_KIND_WAVEFOLD) and (cfg.effectAmtU8 or 0) > 0 then
 		return true
 	end
-	if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then
+	if (cfg.effectKind == EFFECT_KIND_HARDSYNC) and (cfg.effectAmtU8 or 0) > 0 then
 		return true
 	end
+	log("SFX is native waveform with no k-rate effects")
 	return false
 end
 
@@ -621,54 +587,51 @@ end
 
 local function render_waveform_samples(cfg, ticksPlayed, instrumentId, lfoTicks, outSamples)
 	-- Output format: 0-based array of 32 samples in 0..15 (floats ok).
-	if cfg.waveEngine == 0 then
+	if cfg.waveEngine == WAVE_ENGINE_MORPH then
 		return render_waveform_morph(cfg, ticksPlayed, outSamples)
-	elseif cfg.waveEngine == 2 then
+	elseif cfg.waveEngine == WAVE_ENGINE_PWM then
 		return render_waveform_pwm(cfg, ticksPlayed, instrumentId, lfoTicks, outSamples)
-	elseif cfg.waveEngine == 1 then
+	elseif cfg.waveEngine == WAVE_ENGINE_NATIVE then
 		return render_waveform_native(cfg, outSamples)
 	end
 end
 
 local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks)
 	if not cfg_is_k_rate_processing(cfg) then
+		log("Skipping non-k-rate SFX ID " .. tostring(instrumentId))
 		return
 	end
+
+	log("Rendering SFX ID " .. tostring(instrumentId) .. " tick " .. tostring(ticksPlayed))
 
 	local rendered = render_waveform_samples(cfg, ticksPlayed, instrumentId, lfoTicks, render_out)
 	if not rendered then
 		return
 	end
 
-	if (cfg.hardSyncEnabled or 0) ~= 0 and (cfg.hardSyncStrengthU8 or 0) > 0 then
+	if (cfg.effectKind == EFFECT_KIND_HARDSYNC) and cfg.effectAmtU8 > 0 then
 		local hsT = calculate_mod_t(
-			cfg.hardSyncModSource or MOD_SRC_ENVELOPE,
-			cfg.hardSyncDecayInTicks,
+			cfg.effectModSource or MOD_SRC_ENVELOPE,
+			cfg.effectDurationInTicks,
 			ticksPlayed,
 			lfoTicks,
 			cfg.lfoCycleInTicks,
 			0
 		)
-		local env = 1 - apply_curveN11(hsT, cfg.hardSyncCurveS8 or 0)
-		local multiplier = 1 + ((cfg.hardSyncStrengthU8 or 0) / 255) * 7 * env
+		local env = 1 - apply_curveN11(hsT, cfg.effectCurveS6)
+		local multiplier = 1 + (cfg.effectAmtU8 / 255) * 7 * env
 		apply_hardsync_effect_to_samples(render_out, multiplier)
 	end
 
 	-- Wavefold first (adds harmonics), then lowpass (smooths)
-	local wavefoldModSource = cfg.wavefoldModSource or MOD_SRC_ENVELOPE
+	local wavefoldModSource = cfg.effectModSource or MOD_SRC_ENVELOPE
 	local wavefoldHasTime = (wavefoldModSource == MOD_SRC_LFO and (cfg.lfoCycleInTicks or 0) > 0)
-		or ((cfg.wavefoldDurationInTicks or 0) > 0)
-	if (cfg.wavefoldAmt or 0) > 0 and wavefoldHasTime then
-		local maxAmt = clamp01(cfg.wavefoldAmt / 255)
-		local wfT = calculate_mod_t(
-			wavefoldModSource,
-			cfg.wavefoldDurationInTicks,
-			ticksPlayed,
-			lfoTicks,
-			cfg.lfoCycleInTicks,
-			0
-		)
-		local envShaped = 1 - apply_curveN11(wfT, cfg.wavefoldCurveS8)
+		or ((cfg.effectDurationInTicks or 0) > 0)
+	if (cfg.effectKind == EFFECT_KIND_WAVEFOLD) and cfg.effectAmtU8 > 0 and wavefoldHasTime then
+		local maxAmt = clamp01(cfg.effectAmtU8 / 255)
+		local wfT =
+			calculate_mod_t(wavefoldModSource, cfg.effectDurationInTicks, ticksPlayed, lfoTicks, cfg.lfoCycleInTicks, 0)
+		local envShaped = 1 - apply_curveN11(wfT, cfg.effectCurveS6)
 		local strength = maxAmt * envShaped
 
 		-- log(
@@ -695,7 +658,7 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks)
 			cfg.lfoCycleInTicks,
 			1
 		)
-		local strength = apply_curveN11(lpT, cfg.lowpassCurveS8)
+		local strength = apply_curveN11(lpT, cfg.lowpassCurveS6)
 		apply_lowpass_effect_to_samples(render_out, strength)
 	end
 
@@ -708,6 +671,7 @@ local function prime_render_slot_for_note_on(instrumentId)
 		return
 	end
 	if not cfg_is_k_rate_processing(cfg) then
+		log("SFX ID " .. tostring(instrumentId) .. " is not k-rate processed; skipping prime")
 		return
 	end
 	-- Render tick 0 so audio starts with a defined wavetable.
@@ -724,12 +688,14 @@ local function sfx_tick_channel(channel)
 	local ticksPlayed = ch_sfx_ticks[channel + 1]
 	local cfg = read_sfx_cfg(idx)
 	if cfg == nil then
+		log("No SFX config for ID " .. tostring(idx) .. "; skipping")
 		ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 		return
 	end
 
 	-- Stable pipeline: if not k-rate processing, do nothing.
 	if not cfg_is_k_rate_processing(cfg) then
+		log("SFX ID " .. tostring(idx) .. " is not k-rate processed; skipping tick")
 		ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 		return
 	end
@@ -997,7 +963,7 @@ end
 
 local function draw_status()
 	local y = 2
-	print("Somatic", 40, y, 12)
+	print("Somat9ic", 40, y, 12)
 	y = y + 8
 	print("fps:" .. tostring(fps), 40, y, 13)
 	y = y + 8

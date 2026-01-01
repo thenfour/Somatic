@@ -141,6 +141,7 @@ export function encodeMorphPayload(entries: MorphEntryInput[], totalBytes?: numb
 
    MorphHeaderCodec.encode({entryCount}, writer);
    for (const entry of entries) {
+      writer.alignToByte(); // ensure each entry starts on a byte boundary for the Lua decoder
       MorphEntryCodec.encode(normalizeEntry(entry), writer);
    }
 
