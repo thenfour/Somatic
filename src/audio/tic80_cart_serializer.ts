@@ -1,4 +1,4 @@
-import playroutineDebug from "../../bridge/playroutine.lua";
+import playroutineTemplateTxt from "../../bridge/playroutine.lua";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import type {ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument} from "../models/instruments";
 import type {Song} from "../models/song";
@@ -14,7 +14,7 @@ import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
 import {encodePatternChannelDirect} from "./pattern_encoding";
 import {PreparedSong, prepareSongColumns} from "./prepared_song";
 import {SomaticMemoryLayout, Tic80MemoryMap} from "../../bridge/memory_layout";
-import {processLua} from "./lua_processor";
+import {OptimizationRuleOptions, processLua} from "./lua_processor";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -608,11 +608,6 @@ function stripUnusedFeatureBlocks(template: string, usage: PlaybackFeatureUsage)
    return out;
 }
 
-function getPlayroutineCode(variant: "debug"|"release"): string {
-   return playroutineDebug;
-   //return variant === "debug" ? playroutineDebug : playroutineRelease;
-};
-
 function getCode(song: Song, variant: "debug"|"release", featureUsage?: PlaybackFeatureUsage): {
    code: string,                //
    generatedCode: string,       //
@@ -692,7 +687,7 @@ ${emitLuaDecoder(MorphEntryCodec, {
    }).trim()}`;
 
    // Replace the SOMATIC_MUSIC_DATA section in the template
-   const playroutineTemplate = stripUnusedFeatureBlocks(getPlayroutineCode(variant), features);
+   const playroutineTemplate = stripUnusedFeatureBlocks(playroutineTemplateTxt, features);
    let code = replaceLuaBlock(
       playroutineTemplate, "-- BEGIN_SOMATIC_MUSIC_DATA", "-- END_SOMATIC_MUSIC_DATA", musicDataSection);
 
@@ -718,7 +713,17 @@ ${emitLuaDecoder(MorphEntryCodec, {
              .replace(/__AUTOGEN_BUF_PTR_B/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_B.toString(16)}`);
 
    // optimize code
-   code = processLua(code);
+   const optimizationRuleOptions: OptimizationRuleOptions = variant === "release" ? {
+      stripComments: true,
+      stripDebugBlocks: true,
+      maxIndentLevel: 1,
+   } : //
+      {
+         stripComments: false,
+         stripDebugBlocks: false,
+         maxIndentLevel: 50,
+      };
+   code = processLua(code, optimizationRuleOptions);
 
    return {
       code,

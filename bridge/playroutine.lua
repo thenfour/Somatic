@@ -1,3 +1,5 @@
+-- Somatic playroutine.
+
 local LOG_LINES = 15
 local log_lines = {}
 local log_serial = 0

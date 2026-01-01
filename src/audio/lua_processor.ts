@@ -2,6 +2,20 @@
 import * as luaparse from "luaparse";
 import {toLuaStringLiteral} from "../utils/utils";
 
+export type OptimizationRuleOptions = {
+   stripComments: boolean;    //
+   stripDebugBlocks: boolean; //
+   //stripWhitespace: boolean;  // strips (reasonable) whitespace entirely
+   maxIndentLevel: number; // limits indentation to N levels; beyond that, everything is flattened
+};
+
+const DEFAULT_OPTIMIZATION_RULES: OptimizationRuleOptions = {
+   stripComments: false,
+   stripDebugBlocks: true,
+   //stripWhitespace: false,
+   maxIndentLevel: 10,
+};
+
 
 // Precedence tables, low → high
 const LOGICAL_PRECEDENCE: Record<string, number> = {
@@ -36,9 +50,9 @@ const POW_PRECEDENCE = 12;   // ^
 function getPrecedence(node: luaparse.Expression): number {
    switch (node.type) {
       case "LogicalExpression":
-         return LOGICAL_PRECEDENCE[(node as any).operator];
+         return LOGICAL_PRECEDENCE[node.operator];
       case "BinaryExpression": {
-         const op = (node as any).operator;
+         const op = node.operator;
          if (op === "^")
             return POW_PRECEDENCE;
          return BINARY_PRECEDENCE[op];
@@ -51,27 +65,27 @@ function getPrecedence(node: luaparse.Expression): number {
    }
 }
 
-export interface LuaPrinterOptions {
-   minified?: boolean; // if false, you can add more newlines/indent later
-}
+// export interface LuaPrinterOptions {
+//    minified?: boolean; // if false, you can add more newlines/indent later
+// }
 
 export class LuaPrinter {
    private buf: string[] = [];
-   private options: LuaPrinterOptions;
+   private options: OptimizationRuleOptions;
    private indentLevel = 0;
-   private indentUnit = "  "; // only used if !minified
+   private indentUnit = " "; // only used if !minified
+   private blockComments: Map<luaparse.Statement[], luaparse.Comment[]>;
 
-   constructor(options: LuaPrinterOptions = {}) {
+   constructor(options: OptimizationRuleOptions, blockComments?: Map<luaparse.Statement[], luaparse.Comment[]>) {
       this.options = options;
+      this.blockComments = blockComments || new Map();
    }
 
    print(chunk: luaparse.Chunk): string {
       this.buf = [];
       this.indentLevel = 0;
 
-      for (const stmt of chunk.body) {
-         this.printStatement(stmt);
-      }
+      this.printBlock(chunk.body);
 
       return this.buf.join("");
    }
@@ -83,16 +97,49 @@ export class LuaPrinter {
    }
 
    private newline() {
-      if (this.options.minified) {
-         this.buf.push("\n"); // could also use ';' but newlines are cheap + nice
-      } else {
-         this.buf.push("\n");
-         this.buf.push(this.indentUnit.repeat(this.indentLevel));
-      }
+      this.buf.push("\n");
    }
 
    private emitKeyword(s: string) {
       this.emit(s);
+   }
+
+   private startPos(node: {range?: [number, number]}|any): number {
+      if (node && Array.isArray(node.range) && node.range.length > 0) {
+         return node.range[0] as number;
+      }
+      return 0;
+   }
+
+   private printIndent() {
+      const indentLevel = Math.min(this.indentLevel, this.options.maxIndentLevel);
+      this.buf.push(this.indentUnit.repeat(indentLevel));
+      //   if (!this.options.stripWhitespace) {
+      //      this.buf.push(this.indentUnit.repeat(this.indentLevel));
+      //   }
+   }
+
+   private printBlock(body: luaparse.Statement[]) {
+      const comments = [...(this.blockComments.get(body) || [])];
+      const items: Array<luaparse.Statement|luaparse.Comment> = [];
+      let ci = 0;
+
+      for (const stmt of body) {
+         while (ci < comments.length && this.startPos(comments[ci]) <= this.startPos(stmt)) {
+            items.push(comments[ci]);
+            ci++;
+         }
+         items.push(stmt);
+      }
+      while (ci < comments.length) {
+         items.push(comments[ci]);
+         ci++;
+      }
+
+      for (const node of items) {
+         this.printIndent();
+         this.printStatement(node);
+      }
    }
 
    // --- statement printer ---
@@ -149,14 +196,10 @@ export class LuaPrinter {
             this.newline();
 
             this.indentLevel++;
-            for (const st of fn.body) {
-               if (!this.options.minified) {
-                  this.buf.push(this.indentUnit.repeat(this.indentLevel));
-               }
-               this.printStatement(st);
-            }
+            this.printBlock(fn.body);
             this.indentLevel--;
 
+            this.printIndent();
             this.emitKeyword("end");
             this.newline();
             break;
@@ -180,14 +223,10 @@ export class LuaPrinter {
                }
                this.newline();
                this.indentLevel++;
-               for (const st of clause.body) {
-                  if (!this.options.minified) {
-                     this.buf.push(this.indentUnit.repeat(this.indentLevel));
-                  }
-                  this.printStatement(st);
-               }
+               this.printBlock(clause.body);
                this.indentLevel--;
             });
+            this.printIndent();
             this.emitKeyword("end");
             this.newline();
             break;
@@ -201,13 +240,9 @@ export class LuaPrinter {
             this.emitKeyword(" do");
             this.newline();
             this.indentLevel++;
-            for (const s of st.body) {
-               if (!this.options.minified) {
-                  this.buf.push(this.indentUnit.repeat(this.indentLevel));
-               }
-               this.printStatement(s);
-            }
+            this.printBlock(st.body);
             this.indentLevel--;
+            this.printIndent();
             this.emitKeyword("end");
             this.newline();
             break;
@@ -218,12 +253,7 @@ export class LuaPrinter {
             this.emitKeyword("repeat");
             this.newline();
             this.indentLevel++;
-            for (const s of st.body) {
-               if (!this.options.minified) {
-                  this.buf.push(this.indentUnit.repeat(this.indentLevel));
-               }
-               this.printStatement(s);
-            }
+            this.printBlock(st.body);
             this.indentLevel--;
             this.emitKeyword("until");
             this.emit(" ");
@@ -248,13 +278,9 @@ export class LuaPrinter {
             this.emitKeyword(" do");
             this.newline();
             this.indentLevel++;
-            for (const s of st.body) {
-               if (!this.options.minified) {
-                  this.buf.push(this.indentUnit.repeat(this.indentLevel));
-               }
-               this.printStatement(s);
-            }
+            this.printBlock(st.body);
             this.indentLevel--;
+            this.printIndent();
             this.emitKeyword("end");
             this.newline();
             break;
@@ -270,13 +296,9 @@ export class LuaPrinter {
             this.emitKeyword(" do");
             this.newline();
             this.indentLevel++;
-            for (const s of st.body) {
-               if (!this.options.minified) {
-                  this.buf.push(this.indentUnit.repeat(this.indentLevel));
-               }
-               this.printStatement(s);
-            }
+            this.printBlock(st.body);
             this.indentLevel--;
+            this.printIndent();
             this.emitKeyword("end");
             this.newline();
             break;
@@ -304,20 +326,16 @@ export class LuaPrinter {
             this.emitKeyword("do");
             this.newline();
             this.indentLevel++;
-            for (const s of st.body) {
-               if (!this.options.minified) {
-                  this.buf.push(this.indentUnit.repeat(this.indentLevel));
-               }
-               this.printStatement(s);
-            }
+            this.printBlock(st.body);
             this.indentLevel--;
+            this.printIndent();
             this.emitKeyword("end");
             this.newline();
             break;
          }
 
          case "Comment":
-            // drop comments entirely.
+            this.printComment(node as luaparse.Comment);
             break;
          default:
             // console.warn("Unimplemented statement type:", node.type);
@@ -451,7 +469,7 @@ export class LuaPrinter {
       // luaparse usually gives . or : in node.indexer
       const base = this.expr(node.base, 100); // force parens if non-primary
       const id = this.expr(node.identifier);
-      const indexer = (node as any).indexer || ".";
+      const indexer = node.indexer || ".";
       return `${base}${indexer}${id}`;
    }
 
@@ -469,7 +487,7 @@ export class LuaPrinter {
    private tableCallExpr(node: luaparse.TableCallExpression): string {
       // sugar: f{...}  → f({ ... })
       const base = this.expr(node.base, 100);
-      const arg = this.expr(node.arguments as any);
+      const arg = this.expr(node.arguments);
       return `${base}(${arg})`;
    }
 
@@ -483,11 +501,11 @@ export class LuaPrinter {
    private functionExpr(node: luaparse.FunctionDeclaration): string {
       // function used as expression: "function(a,b) ... end"
       const params = node.parameters.map(p => this.expr(p)).join(",");
-      const bodyPrinter = new LuaPrinter({minified: this.options.minified});
+      const bodyPrinter = new LuaPrinter(this.options, this.blockComments);
       // reuse statement printer but avoid duplicating indent handling:
       const innerChunk: luaparse.Chunk = {
          type: "Chunk",
-         body: node.body as any,
+         body: node.body,
          comments: [],
          //globals: [],
       };
@@ -495,13 +513,118 @@ export class LuaPrinter {
 
       return `function(${params})\n${bodyCode}\nend`;
    }
+
+   private printComment(node: luaparse.Comment) {
+      if (node.raw) {
+         this.emit(node.raw);
+      } else {
+         this.emit("--" + node.value);
+      }
+      this.newline();
+   }
 }
 
 
 
+type LuaRange = [number, number];
+
+function nodeRange(node: {range?: LuaRange}|any): LuaRange {
+   if (node && Array.isArray(node.range) && node.range.length > 1) {
+      return node.range as LuaRange;
+   }
+   return [0, Number.MAX_SAFE_INTEGER];
+}
+
+function rangeContains(outer: LuaRange, inner: LuaRange): boolean {
+   return inner[0] >= outer[0] && inner[1] <= outer[1];
+}
+
+// Collect all statement blocks (function bodies, if/else bodies, loops, etc.)
+function collectBlocksFromStatement(
+   node: luaparse.Statement, blocks: Array<{body: luaparse.Statement[]; range: LuaRange}>) {
+   switch (node.type) {
+      case "FunctionDeclaration": {
+         const fn = node as luaparse.FunctionDeclaration;
+         blocks.push({body: fn.body, range: nodeRange(fn)});
+         fn.body.forEach(st => collectBlocksFromStatement(st, blocks));
+         break;
+      }
+
+      case "IfStatement": {
+         const ifs = node as luaparse.IfStatement;
+         ifs.clauses.forEach(clause => {
+            blocks.push({body: clause.body, range: nodeRange(clause)});
+            clause.body.forEach(st => collectBlocksFromStatement(st, blocks));
+         });
+         break;
+      }
+
+      case "WhileStatement":
+      case "RepeatStatement":
+      case "ForNumericStatement":
+      case "ForGenericStatement":
+      case "DoStatement": {
+         const body = node.body as luaparse.Statement[];
+         blocks.push({body, range: nodeRange(node)});
+         body.forEach(st => collectBlocksFromStatement(st, blocks));
+         break;
+      }
+
+      default:
+         break;
+   }
+}
+
+function collectAllStatementBlocks(chunk: luaparse.Chunk): Array<{body: luaparse.Statement[]; range: LuaRange}> {
+   const blocks: Array<{body: luaparse.Statement[]; range: LuaRange}> = [
+      {body: chunk.body, range: nodeRange(chunk)},
+   ];
+
+   for (const st of chunk.body) {
+      collectBlocksFromStatement(st, blocks);
+   }
+
+   return blocks;
+}
+
+// Build a map from statement blocks to comments contained within them
+// why is this needed?
+// luaparse gives comments attached to the root chunk only, not to inner blocks
+// so we have to manually assign them to the correct blocks
+function buildCommentMap(ast: luaparse.Chunk): Map<luaparse.Statement[], luaparse.Comment[]> {
+   const blocks = collectAllStatementBlocks(ast);
+   const map = new Map<luaparse.Statement[], luaparse.Comment[]>();
+   blocks.forEach(b => map.set(b.body, []));
+
+   const comments = ast.comments || [];
+   for (const c of comments) {
+      const cr = nodeRange(c);
+      let target = blocks[0];
+      for (const blk of blocks) {
+         if (rangeContains(blk.range, cr)) {
+            const widthCurrent = target ? target.range[1] - target.range[0] : Number.MAX_SAFE_INTEGER;
+            const widthCandidate = blk.range[1] - blk.range[0];
+            if (widthCandidate <= widthCurrent) {
+               target = blk;
+            }
+         }
+      }
+
+      const list = map.get(target.body) || [];
+      list.push(c as luaparse.Comment);
+      map.set(target.body, list);
+   }
+
+   for (const [body, list] of map.entries()) {
+      list.sort((a, b) => nodeRange(a)[0] - nodeRange(b)[0]);
+   }
+
+   return map;
+}
+
 // Generate Lua code from an AST
-export function unparseLua(ast: luaparse.Chunk): string {
-   const generator = new LuaPrinter();
+export function unparseLua(ast: luaparse.Chunk, ruleOptions: OptimizationRuleOptions): string {
+   const generator = new LuaPrinter(ruleOptions, buildCommentMap(ast));
    return generator.print(ast);
 }
 
@@ -509,7 +632,7 @@ export function parseLua(code: string): luaparse.Chunk|null {
    //console.log(code);
    try {
       const ast = luaparse.parse(code, {
-         luaVersion: "5.3", // TIC-80 is 5.3-ish; adjust if needed
+         luaVersion: "5.3", // TIC-80 is 5.3-ish
          comments: true,
          locations: true,
          ranges: true,
@@ -522,12 +645,20 @@ export function parseLua(code: string): luaparse.Chunk|null {
    return null;
 }
 
-export function processLua(code: string): string {
+export function processLua(code: string, ruleOptions?: OptimizationRuleOptions): string {
    const ast = parseLua(code);
    if (!ast) {
-      console.error("[LuaProcessor] Failed to parse Lua code; returning original code.");
+      console.error("Failed to parse Lua code; returning original code.");
       return code;
    }
-   console.log("[LuaProcessor] Parsed Lua AST:", ast);
-   return unparseLua(ast);
+   console.log("Parsed Lua AST:", ast);
+
+   // Apply optimization rules
+   const options = {...DEFAULT_OPTIMIZATION_RULES, ...ruleOptions};
+   if (options.stripComments) {
+      // Remove all comments from AST
+      ast.comments = [];
+   }
+
+   return unparseLua(ast, options);
 }
