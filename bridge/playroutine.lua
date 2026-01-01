@@ -1,8 +1,10 @@
 -- Somatic playroutine.
 
+-- BEGIN_DEBUG_ONLY
 local LOG_LINES = 15
 local log_lines = {}
 local log_serial = 0
+-- END_DEBUG_ONLY
 
 do
 	-- BEGIN_SOMATIC_MUSIC_DATA
@@ -28,6 +30,7 @@ do
 	local EFFECT_KIND_WAVEFOLD = 1
 	local EFFECT_KIND_HARDSYNC = 2
 
+	-- BEGIN_DEBUG_ONLY
 	-- Debug logging
 
 	local function log(s)
@@ -39,6 +42,7 @@ do
 			table.remove(log_lines)
 		end
 	end
+	-- END_DEBUG_ONLY
 
 	-- =========================
 	-- general playroutine support
@@ -676,7 +680,7 @@ do
 	-- END_DEBUG_ONLY
 	local function getSongOrderCount()
 		local count = #SOMATIC_MUSIC_DATA.songOrder
-		log("getSongOrderCount: " .. tostring(count))
+		log("getSongOrderCount: " .. tostring(count)) -- DEBUG_ONLY
 		return count
 	end
 
@@ -727,7 +731,7 @@ do
 		lastPlayingFrame = -1
 		backBufferIsA = false
 		stopPlayingOnNextFrame = false
-		log("somatic_reset_state")
+		log("somatic_reset_state") -- DEBUG_ONLY
 		--ch_set_playroutine_regs(0xFF)
 	end
 
@@ -738,7 +742,7 @@ do
 		songPosition = songPosition or 0
 		startRow = startRow or 0
 
-		log(string.format("somatic_init: pos=%d row=%d", songPosition, startRow))
+		log(string.format("somatic_init: pos=%d row=%d", songPosition, startRow)) -- DEBUG_ONLY
 
 		-- seed state
 		currentSongOrder = songPosition
@@ -783,10 +787,10 @@ do
 			return
 		end
 
-		log(string.format("tick: frm=%d last=%d", currentFrame, lastPlayingFrame))
+		log(string.format("tick: frm=%d last=%d", currentFrame, lastPlayingFrame)) -- DEBUG_ONLY
 
 		if stopPlayingOnNextFrame then
-			log("tick: stopping")
+			log("tick: stopping") -- DEBUG_ONLY
 			music() -- stops playback.
 			tf_music_reset_state()
 			return
@@ -800,10 +804,10 @@ do
 		local destPointer = getBufferPointer()
 		local orderCount = getSongOrderCount()
 
-		log(string.format("tick: advance to=%d count=%d", currentSongOrder, orderCount))
+		log(string.format("tick: advance to=%d count=%d", currentSongOrder, orderCount)) -- DEBUG_ONLY
 
 		if orderCount == 0 or currentSongOrder >= orderCount then
-			log("tick: end of song")
+			log("tick: end of song") -- DEBUG_ONLY
 			clearPatternBuffer(destPointer)
 			stopPlayingOnNextFrame = true
 			return
@@ -828,6 +832,7 @@ function TIC()
 	y = y + 8
 	print(string.format("t:%d ord:%d r:%d", track, playingSongOrder, currentRow), 60, y, 6)
 
+	-- BEGIN_DEBUG_ONLY
 	-- Show logs
 	y = y + 8
 	for i = math.min(#log_lines, LOG_LINES), 1, -1 do
@@ -836,4 +841,5 @@ function TIC()
 			print(log_lines[i], 2, logY, 15)
 		end
 	end
+	-- END_DEBUG_ONLY
 end

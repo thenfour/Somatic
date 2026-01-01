@@ -649,10 +649,17 @@ export function processLua(code: string, ruleOptions?: OptimizationRuleOptions):
    // Apply optimization rules
    const options = {...DEFAULT_OPTIMIZATION_RULES, ...ruleOptions};
 
-   // Strip debug blocks before parsing (line-based string matching)
+   // Strip debug blocks and lines before parsing (line-based string matching)
    let processedCode = code;
    if (options.stripDebugBlocks) {
+      // Strip debug blocks
       processedCode = replaceLuaBlock(processedCode, "-- BEGIN_DEBUG_ONLY", "-- END_DEBUG_ONLY", "");
+
+      // Strip individual lines marked with -- DEBUG_ONLY
+      const eol = processedCode.includes("\r\n") ? "\r\n" : "\n";
+      const lines = processedCode.split(eol);
+      const filteredLines = lines.filter(line => !line.includes("-- DEBUG_ONLY"));
+      processedCode = filteredLines.join(eol);
    }
 
    const ast = parseLua(processedCode);
@@ -663,7 +670,6 @@ export function processLua(code: string, ruleOptions?: OptimizationRuleOptions):
    console.log("Parsed Lua AST:", ast);
 
    if (options.stripComments) {
-      // Remove all comments from AST
       ast.comments = [];
    }
 
