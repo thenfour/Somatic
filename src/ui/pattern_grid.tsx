@@ -836,12 +836,17 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
             if (key === 'ArrowLeft') {
                 if (ctrlKey) {
-                    // Move to previous channel (keep same cell type within channel)
+                    // If not on the note column, snap to note column within the same channel.
+                    // If already on the note column, move to previous channel (keeping note column).
                     const channelCount = Tic80Caps.song.audioChannels;
                     const currentChannel = Math.floor(col / CELLS_PER_CHANNEL);
                     const cellTypeOffset = col % CELLS_PER_CHANNEL;
+                    if (cellTypeOffset !== 0) {
+                        const targetCol = currentChannel * CELLS_PER_CHANNEL;
+                        return [row, targetCol] as const;
+                    }
                     const targetChannel = (currentChannel + channelCount - 1) % channelCount;
-                    const targetCol = targetChannel * CELLS_PER_CHANNEL + cellTypeOffset;
+                    const targetCol = targetChannel * CELLS_PER_CHANNEL;
                     return [row, targetCol] as const;
                 }
                 return [row, (col + colCount - 1) % colCount] as const;
