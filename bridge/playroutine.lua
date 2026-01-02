@@ -349,7 +349,7 @@ do
 		if not cfg then
 			return false
 		end
-		local we = cfg.waveEngine
+		local we = cfg.waveEngineId
 		-- BEGIN_FEATURE_WAVEMORPH
 		if we == WAVE_ENGINE_MORPH then
 			return true
@@ -381,7 +381,7 @@ do
 
 	-- BEGIN_FEATURE_WAVEMORPH
 	local function render_waveform_morph(cfg, ticksPlayed, outSamples)
-		local durationTicks = cfg.morphDurationInTicks
+		local durationTicks = cfg.morphDurationTicks12
 		local t
 		if durationTicks == nil or durationTicks <= 0 then
 			t = 1.0
@@ -402,7 +402,7 @@ do
 	-- BEGIN_FEATURE_PWM
 	local function render_waveform_pwm(cfg, ticksPlayed, outSamples, lfoTicks)
 		-- PWM speed is driven by the instrument LFO; pwmCycleInTicks and phase offset are ignored.
-		local cycle = cfg.lfoCycleInTicks
+		local cycle = cfg.lfoCycleTicks12
 		local phase
 		if cycle <= 0 then
 			phase = 0
@@ -415,7 +415,7 @@ do
 		else
 			tri = 3 - phase * 4
 		end
-		local duty = cfg.pwmDuty + cfg.pwmDepth * tri
+		local duty = cfg.pwmDuty5 + cfg.pwmDepth5 * tri
 		if duty < 1 then
 			duty = 1
 		elseif duty > 30 then
@@ -435,7 +435,7 @@ do
 	end
 
 	local function render_waveform_samples(cfg, ticksPlayed, outSamples, lfoTicks)
-		local we = cfg.waveEngine or WAVE_ENGINE_NATIVE
+		local we = cfg.waveEngineId
 		-- BEGIN_FEATURE_WAVEMORPH
 		if we == WAVE_ENGINE_MORPH then
 			return render_waveform_morph(cfg, ticksPlayed, outSamples)
@@ -463,11 +463,11 @@ do
 		-- BEGIN_FEATURE_HARDSYNC
 		if effectKind == EFFECT_KIND_HARDSYNC and cfg.effectAmtU8 > 0 then
 			local hsT = calculate_mod_t(
-				cfg.effectModSource or MOD_SRC_ENVELOPE,
-				cfg.effectDurationInTicks,
+				cfg.effectModSource,
+				cfg.effectDurationTicks12,
 				ticksPlayed,
 				lfoTicks,
-				cfg.lfoCycleInTicks,
+				cfg.lfoCycleTicks12,
 				0
 			)
 			local env = 1 - apply_curveN11(hsT, cfg.effectCurveS6)
@@ -476,17 +476,17 @@ do
 		end
 		-- END_FEATURE_HARDSYNC
 		-- BEGIN_FEATURE_WAVEFOLD
-		local effectModSource = cfg.effectModSource or MOD_SRC_ENVELOPE
-		local wavefoldHasTime = (effectModSource == MOD_SRC_LFO and cfg.lfoCycleInTicks > 0)
-			or (cfg.effectDurationInTicks > 0)
+		local effectModSource = cfg.effectModSource
+		local wavefoldHasTime = (effectModSource == MOD_SRC_LFO and cfg.lfoCycleTicks12 > 0)
+			or (cfg.effectDurationTicks12 > 0)
 		if effectKind == EFFECT_KIND_WAVEFOLD and cfg.effectAmtU8 > 0 and wavefoldHasTime then
 			local maxAmt = clamp01(cfg.effectAmtU8 / 255)
 			local wfT = calculate_mod_t(
 				effectModSource,
-				cfg.effectDurationInTicks,
+				cfg.effectDurationTicks12,
 				ticksPlayed,
 				lfoTicks,
-				cfg.lfoCycleInTicks,
+				cfg.lfoCycleTicks12,
 				0
 			)
 			local envShaped = 1 - apply_curveN11(wfT, cfg.effectCurveS6)
@@ -497,11 +497,11 @@ do
 		-- BEGIN_FEATURE_LOWPASS
 		if cfg.lowpassEnabled then
 			local lpT = calculate_mod_t(
-				cfg.lowpassModSource or MOD_SRC_ENVELOPE,
-				cfg.lowpassDurationInTicks,
+				cfg.lowpassModSource,
+				cfg.lowpassDurationTicks12,
 				ticksPlayed,
 				lfoTicks,
-				cfg.lfoCycleInTicks,
+				cfg.lfoCycleTicks12,
 				1
 			)
 			local strength = apply_curveN11(lpT, cfg.lowpassCurveS6)
@@ -621,24 +621,24 @@ do
 			local id = entry.instrumentId
 
 			local cfg = {
-				waveEngine = entry.waveEngineId,
+				waveEngineId = entry.waveEngineId,
 				sourceWaveformIndex = entry.sourceWaveformIndex,
 				morphWaveB = entry.morphWaveB,
 				renderWaveformSlot = entry.renderWaveformSlot,
-				morphDurationInTicks = entry.morphDurationTicks12,
+				morphDurationTicks12 = entry.morphDurationTicks12,
 				morphCurveS6 = entry.morphCurveS6,
-				pwmDuty = entry.pwmDuty5,
-				pwmDepth = entry.pwmDepth5,
+				pwmDuty5 = entry.pwmDuty5,
+				pwmDepth5 = entry.pwmDepth5,
 				lowpassEnabled = entry.lowpassEnabled ~= 0,
-				lowpassDurationInTicks = entry.lowpassDurationTicks12,
+				lowpassDurationTicks12 = entry.lowpassDurationTicks12,
 				lowpassCurveS6 = entry.lowpassCurveS6,
 				lowpassModSource = entry.lowpassModSource,
 				effectKind = entry.effectKind,
 				effectAmtU8 = entry.effectAmtU8,
-				effectDurationInTicks = entry.effectDurationTicks12,
+				effectDurationTicks12 = entry.effectDurationTicks12,
 				effectCurveS6 = entry.effectCurveS6,
 				effectModSource = entry.effectModSource,
-				lfoCycleInTicks = entry.lfoCycleTicks12,
+				lfoCycleTicks12 = entry.lfoCycleTicks12,
 			}
 			morphMap[id] = cfg
 			off = off + MORPH_ENTRY_BYTES

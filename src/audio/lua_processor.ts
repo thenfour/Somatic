@@ -396,7 +396,7 @@ export class LuaPrinter {
             return this.stringLiteral(node as luaparse.StringLiteral);
 
          case "NumericLiteral":
-            return String((node as luaparse.NumericLiteral).value);
+            return this.numericLiteral(node as luaparse.NumericLiteral);
 
          case "BooleanLiteral":
             return (node as luaparse.BooleanLiteral).value ? "true" : "false";
@@ -446,6 +446,16 @@ export class LuaPrinter {
       if (node.raw)
          return node.raw;
       return toLuaStringLiteral(node.value);
+   }
+
+   private numericLiteral(node: luaparse.NumericLiteral): string {
+      const value = node.value;
+      const decimalStr = Number.isFinite(value) ? value.toString(10) : String(value);
+
+      if (/^-?0\.\d/.test(decimalStr))
+         return decimalStr.replace(/^(-?)0\./, "$1.");
+
+      return decimalStr;
    }
 
    private tableConstructor(node: luaparse.TableConstructorExpression): string {

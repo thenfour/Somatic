@@ -21,6 +21,30 @@ function runLua(code: string, opts: Partial<OptimizationRuleOptions>): string {
 }
 
 describe("Lua Optimizer", () => {
+   describe("Numeric Literal Formatting", () => {
+      it("should emit decimals for hex literals", () => {
+         const input = `
+local a=0x100
+`;
+         const output = runLua(input, {});
+         const expected = `local a=256
+`;
+         assert.equal(output, expected);
+      });
+
+      it("should drop leading zero on fractional literals", () => {
+         const input = `
+local a=0.5
+local b=-0.75
+`;
+         const output = runLua(input, {});
+         const expected = `local a=.5
+local b=-.75
+`;
+         assert.equal(output, expected);
+      });
+   });
+
    describe("Literal Aliasing", () => {
       it("should hoist repeated string literals into a local alias when cost-effective", () => {
          const input = `
