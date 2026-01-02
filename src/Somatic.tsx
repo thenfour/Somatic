@@ -1189,6 +1189,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 <AppStatusBar
                     song={song}
                     editorState={editorState}
+                    currentColumnType={editorState.patternEditColumnType}
                     onSongChange={updateSong}
                     onEditorStateChange={updateEditorState}
                 />

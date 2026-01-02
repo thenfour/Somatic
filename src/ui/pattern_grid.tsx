@@ -1104,6 +1104,17 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const onCellFocus = (rowIndex: number, channelIndex: Tic80ChannelIndex, col: number) => {
             updateEditTarget({ rowIndex, channelIndex });
             setCurrentColumnIndex(col);
+
+            // Determine column type from column index
+            const cellTypeOffset = col % CELLS_PER_CHANNEL;
+            const columnType =
+                cellTypeOffset === 0 ? 'note' :
+                    cellTypeOffset === 1 ? 'instrument' :
+                        cellTypeOffset === 2 ? 'command' :
+                            cellTypeOffset === 3 ? 'param' :
+                                cellTypeOffset === 4 ? 'somaticCommand' :
+                                    'somaticParam';
+            onEditorStateChange((s) => s.setPatternEditColumnType(columnType));
         };
 
         const onInstrumentCellMouseDown = (e: React.MouseEvent<HTMLTableCellElement>, rowIndex: number, channelIndex: Tic80ChannelIndex) => {

@@ -26,7 +26,8 @@ export interface EditorStateDto {
    loopMode: LoopMode;
    lastNonOffLoopMode: LoopMode;
 }
-;
+
+export type SomaticEditorStateColumnType = "note"|"instrument"|"command"|"param"|"somaticCommand"|"somaticParam";
 
 export class EditorState {
    octave: number;
@@ -35,6 +36,7 @@ export class EditorState {
    editingEnabled: boolean;
    patternEditRow: number;
    patternEditChannel: Tic80ChannelIndex;
+   patternEditColumnType: SomaticEditorStateColumnType;
    selectedArrangementPositions: SelectionRect2D|null;
    patternSelection: SelectionRect2D|null;
    mutedChannels: Set<Tic80ChannelIndex> = new Set<Tic80ChannelIndex>();
@@ -62,6 +64,7 @@ export class EditorState {
       this.editingEnabled = CoalesceBoolean(editingEnabled, true);
       this.patternEditRow = clamp(patternEditRow, 0, 63);
       this.patternEditChannel = ToTic80ChannelIndex(patternEditChannel);
+      this.patternEditColumnType = "note"; // default
       this.selectedArrangementPositions =
          selectedArrangementPositions ? new SelectionRect2D(selectedArrangementPositions) : null;
       this.patternSelection = patternSelection ? new SelectionRect2D(patternSelection) : null;
@@ -90,6 +93,10 @@ export class EditorState {
    setPatternEditTarget({rowIndex, channelIndex}: {rowIndex: number, channelIndex: Tic80ChannelIndex}) {
       this.patternEditRow = clamp(rowIndex, 0, Tic80Caps.pattern.maxRows - 1);
       this.patternEditChannel = channelIndex;
+   }
+
+   setPatternEditColumnType(columnType: SomaticEditorStateColumnType) {
+      this.patternEditColumnType = columnType;
    }
 
    setArrangementSelection(positions: SelectionRect2D|null) {

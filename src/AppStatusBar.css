@@ -1,12 +1,38 @@
 .app-status-bar {
     display: flex;
     align-items: center;
-    /* height: 20px; */
-    padding: 0 8px;
-    padding-bottom: 4px;
+    /* gap: 16px; */
+    padding: 0px 12px;
     background-color: var(--panel);
     color: var(--text);
-    font-size: 14px;
+    font-size: 13px;
+    font-family: var(--ff-mono);
+    border-top: 1px solid var(--border);
 }
 
-.app-status-bar>.app-status-bar-group {}
+.app-status-bar-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.app-status-bar-position {
+    color: var(--muted);
+}
+
+.app-status-bar-label {
+    white-space: nowrap;
+}
+
+.app-status-bar-column {
+    color: var(--accent);
+}
+
+.app-status-bar-commands {
+    color: var(--cell-command);
+}
+
+.app-status-bar-message {
+    margin-left: auto;
+    color: var(--text);
+}

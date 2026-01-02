@@ -18,6 +18,25 @@ export type PatternCell = {
    somaticParam?: number;
 };
 
+
+// TIC-80 effect command descriptions (indexed 0-6 for M,C,J,S,P,V,D)
+export const TIC80_EFFECT_DESCRIPTIONS: Record<number, string> = {
+   0: "M: Master volume",
+   1: "C: Chord",
+   2: "J: Jump (not supported in Somatic)",
+   3: "S: Slide",
+   4: "P: Pitch",
+   5: "V: Vibrato",
+   6: "D: Delay",
+};
+
+// Somatic effect command descriptions (indexed 0='E', 1='L')
+export const SOMATIC_EFFECT_DESCRIPTIONS: Record<number, string> = {
+   0: "E: Effect strength scale (00=bypass, FF=max)",
+   1: "L: Set LFO phase (00 - FF)",
+};
+
+
 export const MakeEmptyPatternCell = (): PatternCell => ({});
 
 export function isNoteCut(cell: PatternCell): boolean {
