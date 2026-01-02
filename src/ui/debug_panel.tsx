@@ -30,6 +30,7 @@ end
         renameLocalVariables: false,
         packLocalDeclarations: false,
         simplifyExpressions: false,
+        removeUnusedLocals: false,
     });
 
     const outputLua = useMemo(() => {
@@ -125,6 +126,16 @@ end
                                 onChange={() => handleOptionChange('simplifyExpressions')}
                             />
                             Simplify Expressions
+                        </label>
+                    </div>
+                    <div className="debug-panel-option-group">
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={options.removeUnusedLocals}
+                                onChange={() => handleOptionChange('removeUnusedLocals')}
+                            />
+                            Remove Unused Locals
                         </label>
                     </div>
 

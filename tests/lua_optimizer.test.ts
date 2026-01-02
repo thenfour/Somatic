@@ -10,6 +10,7 @@ const baseOpts: OptimizationRuleOptions = {
    aliasRepeatedExpressions: false,
    aliasLiterals: false,
    simplifyExpressions: false,
+   removeUnusedLocals: false,
    packLocalDeclarations: false,
 };
 
@@ -236,6 +237,47 @@ end
 lzdm(srcPtr,decodedLen,destPointer)
 `;
          // Variables written inside any if-clause must not be propagated beyond the statement
+         assert.equal(output, expected);
+      });
+   });
+
+   describe("Unused Local Removal", () => {
+      it("should drop locals that are never read when safe", () => {
+         const input = `
+local x=1
+local y=x+3
+fn(y)
+`;
+         const output = runLua(input, {simplifyExpressions: true, removeUnusedLocals: true});
+         const expected = `fn(4)
+`;
+         assert.equal(output, expected);
+      });
+
+      it("should keep locals when initializers have side effects", () => {
+         const input = `
+local x=foo()
+local y=x
+`;
+         const output = runLua(input, {removeUnusedLocals: true});
+         const expected = `local x=foo()
+`;
+         assert.equal(output, expected);
+      });
+
+      it("should keep locals captured by nested functions", () => {
+         const input = `
+local x=1
+local function f()
+ return x
+end
+`;
+         const output = runLua(input, {removeUnusedLocals: true});
+         const expected = `local x=1
+local function f()
+ return x
+end
+`;
          assert.equal(output, expected);
       });
    });
