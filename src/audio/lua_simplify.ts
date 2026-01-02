@@ -469,7 +469,19 @@ function simplifyStatement(stmt: luaparse.Statement, scope: PropScope): void {
       }
 
       case "AssignmentStatement": {
-         const simplifiedInit = stmt.init.map(expr => simplifyExpression(expr, scope));
+         const originalInit = stmt.init.slice();
+         const simplifiedInit: luaparse.Expression[] = originalInit.map((expr, idx) => {
+            const variable = stmt.variables[idx];
+            if (variable && variable.type === "Identifier" && expr) {
+               const rhsUsesLhs = referencesIdentifier(expr, variable.name);
+               if (rhsUsesLhs) {
+                  const scoped = cloneScope(scope);
+                  scoped.env.delete(variable.name);
+                  return simplifyExpression(expr, scoped);
+               }
+            }
+            return simplifyExpression(expr, scope);
+         });
          stmt.init = simplifiedInit;
          const defaultMissingToNil = missingInitDefaultsToNil(simplifiedInit);
          stmt.variables.forEach((variable, idx) => {
@@ -482,7 +494,7 @@ function simplifyStatement(stmt: luaparse.Statement, scope: PropScope): void {
             const initExpr = simplifiedInit[idx];
 
             // If RHS references the LHS (self-update) or is non-literal, drop from env.
-            const rhsUsesLhs = initExpr && referencesIdentifier(initExpr, variable.name);
+            const rhsUsesLhs = originalInit[idx] && referencesIdentifier(originalInit[idx], variable.name);
             const literal = !rhsUsesLhs && initExpr ? (isLiteral(initExpr) ? initExpr : null) :
                                                       (!initExpr && defaultMissingToNil ? makeNilLiteral() : null);
 
@@ -506,12 +518,15 @@ function simplifyStatement(stmt: luaparse.Statement, scope: PropScope): void {
       }
 
       case "IfStatement": {
+         const writes = new Set<string>();
          for (const clause of stmt.clauses) {
             if (clause.type !== "ElseClause" && clause.condition)
                clause.condition = simplifyExpression(clause.condition, scope);
             const innerScope = cloneScope(scope);
             simplifyBlock(clause.body, innerScope);
+            clause.body.forEach(s => collectWrites(s, writes));
          }
+         writes.forEach(name => scope.env.delete(name));
          break;
       }
 
@@ -540,6 +555,8 @@ function simplifyStatement(stmt: luaparse.Statement, scope: PropScope): void {
       }
 
       case "ForNumericStatement": {
+         const bodyWrites = collectBlockWrites(stmt.body);
+         bodyWrites.forEach(name => scope.env.delete(name));
          stmt.start = simplifyExpression(stmt.start, scope);
          stmt.end = simplifyExpression(stmt.end, scope);
          if (stmt.step)
@@ -551,12 +568,13 @@ function simplifyStatement(stmt: luaparse.Statement, scope: PropScope): void {
             scope.env.delete(stmt.variable.name); // do not treat loop var as const outside
          }
          simplifyBlock(stmt.body, bodyScope);
-         const bodyWrites = collectBlockWrites(stmt.body);
          bodyWrites.forEach(name => scope.env.delete(name));
          break;
       }
 
       case "ForGenericStatement": {
+         const bodyWrites = collectBlockWrites(stmt.body);
+         bodyWrites.forEach(name => scope.env.delete(name));
          stmt.iterators = stmt.iterators.map(it => simplifyExpression(it, scope));
          const bodyScope = cloneScope(scope);
          stmt.variables.forEach(v => {
@@ -567,7 +585,6 @@ function simplifyStatement(stmt: luaparse.Statement, scope: PropScope): void {
             }
          });
          simplifyBlock(stmt.body, bodyScope);
-         const bodyWrites = collectBlockWrites(stmt.body);
          bodyWrites.forEach(name => scope.env.delete(name));
          break;
       }

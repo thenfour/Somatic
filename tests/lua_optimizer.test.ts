@@ -182,6 +182,62 @@ end
          // Loop condition must keep the counter symbol; constant-folding it would create an infinite loop
          assert.equal(output, expected);
       });
+
+      it("should not fold vars used in for bounds when body mutates them", () => {
+         const input = `
+local i=1
+for o=0,8,4 do
+ for j=i,i+4 do
+ end
+ i=i+5
+end
+`;
+         const output = runLua(input, {simplifyExpressions: true});
+         const expected = `local i=1
+for o=0,8,4 do
+ for j=i,i+4 do
+ end
+ i=i+5
+end
+`;
+         // i is mutated inside the loop; its value must not be substituted into loop bounds
+         assert.equal(output, expected);
+      });
+
+      it("should not propagate locals written in if branches to later statements", () => {
+         const input = `
+local PATTERNS_BASE=base
+local entry=someEntry
+local patternLengthBytes=someLen
+local destPointer=dst
+local srcPtr=80484
+local decodedLen
+if type(entry)=="number" then
+ srcPtr=entry+PATTERNS_BASE
+ decodedLen=patternLengthBytes
+else
+ decodedLen=b85d(entry,patternLengthBytes,srcPtr)
+end
+lzdm(srcPtr,decodedLen,destPointer)
+`;
+         const output = runLua(input, {simplifyExpressions: true});
+         const expected = `local PATTERNS_BASE=base
+local entry=someEntry
+local patternLengthBytes=someLen
+local destPointer=dst
+local srcPtr=80484
+local decodedLen
+if type(entry)=="number" then
+ srcPtr=entry+PATTERNS_BASE
+ decodedLen=patternLengthBytes
+else
+ decodedLen=b85d(entry,patternLengthBytes,80484)
+end
+lzdm(srcPtr,decodedLen,destPointer)
+`;
+         // Variables written inside any if-clause must not be propagated beyond the statement
+         assert.equal(output, expected);
+      });
    });
 
    describe("Local Declaration Packing", () => {
