@@ -225,6 +225,7 @@ end
                                     maxLineLength: len,
                                 }))}>{len}</button>
                             ))}
+                            <span>Current: {options.maxLineLength}</span>
                         </div>
                     </div>
                     <div className="debug-panel-option-group">

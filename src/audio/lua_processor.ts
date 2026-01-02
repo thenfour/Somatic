@@ -420,6 +420,7 @@ export class LuaPrinter {
 
          case "FunctionDeclaration": {
             const fn = node as luaparse.FunctionDeclaration;
+            const mode = this.options.lineBehavior || "pretty";
             if (fn.isLocal) {
                this.emitKeyword("local");
                this.emit(" ");
@@ -432,83 +433,155 @@ export class LuaPrinter {
             this.emit("(");
             this.emit(fn.parameters.map(p => this.expr(p)).join(","));
             this.emit(")");
-            this.newline();
 
-            this.indentLevel++;
-            this.printBlock(fn.body);
-            this.indentLevel--;
-
-            this.printIndent();
-            this.emitKeyword("end");
-            this.newline();
+            if (mode === "tight") {
+               // In tight mode, pack opening with body content
+               this.indentLevel++;
+               this.printBlock(fn.body);
+               this.indentLevel--;
+               // End on its own line
+               if (this.currentLine.length > 0) {
+                  this.flushLine();
+               }
+               this.printIndent();
+               this.emitKeyword("end");
+               this.newline();
+            } else {
+               this.newline();
+               this.indentLevel++;
+               this.printBlock(fn.body);
+               this.indentLevel--;
+               this.printIndent();
+               this.emitKeyword("end");
+               this.newline();
+            }
             break;
          }
 
          case "IfStatement": {
             const ifs = node as luaparse.IfStatement;
-            ifs.clauses.forEach((clause, idx) => {
-               // The enclosing block printer (`printBlock`) emits indentation only once for the
-               // top-level statement. Subsequent clauses need to re-emit indentation explicitly,
-               // otherwise `elseif`/`else` start at column 0.
-               if (idx > 0) {
-                  this.printIndent();
+            const mode = this.options.lineBehavior || "pretty";
+            if (mode === "tight") {
+               // In tight mode, pack clauses with body content
+               ifs.clauses.forEach((clause, idx) => {
+                  if (idx > 0) {
+                     // For subsequent clauses, flush current line and emit on new line
+                     if (this.currentLine.length > 0) {
+                        this.flushLine();
+                     }
+                     this.printIndent();
+                  }
+                  if (clause.type === "IfClause") {
+                     this.emit("if " + this.expr(clause.condition) + " then");
+                  } else if (clause.type === "ElseifClause") {
+                     this.emit("elseif " + this.expr(clause.condition) + " then");
+                  } else {
+                     this.emit("else");
+                  }
+                  this.indentLevel++;
+                  this.printBlock(clause.body);
+                  this.indentLevel--;
+               });
+               // End on its own line
+               if (this.currentLine.length > 0) {
+                  this.flushLine();
                }
-               if (clause.type === "IfClause") {
-                  this.emitKeyword("if");
-                  this.emit(" ");
-                  this.emit(this.expr(clause.condition));
-                  this.emitKeyword(" then");
-               } else if (clause.type === "ElseifClause") {
-                  this.emitKeyword("elseif");
-                  this.emit(" ");
-                  this.emit(this.expr(clause.condition));
-                  this.emitKeyword(" then");
-               } else {
-                  this.emitKeyword("else");
-               }
+               this.printIndent();
+               this.emitKeyword("end");
                this.newline();
-               this.indentLevel++;
-               this.printBlock(clause.body);
-               this.indentLevel--;
-            });
-            this.printIndent();
-            this.emitKeyword("end");
-            this.newline();
+            } else {
+               ifs.clauses.forEach((clause, idx) => {
+                  // The enclosing block printer (`printBlock`) emits indentation only once for the
+                  // top-level statement. Subsequent clauses need to re-emit indentation explicitly,
+                  // otherwise `elseif`/`else` start at column 0.
+                  if (idx > 0) {
+                     this.printIndent();
+                  }
+                  if (clause.type === "IfClause") {
+                     this.emitKeyword("if");
+                     this.emit(" ");
+                     this.emit(this.expr(clause.condition));
+                     this.emitKeyword(" then");
+                  } else if (clause.type === "ElseifClause") {
+                     this.emitKeyword("elseif");
+                     this.emit(" ");
+                     this.emit(this.expr(clause.condition));
+                     this.emitKeyword(" then");
+                  } else {
+                     this.emitKeyword("else");
+                  }
+                  this.newline();
+                  this.indentLevel++;
+                  this.printBlock(clause.body);
+                  this.indentLevel--;
+               });
+               this.printIndent();
+               this.emitKeyword("end");
+               this.newline();
+            }
             break;
          }
 
          case "WhileStatement": {
             const st = node as luaparse.WhileStatement;
+            const mode = this.options.lineBehavior || "pretty";
             this.emitKeyword("while");
             this.emit(" ");
             this.emit(this.expr(st.condition));
             this.emitKeyword(" do");
-            this.newline();
-            this.indentLevel++;
-            this.printBlock(st.body);
-            this.indentLevel--;
-            this.printIndent();
-            this.emitKeyword("end");
-            this.newline();
+            if (mode === "tight") {
+               // In tight mode, pack opening with body content
+               this.indentLevel++;
+               this.printBlock(st.body);
+               this.indentLevel--;
+               if (this.currentLine.length > 0) {
+                  this.flushLine();
+               }
+               this.printIndent();
+               this.emitKeyword("end");
+               this.newline();
+            } else {
+               this.newline();
+               this.indentLevel++;
+               this.printBlock(st.body);
+               this.indentLevel--;
+               this.printIndent();
+               this.emitKeyword("end");
+               this.newline();
+            }
             break;
          }
 
          case "RepeatStatement": {
             const st = node as luaparse.RepeatStatement;
+            const mode = this.options.lineBehavior || "pretty";
             this.emitKeyword("repeat");
-            this.newline();
-            this.indentLevel++;
-            this.printBlock(st.body);
-            this.indentLevel--;
-            this.emitKeyword("until");
-            this.emit(" ");
-            this.emit(this.expr(st.condition));
-            this.newline();
+            if (mode === "tight") {
+               this.indentLevel++;
+               this.printBlock(st.body);
+               this.indentLevel--;
+               if (this.currentLine.length > 0) {
+                  this.flushLine();
+               }
+               this.printIndent();
+               this.emit("until " + this.expr(st.condition));
+               this.newline();
+            } else {
+               this.newline();
+               this.indentLevel++;
+               this.printBlock(st.body);
+               this.indentLevel--;
+               this.emitKeyword("until");
+               this.emit(" ");
+               this.emit(this.expr(st.condition));
+               this.newline();
+            }
             break;
          }
 
          case "ForNumericStatement": {
             const st = node as luaparse.ForNumericStatement;
+            const mode = this.options.lineBehavior || "pretty";
             this.emitKeyword("for");
             this.emit(" ");
             this.emit(this.expr(st.variable));
@@ -521,31 +594,56 @@ export class LuaPrinter {
                this.emit(this.expr(st.step));
             }
             this.emitKeyword(" do");
-            this.newline();
-            this.indentLevel++;
-            this.printBlock(st.body);
-            this.indentLevel--;
-            this.printIndent();
-            this.emitKeyword("end");
-            this.newline();
+            if (mode === "tight") {
+               this.indentLevel++;
+               this.printBlock(st.body);
+               this.indentLevel--;
+               if (this.currentLine.length > 0) {
+                  this.flushLine();
+               }
+               this.printIndent();
+               this.emitKeyword("end");
+               this.newline();
+            } else {
+               this.newline();
+               this.indentLevel++;
+               this.printBlock(st.body);
+               this.indentLevel--;
+               this.printIndent();
+               this.emitKeyword("end");
+               this.newline();
+            }
             break;
          }
 
          case "ForGenericStatement": {
             const st = node as luaparse.ForGenericStatement;
+            const mode = this.options.lineBehavior || "pretty";
             this.emitKeyword("for");
             this.emit(" ");
             this.emit(st.variables.map(v => this.expr(v)).join(","));
             this.emitKeyword(" in ");
             this.emit(st.iterators.map(it => this.expr(it)).join(","));
             this.emitKeyword(" do");
-            this.newline();
-            this.indentLevel++;
-            this.printBlock(st.body);
-            this.indentLevel--;
-            this.printIndent();
-            this.emitKeyword("end");
-            this.newline();
+            if (mode === "tight") {
+               this.indentLevel++;
+               this.printBlock(st.body);
+               this.indentLevel--;
+               if (this.currentLine.length > 0) {
+                  this.flushLine();
+               }
+               this.printIndent();
+               this.emitKeyword("end");
+               this.newline();
+            } else {
+               this.newline();
+               this.indentLevel++;
+               this.printBlock(st.body);
+               this.indentLevel--;
+               this.printIndent();
+               this.emitKeyword("end");
+               this.newline();
+            }
             break;
          }
 
@@ -568,14 +666,30 @@ export class LuaPrinter {
 
          case "DoStatement": {
             const st = node as luaparse.DoStatement;
-            this.emitKeyword("do");
-            this.newline();
-            this.indentLevel++;
-            this.printBlock(st.body);
-            this.indentLevel--;
-            this.printIndent();
-            this.emitKeyword("end");
-            this.newline();
+            const mode = this.options.lineBehavior || "pretty";
+            if (mode === "tight") {
+               // In tight mode, pack opening with body content
+               this.emit("do");
+               this.indentLevel++;
+               this.printBlock(st.body);
+               this.indentLevel--;
+               // End on its own line
+               if (this.currentLine.length > 0) {
+                  this.flushLine();
+               }
+               this.printIndent();
+               this.emitKeyword("end");
+               this.newline();
+            } else {
+               this.emitKeyword("do");
+               this.newline();
+               this.indentLevel++;
+               this.printBlock(st.body);
+               this.indentLevel--;
+               this.printIndent();
+               this.emitKeyword("end");
+               this.newline();
+            }
             break;
          }
 

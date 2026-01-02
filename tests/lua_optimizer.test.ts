@@ -477,6 +477,38 @@ local c=3
       });
 
       //////////////////////////////////////////////////////////////////////////////////////////
+      it("tight packing should not output many short lines", () => {
+         const input = `
+do
+ local function fn()
+  return z
+ end
+end
+`;
+
+         /*
+currently getting:
+
+do
+ local function fn() return z end
+end
+
+which is incorrect with max line length 39; the middle line is only 33 chars (6 remaining that could easily fit `do ` or ` end`)
+
+*/
+
+         const output = runLua(input, {lineBehavior: "tight", maxLineLength: 39});
+         const expected = `
+do local function fn() return z end
+end
+`;
+         assert.equal(
+            output.trim(),
+            expected
+               .trim()); // trim so we don't care about leading/trailing newlines in printing or these test literals
+      });
+
+      //////////////////////////////////////////////////////////////////////////////////////////
       it("tight mode wraps when the next statement would overflow maxLineLength", () => {
          const input = `
 local a=1
@@ -513,10 +545,11 @@ if cond then
  longer_fn_name()
 end
 `;
+         // With tight packing, if the opening + body fits, we pack it even if adding 'end' would exceed.
+         // "if cond then longer_fn_name()" = 30 chars, fits exactly in maxLineLength 30.
          const output = runLua(input, {lineBehavior: "tight", maxLineLength: 30});
          const expected = `if cond then c() end
-if cond then
- longer_fn_name()
+if cond then longer_fn_name()
 end
 `;
          assert.equal(output, expected);
