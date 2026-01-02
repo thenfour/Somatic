@@ -9,6 +9,7 @@ import {SomaticEffectKind, WaveEngineId} from "../src/models/instruments";
 import {clamp} from "../src/utils/utils";
 import {BitWriter, C, MemoryRegion, encodeWithOffsets, measureCodecOffsets, extractFieldInfo, fixedBits} from "../src/utils/bitpack/bitpack";
 import type {Codec, CodecFieldInfo} from "../src/utils/bitpack/bitpack";
+import type {inferCodecType} from "../src/utils/bitpack/bitpack";
 
 // Generate a normalization function from field metadata
 function makeNormalizer<T extends Record<string, any>>(fields: CodecFieldInfo[]): (input: T) => T {
@@ -37,13 +38,13 @@ function makeNormalizer<T extends Record<string, any>>(fields: CodecFieldInfo[])
 // Single source of truth: the codec definition
 // All other structures (types, field lists, normalization) derive from this.
 
-const MorphEffectKindCodec = C.enum("MorphEffectKind", 2, {
+const MorphEffectKindCodec = C.enum<SomaticEffectKind>("MorphEffectKind", 2, {
    none: SomaticEffectKind.none,
    wavefold: SomaticEffectKind.wavefold,
    hardSync: SomaticEffectKind.hardSync,
 });
 
-const WaveEngineIdCodec = C.enum("WaveEngineId", 2, {
+const WaveEngineIdCodec = C.enum<WaveEngineId>("WaveEngineId", 2, {
    native: WaveEngineId.native,
    pwm: WaveEngineId.pwm,
    morph: WaveEngineId.morph,
@@ -122,26 +123,8 @@ export const MorphEntryFieldNamesToRename = MORPH_ENTRY_FIELDS.map(f => f.name) 
 // Auto-generate the normalizer
 const normalizeMorphEntry = makeNormalizer<MorphEntryPacked>(MORPH_ENTRY_FIELDS);
 
-// Type for the packed/flattened structure (inferred from codec fields)
-export type MorphEntryPacked = {
-   instrumentId: number;           //
-   waveEngineId: WaveEngineId;     //
-   sourceWaveformIndex: number;    //
-   renderWaveformSlot: number;     //
-   gradientOffsetBytes: number;    //
-   pwmDuty5: number;               //
-   pwmDepth5: number;              //
-   lfoCycleTicks12: number;        //
-   lowpassEnabled: number;         //
-   lowpassDurationTicks12: number; //
-   lowpassCurveS6: number;         //
-   lowpassModSource: number;       //
-   effectKind: SomaticEffectKind;  //
-   effectAmtU8: number;            //
-   effectDurationTicks12: number;  //
-   effectCurveS6: number;          //
-   effectModSource: number;
-};
+// Packed/flattened structure (inferred from codec fields)
+export type MorphEntryPacked = inferCodecType<typeof MorphEntryCodec>;
 
 // Input type with nested config (kept for ergonomic API)
 export type MorphEntryInput = {

@@ -53,6 +53,31 @@ export interface Codec<T = unknown> {
    byteSizeCeil?: () => number;
 }
 
+// =========================
+// Type inference helpers (Zod-style)
+
+export type InferCodecType<T extends Codec<unknown>> = T extends Codec<infer U>? U : never;
+
+// Lowercase alias to match the requested call-site style: inferCodecType<typeof MyCodec>
+export type inferCodecType<T extends Codec<unknown>> = InferCodecType<T>;
+
+type AnyCodec = Codec<unknown>;
+
+type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends((k: infer I) => void) ? I : never;
+
+type Simplify<T> = {
+   [K in keyof T]: T[K]
+}&{};
+
+type StructValueFromItems<Items extends readonly unknown[]> =
+   Simplify < UnionToIntersection < Items[number] extends infer I ?
+   I extends {
+   kind: "field";
+   name: infer N extends string;
+   codec: infer C extends AnyCodec
+}
+? {[K in N]: InferCodecType<C>} : {}: never >> ;
+
 /**
  * Metadata extracted from a codec field for introspection.
  * Useful for validation, normalization, and code generation.
@@ -118,10 +143,10 @@ export function fixedBits(codec: Codec<unknown>, name: string): number {
    return codec.bitSize;
 }
 
-type FieldEntry<T = unknown> = {
+type FieldEntry<Name extends string = string, C extends AnyCodec = AnyCodec> = {
    kind: "field"; //
-   name: string;
-   codec: Codec<T>
+   name: Name;
+   codec: C;
 };
 type AnonEntry = {
    kind: "anon"; codec: Codec<unknown>
@@ -373,27 +398,32 @@ const C = {
          },
          n);
    },
-   enum: (name: string, nBits: number, mapping: Record<string, number>): Codec<string|number> => {
-      const enc = new Map<string, number>(Object.entries(mapping));
-      const dec = new Map<number, string>(Object.entries(mapping).map(([k, v]) => [v | 0, k]));
-      const base = C.u(nBits);
-      return _codec(
-         {kind: "enum", name, nBits, mapping},
-         (v: string|number, w: BitWriter) => {
-            const num = enc.has(v as string) ? enc.get(v as string)! : v;
-            if (typeof num !== "number")
-               throw new Error(`enum ${name}: unknown value '${v}'`);
-            base.encode(num, w);
-         },
-         (r: BitReader) => {
-            const num = base.decode(r);
-            return dec.has(num) ? dec.get(num)! : num;
-         },
-         base.bitSize,
-      );
-   },
-   field: <T>(name: string, codec: Codec<T>): FieldEntry<T> => ({kind: "field", name, codec}),
-   struct: (name: string, items: Array<FieldEntry|Codec<unknown>>): Codec<Record<string, unknown>> => {
+   enum: <T extends string|number = string | number>(name: string, nBits: number, mapping: Record<string, number>):
+      Codec<T> => {
+         const enc = new Map<string, number>(Object.entries(mapping));
+         const dec = new Map<number, string>(Object.entries(mapping).map(([k, v]) => [v | 0, k]));
+         const base = C.u(nBits);
+         return _codec(
+            {kind: "enum", name, nBits, mapping},
+            (v: T, w: BitWriter) => {
+               const num = enc.has(v as unknown as string) ? enc.get(v as unknown as string)! : (v as unknown);
+               if (typeof num !== "number")
+                  throw new Error(`enum ${name}: unknown value '${v}'`);
+               base.encode(num, w);
+            },
+            (r: BitReader) => {
+               const num = base.decode(r);
+               return (dec.has(num) ? dec.get(num)! : num) as unknown as T;
+            },
+            base.bitSize,
+         );
+      },
+   field: <const Name extends string, C extends AnyCodec>(name: Name, codec: C): FieldEntry<Name, C> =>
+      ({kind: "field", name, codec}),
+   struct: <const Items extends readonly(FieldEntry<string, AnyCodec>| AnyCodec)[]>(
+      name: string,
+      items: Items,
+      ): Codec<StructValueFromItems<Items>> => {
       const seq: StructSeqItem[] = items.map((it) => {
          if (!it)
             throw new Error(`struct(${name}): null item`);
@@ -438,7 +468,8 @@ const C = {
       const bitSize = fixed ? bitOff : "variable";
       const codec = _codec(
          {kind: "struct", name, seq, layout},
-         (obj: Record<string, unknown>, w: BitWriter, ctx?: ComputeContext) => {
+         (obj: StructValueFromItems<Items>, w: BitWriter, ctx?: ComputeContext) => {
+            const rec = obj as unknown as Record<string, unknown>;
             for (const it of seq) {
                if (it.kind === "field") {
                   const fieldPath = ctx?._currentPath ? `${ctx._currentPath}.${it.name}` : it.name;
@@ -449,7 +480,7 @@ const C = {
                   const prevPath = ctx?._currentPath;
                   if (ctx)
                      ctx._currentPath = fieldPath;
-                  it.codec.encode(obj[it.name], w, ctx);
+                  it.codec.encode(rec[it.name], w, ctx);
                   if (ctx)
                      ctx._currentPath = prevPath;
                } else {
@@ -466,7 +497,7 @@ const C = {
                   it.codec.decode(r);
                }
             }
-            return out;
+            return out as unknown as StructValueFromItems<Items>;
          },
          bitSize,
       );
