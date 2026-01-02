@@ -286,6 +286,12 @@ end
 -- equal power (sqrt or sine law) makes a better xfade, but it doesn't preserve the waveshapes at either end so... not the best idea
 local lerp_nibble = lerp_nibble_lin
 
+local function wave_unpack_byte_to_samples(b, outSamples, si)
+	outSamples[si] = b & 0x0f
+	outSamples[si + 1] = (b >> 4) & 0x0f
+	return si + 2
+end
+
 local function read_sfx_cfg(instrumentId)
 	local count, _patternCount = read_extra_song_header_counts()
 
@@ -296,13 +302,11 @@ local function read_sfx_cfg(instrumentId)
 			local effectKindId = entry.effectKind -- EFFECT_KIND_* values
 
 			-- Shape matches makeMorphMapLua(): values are numeric IDs.
-			return {
+			local cfg = {
 				waveEngine = entry.waveEngineId,
 				sourceWaveformIndex = entry.sourceWaveformIndex,
-				morphWaveB = entry.morphWaveB,
 				renderWaveformSlot = entry.renderWaveformSlot,
-				morphDurationInTicks = entry.morphDurationTicks12,
-				morphCurveS6 = entry.morphCurveS6,
+				gradientOffsetBytes = entry.gradientOffsetBytes,
 				pwmDuty = entry.pwmDuty5,
 				pwmDepth = entry.pwmDepth5,
 				lowpassEnabled = entry.lowpassEnabled ~= 0,
@@ -316,6 +320,30 @@ local function read_sfx_cfg(instrumentId)
 				lfoCycleInTicks = entry.lfoCycleTicks12,
 				lowpassModSource = entry.lowpassModSource,
 			}
+
+			-- BEGIN_FEATURE_WAVEMORPH
+			if cfg.waveEngine == WAVE_ENGINE_MORPH then
+				local offBytes = cfg.gradientOffsetBytes or 0
+				if offBytes <= 0 then
+					error("morph instrument is missing gradientOffsetBytes")
+				end
+				assert(offBytes < MORPH_MAP_BYTES, "morph gradient offset out of range: " .. tostring(offBytes))
+
+				local nodes = decode_WaveformMorphGradient(MORPH_MAP_BASE + offBytes)
+				for ni = 1, #nodes do
+					local wb = nodes[ni].waveBytes
+					local s = {}
+					local si = 0
+					for bi = 1, 16 do
+						si = wave_unpack_byte_to_samples(wb[bi] or 0, s, si)
+					end
+					nodes[ni].samples = s
+				end
+				cfg.morphGradientNodes = nodes
+			end
+			-- END_FEATURE_WAVEMORPH
+
+			return cfg
 		end
 	end
 
@@ -346,18 +374,13 @@ local function read_pattern_extra_cells(patternIndex0b)
 	return nil
 end
 
--- =========================
--- Waveform processing
-
 -- Deserialize a waveform (packed nibbles in RAM) into a 0-based array of samples (0..15).
 local function wave_read_samples(waveIndex, outSamples)
 	local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
 	local si = 0
 	for i = 0, WAVE_BYTES_PER_WAVE - 1 do
 		local b = peek(base + i)
-		outSamples[si] = b & 0x0f
-		outSamples[si + 1] = (b >> 4) & 0x0f
-		si = si + 2
+		si = wave_unpack_byte_to_samples(b, outSamples, si)
 	end
 end
 
@@ -559,20 +582,38 @@ local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, 
 end
 
 local function render_waveform_morph(cfg, ticksPlayed, outSamples)
-	local durationTicks = cfg.morphDurationInTicks
-	local t
-	if durationTicks == nil or durationTicks <= 0 then
-		t = 1.0
-	else
-		t = clamp01(ticksPlayed / durationTicks)
+	local nodes = cfg.morphGradientNodes
+	if nodes == nil or #nodes == 0 then
+		return false
+	end
+	if #nodes == 1 then
+		local s = nodes[1].samples
+		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+			outSamples[i] = s[i]
+		end
+		return true
 	end
 
-	wave_read_samples(cfg.sourceWaveformIndex, render_src_a)
-	wave_read_samples(cfg.morphWaveB, render_src_b)
+	local tRemaining = ticksPlayed or 0
+	local seg = (#nodes - 1)
+	local localT = 1.0
+	for i = 1, (#nodes - 1) do
+		local dur = nodes[i].durationTicks10 or 0
+		if dur > 0 then
+			if tRemaining < dur then
+				seg = i
+				localT = clamp01(tRemaining / dur)
+				break
+			end
+			tRemaining = tRemaining - dur
+		end
+	end
+
+	local shapedT = apply_curveN11(localT, nodes[seg].curveS6 or 0)
+	local a = nodes[seg].samples
+	local b = nodes[seg + 1].samples
 	for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-		local a = render_src_a[i] or 0
-		local b = render_src_b[i] or 0
-		outSamples[i] = a + (b - a) * t
+		outSamples[i] = (a[i] or 0) + ((b[i] or 0) - (a[i] or 0)) * shapedT
 	end
 	return true
 end

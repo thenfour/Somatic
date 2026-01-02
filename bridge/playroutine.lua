@@ -90,6 +90,12 @@ do
 		return math.floor(v + 0.5)
 	end
 
+	local function wave_unpack_byte_to_samples(b, outSamples, si)
+		outSamples[si] = b & 0x0f
+		outSamples[si + 1] = (b >> 4) & 0x0f
+		return si + 2
+	end
+
 	-- base85 decode (ASCII85-style) for TIC-80 Lua
 	-- Decodes 's' into memory starting at 'dst', writing exactly expectedLen bytes.
 	-- Returns the number of bytes written (should equal expectedLen or error).
@@ -204,9 +210,7 @@ do
 		local si = 0
 		for i = 0, WAVE_BYTES_PER_WAVE - 1 do
 			local b = peek(base + i)
-			outSamples[si] = b & 0x0f
-			outSamples[si + 1] = (b >> 4) & 0x0f
-			si = si + 2
+			si = wave_unpack_byte_to_samples(b, outSamples, si)
 		end
 	end
 
@@ -380,19 +384,51 @@ do
 
 	-- BEGIN_FEATURE_WAVEMORPH
 	local function render_waveform_morph(cfg, ticksPlayed, outSamples)
-		local durationTicks = cfg.morphDurationTicks12
-		local t
-		if durationTicks == nil or durationTicks <= 0 then
-			t = 1.0
-		else
-			t = clamp01(ticksPlayed / durationTicks)
+		local offBytes = cfg.gradientOffsetBytes or 0
+		if offBytes <= 0 then
+			return false
 		end
-		wave_read_samples(cfg.sourceWaveformIndex, render_src_a)
-		wave_read_samples(cfg.morphWaveB, render_src_b)
+		local nodes = decode_WaveformMorphGradient(__AUTOGEN_TEMP_PTR_B + offBytes)
+		for ni = 1, #nodes do
+			local wb = nodes[ni].waveBytes
+			local s = {}
+			local si = 0
+			for bi = 1, 16 do
+				si = wave_unpack_byte_to_samples(wb[bi] or 0, s, si)
+			end
+			nodes[ni].samples = s
+		end
+		if nodes == nil or #nodes == 0 then
+			return false
+		end
+		if #nodes == 1 then
+			local s = nodes[1].samples
+			for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+				outSamples[i] = s[i]
+			end
+			return true
+		end
+
+		local tRemaining = ticksPlayed or 0
+		local seg = (#nodes - 1)
+		local localT = 1.0
+		for i = 1, (#nodes - 1) do
+			local dur = nodes[i].durationTicks10 or 0
+			if dur > 0 then
+				if tRemaining < dur then
+					seg = i
+					localT = clamp01(tRemaining / dur)
+					break
+				end
+				tRemaining = tRemaining - dur
+			end
+		end
+
+		local shapedT = apply_curveN11(localT, nodes[seg].curveS6 or 0)
+		local a = nodes[seg].samples
+		local b = nodes[seg + 1].samples
 		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-			local a = render_src_a[i]
-			local b = render_src_b[i]
-			outSamples[i] = a + (b - a) * t
+			outSamples[i] = a[i] + (b[i] - a[i]) * shapedT
 		end
 		return true
 	end
@@ -651,10 +687,8 @@ do
 			local cfg = {
 				waveEngineId = entry.waveEngineId,
 				sourceWaveformIndex = entry.sourceWaveformIndex,
-				morphWaveB = entry.morphWaveB,
 				renderWaveformSlot = entry.renderWaveformSlot,
-				morphDurationTicks12 = entry.morphDurationTicks12,
-				morphCurveS6 = entry.morphCurveS6,
+				gradientOffsetBytes = entry.gradientOffsetBytes,
 				pwmDuty5 = entry.pwmDuty5,
 				pwmDepth5 = entry.pwmDepth5,
 				lowpassEnabled = entry.lowpassEnabled ~= 0,
@@ -668,6 +702,7 @@ do
 				effectModSource = entry.effectModSource,
 				lfoCycleTicks12 = entry.lfoCycleTicks12,
 			}
+
 			morphMap[id] = cfg
 			off = off + MORPH_ENTRY_BYTES
 		end

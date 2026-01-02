@@ -8,6 +8,7 @@ import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
 import { useClipboard } from '../hooks/useClipboard';
 import { WaveformSelect } from './waveformEditor';
 import { WaveformSwatch } from './waveformSwatch';
+import { Tic80Waveform } from '../models/waveform';
 import './instrument_editor.css';
 import { AppPanelShell } from './AppPanelShell';
 import { RadioButton } from './basic/RadioButton';
@@ -54,6 +55,168 @@ const MorphCurveConfig: ContinuousParamConfig = {
     convertTo01: (v) => (v + 1) / 2,
     convertFrom01: (v01) => v01 * 2 - 1,
     format: (v) => v.toFixed(2),
+};
+
+const WaveformMorphGradientEditor: React.FC<{
+    song: Song;
+    instrument: Tic80Instrument;
+    instrumentIndex: number;
+    onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
+}> = ({ song, instrument, instrumentIndex, onSongChange }) => {
+    const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
+    const nodes = instrument.morphGradientNodes ?? [];
+
+    const canAdd = nodes.length < SomaticCaps.maxMorphGradientNodes;
+
+    const addNode = () => {
+        onSongChange({
+            description: 'Add morph gradient node',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                const existing = inst.morphGradientNodes ?? [];
+                if (existing.length >= SomaticCaps.maxMorphGradientNodes) {
+                    throw new Error(`Too many morph gradient nodes (max ${SomaticCaps.maxMorphGradientNodes})`);
+                }
+                const last = existing[existing.length - 1];
+                const amps = last?.amplitudes ? new Uint8Array(last.amplitudes) : new Uint8Array(Tic80Caps.waveform.pointCount);
+                existing.push({
+                    amplitudes: amps,
+                    durationSeconds: 0.5,
+                    curveN11: 0,
+                });
+                inst.morphGradientNodes = existing;
+            },
+        });
+        setExpandedIndex(nodes.length);
+    };
+
+    const removeNode = (index: number) => {
+        onSongChange({
+            description: 'Remove morph gradient node',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                const existing = inst.morphGradientNodes ?? [];
+                if (index < 0 || index >= existing.length) {
+                    throw new Error(`Invalid morph gradient node index ${index}`);
+                }
+                existing.splice(index, 1);
+                inst.morphGradientNodes = existing;
+            },
+        });
+        setExpandedIndex((prev) => {
+            if (prev == null) return prev;
+            if (prev === index) return null;
+            if (prev > index) return prev - 1;
+            return prev;
+        });
+    };
+
+    const setNodeDuration = (index: number, value: number) => {
+        onSongChange({
+            description: 'Set morph node duration',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                const n = inst.morphGradientNodes?.[index];
+                if (!n) throw new Error(`Missing morph node ${index}`);
+                n.durationSeconds = clamp(value, 0, 4);
+            },
+        });
+    };
+
+    const setNodeCurve = (index: number, value: number) => {
+        onSongChange({
+            description: 'Set morph node curve',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                const n = inst.morphGradientNodes?.[index];
+                if (!n) throw new Error(`Missing morph node ${index}`);
+                n.curveN11 = clamp(value, -1, 1);
+            },
+        });
+    };
+
+    const setNodeWaveform = (index: number, nextValues: number[]) => {
+        const maxAmp = Tic80Caps.waveform.amplitudeRange - 1;
+        onSongChange({
+            description: 'Edit morph node waveform',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                const n = inst.morphGradientNodes?.[index];
+                if (!n) throw new Error(`Missing morph node ${index}`);
+                const len = Math.min(Tic80Caps.waveform.pointCount, nextValues.length);
+                for (let i = 0; i < len; i++) {
+                    n.amplitudes[i] = clamp(Math.trunc(nextValues[i] ?? 0), 0, maxAmp);
+                }
+            },
+        });
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+            <div style={{ maxWidth: 520 }}>
+                Morph gradients are embedded per-instrument waveforms. The last node's duration/curve is stored but ignored.
+            </div>
+
+            {nodes.map((node, idx) => {
+                const isExpanded = expandedIndex === idx;
+                const wf = new Tic80Waveform({ name: '', amplitudes: [...node.amplitudes] });
+
+                return (
+                    <div key={idx} style={{ border: '1px solid var(--panel-border)', padding: 8 }}>
+                        <div
+                            style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+                            onClick={() => setExpandedIndex(isExpanded ? null : idx)}
+                        >
+                            <WaveformSwatch value={wf} scale={2} displayStyle={isExpanded ? 'selected' : 'muted'} overlayText={`${idx + 1}`} />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                                <strong>Node {idx + 1}</strong>
+                                <div style={{ fontSize: 12 }}>
+                                    dur: {Math.round(node.durationSeconds * 1000)}ms, curve: {node.curveN11.toFixed(2)}
+                                </div>
+                            </div>
+                            <button onClick={(e) => { e.stopPropagation(); removeNode(idx); }}>Remove</button>
+                        </div>
+
+                        {isExpanded && (
+                            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <WaveformCanvas
+                                    values={Array.from(node.amplitudes)}
+                                    maxValue={Tic80Caps.waveform.amplitudeRange - 1}
+                                    scale={16}
+                                    onChange={(next) => setNodeWaveform(idx, next)}
+                                />
+
+                                <div className="field-row">
+                                    <ContinuousKnob
+                                        label='Duration'
+                                        value={node.durationSeconds}
+                                        config={MorphDurationConfig}
+                                        onChange={(v) => setNodeDuration(idx, v)}
+                                    />
+                                    <ContinuousKnob
+                                        label='Curve'
+                                        value={node.curveN11}
+                                        config={MorphCurveConfig}
+                                        onChange={(v) => setNodeCurve(idx, v)}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+
+            <div>
+                <button disabled={!canAdd} onClick={addNode}>Add node</button>
+                {!canAdd && <span style={{ marginLeft: 8 }}>(max {SomaticCaps.maxMorphGradientNodes})</span>}
+            </div>
+        </div>
+    );
 };
 
 const LowpassDurationConfig: ContinuousParamConfig = {
@@ -516,6 +679,19 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
             mutator: (s) => {
                 const inst = s.instruments[instrumentIndex];
                 inst.waveEngine = engine;
+
+                if (engine === 'morph') {
+                    if (!inst.morphGradientNodes || inst.morphGradientNodes.length === 0) {
+                        const src = s.waveforms[inst.sourceWaveformIndex] ?? s.waveforms[0];
+                        const amps = src ? new Uint8Array(src.amplitudes) : new Uint8Array(Tic80Caps.waveform.pointCount);
+                        inst.morphGradientNodes = [
+                            { amplitudes: new Uint8Array(amps), durationSeconds: 0.5, curveN11: 0 },
+                            { amplitudes: new Uint8Array(amps), durationSeconds: 0.5, curveN11: 0 },
+                        ];
+                    }
+                } else {
+                    inst.morphGradientNodes = [];
+                }
             },
         });
     };
@@ -549,28 +725,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
             mutator: (s) => {
                 const inst = s.instruments[instrumentIndex];
                 inst.pwmDepth = clamp(value, 0, 31);
-            },
-        });
-    };
-
-    const setMorphDuration = (value: number) => {
-        onSongChange({
-            description: 'Set morph duration',
-            undoable: true,
-            mutator: (s) => {
-                const inst = s.instruments[instrumentIndex];
-                inst.morphDurationSeconds = clamp(value, 0, 4);
-            },
-        });
-    };
-
-    const setMorphCurve = (value: number) => {
-        onSongChange({
-            description: 'Set morph curve',
-            undoable: true,
-            mutator: (s) => {
-                const inst = s.instruments[instrumentIndex];
-                inst.morphCurveN11 = clamp(value, -1, 1);
             },
         });
     };
@@ -699,9 +853,8 @@ show render slot if there are k-rate effects enabled
 */}
 
     const showRenderWaveformSlot = instrument.isKRateProcessing();
-    const showMorphB = instrument.waveEngine === 'morph';
     const showNativeWaveformEnvelope = !instrument.isKRateProcessing();
-    const showSourceWaveform = !showNativeWaveformEnvelope && instrument.waveEngine !== 'pwm';
+    const showSourceWaveform = !showNativeWaveformEnvelope && instrument.waveEngine === 'native';
 
 
     return (
@@ -834,34 +987,6 @@ show render slot if there are k-rate effects enabled
                                     }}
                                 />
                             </div>)}
-                        {showMorphB && (
-                            <div style={{ display: "flex", gap: "16px", padding: 8 }}>
-                                <strong>Morph Waveform B</strong>
-                                <WaveformSelect
-                                    song={song}
-                                    onClickWaveform={(waveformId) => {
-                                        onSongChange({
-                                            description: 'Set morph B waveform',
-                                            undoable: true,
-                                            mutator: (s) => {
-                                                const inst = s.instruments[instrumentIndex];
-                                                inst.morphWaveB = waveformId;
-                                            },
-                                        });
-                                    }}
-                                    getOverlayText={(i) => {
-                                        const isNoise = song.waveforms[i]?.isNoise() ?? false;
-                                        return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
-                                    }}
-                                    getWaveformDisplayStyle={(waveformId) => {
-                                        if (waveformId === instrument.morphWaveB) {
-                                            return "selected";
-                                        }
-                                        return "muted";
-                                    }}
-                                />
-                            </div>
-                        )}
 
                         {instrument.waveEngine === 'native' && instrument.isKRateProcessing() && (
                             <div style={{ marginTop: 8 }}>
@@ -872,27 +997,12 @@ show render slot if there are k-rate effects enabled
                         )}
 
                         {instrument.waveEngine === 'morph' && (
-                            <div>
-                                <div className="field-row">
-                                    <ContinuousKnob
-                                        label='Morph duration'
-                                        value={instrument.morphDurationSeconds}
-                                        config={MorphDurationConfig}
-                                        onChange={setMorphDuration}
-                                    />
-                                </div>
-                                <div>
-                                    {Math.floor(instrument.morphDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
-                                </div>
-                                <div className="field-row">
-                                    <ContinuousKnob
-                                        label='Morph curve'
-                                        value={instrument.morphCurveN11}
-                                        config={MorphCurveConfig}
-                                        onChange={setMorphCurve}
-                                    />
-                                </div>
-                            </div>
+                            <WaveformMorphGradientEditor
+                                song={song}
+                                instrument={instrument}
+                                instrumentIndex={instrumentIndex}
+                                onSongChange={onSongChange}
+                            />
                         )}
 
                         {instrument.waveEngine === 'pwm' && (

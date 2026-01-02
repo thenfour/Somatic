@@ -6,7 +6,7 @@ import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex, TicMemor
 import {BakedSong, BakeSong} from "../utils/bakeSong";
 import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
 import bridgeConfig from "../../bridge/bridge_config";
-import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec, type SomaticPatternEntryPacked,} from "../../bridge/morphSchema";
+import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec, WaveformMorphGradientCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked,} from "../../bridge/morphSchema";
 import {emitLuaDecoder} from "../../bridge/emitLuaDecoder";
 import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../utils/utils";
 import {LoopMode} from "./backend";
@@ -46,11 +46,7 @@ type Tic80MorphInstrumentConfig = {
    waveEngine: SomaticInstrumentWaveEngine; //
    waveEngineId: number;
    sourceWaveformIndex: number; // 0-15
-   morphWaveB: number;          // 0-15
    renderWaveformSlot: number;  // 0-15 also for PWM!
-
-   morphDurationTicks12: number; // 0-4095
-   morphCurveS6: number;         // signed 6-bit (-32..31)
 
    pwmDuty5: number;  // 0-31
    pwmDepth5: number; // 0-31
@@ -68,6 +64,23 @@ type Tic80MorphInstrumentConfig = {
 
    lfoCycleTicks12: number; // 0-4095
 };
+
+function packWaveformSamplesToBytes16(samples32: ArrayLike<number>): number[] {
+   // TIC-80 packs 2x 4-bit samples per byte.
+   // We store sample 0 in the low nibble, sample 1 in the high nibble.
+   const out: number[] = new Array(16);
+   for (let i = 0; i < 16; i++) {
+      const a = clamp((samples32[i * 2] ?? 0) | 0, 0, 15);
+      const b = clamp((samples32[i * 2 + 1] ?? 0) | 0, 0, 15);
+      out[i] = (a & 0x0f) | ((b & 0x0f) << 4);
+   }
+   return out;
+}
+
+function durationSecondsToTicks10(seconds: number): number {
+   const s = Math.max(0, seconds ?? 0);
+   return clamp(Math.floor(s * Tic80Caps.frameRate), 0, 0x03ff);
+}
 
 function getSomaticSfxConfigBytes(): number {
    const mem = bridgeConfig.memory as Record<string, string|number>;
@@ -112,8 +125,8 @@ function RateInHzToTicks60HzAllowZero(rateHz: number): number {
 }
 
 // Extract the wave-morphing instrument config from the song.
-function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrumentConfig;}[] {
-   const entries: {instrumentId: number; cfg: Tic80MorphInstrumentConfig;}[] = [];
+function getMorphMap(song: Song): MorphEntryInput[] {
+   const entries: MorphEntryInput[] = [];
    for (let instrumentId = 0; instrumentId < (song.instruments?.length ?? 0); instrumentId++) {
       const inst = song.instruments[instrumentId];
       if (!inst)
@@ -128,7 +141,18 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
       if (!needsRuntimeConfig)
          continue;
 
-      const morphDurationTicks12 = durationSecondsToTicks12(inst.morphDurationSeconds);
+      let morphGradientNodes: WaveformMorphGradientNodePacked[]|undefined;
+      if (waveEngine === "morph") {
+         const nodes = inst.morphGradientNodes;
+         if (!Array.isArray(nodes) || nodes.length <= 0) {
+            throw new Error(`Morph instrument ${instrumentId} is missing morphGradientNodes`);
+         }
+         morphGradientNodes = nodes.map((n) => ({
+                                           waveBytes: packWaveformSamplesToBytes16(n.amplitudes),
+                                           durationTicks10: durationSecondsToTicks10(n.durationSeconds),
+                                           curveS6: curveN11ToS6(n.curveN11),
+                                        }));
+      }
       const lowpassDurationTicks12 = durationSecondsToTicks12(inst.lowpassDurationSeconds);
       const effectDurationTicks12 = durationSecondsToTicks12(inst.effectDurationSeconds);
       const lfoCycleTicks12 = clamp(RateInHzToTicks60HzAllowZero(inst.lfoRateHz ?? 0), 0, 0x0fff);
@@ -140,12 +164,7 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
          instrumentId,
          cfg: {
             sourceWaveformIndex: clamp(inst.sourceWaveformIndex | 0, 0, Tic80Caps.waveform.count - 1),
-            morphWaveB: clamp(inst.morphWaveB | 0, 0, Tic80Caps.waveform.count - 1),
             renderWaveformSlot: clamp(inst.renderWaveformSlot | 0, 0, Tic80Caps.waveform.count - 1),
-
-            morphDurationTicks12,
-            morphCurveS6: curveN11ToS6(inst.morphCurveN11),
-            waveEngine,
             pwmDuty5: clamp(inst.pwmDuty | 0, 0, 31),
             pwmDepth5: clamp(inst.pwmDepth | 0, 0, 31),
 
@@ -162,7 +181,8 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
 
             waveEngineId: ToWaveEngineId(waveEngine),
             lfoCycleTicks12,
-         }
+         },
+         morphGradientNodes,
       });
    }
 
@@ -723,6 +743,12 @@ ${emitLuaDecoder(SomaticPatternEntryCodec, {
       functionName: "decode_SomaticPatternEntry",
       baseArgName: "base",
       includeLayoutComments: true,
+   }).trim()}
+
+${emitLuaDecoder(WaveformMorphGradientCodec, {
+      functionName: "decode_WaveformMorphGradient",
+      baseArgName: "base",
+      includeLayoutComments: false,
    }).trim()}`;
 
    // Replace the SOMATIC_MUSIC_DATA section in the template

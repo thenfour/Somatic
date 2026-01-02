@@ -491,6 +491,51 @@ const C = {
          bitSize,
       );
    },
+
+   // Variable-length array (length-prefixed).
+   // Notes:
+   // - Always variable-sized.
+   // - `maxCount` is enforced on encode and decode.
+   // - `alignToByteAfterLength` is useful when the length is stored in a non-byte number of bits (e.g. u5)
+   //   but you want the elements to begin at a byte boundary (for simple blob offset arithmetic).
+   varArray: <T>(
+      name: string,
+      elemCodec: Codec<T>,
+      lengthCodec: Codec<number>,
+      maxCount: number,
+      alignToByteAfterLength = false,
+      ): Codec<T[]> => {
+      maxCount |= 0;
+      if (maxCount < 0)
+         throw new Error(`varArray(${name}): maxCount must be >=0, got ${maxCount}`);
+      return _codec(
+         {kind: "varArray", name, elemCodec, lengthCodec, maxCount, alignToByteAfterLength},
+         (arr: T[], w: BitWriter) => {
+            if (!Array.isArray(arr))
+               throw new Error(`varArray(${name}): expected array, got ${typeof arr}`);
+            const len = arr.length | 0;
+            if (len < 0 || len > maxCount)
+               throw new Error(`varArray(${name}): length out of range: ${len} (max ${maxCount})`);
+            lengthCodec.encode(len, w);
+            if (alignToByteAfterLength)
+               w.alignToByte();
+            for (let i = 0; i < len; i++)
+               elemCodec.encode(arr[i], w);
+         },
+         (r: BitReader) => {
+            const len = lengthCodec.decode(r) | 0;
+            if (len < 0 || len > maxCount)
+               throw new Error(`varArray(${name}): decoded length out of range: ${len} (max ${maxCount})`);
+            if (alignToByteAfterLength)
+               r.alignToByte();
+            const out: T[] = new Array(len);
+            for (let i = 0; i < len; i++)
+               out[i] = elemCodec.decode(r);
+            return out;
+         },
+         "variable",
+      );
+   },
 };
 
 export {MemoryRegion, RegionCursor, BitReader, BitWriter, C};

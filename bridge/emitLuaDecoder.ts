@@ -66,7 +66,7 @@ function emitStatementsForCodec(
          if (it.kind === "field") {
             const sub = it.codec;
             const subKind = sub.node.kind;
-            if (subKind === "struct" || subKind === "array") {
+            if (subKind === "struct" || subKind === "array" || subKind === "varArray") {
                const childVar = `${it.name}`;
                lines.push(`do`);
                lines.push(indent(emitStatementsForCodec(sub, childVar, luaReader, childVar, false), 2));
@@ -95,7 +95,7 @@ function emitStatementsForCodec(
       lines.push(`local ${targetExpr} = {}`);
       lines.push(`for i=1,${codec.node.count} do`);
       const elem: Codec = codec.node.elemCodec;
-      if (elem.node.kind === "struct" || elem.node.kind === "array") {
+      if (elem.node.kind === "struct" || elem.node.kind === "array" || elem.node.kind === "varArray") {
          lines.push(indent(`do`, 2));
          lines.push(indent(emitStatementsForCodec(elem, "_tmp", luaReader, "_tmp", false), 4));
          lines.push(indent(`${targetExpr}[i] = _tmp`, 4));
@@ -104,10 +104,40 @@ function emitStatementsForCodec(
          lines.push(indent(`${targetExpr}[i] = ${emitDecodeExpr(elem, luaReader)}`, 2));
       }
       lines.push(`end`);
+      if (emitReturn)
+         lines.push(`return ${targetExpr}`);
       return lines.join("\n");
    }
 
-   throw new Error(`emitLuaDecoder: emitStatementsForCodec only supports struct/array; got ${k}`);
+   if (k === "varArray") {
+      const lines: string[] = [];
+      const lenVar = `_len_${targetExpr.replace(/[^a-zA-Z0-9_]/g, "_")}`;
+      lines.push(`local ${targetExpr} = {}`);
+      lines.push(`local ${lenVar} = ${emitDecodeExpr(codec.node.lengthCodec, luaReader)}`);
+      const maxCount = codec.node.maxCount | 0;
+      lines.push(`-- BEGIN_DEBUG_ONLY`);
+      lines.push(`if ${lenVar} < 0 or ${lenVar} > ${maxCount} then error("varArray ${
+         codec.node.name}: length out of range") end`);
+      lines.push(`-- END_DEBUG_ONLY`);
+      if (codec.node.alignToByteAfterLength)
+         lines.push(`${luaReader}.align()`);
+      lines.push(`for i=1,${lenVar} do`);
+      const elem: Codec = codec.node.elemCodec;
+      if (elem.node.kind === "struct" || elem.node.kind === "array" || elem.node.kind === "varArray") {
+         lines.push(indent(`do`, 2));
+         lines.push(indent(emitStatementsForCodec(elem, "_tmp", luaReader, "_tmp", false), 4));
+         lines.push(indent(`${targetExpr}[i] = _tmp`, 4));
+         lines.push(indent(`end`, 2));
+      } else {
+         lines.push(indent(`${targetExpr}[i] = ${emitDecodeExpr(elem, luaReader)}`, 2));
+      }
+      lines.push(`end`);
+      if (emitReturn)
+         lines.push(`return ${targetExpr}`);
+      return lines.join("\n");
+   }
+
+   throw new Error(`emitLuaDecoder: emitStatementsForCodec only supports struct/array/varArray; got ${k}`);
 }
 
 function emitLayoutComment(codec: Codec, include: boolean): string {
@@ -143,9 +173,9 @@ export function emitLuaDecoder(codec: Codec, opt: LuaDecoderOptions = {}): strin
    } = opt;
 
    if (!codec || !codec.node)
-      throw new Error("emitLuaDecoder: codec must be a C.struct(...) or C.array(...) codec");
-   if (codec.node.kind !== "struct" && codec.node.kind !== "array")
-      throw new Error(`emitLuaDecoder: root codec must be struct/array, got ${codec.node.kind}`);
+      throw new Error("emitLuaDecoder: codec must be a C.struct(...), C.array(...), or C.varArray(...) codec");
+   if (codec.node.kind !== "struct" && codec.node.kind !== "array" && codec.node.kind !== "varArray")
+      throw new Error(`emitLuaDecoder: root codec must be struct/array/varArray, got ${codec.node.kind}`);
 
    const layoutComment = emitLayoutComment(codec, includeLayoutComments);
    const body = `local function ${functionName}(${baseArgName})\n  local ${localReaderName} = _bp_make_reader(${

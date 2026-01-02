@@ -353,10 +353,8 @@ export function OptimizeSong(song: Song): OptimizeResult {
       if (inst.waveEngine === "morph") {
          featureUsage.waveMorph = true;
       } else {
-         // not morphing: zero morph params
-         inst.morphWaveB = 0;
-         inst.morphCurveN11 = 0;
-         inst.morphDurationSeconds = 0;
+         // not morphing: clear morph gradient data
+         inst.morphGradientNodes = [];
       }
 
       if (inst.waveEngine === "pwm") {

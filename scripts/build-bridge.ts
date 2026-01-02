@@ -17,7 +17,7 @@ import path from "path";
 import {BUILD_INFO, getBridgeCartFilename} from "./buildInfo";
 import bridgeConfig, {BridgeConfig} from "../bridge/bridge_config";
 import {emitLuaDecoder} from "../bridge/emitLuaDecoder";
-import {MorphEntryCodec, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec,} from "../bridge/morphSchema";
+import {MorphEntryCodec, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec, WaveformMorphGradientCodec,} from "../bridge/morphSchema";
 import {SomaticMemoryLayout, Tic80MemoryMap} from "../bridge/memory_layout";
 
 const BRIDGE_LUA_PATH = path.resolve(__dirname, "../bridge/bridge.lua");
@@ -113,6 +113,13 @@ function generateLuaAutogenBlock(config: BridgeConfig): string {
                  functionName: "decode_SomaticPatternEntry",
                  baseArgName: "base",
                  includeLayoutComments: true,
+              }).trim());
+   lines.push("");
+
+   lines.push(emitLuaDecoder(WaveformMorphGradientCodec, {
+                 functionName: "decode_WaveformMorphGradient",
+                 baseArgName: "base",
+                 includeLayoutComments: false,
               }).trim());
    lines.push("");
    return lines.join("\n");
