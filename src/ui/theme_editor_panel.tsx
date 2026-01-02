@@ -34,6 +34,8 @@ const THEME_VARS = {
         '--cell-instrument',
         '--cell-command',
         '--cell-param',
+        '--cell-somatic-command',
+        '--cell-somatic-param',
     ],
     "Keyboard": [
         '--keyboard-white-key',

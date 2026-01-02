@@ -33,6 +33,7 @@ const interpolateOptions = [
     { value: 'paramX', label: 'X' },
     { value: 'paramY', label: 'Y' },
     { value: 'paramXY', label: 'XY' },
+    { value: 'somaticParamXY', label: 'SXY' },
 ] as const;
 
 export type InterpolateTarget = (typeof interpolateOptions)[number]['value'];

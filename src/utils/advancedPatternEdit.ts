@@ -198,6 +198,21 @@ const interpolationAccessors: Record<InterpolateTarget, CellValueAccessor> = {
          return {...cell, effectX: newX, effectY: newY};
       },
    },
+   somaticParamXY: {
+      min: 0,
+      max: 0xff,
+      read: (cell) => {
+         if (cell.somaticParam === undefined)
+            return undefined;
+         return cell.somaticParam & 0xff;
+      },
+      write: (cell, value) => {
+         const clamped = clamp(Math.round(value), 0, 0xff);
+         if (cell.somaticParam === clamped)
+            return null;
+         return {...cell, somaticParam: clamped};
+      },
+   },
 };
 
 

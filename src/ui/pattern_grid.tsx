@@ -1369,8 +1369,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const instClass = `instrument-cell${additionalClasses}${instSelectionClass}`;
                                             const cmdClass = `command-cell${additionalClasses}${cmdSelectionClass}`;
                                             const paramClass = `param-cell${additionalClasses}${paramSelectionClass}`;
-                                            const somCmdClass = `command-cell${additionalClasses}${somCmdSelectionClass}`;
-                                            const somParamClass = `param-cell${additionalClasses}${somParamSelectionClass}`;
+                                            const somCmdClass = `somatic-command-cell${additionalClasses}${somCmdSelectionClass}`;
+                                            const somParamClass = `somatic-param-cell${additionalClasses}${somParamSelectionClass}`;
                                             return (
                                                 <React.Fragment key={channelIndex}>
                                                     <td

@@ -380,8 +380,17 @@
     color: var(--cell-command);
 }
 
+.pattern-grid td.somatic-command-cell {
+    color: var(--cell-somatic-command);
+}
+
 .pattern-grid td.param-cell {
     color: var(--cell-param);
+    white-space: nowrap;
+}
+
+.pattern-grid td.somatic-param-cell {
+    color: var(--cell-somatic-param);
     white-space: nowrap;
 }
 
