@@ -1,5 +1,8 @@
 // Shared morph/sfx payload schema and encoder.
 // Uses the bitpack helpers to keep layout authoritative in one place.
+//
+// The codec definition is the single source of truth. Field names, types, ranges,
+// normalization, and Lua minification lists are all derived from it automatically.
 
 import {clamp} from "../src/utils/utils";
 import {BitWriter, C, MemoryRegion} from "./bitpack";
@@ -7,51 +10,87 @@ import type {Codec} from "./bitpack";
 
 export type MorphEffectKind = "none"|"wavefold"|"hardSync";
 
-export type MorphEntryInput = {
-   instrumentId: number; //
-   cfg: {
-      waveEngineId: number;           //
-      sourceWaveformIndex: number;    //
-      morphWaveB: number;             //
-      renderWaveformSlot: number;     //
-      pwmDuty5: number;               //
-      pwmDepth5: number;              //
-      morphDurationTicks12: number;   //
-      morphCurveS6: number;           //
-      lowpassEnabled: boolean;        //
-      lowpassDurationTicks12: number; //
-      lowpassCurveS6: number;         //
-      lowpassModSource: number;       //
-      effectKind: MorphEffectKind;    //
-      effectAmtU8: number;
-      effectDurationTicks12: number;
-      effectCurveS6: number;
-      effectModSource: number;
-      lfoCycleTicks12: number;
-   };
+// Helper types to extract field info from codec
+type CodecFieldInfo = {
+   name: string;                 //
+   codec: Codec<any>;            //
+   bitSize: number | "variable"; //
+   min: number;                  //
+   max: number;                  //
+   signed: boolean;              //
 };
 
-type MorphEntryPacked = {
-   instrumentId: number;        //
-   waveEngineId: number;        //
-   sourceWaveformIndex: number; //
-   morphWaveB: number;
-   renderWaveformSlot: number;
-   morphDurationTicks12: number;         //
-   morphCurveS6: number;                 //
-   pwmDuty5: number;                     //
-   pwmDepth5: number;                    //
-   lfoCycleTicks12: number;              //
-   lowpassEnabled: number;               //
-   lowpassDurationTicks12: number;       //
-   lowpassCurveS6: number;               //
-   lowpassModSource: number;             //
-   effectKind: MorphEffectKind | number; //
-   effectAmtU8: number;
-   effectDurationTicks12: number;
-   effectCurveS6: number;
-   effectModSource: number;
-};
+// Extract field metadata from a struct codec
+function extractFieldInfo(structCodec: Codec<any>): CodecFieldInfo[] {
+   const node = structCodec.node;
+   if (node.kind !== "struct") {
+      throw new Error("extractFieldInfo requires a struct codec");
+   }
+
+   const fields: CodecFieldInfo[] = [];
+   for (const item of node.seq) {
+      if (item.kind !== "field")
+         continue;
+
+      const codec = item.codec;
+      const codecNode = codec.node;
+      let min = 0;
+      let max = 0;
+      let signed = false;
+
+      if (codecNode.kind === "u") {
+         signed = false;
+         max = Math.pow(2, codecNode.n) - 1;
+      } else if (codecNode.kind === "i") {
+         signed = true;
+         const halfRange = Math.pow(2, codecNode.n - 1);
+         min = -halfRange;
+         max = halfRange - 1;
+      } else if (codecNode.kind === "enum") {
+         // Enums are handled by the codec itself, just pass through
+         min = 0;
+         max = Math.pow(2, codecNode.nBits) - 1;
+      }
+
+      fields.push({
+         name: item.name,
+         codec,
+         bitSize: codec.bitSize,
+         min,
+         max,
+         signed,
+      });
+   }
+
+   return fields;
+}
+
+// Generate a normalization function from field metadata
+function makeNormalizer<T extends Record<string, any>>(fields: CodecFieldInfo[]): (input: T) => T {
+   return (input: T): T => {
+      const output: any = {};
+      for (const field of fields) {
+         const value = input[field.name];
+         const codecNode = field.codec.node;
+
+         if (codecNode.kind === "enum") {
+            // Enums pass through; codec validates
+            output[field.name] = value;
+         } else if (codecNode.kind === "u" && codecNode.n === 1) {
+            // Boolean/bit field
+            output[field.name] = clamp(Number(value), 0, 1);
+         } else if (field.signed) {
+            output[field.name] = clamp(Math.trunc(value), field.min, field.max);
+         } else {
+            output[field.name] = clamp(Math.trunc(value), field.min, field.max);
+         }
+      }
+      return output as T;
+   };
+}
+
+// Single source of truth: the codec definition
+// All other structures (types, field lists, normalization) derive from this.
 
 const MorphEffectKindCodec = C.enum("MorphEffectKind", 2, {
    none: 0,
@@ -81,27 +120,87 @@ export const MorphEntryCodec = C.struct("MorphEntry", [
    C.field("effectModSource", C.bool()),
 ]);
 
-export const MorphEntryFieldNamesToRename = [
-   "instrumentId",
-   "waveEngineId",
-   "sourceWaveformIndex",
-   "morphWaveB",
-   "renderWaveformSlot",
-   "morphDurationTicks12",
-   "morphCurveS6",
-   "pwmDuty5",
-   "pwmDepth5",
-   "lfoCycleTicks12",
-   "lowpassEnabled",
-   "lowpassDurationTicks12",
-   "lowpassCurveS6",
-   "lowpassModSource",
-   "effectKind",
-   "effectAmtU8",
-   "effectDurationTicks12",
-   "effectCurveS6",
-   "effectModSource",
-] as const;
+// Derive everything else from the codec
+const MORPH_ENTRY_FIELDS = extractFieldInfo(MorphEntryCodec);
+
+// Auto-generate the field names list for Lua minification
+export const MorphEntryFieldNamesToRename = MORPH_ENTRY_FIELDS.map(f => f.name) as readonly string[];
+
+// Auto-generate the normalizer
+const normalizeMorphEntry = makeNormalizer<MorphEntryPacked>(MORPH_ENTRY_FIELDS);
+
+// Type for the packed/flattened structure (inferred from codec fields)
+export type MorphEntryPacked = {
+   instrumentId: number;        //
+   waveEngineId: number;        //
+   sourceWaveformIndex: number; //
+   morphWaveB: number;
+   renderWaveformSlot: number;           //
+   morphDurationTicks12: number;         //
+   morphCurveS6: number;                 //
+   pwmDuty5: number;                     //
+   pwmDepth5: number;                    //
+   lfoCycleTicks12: number;              //
+   lowpassEnabled: number;               //
+   lowpassDurationTicks12: number;       //
+   lowpassCurveS6: number;               //
+   lowpassModSource: number;             //
+   effectKind: MorphEffectKind | number; //
+   effectAmtU8: number;                  //
+   effectDurationTicks12: number;        //
+   effectCurveS6: number;                //
+   effectModSource: number;
+};
+
+// Input type with nested config (kept for ergonomic API)
+export type MorphEntryInput = {
+   instrumentId: number; cfg: {
+      waveEngineId: number; //
+      sourceWaveformIndex: number;
+      morphWaveB: number; //
+      renderWaveformSlot: number;
+      pwmDuty5: number;               //
+      pwmDepth5: number;              //
+      morphDurationTicks12: number;   //
+      morphCurveS6: number;           //
+      lowpassEnabled: boolean;        //
+      lowpassDurationTicks12: number; //
+      lowpassCurveS6: number;         //
+      lowpassModSource: number;       //
+      effectKind: MorphEffectKind;    //
+      effectAmtU8: number;            //
+      effectDurationTicks12: number;
+      effectCurveS6: number;
+      effectModSource: number;
+      lfoCycleTicks12: number;
+   };
+};
+
+// Flatten input structure to packed structure
+function flattenEntry(entry: MorphEntryInput): MorphEntryPacked {
+   const {cfg} = entry;
+   return {
+      instrumentId: entry.instrumentId,
+      waveEngineId: cfg.waveEngineId,
+      sourceWaveformIndex: cfg.sourceWaveformIndex,
+      morphWaveB: cfg.morphWaveB,
+      renderWaveformSlot: cfg.renderWaveformSlot,
+      morphDurationTicks12: cfg.morphDurationTicks12,
+      morphCurveS6: cfg.morphCurveS6,
+      pwmDuty5: cfg.pwmDuty5,
+      pwmDepth5: cfg.pwmDepth5,
+      lfoCycleTicks12: cfg.lfoCycleTicks12,
+      lowpassEnabled: cfg.lowpassEnabled ? 1 : 0,
+      lowpassDurationTicks12: cfg.lowpassDurationTicks12,
+      lowpassCurveS6: cfg.lowpassCurveS6,
+      lowpassModSource: cfg.lowpassModSource ? 1 : 0,
+      effectKind: cfg.effectKind,
+      effectAmtU8: cfg.effectAmtU8,
+      effectDurationTicks12: cfg.effectDurationTicks12,
+      effectCurveS6: cfg.effectCurveS6,
+      effectModSource: cfg.effectModSource ? 1 : 0,
+   };
+}
 
 const MorphHeaderCodec = C.struct("MorphHeader", [
    C.field("entryCount", C.u8()),
@@ -117,43 +216,6 @@ export const MORPH_ENTRY_BITS = fixedBits(MorphEntryCodec, "MorphEntry");
 export const MORPH_ENTRY_BYTES = MorphEntryCodec.byteSizeCeil!();
 export const MORPH_HEADER_BITS = fixedBits(MorphHeaderCodec, "MorphHeader");
 export const MORPH_HEADER_BYTES = MorphHeaderCodec.byteSizeCeil!();
-
-function clampU(value: number, min: number, max: number) {
-   return clamp(Math.trunc(value), min, max);
-}
-
-function clampS(value: number, min: number, max: number) {
-   return clamp(Math.trunc(value), min, max);
-}
-
-function clampBit(value: boolean|number) {
-   return clampU(Number(value), 0, 1);
-}
-
-function normalizeEntry(entry: MorphEntryInput): MorphEntryPacked {
-   const {cfg} = entry;
-   return {
-      instrumentId: clampU(entry.instrumentId, 0, 0xff),
-      waveEngineId: clampU(cfg.waveEngineId, 0, 3),
-      sourceWaveformIndex: clampU(cfg.sourceWaveformIndex, 0, 0x0f),
-      morphWaveB: clampU(cfg.morphWaveB, 0, 0x0f),
-      renderWaveformSlot: clampU(cfg.renderWaveformSlot, 0, 0x0f),
-      morphDurationTicks12: clampU(cfg.morphDurationTicks12, 0, 0x0fff),
-      morphCurveS6: clampS(cfg.morphCurveS6, -32, 31),
-      pwmDuty5: clampU(cfg.pwmDuty5, 0, 0x1f),
-      pwmDepth5: clampU(cfg.pwmDepth5, 0, 0x1f),
-      lfoCycleTicks12: clampU(cfg.lfoCycleTicks12, 0, 0x0fff),
-      lowpassEnabled: clampBit(cfg.lowpassEnabled),
-      lowpassDurationTicks12: clampU(cfg.lowpassDurationTicks12, 0, 0x0fff),
-      lowpassCurveS6: clampS(cfg.lowpassCurveS6, -32, 31),
-      lowpassModSource: clampBit(cfg.lowpassModSource),
-      effectKind: cfg.effectKind,
-      effectAmtU8: clampU(cfg.effectAmtU8, 0, 0xff),
-      effectDurationTicks12: clampU(cfg.effectDurationTicks12, 0, 0x0fff),
-      effectCurveS6: clampS(cfg.effectCurveS6, -32, 31),
-      effectModSource: clampBit(cfg.effectModSource),
-   };
-}
 
 export function encodeMorphPayload(entries: MorphEntryInput[], totalBytes?: number): Uint8Array {
    const entryCount = entries.length;
@@ -171,7 +233,9 @@ export function encodeMorphPayload(entries: MorphEntryInput[], totalBytes?: numb
    MorphHeaderCodec.encode({entryCount}, writer);
    for (const entry of entries) {
       writer.alignToByte(); // ensure each entry starts on a byte boundary for the Lua decoder
-      MorphEntryCodec.encode(normalizeEntry(entry), writer);
+      const packed = flattenEntry(entry);
+      const normalized = normalizeMorphEntry(packed);
+      MorphEntryCodec.encode(normalized, writer);
    }
 
    return out;
