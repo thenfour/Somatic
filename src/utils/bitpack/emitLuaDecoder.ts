@@ -53,7 +53,7 @@ function emitStatementsForCodec(
    luaReader: string,
    returnName: string,
    emitReturn = true,
-): string {
+   ): string {
    const k = codec.node.kind;
    if (k === "struct") {
       const lines: string[] = [];
@@ -163,7 +163,10 @@ function emitLuaPrelude(baseArgName: string): string {
 
 export function emitLuaDecoder(codec: Codec<unknown>, opt: LuaDecoderOptions = {}): string {
    const {
-      functionName = `decode_${codec.node.kind === "struct" || codec.node.kind === "array" || codec.node.kind === "varArray" ? codec.node.name : "payload"}`,
+      functionName = `decode_${
+         codec.node.kind === "struct" || codec.node.kind === "array" || codec.node.kind === "varArray" ?
+            codec.node.name :
+            "payload"}`,
       baseArgName = "base",
       returnName = "out",
       includeLayoutComments = true,

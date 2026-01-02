@@ -7,6 +7,7 @@ export type BitSize = number|"variable";
  * Discriminated union of all possible codec node types.
  * Each codec has a 'node' property containing metadata used for code generation and introspection.
  */
+// clang-format off
 export type CodecNode =
    | { kind: "u"; n: number }
    | { kind: "i"; n: number }
@@ -20,6 +21,8 @@ export type CodecNode =
    | { kind: "struct"; name: string; seq: StructSeqItem[]; layout: LayoutItem[] }
    | { kind: "array"; name: string; elemCodec: Codec<unknown>; count: number }
    | { kind: "varArray"; name: string; elemCodec: Codec<unknown>; lengthCodec: Codec<number>; maxCount: number; alignToByteAfterLength: boolean };
+
+// clang-format on
 
 export interface Codec<T = unknown> {
    node: CodecNode;
@@ -212,7 +215,7 @@ function _codec<T>(
    encode: (value: T, writer: BitWriter) => void,
    decode: (reader: BitReader) => T,
    bitSize: BitSize,
-): Codec<T> {
+   ): Codec<T> {
    return {node, bitSize, encode, decode};
 }
 
@@ -305,14 +308,14 @@ const C = {
       );
    },
    field: <T>(name: string, codec: Codec<T>): FieldEntry<T> => ({kind: "field", name, codec}),
-   struct: (name: string, items: Array<FieldEntry | Codec<unknown>>): Codec<Record<string, unknown>> => {
+   struct: (name: string, items: Array<FieldEntry|Codec<unknown>>): Codec<Record<string, unknown>> => {
       const seq: StructSeqItem[] = items.map((it) => {
          if (!it)
             throw new Error(`struct(${name}): null item`);
          if ((it as FieldEntry).kind === "field")
             return it as FieldEntry;
          const maybeCodec = it as Codec<unknown>;
-         if (maybeCodec.node && typeof maybeCodec.encode === 'function' && typeof maybeCodec.decode === 'function')
+         if (maybeCodec.node && typeof maybeCodec.encode === "function" && typeof maybeCodec.decode === "function")
             return {kind: "anon", codec: maybeCodec};
          throw new Error(`struct(${name}): item must be field(...) or codec, got ${JSON.stringify(it)}`);
       });
