@@ -101,7 +101,6 @@ function replaceLiteral(node: luaparse.Expression, tracker: any): luaparse.Expre
       const literalNode = node as LiteralNode;
       const displayValue =
          literalNode.type === "StringLiteral" ? (literalNode.raw ?? "<missing raw>") : literalNode.value;
-      console.log(`[REPLACE] Literal ${key} (value: ${displayValue}) -> alias: ${alias || "none"}`);
       if (alias) {
          // This literal should be replaced with an alias
          return {

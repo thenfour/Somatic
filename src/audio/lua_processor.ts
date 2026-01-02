@@ -716,7 +716,7 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
       console.error("Failed to parse Lua code; returning original code.");
       return code;
    }
-   console.log("Parsed Lua AST:", ast);
+   //console.log("Parsed Lua AST:", ast);
 
    if (ruleOptions.stripComments) {
       ast.comments = [];
