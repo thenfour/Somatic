@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import './debug_panel.css';
 import { AppPanelShell } from './AppPanelShell';
 import { CharMap } from '../utils/utils';
-import { BarValue, SizeValue } from './BarValue';
+import { BarValue, SizeValue } from './basic/BarValue';
 import { useClipboard } from '../hooks/useClipboard';
 import { MorphEntryFieldNamesToRename } from '../../bridge/morphSchema';
 import { OptimizationRuleOptions, processLua } from '../utils/lua/lua_processor';

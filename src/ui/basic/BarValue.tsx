@@ -1,5 +1,5 @@
-import { formatBytes } from "../utils/utils";
-import { Tooltip } from "./basic/tooltip";
+import { formatBytes } from "../../utils/utils";
+import { Tooltip } from "./tooltip";
 
 export const SizeValue: React.FC<{ value: number; }> = ({ value }) => {
     return (

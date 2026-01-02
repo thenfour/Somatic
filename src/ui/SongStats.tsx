@@ -1,19 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Song } from "../models/song";
-import { useWriteBehindEffect } from "../hooks/useWriteBehindEffect";
-import { serializeSongForTic80Bridge, serializeSongToCartDetailed, SongCartDetails, Tic80SerializedSong } from "../audio/tic80_cart_serializer";
-import { compareBuffers, formatBytes } from "../utils/utils";
-import { useClipboard } from "../hooks/useClipboard";
-import { base85Encode, lzCompress, lzDecompress } from "../audio/encoding";
-import { OptimizeSong, analyzePatternColumns, PatternColumnAnalysisResult } from "../utils/SongOptimizer";
-import { gAllChannelsAudible, SomaticCaps } from "../models/tic80Capabilities";
-import { useRenderAlarm } from "../hooks/useRenderAlarm";
-import { KeyValueTable } from "./basic/KeyValueTable";
-import { AppPanelShell } from "./AppPanelShell";
-import { Tooltip } from "./basic/tooltip";
 import { MORPH_ENTRY_BYTES } from "../../bridge/morphSchema";
-import { gLog } from "../utils/logger";
-import { BarValue, SizeValue } from "./BarValue";
+import { base85Encode, lzCompress, lzDecompress } from "../audio/encoding";
+import { serializeSongForTic80Bridge, serializeSongToCartDetailed, SongCartDetails, Tic80SerializedSong } from "../audio/tic80_cart_serializer";
+import { useClipboard } from "../hooks/useClipboard";
+import { useRenderAlarm } from "../hooks/useRenderAlarm";
+import { useWriteBehindEffect } from "../hooks/useWriteBehindEffect";
+import { Song } from "../models/song";
+import { gAllChannelsAudible, SomaticCaps } from "../models/tic80Capabilities";
+import { analyzePatternColumns, OptimizeSong, PatternColumnAnalysisResult } from "../utils/SongOptimizer";
+import { compareBuffers, formatBytes } from "../utils/utils";
+import { AppPanelShell } from "./AppPanelShell";
+import { BarValue, SizeValue } from "./basic/BarValue";
+import { KeyValueTable } from "./basic/KeyValueTable";
+import { Tooltip } from "./basic/tooltip";
 
 type ChunkInfo = {
     name: string; //
