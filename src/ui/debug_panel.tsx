@@ -29,6 +29,7 @@ end
         aliasLiterals: false,
         renameLocalVariables: false,
         packLocalDeclarations: false,
+        simplifyExpressions: false,
     });
 
     const outputLua = useMemo(() => {
@@ -114,6 +115,16 @@ end
                                 onChange={() => handleOptionChange('packLocalDeclarations')}
                             />
                             Pack Local Declarations
+                        </label>
+                    </div>
+                    <div className="debug-panel-option-group">
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={options.simplifyExpressions}
+                                onChange={() => handleOptionChange('simplifyExpressions')}
+                            />
+                            Simplify Expressions
                         </label>
                     </div>
 

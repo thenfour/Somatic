@@ -721,6 +721,7 @@ ${emitLuaDecoder(MorphEntryCodec, {
       renameLocalVariables: true,
       aliasLiterals: true,
       packLocalDeclarations: true,
+      simplifyExpressions: true,
    } : //
       {
          stripComments: false,
@@ -730,6 +731,7 @@ ${emitLuaDecoder(MorphEntryCodec, {
          renameLocalVariables: false,
          aliasLiterals: false,
          packLocalDeclarations: false,
+         simplifyExpressions: false,
       };
    code = processLua(code, optimizationRuleOptions);
 

@@ -5,6 +5,7 @@ import {renameLocalVariablesInAST} from "./lua_renamer";
 import {aliasLiteralsInAST} from "./lua_alias_literals";
 import {aliasRepeatedExpressionsInAST} from "./lua_alias_expressions";
 import {packLocalDeclarationsInAST} from "./lua_pack_locals";
+import {simplifyExpressionsInAST} from "./lua_simplify";
 
 export type OptimizationRuleOptions = {
    stripComments: boolean;    //
@@ -18,6 +19,11 @@ export type OptimizationRuleOptions = {
    // * only done for values that appear enough times to offset the cost of the local declaration.
    // * alias declaration placed in the narrowest possible scope that contains all uses.
    aliasLiterals: boolean;
+
+   // Simplify expressions by folding constants and propagating simple constant locals.
+   // * folds basic arithmetic, boolean logic, and string concatenation when operands are literals.
+   // * propagates locals that are assigned literal values until they are reassigned or shadowed.
+   simplifyExpressions: boolean;
 
    // Merge consecutive local declarations into one using packing.
    // e.g.,
@@ -695,6 +701,10 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
 
    if (ruleOptions.packLocalDeclarations) {
       ast = packLocalDeclarationsInAST(ast);
+   }
+
+   if (ruleOptions.simplifyExpressions) {
+      ast = simplifyExpressionsInAST(ast);
    }
 
    if (ruleOptions.aliasLiterals) {
