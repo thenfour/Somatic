@@ -1,14 +1,19 @@
 import * as luaparse from "luaparse";
-import {AliasTracker, AliasInfo, buildScopeHierarchy, findCommonAncestor, insertDeclarationsIntoScopes} from "./lua_alias_shared";
+import {AliasInfo, runAliasPass} from "./lua_alias_shared";
 
 // ============================================================================
 // Expression Aliasing - Create local aliases for repeated expressions
 // ============================================================================
 
 // Configuration
-const ALIAS_THRESHOLD = 3;     // Minimum occurrences before creating an alias
 const EXPR_ALIAS_PREFIX = "_"; // Prefix for generated alias names
 const SAFE_GLOBAL_BASES = new Set(["math", "string", "table", "utf8", "bit", "bit32", "coroutine"]);
+const SAFE_GLOBAL_FUNCS = new Set([
+   // TIC-80 API (pure or stable references)
+   "peek", "poke", "peek4", "poke4", "memcpy", "memset", "pmem", "mget",  "mset", "sfx",  "music",
+   "map",  "spr",  "circ",  "circb", "rect",   "rectb",  "tri",  "line",  "pix",  "clip", "btn",
+   "btnp", "key",  "keyp",  "mouse", "time",   "tstamp", "sync", "trace", "exit",
+]);
 
 type StringLiteralNode = luaparse.StringLiteral&{value?: string | null};
 
@@ -23,6 +28,8 @@ function serializeExpression(node: luaparse.Expression|null|undefined): string|n
 
    switch (node.type) {
       case "Identifier":
+         if (!SAFE_GLOBAL_FUNCS.has(node.name))
+            return null;
          return `id:${node.name}`;
 
       case "MemberExpression": {
@@ -71,6 +78,9 @@ function isAliasableExpression(node: luaparse.Expression|null|undefined): boolea
       return false;
 
    switch (node.type) {
+      case "Identifier":
+         return SAFE_GLOBAL_FUNCS.has(node.name);
+
       case "MemberExpression":
          // Only alias safe global library member access (e.g., math.cos)
          return baseIsSafeGlobal(node.base);
@@ -79,8 +89,7 @@ function isAliasableExpression(node: luaparse.Expression|null|undefined): boolea
          // Only alias safe global library index access (e.g., math["cos"])
          return baseIsSafeGlobal(node.base);
 
-      // Don't alias simple identifiers or literals
-      case "Identifier":
+      // Don't alias literals
       case "StringLiteral":
       case "NumericLiteral":
       case "BooleanLiteral":
@@ -92,8 +101,64 @@ function isAliasableExpression(node: luaparse.Expression|null|undefined): boolea
    }
 }
 
+function expressionTextLength(node: luaparse.Expression|null|undefined): number {
+   if (!node)
+      return Number.POSITIVE_INFINITY;
+
+   switch (node.type) {
+      case "Identifier":
+         return node.name.length;
+
+      case "MemberExpression": {
+         const id = node.identifier;
+         const idLen = id?.type === "Identifier" ? id.name.length : expressionTextLength(id as any);
+         return expressionTextLength(node.base) + 1 + idLen; // base . id
+      }
+
+      case "IndexExpression": {
+         return expressionTextLength(node.base) + 2 + expressionTextLength(node.index); // base[index]
+      }
+
+      case "StringLiteral": {
+         const strNode = node as StringLiteralNode;
+         if (strNode.raw)
+            return strNode.raw.length;
+         if (typeof strNode.value === "string")
+            return strNode.value.length + 2; // quotes
+         return 2;
+      }
+
+      case "NumericLiteral":
+         return node.raw?.length || String(node.value).length;
+
+      case "BooleanLiteral":
+         return node.value ? 4 : 5;
+
+      case "NilLiteral":
+         return 3;
+
+      default:
+         return Number.POSITIVE_INFINITY;
+   }
+}
+
+function shouldAliasExpression(info: AliasInfo): boolean {
+   const exprCost = expressionTextLength(info.node);
+   if (!Number.isFinite(exprCost))
+      return false;
+
+   const aliasNameLength = info.aliasName?.length ?? (EXPR_ALIAS_PREFIX.length + 1); // e.g., _a
+   const declarationCost = 6 + aliasNameLength + exprCost;                           // "local " + name + "=" + expr
+   const useCost = aliasNameLength;
+
+   const aliasTotal = declarationCost + useCost * info.count;
+   const noAliasTotal = exprCost * info.count;
+
+   return aliasTotal < noAliasTotal;
+}
+
 // Recursively replace expressions with aliases
-function replaceExpression(node: luaparse.Expression, tracker: AliasTracker): luaparse.Expression {
+function replaceExpression(node: luaparse.Expression, tracker: any): luaparse.Expression {
    if (!node)
       return node;
 
@@ -186,252 +251,18 @@ function replaceExpression(node: luaparse.Expression, tracker: AliasTracker): lu
  *   local y = _b(1) + _b(2) + _b(3)
  */
 export function aliasRepeatedExpressionsInAST(ast: luaparse.Chunk): luaparse.Chunk {
-   const tracker = new AliasTracker(EXPR_ALIAS_PREFIX);
+   const strategy = {
+      prefix: EXPR_ALIAS_PREFIX,
+      serialize: (node: luaparse.Expression|null|undefined) => {
+         if (!node)
+            return null;
+         if (!isAliasableExpression(node))
+            return null;
+         return serializeExpression(node);
+      },
+      shouldAlias: shouldAliasExpression,
+      replaceExpression,
+   } as const;
 
-   type ScopeNode = luaparse.Chunk|luaparse.Statement;
-
-   // Count expressions
-   function countExpressions(node: luaparse.Expression, currentScope: ScopeNode): void {
-      if (!node)
-         return;
-
-      if (isAliasableExpression(node)) {
-         const key = serializeExpression(node);
-         if (key) {
-            tracker.record(key, node, currentScope);
-         }
-      }
-
-      // Recursively count in child expressions
-      switch (node.type) {
-         case "BinaryExpression":
-         case "LogicalExpression":
-            countExpressions(node.left, currentScope);
-            countExpressions(node.right, currentScope);
-            break;
-
-         case "UnaryExpression":
-            countExpressions(node.argument, currentScope);
-            break;
-
-         case "CallExpression":
-            countExpressions(node.base, currentScope);
-            if (node.arguments) {
-               node.arguments.forEach(arg => countExpressions(arg, currentScope));
-            }
-            break;
-
-         case "TableCallExpression":
-            countExpressions(node.base, currentScope);
-            countExpressions(node.arguments, currentScope);
-            break;
-
-         case "StringCallExpression":
-            countExpressions(node.base, currentScope);
-            break;
-
-         case "MemberExpression":
-            countExpressions(node.base, currentScope);
-            break;
-
-         case "IndexExpression":
-            countExpressions(node.base, currentScope);
-            countExpressions(node.index, currentScope);
-            break;
-
-         case "TableConstructorExpression":
-            if (node.fields) {
-               node.fields.forEach((field: luaparse.TableKey|luaparse.TableKeyString|luaparse.TableValue) => {
-                  if (field.type === "TableKey" || field.type === "TableKeyString") {
-                     if (field.key)
-                        countExpressions(field.key, currentScope);
-                  }
-                  if (field.value)
-                     countExpressions(field.value, currentScope);
-               });
-            }
-            break;
-      }
-   }
-
-   // Process scope and statements
-   function processScope(
-      stmts: luaparse.Statement[],
-      currentScope: ScopeNode,
-      parentScope: ScopeNode|null,
-      scopeParents: WeakMap<ScopeNode, ScopeNode>): void {
-      if (parentScope) {
-         scopeParents.set(currentScope, parentScope);
-      }
-
-      stmts.forEach(stmt => countInStatement(stmt, currentScope, scopeParents));
-   }
-
-   function countInStatement(
-      stmt: luaparse.Statement, currentScope: ScopeNode, scopeParents: WeakMap<ScopeNode, ScopeNode>): void {
-      if (!stmt)
-         return;
-
-      switch (stmt.type) {
-         case "LocalStatement":
-            if (stmt.init) {
-               stmt.init.forEach(expr => countExpressions(expr, currentScope));
-            }
-            break;
-
-         case "AssignmentStatement":
-            stmt.variables.forEach(v => countExpressions(v, currentScope));
-            stmt.init.forEach(expr => countExpressions(expr, currentScope));
-            break;
-
-         case "CallStatement":
-            countExpressions(stmt.expression, currentScope);
-            break;
-
-         case "ReturnStatement":
-            stmt.arguments.forEach(arg => countExpressions(arg, currentScope));
-            break;
-
-         case "IfStatement":
-            stmt.clauses.forEach(clause => {
-               if (clause.type !== "ElseClause" && clause.condition) {
-                  countExpressions(clause.condition, currentScope);
-               }
-               processScope(clause.body, stmt, currentScope, scopeParents);
-            });
-            break;
-
-         case "WhileStatement":
-            countExpressions(stmt.condition, currentScope);
-            processScope(stmt.body, stmt, currentScope, scopeParents);
-            break;
-
-         case "RepeatStatement":
-            processScope(stmt.body, stmt, currentScope, scopeParents);
-            countExpressions(stmt.condition, currentScope);
-            break;
-
-         case "ForNumericStatement":
-            countExpressions(stmt.start, currentScope);
-            countExpressions(stmt.end, currentScope);
-            if (stmt.step)
-               countExpressions(stmt.step, currentScope);
-            processScope(stmt.body, stmt, currentScope, scopeParents);
-            break;
-
-         case "ForGenericStatement":
-            stmt.iterators.forEach(it => countExpressions(it, currentScope));
-            processScope(stmt.body, stmt, currentScope, scopeParents);
-            break;
-
-         case "FunctionDeclaration":
-            processScope(stmt.body, stmt, currentScope, scopeParents);
-            break;
-
-         case "DoStatement":
-            processScope(stmt.body, stmt, currentScope, scopeParents);
-            break;
-      }
-   }
-
-   // Build scope hierarchy
-   const scopeParents = buildScopeHierarchy(ast, processScope);
-
-   // Get expressions that meet the threshold
-   const aliasableExpressions = tracker.getAliasableItems(info => info.count >= ALIAS_THRESHOLD);
-
-   if (aliasableExpressions.length === 0) {
-      return ast;
-   }
-
-   // Determine target scope for each expression
-   aliasableExpressions.forEach(info => {
-      info.targetScope = findCommonAncestor(info.scopes, scopeParents, ast);
-   });
-
-   // Group by target scope
-   const declarationsByScope = new Map<ScopeNode, AliasInfo[]>();
-   aliasableExpressions.forEach(info => {
-      const scope = info.targetScope!;
-      if (!declarationsByScope.has(scope)) {
-         declarationsByScope.set(scope, []);
-      }
-      declarationsByScope.get(scope)!.push(info);
-   });
-
-   // Replace expressions with aliases
-   function replaceInStatement(stmt: luaparse.Statement): void {
-      if (!stmt)
-         return;
-
-      switch (stmt.type) {
-         case "LocalStatement":
-            if (stmt.init) {
-               stmt.init = stmt.init.map(expr => replaceExpression(expr, tracker));
-            }
-            break;
-
-         case "AssignmentStatement":
-            stmt.variables = stmt.variables.map(
-               v => replaceExpression(v, tracker) as luaparse.Identifier | luaparse.MemberExpression |
-                  luaparse.IndexExpression);
-            stmt.init = stmt.init.map(expr => replaceExpression(expr, tracker));
-            break;
-
-         case "CallStatement":
-            stmt.expression = replaceExpression(stmt.expression, tracker) as luaparse.CallExpression |
-               luaparse.TableCallExpression | luaparse.StringCallExpression;
-            break;
-
-         case "ReturnStatement":
-            stmt.arguments = stmt.arguments.map(arg => replaceExpression(arg, tracker));
-            break;
-
-         case "IfStatement":
-            stmt.clauses.forEach(clause => {
-               if (clause.type !== "ElseClause" && clause.condition)
-                  clause.condition = replaceExpression(clause.condition, tracker);
-               clause.body.forEach(s => replaceInStatement(s));
-            });
-            break;
-
-         case "WhileStatement":
-            stmt.condition = replaceExpression(stmt.condition, tracker);
-            stmt.body.forEach(s => replaceInStatement(s));
-            break;
-
-         case "RepeatStatement":
-            stmt.body.forEach(s => replaceInStatement(s));
-            stmt.condition = replaceExpression(stmt.condition, tracker);
-            break;
-
-         case "ForNumericStatement":
-            stmt.start = replaceExpression(stmt.start, tracker);
-            stmt.end = replaceExpression(stmt.end, tracker);
-            if (stmt.step)
-               stmt.step = replaceExpression(stmt.step, tracker);
-            stmt.body.forEach(s => replaceInStatement(s));
-            break;
-
-         case "ForGenericStatement":
-            stmt.iterators = stmt.iterators.map(it => replaceExpression(it, tracker));
-            stmt.body.forEach(s => replaceInStatement(s));
-            break;
-
-         case "FunctionDeclaration":
-            stmt.body.forEach(s => replaceInStatement(s));
-            break;
-
-         case "DoStatement":
-            stmt.body.forEach(s => replaceInStatement(s));
-            break;
-      }
-   }
-
-   ast.body.forEach(stmt => replaceInStatement(stmt));
-
-   // Insert declarations
-   insertDeclarationsIntoScopes(ast, declarationsByScope);
-
-   return ast;
+   return runAliasPass(ast, strategy);
 }

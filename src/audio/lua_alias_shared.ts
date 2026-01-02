@@ -293,3 +293,241 @@ export function insertDeclarationsIntoScopes(
    insertDeclarations(ast);
    processStatementsForInsertion(ast.body);
 }
+
+// ---------------------------------------------------------------------------
+// Generic alias pass runner
+// ---------------------------------------------------------------------------
+
+export type AliasStrategy = {
+   prefix: string; serialize(node: luaparse.Expression|null|undefined): string | null;
+   shouldAlias(info: AliasInfo): boolean;
+   replaceExpression(node: luaparse.Expression, tracker: AliasTracker): luaparse.Expression;
+};
+
+export function runAliasPass(ast: luaparse.Chunk, strategy: AliasStrategy): luaparse.Chunk {
+   const tracker = new AliasTracker(strategy.prefix);
+
+   type ScopeNode = luaparse.Chunk|luaparse.Statement;
+
+   function countExpr(node: luaparse.Expression, currentScope: ScopeNode): void {
+      if (!node)
+         return;
+
+      const key = strategy.serialize(node);
+      if (key)
+         tracker.record(key, node, currentScope);
+
+      switch (node.type) {
+         case "BinaryExpression":
+         case "LogicalExpression":
+            countExpr(node.left, currentScope);
+            countExpr(node.right, currentScope);
+            break;
+
+         case "UnaryExpression":
+            countExpr(node.argument, currentScope);
+            break;
+
+         case "CallExpression":
+            countExpr(node.base, currentScope);
+            if (node.arguments)
+               node.arguments.forEach(arg => countExpr(arg, currentScope));
+            break;
+
+         case "TableCallExpression":
+            countExpr(node.base, currentScope);
+            countExpr(node.arguments, currentScope);
+            break;
+
+         case "StringCallExpression":
+            countExpr(node.base, currentScope);
+            break;
+
+         case "MemberExpression":
+            countExpr(node.base, currentScope);
+            break;
+
+         case "IndexExpression":
+            countExpr(node.base, currentScope);
+            countExpr(node.index, currentScope);
+            break;
+
+         case "TableConstructorExpression":
+            if (node.fields) {
+               node.fields.forEach((field: luaparse.TableKey|luaparse.TableKeyString|luaparse.TableValue) => {
+                  if (field.type === "TableKey" || field.type === "TableKeyString") {
+                     if (field.key)
+                        countExpr(field.key, currentScope);
+                  }
+                  if (field.value)
+                     countExpr(field.value, currentScope);
+               });
+            }
+            break;
+      }
+   }
+
+   function processScope(
+      stmts: luaparse.Statement[],
+      currentScope: ScopeNode,
+      parentScope: ScopeNode|null,
+      scopeParents: WeakMap<ScopeNode, ScopeNode>): void {
+      if (parentScope)
+         scopeParents.set(currentScope, parentScope);
+
+      stmts.forEach(stmt => countInStatement(stmt, currentScope, scopeParents));
+   }
+
+   function countInStatement(
+      stmt: luaparse.Statement, currentScope: ScopeNode, scopeParents: WeakMap<ScopeNode, ScopeNode>): void {
+      if (!stmt)
+         return;
+
+      switch (stmt.type) {
+         case "LocalStatement":
+            if (stmt.init)
+               stmt.init.forEach(expr => countExpr(expr, currentScope));
+            break;
+
+         case "AssignmentStatement":
+            stmt.variables.forEach(v => countExpr(v, currentScope));
+            stmt.init.forEach(expr => countExpr(expr, currentScope));
+            break;
+
+         case "CallStatement":
+            countExpr(stmt.expression, currentScope);
+            break;
+
+         case "ReturnStatement":
+            stmt.arguments.forEach(arg => countExpr(arg, currentScope));
+            break;
+
+         case "IfStatement":
+            stmt.clauses.forEach(clause => {
+               if (clause.type !== "ElseClause" && clause.condition)
+                  countExpr(clause.condition, currentScope);
+               processScope(clause.body, stmt, currentScope, scopeParents);
+            });
+            break;
+
+         case "WhileStatement":
+            countExpr(stmt.condition, currentScope);
+            processScope(stmt.body, stmt, currentScope, scopeParents);
+            break;
+
+         case "RepeatStatement":
+            processScope(stmt.body, stmt, currentScope, scopeParents);
+            countExpr(stmt.condition, currentScope);
+            break;
+
+         case "ForNumericStatement":
+            countExpr(stmt.start, currentScope);
+            countExpr(stmt.end, currentScope);
+            if (stmt.step)
+               countExpr(stmt.step, currentScope);
+            processScope(stmt.body, stmt, currentScope, scopeParents);
+            break;
+
+         case "ForGenericStatement":
+            stmt.iterators.forEach(it => countExpr(it, currentScope));
+            processScope(stmt.body, stmt, currentScope, scopeParents);
+            break;
+
+         case "FunctionDeclaration":
+            processScope(stmt.body, stmt, currentScope, scopeParents);
+            break;
+
+         case "DoStatement":
+            processScope(stmt.body, stmt, currentScope, scopeParents);
+            break;
+      }
+   }
+
+   const scopeParents = buildScopeHierarchy(ast, processScope);
+   const aliasable = tracker.getAliasableItems(strategy.shouldAlias);
+   if (aliasable.length === 0)
+      return ast;
+
+   aliasable.forEach(info => {
+      info.targetScope = findCommonAncestor(info.scopes, scopeParents, ast);
+   });
+
+   const declarationsByScope = new Map<ScopeNode, AliasInfo[]>();
+   aliasable.forEach(info => {
+      const scope = info.targetScope!;
+      if (!declarationsByScope.has(scope))
+         declarationsByScope.set(scope, []);
+      declarationsByScope.get(scope)!.push(info);
+   });
+
+   function replaceInStatement(stmt: luaparse.Statement): void {
+      if (!stmt)
+         return;
+
+      switch (stmt.type) {
+         case "LocalStatement":
+            if (stmt.init)
+               stmt.init = stmt.init.map(expr => strategy.replaceExpression(expr, tracker));
+            break;
+
+         case "AssignmentStatement":
+            stmt.variables = stmt.variables.map(
+               v => strategy.replaceExpression(v, tracker) as luaparse.Identifier | luaparse.MemberExpression |
+                  luaparse.IndexExpression);
+            stmt.init = stmt.init.map(expr => strategy.replaceExpression(expr, tracker));
+            break;
+
+         case "CallStatement":
+            stmt.expression = strategy.replaceExpression(stmt.expression, tracker) as luaparse.CallExpression |
+               luaparse.TableCallExpression | luaparse.StringCallExpression;
+            break;
+
+         case "ReturnStatement":
+            stmt.arguments = stmt.arguments.map(arg => strategy.replaceExpression(arg, tracker));
+            break;
+
+         case "IfStatement":
+            stmt.clauses.forEach(clause => {
+               if (clause.type !== "ElseClause" && clause.condition)
+                  clause.condition = strategy.replaceExpression(clause.condition, tracker);
+               clause.body.forEach(s => replaceInStatement(s));
+            });
+            break;
+
+         case "WhileStatement":
+            stmt.condition = strategy.replaceExpression(stmt.condition, tracker);
+            stmt.body.forEach(s => replaceInStatement(s));
+            break;
+
+         case "RepeatStatement":
+            stmt.body.forEach(s => replaceInStatement(s));
+            stmt.condition = strategy.replaceExpression(stmt.condition, tracker);
+            break;
+
+         case "ForNumericStatement":
+            stmt.start = strategy.replaceExpression(stmt.start, tracker);
+            stmt.end = strategy.replaceExpression(stmt.end, tracker);
+            if (stmt.step)
+               stmt.step = strategy.replaceExpression(stmt.step, tracker);
+            stmt.body.forEach(s => replaceInStatement(s));
+            break;
+
+         case "ForGenericStatement":
+            stmt.iterators = stmt.iterators.map(it => strategy.replaceExpression(it, tracker));
+            stmt.body.forEach(s => replaceInStatement(s));
+            break;
+
+         case "FunctionDeclaration":
+            stmt.body.forEach(s => replaceInStatement(s));
+            break;
+
+         case "DoStatement":
+            stmt.body.forEach(s => replaceInStatement(s));
+            break;
+      }
+   }
+
+   ast.body.forEach(stmt => replaceInStatement(stmt));
+   insertDeclarationsIntoScopes(ast, declarationsByScope);
+   return ast;
+}
