@@ -619,6 +619,45 @@ local function fn() z=z+1 if abc() then y=2 end z=z-1 end
 `;
             assert.equal(output.trim(), expected.trim());
          });
+
+      //////////////////////////////////////////////////////////////////////////////////////////
+      it("pretty mode indents elseif/else at the current block level", () => {
+         const input = `
+do
+do
+do
+
+if x then
+ y()
+elseif z then
+ z()
+else
+ j()
+end
+
+end
+end
+end
+`;
+
+         const output = runLua(input, {lineBehavior: "pretty", maxIndentLevel: 50});
+         const expected = `
+do
+ do
+  do
+   if x then
+    y()
+   elseif z then
+    z()
+   else
+    j()
+   end
+  end
+ end
+end
+`;
+         assert.equal(output.trim(), expected.trim());
+      });
    }); // describe Line Formatting
 
    describe("Minification Directives", () => {

@@ -447,6 +447,12 @@ export class LuaPrinter {
          case "IfStatement": {
             const ifs = node as luaparse.IfStatement;
             ifs.clauses.forEach((clause, idx) => {
+               // The enclosing block printer (`printBlock`) emits indentation only once for the
+               // top-level statement. Subsequent clauses need to re-emit indentation explicitly,
+               // otherwise `elseif`/`else` start at column 0.
+               if (idx > 0) {
+                  this.printIndent();
+               }
                if (clause.type === "IfClause") {
                   this.emitKeyword("if");
                   this.emit(" ");
