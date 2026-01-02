@@ -30,8 +30,8 @@ const instrumentKeyMap = '0123456789abcdef'.split('');
 const commandKeyMap = 'mcjspvd'.split('');
 const paramKeyMap = instrumentKeyMap;
 
-// Somatic-specific pattern command keys (POC: effect strength scale)
-const somaticCommandKeyMap = 'e'.split('');
+// Somatic-specific pattern command keys: 'e' = effect strength scale, 'l' = set LFO phase
+const somaticCommandKeyMap = 'el'.split('');
 const somaticParamKeyMap = instrumentKeyMap;
 
 

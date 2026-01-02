@@ -570,9 +570,21 @@ do
 				local columnIndex0b = orderEntry[ch + 1]
 				local cells = columnIndex0b ~= nil and patternExtra[columnIndex0b] or nil
 				local cell = cells and cells[row + 1] or nil
-				-- effectId: 0=none; 1='E'
+				-- effectId: 0=none; 1='E'; 2='L'
 				if cell and cell.effectId == 1 then
+					-- 'E': Set effect strength scale
 					ch_effect_strength_scale_u8[ch + 1] = cell.paramU8 or 255
+				elseif cell and cell.effectId == 2 then
+					-- 'L': Set LFO phase for the instrument playing on this channel
+					local instId = ch_sfx_id[ch + 1]
+					if instId and instId >= 0 then
+						local cfg = morphMap and morphMap[instId]
+						local cycle = cfg and cfg.lfoCycleTicks12 or 0
+						if cycle > 0 then
+							-- paramU8 0x00..0xFF maps to phase 0..cycle
+							lfo_ticks_by_sfx[instId] = math.floor((cell.paramU8 or 0) / 255 * cycle)
+						end
+					end
 				end
 			end
 

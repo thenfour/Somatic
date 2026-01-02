@@ -808,7 +808,7 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 	last_music_frame = frame
 	last_music_row = row
 
-	-- Apply Somatic per-pattern extra commands (currently: E param => effect strength scale)
+	-- Apply Somatic per-pattern extra commands: E = effect strength scale, L = set LFO phase
 	local songPosition0b = peek(BRIDGE_CONFIG.memory.MUSIC_STATE_SOMATIC_SONG_POSITION)
 	if songPosition0b ~= nil and songPosition0b ~= 0xFF then
 		local base = ADDR.TF_ORDER_LIST_ENTRIES + songPosition0b * 4
@@ -817,7 +817,19 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 			local cells = read_pattern_extra_cells(columnIndex0b)
 			local cell = cells and cells[row + 1] or nil
 			if cell and cell.effectId == 1 then
+				-- 'E': Set effect strength scale
 				ch_effect_strength_scale_u8[ch + 1] = cell.paramU8 or 255
+			elseif cell and cell.effectId == 2 then
+				-- 'L': Set LFO phase for the instrument playing on this channel
+				local instId = ch_sfx_id[ch + 1]
+				if instId and instId >= 0 then
+					local cfg = read_sfx_cfg(instId)
+					local cycle = cfg and cfg.lfoCycleInTicks or 0
+					if cycle > 0 then
+						-- paramU8 0x00..0xFF maps to phase 0..cycle
+						lfo_ticks_by_sfx[instId] = math.floor((cell.paramU8 or 0) / 255 * cycle)
+					end
+				end
 			end
 		end
 	end
