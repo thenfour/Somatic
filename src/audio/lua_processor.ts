@@ -215,10 +215,12 @@ export class LuaPrinter {
          }
          case "ReturnStatement": {
             const st = stmt as luaparse.ReturnStatement;
-            tokens.push("return");
-            // Each return argument is a separate token for flexible packing
-            for (const arg of st.arguments) {
-               tokens.push(this.expr(arg));
+            if (st.arguments.length > 0) {
+               // Keep return with all its comma-separated arguments as one token
+               // to preserve required commas between multiple return values
+               tokens.push("return " + st.arguments.map(a => this.expr(a)).join(","));
+            } else {
+               tokens.push("return");
             }
             break;
          }

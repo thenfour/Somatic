@@ -551,23 +551,17 @@ end
 `;
 
          /*
-with max line len 42, currently getting:
+with max line len 42, the key is that 'end' should be packed with subsequent statements
+when there's room, rather than leaving short lines.
 
-local function fn() return some_call()
-end
-local x=1
-local function fn2() return some_call()
-end
-
-which is not correct; the second line is only 3 chars and could hold `local x=1`
-
+Note: 'return some_call()' must stay together as a unit for valid Lua syntax.
 */
 
          const output = runLua(input, {lineBehavior: "tight", maxLineLength: 42});
          const expected = `
 local function fn() return some_call()
-end local x=1 local function fn2() return
-some_call() end
+end local x=1 local function fn2()
+return some_call() end
 `;
          assert.equal(
             output.trim(),
