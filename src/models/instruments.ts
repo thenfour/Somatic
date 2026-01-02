@@ -1,6 +1,7 @@
 // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
 import {clamp, CoalesceBoolean} from "../utils/utils";
 import {Tic80Caps} from "./tic80Capabilities";
+import {WaveformBaseDto} from "./waveform";
 
 export type SomaticInstrumentWaveEngine = "morph"|"native"|"pwm";
 
@@ -10,11 +11,11 @@ export type SomaticWaveformEffect = "none"|"lowpass"|"wavefold";
 
 export type SomaticEffectKind = "none"|"wavefold"|"hardSync";
 
-export type WaveformMorphGradientNodeDto = {
-   amplitudes: number[]; // length = 32, values 0-15
+export interface WaveformMorphGradientNodeDto extends WaveformBaseDto {
    durationSeconds: number;
    curveN11: number; // -1..+1
-};
+}
+;
 
 export type WaveformMorphGradientNode = {
    amplitudes: Uint8Array; // length = 32, values 0-15

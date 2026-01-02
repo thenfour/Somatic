@@ -2,9 +2,12 @@
 
 import {Tic80Caps} from "./tic80Capabilities";
 
-export interface Tic80WaveformDto {
-   name: string;
+export interface WaveformBaseDto {
    amplitudes: number[]; // length = 32
+}
+
+export interface Tic80WaveformDto extends WaveformBaseDto {
+   name: string;
 }
 ;
 

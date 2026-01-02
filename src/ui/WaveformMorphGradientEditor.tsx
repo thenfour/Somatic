@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useClipboard } from "../hooks/useClipboard";
 import { Tic80Instrument } from "../models/instruments";
 import { Song } from "../models/song";
 import { SomaticCaps, Tic80Caps } from "../models/tic80Capabilities";
 import { clamp } from "../utils/utils";
 import { MorphGradientPreview } from "./MorphGradientPreview";
 import { Tic80Waveform } from "../models/waveform";
+import { Tic80WaveformDto } from "../models/waveform";
 import { WaveformSwatch } from "./waveformSwatch";
 import { WaveformCanvas } from "./waveform_canvas";
 import { ContinuousKnob, ContinuousParamConfig } from "./basic/knob";
@@ -34,6 +36,7 @@ export const WaveformMorphGradientEditor: React.FC<{
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
 }> = ({ song, instrument, instrumentIndex, onSongChange }) => {
     const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
+    const clipboard = useClipboard();
     const nodes = instrument.morphGradientNodes ?? [];
 
     const canAdd = nodes.length < SomaticCaps.maxMorphGradientNodes;
@@ -126,6 +129,33 @@ export const WaveformMorphGradientEditor: React.FC<{
         });
     };
 
+    const handleCopyNode = async (index: number) => {
+        const n = instrument.morphGradientNodes?.[index];
+        if (!n) return;
+        const wf = new Tic80Waveform({ name: '', amplitudes: [...n.amplitudes] });
+        await clipboard.copyObjectToClipboard(wf.toData());
+    };
+
+    const handlePasteNode = async (index: number) => {
+        const data = await clipboard.readObjectFromClipboard<Tic80WaveformDto>();
+        if (!data) return;
+        const wf = Tic80Waveform.fromData(data);
+        const maxAmp = Tic80Caps.waveform.amplitudeRange - 1;
+        onSongChange({
+            description: 'Paste waveform into morph node',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                const n = inst.morphGradientNodes?.[index];
+                if (!n) throw new Error(`Missing morph node ${index}`);
+                const len = Math.min(Tic80Caps.waveform.pointCount, wf.amplitudes.length);
+                for (let i = 0; i < len; i++) {
+                    n.amplitudes[i] = clamp(Math.trunc(wf.amplitudes[i] ?? 0), 0, maxAmp);
+                }
+            },
+        });
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
             <div style={{ maxWidth: 520 }}>
@@ -151,6 +181,24 @@ export const WaveformMorphGradientEditor: React.FC<{
                                     dur: {Math.round(node.durationSeconds * 1000)}ms, curve: {node.curveN11.toFixed(2)}
                                 </div>
                             </div>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleCopyNode(idx);
+                                }}
+                            >
+                                Copy
+                            </button>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handlePasteNode(idx);
+                                }}
+                            >
+                                Paste
+                            </button>
                             <button onClick={(e) => { e.stopPropagation(); removeNode(idx); }}>Remove</button>
                         </div>
 
