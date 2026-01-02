@@ -262,51 +262,74 @@ function removeUnusedLocalsInBlock(body: luaparse.Statement[]): luaparse.Stateme
    for (let i = body.length - 1; i >= 0; i--) {
       const stmt = rewriteChildBlocks(body[i]);
 
-      if (stmt.type === "LocalStatement") {
-         const decls = stmt.variables.filter(v => v.type === "Identifier").map(v => (v as luaparse.Identifier).name);
-         const hasSideEffects = (stmt.init || []).some(expr => exprHasSideEffects(expr));
-         const anyUsed = decls.some(name => used.has(name));
-
-         if (!anyUsed && !hasSideEffects)
-            continue; // drop entirely
-
-         const reads = new Set<string>();
-         if (stmt.init)
-            stmt.init.forEach(expr => collectReadsFromExpression(expr, reads));
-         reads.forEach(name => used.add(name));
-         decls.forEach(name => used.delete(name));
-         kept.push(stmt);
-         continue;
-      }
-
       const reads = new Set<string>();
       collectReadsFromStatement(stmt, reads);
-      reads.forEach(name => used.add(name));
 
+      const defs = new Set<string>();
       switch (stmt.type) {
+         case "LocalStatement":
+            stmt.variables.forEach(v => {
+               if (v.type === "Identifier")
+                  defs.add(v.name);
+            });
+            break;
          case "AssignmentStatement":
             stmt.variables.forEach(v => {
                if (v.type === "Identifier")
-                  used.delete(v.name);
+                  defs.add(v.name);
             });
             break;
          case "ForNumericStatement":
             if (stmt.variable.type === "Identifier")
-               used.delete(stmt.variable.name);
+               defs.add(stmt.variable.name);
             break;
          case "ForGenericStatement":
             stmt.variables.forEach(v => {
                if (v.type === "Identifier")
-                  used.delete(v.name);
+                  defs.add(v.name);
             });
             break;
          case "FunctionDeclaration":
             if (stmt.identifier && stmt.identifier.type === "Identifier")
-               used.delete(stmt.identifier.name);
+               defs.add(stmt.identifier.name);
             break;
          default:
             break;
       }
+
+      if (stmt.type === "LocalStatement") {
+         const hasSideEffects = (stmt.init || []).some(expr => exprHasSideEffects(expr));
+         const usedAfter = new Set(used);
+         const liveDefs = [...defs].some(name => usedAfter.has(name));
+
+         if (!liveDefs && !hasSideEffects) {
+            // Drop the local entirely; since it is removed, do not add its reads.
+            continue;
+         }
+
+         // used_before = reads ∪ (used_after − defs)
+         const nextUsed = new Set<string>();
+         used.forEach(name => {
+            if (!defs.has(name))
+               nextUsed.add(name);
+         });
+         reads.forEach(name => nextUsed.add(name));
+         used.clear();
+         nextUsed.forEach(name => used.add(name));
+
+         kept.push(stmt);
+         continue;
+      }
+
+      // Generic statement: used_before = reads ∪ (used_after − defs)
+      const nextUsed = new Set<string>();
+      used.forEach(name => {
+         if (!defs.has(name))
+            nextUsed.add(name);
+      });
+      reads.forEach(name => nextUsed.add(name));
+      used.clear();
+      nextUsed.forEach(name => used.add(name));
 
       kept.push(stmt);
    }

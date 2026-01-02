@@ -254,6 +254,20 @@ fn(y)
          assert.equal(output, expected);
       });
 
+      it("should keep locals that are read after self-updates", () => {
+         const input = `
+local y=2
+y=y+8
+print(y)
+`;
+         const output = runLua(input, {removeUnusedLocals: true});
+         const expected = `local y=2
+y=y+8
+print(y)
+`;
+         assert.equal(output, expected);
+      });
+
       it("should keep locals when initializers have side effects", () => {
          const input = `
 local x=foo()
