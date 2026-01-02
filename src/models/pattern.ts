@@ -140,6 +140,10 @@ export type PatternEffectCarryState = {
          effectX: number;
          effectY: number
       }>;
+
+   // Map from Somatic pattern command index to its carry-over param byte.
+   // Only includes values that are considered non-nominal and should be warned about.
+   somaticCommandStates: Map<number, {paramU8: number}>;
 };
 
 export type PatternPlaybackAnalysis = {
@@ -167,14 +171,22 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
    });
 
    // Effect carry state per channel.
-   const fxCarryByChannel: PatternEffectCarryState[] = Array.from({length: channelCount}, () => ({
-                                                                                             commandStates: new Map<
-                                                                                                number, // command
-                                                                                                {
-                                                                                                   effectX: number;
-                                                                                                   effectY: number;
-                                                                                                }>(),
-                                                                                          }));
+   const fxCarryByChannel: PatternEffectCarryState[] =
+      Array.from({length: channelCount}, () => ({
+                                            commandStates: new Map<
+                                               number, // command
+                                               {
+                                                  effectX: number;
+                                                  effectY: number;
+                                               }>(),
+                                            somaticCommandStates: new Map<
+                                               number, // somatic command index
+                                               {paramU8: number}>(),
+                                         }));
+
+   // Somatic command semantics (POC)
+   const SOMATIC_CMD_EFFECT_STRENGTH_SCALE = 0; // 'E'
+   const SOMATIC_CMD_EFFECT_STRENGTH_SCALE_NOMINAL = 0xff;
 
    // init k-rate render slot per channel (for sustaining notes).
    const activeKRateSlotByChannel: (number|null)[] = Array.from({length: channelCount}, () => null);
@@ -200,6 +212,23 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
                   stateMap.delete(cmd);
                } else {
                   stateMap.set(cmd, {effectX: x, effectY: y});
+               }
+            }
+         }
+
+         // Somatic effect carry (separate command space from TIC-80 effect commands)
+         if (cell.somaticEffect !== undefined && cell.somaticEffect !== null) {
+            const somCmd = cell.somaticEffect | 0;
+            const paramU8 = (cell.somaticParam ?? SOMATIC_CMD_EFFECT_STRENGTH_SCALE_NOMINAL) & 0xff;
+            const stateMap = fxCarryByChannel[channelIndex].somaticCommandStates;
+
+            // Currently only the 'E' command is supported.
+            if (somCmd === SOMATIC_CMD_EFFECT_STRENGTH_SCALE) {
+               // 0xFF is the nominal value; we do not warn about carrying this over.
+               if (paramU8 === SOMATIC_CMD_EFFECT_STRENGTH_SCALE_NOMINAL) {
+                  stateMap.delete(somCmd);
+               } else {
+                  stateMap.set(somCmd, {paramU8});
                }
             }
          }

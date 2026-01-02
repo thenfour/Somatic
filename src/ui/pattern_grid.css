@@ -488,3 +488,8 @@
     text-align: center;
     white-space: normal;
 }
+
+.pattern-grid tfoot .pattern-grid-carry-cell.pattern-grid-carry-cell--warn {
+    color: var(--error-accent);
+    font-weight: 600;
+}

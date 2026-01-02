@@ -1497,9 +1497,16 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         if (!cmdState) continue;
                                         entries.push(`${formatCommand(cmd)}${formatParams(cmdState.effectX, cmdState.effectY)}`);
                                     }
+
+                                    for (let somCmd = 0; somCmd < somaticCommandKeyMap.length; somCmd++) {
+                                        const somState = s?.somaticCommandStates.get(somCmd);
+                                        if (!somState) continue;
+                                        entries.push(`${formatSomaticCommand(somCmd)}${formatSomaticParam(somState.paramU8)}`);
+                                    }
+
                                     const label = entries.length === 0 ? '' : entries.join(' ');
                                     return (
-                                        <th key={channelIndex} colSpan={CELLS_PER_CHANNEL} className="pattern-grid-carry-cell">
+                                        <th key={channelIndex} colSpan={CELLS_PER_CHANNEL} className={`pattern-grid-carry-cell${entries.length ? ' pattern-grid-carry-cell--warn' : ''}`}>
                                             {label}
                                         </th>
                                     );
