@@ -10,7 +10,7 @@
     "watch": "webpack --watch",
     "start": "webpack serve --open",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --import tsx --test tests/lua_optimizer.test.ts"
   },
   "author": "Matt Westcott",
   "license": "ISC",
@@ -36,6 +36,7 @@
     "ssh2-sftp-client": "^12.0.1",
     "style-loader": "^4.0.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.3",
     "webpack": "^5.76.0",
     "webpack-cli": "^6.0.1",
