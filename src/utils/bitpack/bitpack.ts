@@ -1,4 +1,5 @@
-import {MemoryRegion, RegionCursor} from "./MemoryRegion";
+import {MemoryRegion, BitCursor} from "./MemoryRegion";
+import {assertBitsFitInRegion, maskLowBits} from "./utils";
 
 export type BitSize = number|"variable";
 
@@ -25,40 +26,24 @@ type LayoutItem = {
 };
 
 
-function _requireBitsInRegion(region: MemoryRegion, bitOffset: number, bitsNeeded: number, ctx: string) {
-   const totalBits = region.size * 8;
-   if (bitOffset < 0 || bitOffset + bitsNeeded > totalBits) {
-      throw new Error(
-         `${ctx}: out of bounds (need ${bitsNeeded} bits at bitOffset ${bitOffset}, region=${region.toString()})`);
-   }
-}
-
-function _maskBits(k: number) {
-   if (k <= 0)
-      return 0;
-   if (k >= 32)
-      return 0xFFFFFFFF >>> 0;
-   return (Math.pow(2, k) - 1) >>> 0;
-}
-
 class BitReader {
    u8: Uint8Array;
    region: MemoryRegion;
-   cur: RegionCursor;
-   constructor(u8: Uint8Array, region: MemoryRegion, cursor = new RegionCursor(region, 0)) {
+   cur: BitCursor;
+   constructor(u8: Uint8Array, region: MemoryRegion, cursor = new BitCursor(region, 0)) {
       this.u8 = u8;
       this.region = region;
       this.cur = cursor;
    }
-   alignToByte() {
-      this.cur.alignToByte();
+   advanceToNextByteBoundary() {
+      this.cur.advanceToNextByteBoundary();
       return this;
    }
    readBitsU(n: number) {
       n |= 0;
       if (n < 0 || n > 32)
          throw new Error(`readBitsU: n must be 0..32, got ${n}`);
-      _requireBitsInRegion(this.region, this.cur.bitOffset, n, "BitReader.readBitsU");
+      assertBitsFitInRegion(this.region, this.cur.bitOffset, n, "BitReader.readBitsU");
       let remaining = n;
       let out = 0 >>> 0;
       let outShift = 0;
@@ -68,7 +53,7 @@ class BitReader {
          const avail = 8 - bitInByte;
          const k = remaining < avail ? remaining : avail;
          const byteVal = this.u8[absByte] >>> 0;
-         const part = (byteVal >>> bitInByte) & _maskBits(k);
+         const part = (byteVal >>> bitInByte) & maskLowBits(k);
          out = (out | ((part << outShift) >>> 0)) >>> 0;
          this.cur.seekBits(k);
          outShift += k;
@@ -87,15 +72,15 @@ class BitReader {
       return (u & signBit) ? (u - Math.pow(2, n)) : u;
    }
    readU8() {
-      this.alignToByte();
+      this.advanceToNextByteBoundary();
       return this.readBitsU(8);
    }
    readI8() {
-      this.alignToByte();
+      this.advanceToNextByteBoundary();
       return this.readBitsI(8);
    }
    readU16LE() {
-      this.alignToByte();
+      this.advanceToNextByteBoundary();
       const lo = this.readBitsU(8);
       const hi = this.readBitsU(8);
       return (lo | (hi << 8)) >>> 0;
@@ -105,7 +90,7 @@ class BitReader {
       return (u & 0x8000) ? (u - 0x10000) : u;
    }
    readU16BE() {
-      this.alignToByte();
+      this.advanceToNextByteBoundary();
       const hi = this.readBitsU(8);
       const lo = this.readBitsU(8);
       return ((hi << 8) | lo) >>> 0;
@@ -119,21 +104,21 @@ class BitReader {
 class BitWriter {
    u8: Uint8Array;
    region: MemoryRegion;
-   cur: RegionCursor;
-   constructor(u8: Uint8Array, region: MemoryRegion, cursor = new RegionCursor(region, 0)) {
+   cur: BitCursor;
+   constructor(u8: Uint8Array, region: MemoryRegion, cursor = new BitCursor(region, 0)) {
       this.u8 = u8;
       this.region = region;
       this.cur = cursor;
    }
-   alignToByte() {
-      this.cur.alignToByte();
+   advanceToNextByteBoundary() {
+      this.cur.advanceToNextByteBoundary();
       return this;
    }
    writeBitsU(n: number, value: number) {
       n |= 0;
       if (n < 0 || n > 32)
          throw new Error(`writeBitsU: n must be 0..32, got ${n}`);
-      _requireBitsInRegion(this.region, this.cur.bitOffset, n, "BitWriter.writeBitsU");
+      assertBitsFitInRegion(this.region, this.cur.bitOffset, n, "BitWriter.writeBitsU");
       let v = (n === 32) ? (value >>> 0) : (value >>> 0);
       if (n < 32) {
          const max = Math.pow(2, n) - 1;
@@ -148,7 +133,7 @@ class BitWriter {
          const bitInByte = this.cur.bitIndexInByte();
          const avail = 8 - bitInByte;
          const k = remaining < avail ? remaining : avail;
-         const mask = _maskBits(k);
+         const mask = maskLowBits(k);
          const part = (v >>> inShift) & mask;
          const clearMask = (~(mask << bitInByte)) & 0xFF;
          const prev = this.u8[absByte] >>> 0;
@@ -177,15 +162,15 @@ class BitWriter {
       return this;
    }
    writeU8(v: number) {
-      this.alignToByte();
+      this.advanceToNextByteBoundary();
       return this.writeBitsU(8, v);
    }
    writeI8(v: number) {
-      this.alignToByte();
+      this.advanceToNextByteBoundary();
       return this.writeBitsI(8, v);
    }
    writeU16LE(v: number) {
-      this.alignToByte();
+      this.advanceToNextByteBoundary();
       this.writeBitsU(8, v & 0xFF);
       this.writeBitsU(8, (v >>> 8) & 0xFF);
       return this;
@@ -194,7 +179,7 @@ class BitWriter {
       return this.writeU16LE(v & 0xFFFF);
    }
    writeU16BE(v: number) {
-      this.alignToByte();
+      this.advanceToNextByteBoundary();
       this.writeBitsU(8, (v >>> 8) & 0xFF);
       this.writeBitsU(8, v & 0xFF);
       return this;
@@ -213,6 +198,24 @@ function _codec<T>(
    return {node, bitSize, encode, decode};
 }
 
+/**
+ * Codec factory – Domain-Specific Language (DSL) for defining binary data schemas.
+ * 
+ * Use this to build codecs for bit-packed binary formats. Each codec knows how to:
+ * - Encode values to a BitWriter
+ * - Decode values from a BitReader
+ * - Report its size in bits (or "variable" for dynamic sizes)
+ * 
+ * Example:
+ * ```typescript
+ * const MyStructCodec = C.struct("MyStruct", [
+ *    C.field("flags", C.u(3)),
+ *    C.field("value", C.i(16)),
+ *    C.alignToByte(),
+ *    C.field("data", C.array("data", C.u8(), 4))
+ * ]);
+ * ```
+ */
 const C = {
    u: (n: number): Codec<number> => {
       n |= 0;
@@ -242,10 +245,10 @@ const C = {
    alignToByte: (): Codec<void> => _codec(
       {kind: "alignToByte"},
       (_v: void, w: BitWriter) => {
-         w.alignToByte();
+         w.advanceToNextByteBoundary();
       },
       (r: BitReader) => {
-         r.alignToByte();
+         r.advanceToNextByteBoundary();
          return undefined;
       },
       "variable"),
@@ -409,7 +412,7 @@ const C = {
                throw new Error(`varArray(${name}): length out of range: ${len} (max ${maxCount})`);
             lengthCodec.encode(len, w);
             if (alignToByteAfterLength)
-               w.alignToByte();
+               w.advanceToNextByteBoundary();
             for (let i = 0; i < len; i++)
                elemCodec.encode(arr[i], w);
          },
@@ -418,7 +421,7 @@ const C = {
             if (len < 0 || len > maxCount)
                throw new Error(`varArray(${name}): decoded length out of range: ${len} (max ${maxCount})`);
             if (alignToByteAfterLength)
-               r.alignToByte();
+               r.advanceToNextByteBoundary();
             const out: T[] = new Array(len);
             for (let i = 0; i < len; i++)
                out[i] = elemCodec.decode(r);
@@ -429,4 +432,4 @@ const C = {
    },
 };
 
-export {MemoryRegion, RegionCursor, BitReader, BitWriter, C};
+export {MemoryRegion, BitCursor, BitReader, BitWriter, C};

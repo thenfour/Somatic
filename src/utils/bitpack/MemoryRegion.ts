@@ -68,7 +68,7 @@ export class MemoryRegion {
       return `0x${this.address.toString(16)}`;
    }
    // Get a new region representing the remaining space after allocating from bottom
-   remaining(allocatedFromBottom: number): MemoryRegion {
+   remainingAfterBottomAllocation(allocatedFromBottom: number): MemoryRegion {
       if (allocatedFromBottom > this.size) {
          throw new Error(`Allocated ${allocatedFromBottom} exceeds size ${this.size} of ${this.name}`);
       }
@@ -77,7 +77,11 @@ export class MemoryRegion {
    }
 }
 
-export class RegionCursor {
+/**
+ * A cursor that tracks a bit-level position within a memory region.
+ * Unlike conventional byte-based cursors, this operates at bit granularity.
+ */
+export class BitCursor {
    region: MemoryRegion;
    bitOffset: number;
    constructor(region: MemoryRegion, bitOffset = 0) {
@@ -85,7 +89,7 @@ export class RegionCursor {
       this.bitOffset = bitOffset | 0;
    }
    clone() {
-      return new RegionCursor(this.region, this.bitOffset);
+      return new BitCursor(this.region, this.bitOffset);
    }
    tellBits() {
       return this.bitOffset;
@@ -103,7 +107,11 @@ export class RegionCursor {
       this.bitOffset = (this.bitOffset + (deltaBits | 0)) | 0;
       return this;
    }
-   alignToByte() {
+   /**
+    * Advances the cursor to the next byte boundary if not already aligned.
+    * If already at a byte boundary, no change occurs.
+    */
+   advanceToNextByteBoundary() {
       const m = this.bitOffset & 7;
       if (m !== 0)
          this.bitOffset = (this.bitOffset + (8 - m)) | 0;

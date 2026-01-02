@@ -386,7 +386,7 @@ export function encodeSomaticExtraSongDataPayload(input: SomaticExtraSongDataInp
    // Instruments (fixed-size entries)
    for (let i = 0; i < input.instruments.length; i++) {
       const entry = input.instruments[i];
-      writer.alignToByte();
+      writer.advanceToNextByteBoundary();
       const packed = flattenEntry(entry);
       // Fill in gradient offset if this instrument has an associated blob.
       const g = gradients.find((x) => x.instrumentIndex === i);
@@ -399,14 +399,14 @@ export function encodeSomaticExtraSongDataPayload(input: SomaticExtraSongDataInp
 
    // Patterns (fixed-size entries)
    for (const entry of input.patterns) {
-      writer.alignToByte();
+      writer.advanceToNextByteBoundary();
       const normalized = normalizeSomaticPatternEntry(entry);
       SomaticPatternEntryCodec.encode(normalized, writer);
    }
 
    // Gradient blobs (variable-size)
    for (const g of gradients) {
-      writer.alignToByte();
+      writer.advanceToNextByteBoundary();
       const expectedByteOff = g.offsetBytes;
       const actualByteOff = writer.cur.tellBytesFloor();
       if (actualByteOff !== expectedByteOff) {
@@ -434,7 +434,7 @@ export function encodeMorphPayload(entries: MorphEntryInput[], totalBytes?: numb
 
    MorphHeaderCodec.encode({entryCount}, writer);
    for (const entry of entries) {
-      writer.alignToByte(); // ensure each entry starts on a byte boundary for the Lua decoder
+      writer.advanceToNextByteBoundary(); // ensure each entry starts on a byte boundary for the Lua decoder
       const packed = flattenEntry(entry);
       const normalized = normalizeMorphEntry(packed);
       MorphEntryCodec.encode(normalized, writer);
