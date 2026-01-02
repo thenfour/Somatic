@@ -1,4 +1,5 @@
--- Somatic playroutine.
+-- BEGIN_DISABLE_MINIFICATION
+-- (begin Somatic playroutine)
 
 -- BEGIN_DEBUG_ONLY
 local LOG_LINES = 15
@@ -15,7 +16,9 @@ local function log(s)
 	end
 end
 -- END_DEBUG_ONLY
+-- END_DISABLE_MINIFICATION
 
+-- (begin somatic playroutine code)
 do
 	-- BEGIN_SOMATIC_MUSIC_DATA
 
@@ -808,8 +811,10 @@ do
 		swapInPlayorder(currentSongOrder, destPointer)
 	end
 end -- do
-
 -- BEGIN_DISABLE_MINIFICATION
+-- (end Somatic playroutine)
+
+-- example main loop...
 local lastKnownOrder = 0
 local lastKnownRow = 0
 function TIC()
