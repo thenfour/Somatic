@@ -21,12 +21,18 @@ import { GlobalActionId } from '../keyb/ActionIds';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 
-const CELLS_PER_CHANNEL = 4;
+type ExtendedCellType = CellType | 'somaticCommand' | 'somaticParam';
+
+const CELLS_PER_CHANNEL = 6;
 const CTRL_ARROW_JUMP_SIZE = 4;
 
 const instrumentKeyMap = '0123456789abcdef'.split('');
 const commandKeyMap = 'mcjspvd'.split('');
 const paramKeyMap = instrumentKeyMap;
+
+// Somatic-specific pattern command keys (POC: effect strength scale)
+const somaticCommandKeyMap = 'e'.split('');
+const somaticParamKeyMap = instrumentKeyMap;
 
 
 const formatMidiNote = (midiNote: number | undefined | null) => {
@@ -55,6 +61,11 @@ const formatCommand = (val: number | undefined | null) => {
     return `${commandKeyMap[val].toUpperCase()}` || '?';
 };
 
+const formatSomaticCommand = (val: number | undefined | null) => {
+    if (val === null || val === undefined) return '-';
+    return `${somaticCommandKeyMap[val].toUpperCase()}` || '?';
+};
+
 const formatParams = (valX: number | undefined | null, valY: number | undefined | null) => {
     // if (valX === null || valX === undefined || valY === null || valY === undefined) return '--';
     // return `${valX.toString(16).toUpperCase().padStart(1, '0')}${valY.toString(16).toUpperCase().padStart(1, '0')}`;
@@ -64,6 +75,11 @@ const formatParams = (valX: number | undefined | null, valY: number | undefined 
     const paramXStr = (valX == null) ? '-' : valX.toString(16).toUpperCase();
     const paramYStr = (valY == null) ? '-' : valY.toString(16).toUpperCase();
     return `${paramXStr}${paramYStr}`;
+};
+
+const formatSomaticParam = (val: number | undefined | null) => {
+    if (val == null) return '--';
+    return (val & 0xFF).toString(16).toUpperCase().padStart(2, '0');
 };
 
 type PatternGridProps = {
@@ -124,7 +140,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const fxCarryTooltip = `Effect command state at the end of this pattern (doesn't consider previous patterns)`;
         const cellRefs = useMemo(
-            () => Array.from({ length: 64 }, () => Array(16).fill(null) as (HTMLTableCellElement | null)[]),
+            () => Array.from({ length: 64 }, () => Array(CELLS_PER_CHANNEL * Tic80Caps.song.audioChannels).fill(null) as (HTMLTableCellElement | null)[]),
             [],
         );
         const editingEnabled = editorState.editingEnabled !== false;
@@ -524,7 +540,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         instrumentIndex: undefined,
                         effect: undefined,
                         effectX: undefined,
-                        effectY: undefined
+                        effectY: undefined,
+                        somaticEffect: undefined,
+                        somaticParam: undefined,
                     });
                 },
             });
@@ -536,7 +554,13 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const channelIndex = editorState.patternEditChannel;
             const columnIndex = currentColumnIndex;
             const cellTypeOffset = columnIndex % CELLS_PER_CHANNEL;
-            const cellType: CellType = cellTypeOffset === 0 ? 'note' : cellTypeOffset === 1 ? 'instrument' : cellTypeOffset === 2 ? 'command' : 'param';
+            const cellType: ExtendedCellType =
+                cellTypeOffset === 0 ? 'note' :
+                    cellTypeOffset === 1 ? 'instrument' :
+                        cellTypeOffset === 2 ? 'command' :
+                            cellTypeOffset === 3 ? 'param' :
+                                cellTypeOffset === 4 ? 'somaticCommand' :
+                                    'somaticParam';
             onSongChange({
                 description: 'Clear field under cursor',
                 undoable: true,
@@ -553,6 +577,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         pat.setCell(channelIndex, rowIndex, { ...oldCell, effect: undefined });
                     } else if (cellType === 'param') {
                         pat.setCell(channelIndex, rowIndex, { ...oldCell, effectX: undefined, effectY: undefined });
+                    } else if (cellType === 'somaticCommand') {
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, somaticEffect: undefined });
+                    } else if (cellType === 'somaticParam') {
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, somaticParam: undefined });
                     }
                 },
             });
@@ -624,6 +652,25 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             return true;
         };
 
+        const handleSomaticCommandKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
+            const idx = somaticCommandKeyMap.indexOf(key);
+            if (idx === -1) return false;
+            onSongChange({
+                description: 'Set Somatic effect command from key',
+                undoable: true,
+                mutator: (s) => {
+                    const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                    const pat = s.patterns[patIndex];
+                    const oldCell = pat.getCell(channelIndex, rowIndex);
+                    pat.setCell(channelIndex, rowIndex, {
+                        ...oldCell,
+                        somaticEffect: idx,
+                    });
+                },
+            });
+            return true;
+        };
+
         const handleParamKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
             const idx = paramKeyMap.indexOf(key);
             if (idx === -1) return false;
@@ -643,6 +690,27 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         ...oldCell,
                         effectX,
                         effectY,
+                    });
+                },
+            });
+            return true;
+        };
+
+        const handleSomaticParamKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
+            const idx = somaticParamKeyMap.indexOf(key);
+            if (idx === -1) return false;
+            onSongChange({
+                description: 'Set Somatic effect param from key',
+                undoable: true,
+                mutator: (s) => {
+                    const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                    const pat = s.patterns[patIndex];
+                    const oldCell = pat.getCell(channelIndex, rowIndex);
+                    const current = oldCell.somaticParam ?? 0;
+                    const next = ((current << 4) | idx) & 0xFF;
+                    pat.setCell(channelIndex, rowIndex, {
+                        ...oldCell,
+                        somaticParam: next,
                     });
                 },
             });
@@ -946,7 +1014,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const target = e.currentTarget;
             const rowIndex = parseInt(target.dataset.rowIndex!, 10);
             const channelIndex = parseInt(target.dataset.channelIndex!, 10) as Tic80ChannelIndex;
-            const cellType = target.dataset.cellType as CellType;
+            const cellType = target.dataset.cellType as ExtendedCellType;
             //const colOffset = cellType === 'note' ? 0 : cellType === 'instrument' ? 1 : cellType === 'command' ? 2 : 3;
             const columnIndex = parseInt(target.dataset.columnIndex!, 10);
             //const col = channelIndex * 4 + colOffset;
@@ -988,6 +1056,18 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 if (handled) {
                     // don't advance after param edit; facilitates typing
                     //advanceAfterCellEdit(rowIndex, columnIndex);
+                    e.preventDefault();
+                }
+            } else if (cellType === 'somaticCommand' && somaticCommandKeyMap.includes(e.key) && !e.repeat) {
+                const handled = handleSomaticCommandKey(channelIndex, rowIndex, e.key);
+                if (handled) {
+                    advanceAfterCellEdit(rowIndex, columnIndex);
+                    e.preventDefault();
+                }
+            } else if (cellType === 'somaticParam' && somaticParamKeyMap.includes(e.key) && !e.repeat) {
+                const handled = handleSomaticParamKey(channelIndex, rowIndex, e.key);
+                if (handled) {
+                    // don't advance after param edit; facilitates typing
                     e.preventDefault();
                 }
             } else if (e.key === '0' && cellType === 'note' && !e.repeat) {
@@ -1228,23 +1308,27 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const [instText, instTooltip] = noteCut ? ["", null] : formatInstrument(row.instrumentIndex, song);
                                             const cmdText = formatCommand(row.effect);
                                             const paramText = formatParams(row.effectX, row.effectY);
+                                            const somCmdText = formatSomaticCommand(row.somaticEffect);
+                                            const somParamText = formatSomaticParam(row.somaticParam);
                                             const noteCol = channelIndex * CELLS_PER_CHANNEL;
                                             const instCol = channelIndex * CELLS_PER_CHANNEL + 1;
                                             const cmdCol = channelIndex * CELLS_PER_CHANNEL + 2;
                                             const paramCol = channelIndex * CELLS_PER_CHANNEL + 3;
-                                            const isEmpty = !row.midiNote && row.effect === undefined && row.instrumentIndex == null && row.effectX === undefined && row.effectY === undefined;
+                                            const somCmdCol = channelIndex * CELLS_PER_CHANNEL + 4;
+                                            const somParamCol = channelIndex * CELLS_PER_CHANNEL + 5;
+                                            const isEmpty = !row.midiNote && row.effect === undefined && row.instrumentIndex == null && row.effectX === undefined && row.effectY === undefined && row.somaticEffect === undefined && row.somaticParam === undefined;
                                             const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
                                             const channelSelected = editorState.isPatternChannelSelected(channelIndex);
                                             const isCellSelected = isRowInSelection && channelSelected;
                                             const isAudible = editorState.isChannelAudible(channelIndex);
 
-                                            const getSelectionClasses = (cellType: CellType) => {
+                                            const getSelectionClasses = (cellType: ExtendedCellType) => {
                                                 if (!isCellSelected || !editorState.patternSelection) return '';
                                                 let classes = ' pattern-cell--selected';
                                                 if (rowIndex === editorState.patternSelection.topInclusive()) classes += ' pattern-cell--selection-top';
                                                 if (rowIndex === editorState.patternSelection.bottomInclusive()) classes += ' pattern-cell--selection-bottom';
                                                 if (channelIndex === editorState.patternSelection.leftInclusive() && cellType === 'note') classes += ' pattern-cell--selection-left';
-                                                if ((channelIndex === editorState.patternSelection.rightInclusive()) && cellType === 'param') classes += ' pattern-cell--selection-right';
+                                                if ((channelIndex === editorState.patternSelection.rightInclusive()) && cellType === 'somaticParam') classes += ' pattern-cell--selection-right';
                                                 return classes;
                                             };
 
@@ -1268,17 +1352,25 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                 errorInRow = true;
                                                 errorText = "Instrument set without a note.";
                                             }
+                                            if (row.somaticEffect === undefined && row.somaticParam !== undefined) {
+                                                errorInRow = true;
+                                                errorText = "Somatic effect parameter set without a Somatic effect command.";
+                                            }
 
                                             const additionalClasses = `${isEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}${isAudible ? '' : ' muted-cell'}`;
                                             const noteSelectionClass = getSelectionClasses('note');
                                             const instSelectionClass = getSelectionClasses('instrument');
                                             const cmdSelectionClass = getSelectionClasses('command');
                                             const paramSelectionClass = getSelectionClasses('param');
+                                            const somCmdSelectionClass = getSelectionClasses('somaticCommand');
+                                            const somParamSelectionClass = getSelectionClasses('somaticParam');
 
                                             const noteClass = `note-cell${additionalClasses}${noteSelectionClass}`;
                                             const instClass = `instrument-cell${additionalClasses}${instSelectionClass}`;
                                             const cmdClass = `command-cell${additionalClasses}${cmdSelectionClass}`;
                                             const paramClass = `param-cell${additionalClasses}${paramSelectionClass}`;
+                                            const somCmdClass = `command-cell${additionalClasses}${somCmdSelectionClass}`;
+                                            const somParamClass = `param-cell${additionalClasses}${somParamSelectionClass}`;
                                             return (
                                                 <React.Fragment key={channelIndex}>
                                                     <td
@@ -1350,6 +1442,38 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-cell-value={`[X=${JSON.stringify(row.effectX)},Y=${JSON.stringify(row.effectY)}]`}
                                                     >
                                                         {paramText}
+                                                    </td>
+                                                    <td
+                                                        tabIndex={0}
+                                                        ref={(el) => (cellRefs[rowIndex][somCmdCol] = el)}
+                                                        className={somCmdClass}
+                                                        onKeyDown={onCellKeyDown}
+                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex })}
+                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
+                                                        onFocus={() => onCellFocus(rowIndex, channelIndex, somCmdCol)}
+                                                        data-row-index={rowIndex}
+                                                        data-channel-index={channelIndex}
+                                                        data-cell-type="somaticCommand"
+                                                        data-column-index={somCmdCol}
+                                                        data-cell-value={`[${JSON.stringify(row.somaticEffect)}]`}
+                                                    >
+                                                        {somCmdText}
+                                                    </td>
+                                                    <td
+                                                        tabIndex={0}
+                                                        ref={(el) => (cellRefs[rowIndex][somParamCol] = el)}
+                                                        className={somParamClass}
+                                                        onKeyDown={onCellKeyDown}
+                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex })}
+                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
+                                                        onFocus={() => onCellFocus(rowIndex, channelIndex, somParamCol)}
+                                                        data-row-index={rowIndex}
+                                                        data-channel-index={channelIndex}
+                                                        data-cell-type="somaticParam"
+                                                        data-column-index={somParamCol}
+                                                        data-cell-value={`[${JSON.stringify(row.somaticParam)}]`}
+                                                    >
+                                                        {somParamText}
                                                     </td>
                                                 </React.Fragment>
                                             );

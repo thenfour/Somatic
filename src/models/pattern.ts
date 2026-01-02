@@ -10,6 +10,12 @@ export type PatternCell = {
    effect?: number;  // 0-7. 0 is the same as null / no effect. 1-7 = MCJSPVD
    effectX?: number; // 0-15
    effectY?: number; // 0-15
+
+   // Somatic-specific pattern effects (not part of TIC-80's native playroutine).
+   // Stored as a 0-based command index (similar to `effect`), or undefined for no command.
+   somaticEffect?: number;
+   // Somatic-specific param byte, 0..255 (typed in as two hex nibbles), or undefined.
+   somaticParam?: number;
 };
 
 export const MakeEmptyPatternCell = (): PatternCell => ({});
