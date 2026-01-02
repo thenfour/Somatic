@@ -160,7 +160,7 @@ const WaveformMorphGradientEditor: React.FC<{
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
             <div style={{ maxWidth: 520 }}>
-                Morph gradients are embedded per-instrument waveforms. The last node's duration/curve is stored but ignored.
+                Morph gradients are embedded per-instrument waveforms (not TIC-80 global waveforms).
             </div>
 
             <MorphGradientPreview nodes={nodes} />
@@ -692,8 +692,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                             { amplitudes: new Uint8Array(amps), durationSeconds: 0.5, curveN11: 0 },
                         ];
                     }
-                } else {
-                    inst.morphGradientNodes = [];
                 }
             },
         });
