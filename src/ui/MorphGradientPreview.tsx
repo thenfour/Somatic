@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Tic80Caps } from '../models/tic80Capabilities';
 import { WaveformMorphGradientNode } from '../models/instruments';
 import { Tic80Waveform } from '../models/waveform';
-import { clamp } from '../utils/utils';
+import { clamp, clamp01, curveT } from '../utils/utils';
 import { WaveformSwatch } from './waveformSwatch';
 
 export const MorphGradientPreview: React.FC<{
@@ -21,17 +21,6 @@ export const MorphGradientPreview: React.FC<{
         if (nodes.length === 1) {
             return new Tic80Waveform({ name: '', amplitudes: [...nodes[0]!.amplitudes] });
         }
-
-        const clamp01 = (v: number) => clamp(v, 0, 1);
-        const applyCurveN11 = (t01: number, curveN11: number) => {
-            const t = clamp01(t01);
-            if (t <= 0) return 0;
-            if (t >= 1) return 1;
-            const k = clamp(curveN11, -1, 1);
-            if (k === 0) return t;
-            const a = (x: number) => 2 ** (4 * x);
-            return k > 0 ? t ** a(k) : 1 - (1 - t) ** a(-k);
-        };
 
         let seg = nodes.length - 2;
         let localT = 1;
@@ -55,7 +44,7 @@ export const MorphGradientPreview: React.FC<{
             localT = x - seg;
         }
 
-        const shapedT = applyCurveN11(localT, nodes[seg]!.curveN11);
+        const shapedT = curveT(localT, nodes[seg]!.curveN11);
         const a = nodes[seg]!.amplitudes;
         const b = nodes[seg + 1]!.amplitudes;
         const maxAmp = Tic80Caps.waveform.amplitudeRange - 1;

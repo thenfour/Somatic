@@ -7,6 +7,7 @@ export function assert(condition: boolean = true, message: string = "Assertion f
 
 export const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
 
+export const clamp01 = (v: number) => clamp(v, 0, 1);
 
 export function IsNullOrWhitespace(str: string|null|undefined): boolean {
    return str === null || str === undefined || str.trim().length === 0;
