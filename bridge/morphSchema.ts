@@ -5,6 +5,7 @@
 // normalization, and Lua minification lists are all derived from it automatically.
 
 import {SomaticCaps, Tic80Caps} from "../src/models/tic80Capabilities";
+import {WaveEngineId} from "../src/models/instruments";
 import {clamp} from "../src/utils/utils";
 import {BitWriter, C, MemoryRegion} from "./bitpack";
 import type {Codec} from "./bitpack";
@@ -175,7 +176,7 @@ const normalizeMorphEntry = makeNormalizer<MorphEntryPacked>(MORPH_ENTRY_FIELDS)
 // Type for the packed/flattened structure (inferred from codec fields)
 export type MorphEntryPacked = {
    instrumentId: number;                 //
-   waveEngineId: number;                 //
+   waveEngineId: WaveEngineId;           //
    sourceWaveformIndex: number;          //
    renderWaveformSlot: number;           //
    gradientOffsetBytes: number;          //
@@ -196,7 +197,7 @@ export type MorphEntryPacked = {
 // Input type with nested config (kept for ergonomic API)
 export type MorphEntryInput = {
    instrumentId: number; cfg: {
-      waveEngineId: number; //
+   waveEngineId: WaveEngineId; //
       sourceWaveformIndex: number;
       renderWaveformSlot: number;
       pwmDuty5: number;               //
@@ -341,9 +342,8 @@ export function encodeSomaticExtraSongDataPayload(input: SomaticExtraSongDataInp
    let blobBytes = 0;
    for (let i = 0; i < instrumentEntryCount; i++) {
       const inst = input.instruments[i];
-      const waveEngineId = inst.cfg.waveEngineId | 0;
-      // 0 = morph (see ToWaveEngineId in tic80_cart_serializer.ts)
-      if (waveEngineId !== 0)
+      const waveEngineId: WaveEngineId = inst.cfg.waveEngineId;
+      if (waveEngineId !== WaveEngineId.morph)
          continue;
 
       const nodes = inst.morphGradientNodes;

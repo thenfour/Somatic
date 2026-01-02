@@ -1,6 +1,7 @@
 import playroutineTemplateTxt from "../../bridge/playroutine.lua";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
-import type {ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument} from "../models/instruments";
+import type {ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument, WaveEngineId} from "../models/instruments";
+import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
 import type {Song} from "../models/song";
 import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
 import {BakedSong, BakeSong} from "../utils/bakeSong";
@@ -28,14 +29,14 @@ const CHUNK = {
 
 const SFX_BYTES_PER_SAMPLE = 66;
 
-function ToWaveEngineId(engine: SomaticInstrumentWaveEngine): number {
+function ToWaveEngineId(engine: SomaticInstrumentWaveEngine): WaveEngineId {
    switch (engine) {
       case "morph":
-         return 0;
+         return WaveEngineIdConst.morph;
       case "native":
-         return 1;
+         return WaveEngineIdConst.native;
       case "pwm":
-         return 2;
+         return WaveEngineIdConst.pwm;
    }
    throw new Error(`Unknown wave engine: ${engine}`);
 };
@@ -44,7 +45,7 @@ type MorphEffectKind = SomaticEffectKind;
 
 type Tic80MorphInstrumentConfig = {
    waveEngine: SomaticInstrumentWaveEngine; //
-   waveEngineId: number;
+   waveEngineId: WaveEngineId;
    sourceWaveformIndex: number; // 0-15
    renderWaveformSlot: number;  // 0-15 also for PWM!
 

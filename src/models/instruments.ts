@@ -5,6 +5,16 @@ import {WaveformBaseDto} from "./waveform";
 
 export type SomaticInstrumentWaveEngine = "morph"|"native"|"pwm";
 
+// Numeric IDs used in the bridge payload schema.
+// Keep these as the single source of truth to avoid scattered magic numbers.
+export const WaveEngineId = {
+   morph: 0,
+   native: 1,
+   pwm: 2,
+} as const;
+
+export type WaveEngineId = (typeof WaveEngineId)[keyof typeof WaveEngineId];
+
 export type ModSource = "envelope"|"lfo";
 
 export type SomaticWaveformEffect = "none"|"lowpass"|"wavefold";
@@ -26,11 +36,11 @@ export type WaveformMorphGradientNode = {
 function coerceWaveEngine(v: any): SomaticInstrumentWaveEngine {
    if (v === "morph" || v === "native" || v === "pwm")
       return v;
-   if (v === 0)
+   if (v === WaveEngineId.morph)
       return "morph";
-   if (v === 1)
+   if (v === WaveEngineId.native)
       return "native";
-   if (v === 2)
+   if (v === WaveEngineId.pwm)
       return "pwm";
    return "native";
 }
