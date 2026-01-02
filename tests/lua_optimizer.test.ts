@@ -161,6 +161,27 @@ local y=g+10
          // Globals should not be propagated
          assert.equal(output, expected);
       });
+
+      it("should not treat loop counters as constants across while bodies", () => {
+         const input = `
+local si=0
+local srcLen=10
+local x = srcLen
+while si<srcLen do
+ si=si+1
+end
+`;
+         const output = runLua(input, {simplifyExpressions: true});
+         const expected = `local si=0
+local srcLen=10
+local x=10
+while si<srcLen do
+ si=si+1
+end
+`;
+         // Loop condition must keep the counter symbol; constant-folding it would create an infinite loop
+         assert.equal(output, expected);
+      });
    });
 
    describe("Local Declaration Packing", () => {

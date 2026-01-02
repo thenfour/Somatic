@@ -9,6 +9,74 @@ type PropScope = {
    env: ConstEnv; locals: Set<string>;
 };
 
+// Collect identifiers that are written/introduced within a statement.
+// We only track plain identifiers (not table fields) because we propagate
+// only plain locals; member/index writes are treated conservatively later.
+function collectWrites(stmt: luaparse.Statement, out: Set<string>): void {
+   switch (stmt.type) {
+      case "LocalStatement": {
+         stmt.variables.forEach(v => {
+            if (v.type === "Identifier")
+               out.add(v.name);
+         });
+         break;
+      }
+
+      case "AssignmentStatement": {
+         stmt.variables.forEach(v => {
+            if (v.type === "Identifier")
+               out.add(v.name);
+         });
+         break;
+      }
+
+      case "ForNumericStatement": {
+         if (stmt.variable.type === "Identifier")
+            out.add(stmt.variable.name);
+         stmt.body.forEach(s => collectWrites(s, out));
+         break;
+      }
+
+      case "ForGenericStatement": {
+         stmt.variables.forEach(v => {
+            if (v.type === "Identifier")
+               out.add(v.name);
+         });
+         stmt.body.forEach(s => collectWrites(s, out));
+         break;
+      }
+
+      case "WhileStatement":
+      case "RepeatStatement":
+      case "IfStatement":
+      case "DoStatement":
+      case "FunctionDeclaration": {
+         // Recurse into bodies/clauses to collect inner writes.
+         const bodies: luaparse.Statement[][] = [];
+         if (stmt.type === "WhileStatement" || stmt.type === "DoStatement") {
+            bodies.push(stmt.body);
+         } else if (stmt.type === "RepeatStatement") {
+            bodies.push(stmt.body);
+         } else if (stmt.type === "IfStatement") {
+            stmt.clauses.forEach(c => bodies.push(c.body));
+         } else if (stmt.type === "FunctionDeclaration") {
+            bodies.push(stmt.body);
+         }
+         bodies.forEach(b => b.forEach(s => collectWrites(s, out)));
+         break;
+      }
+
+      default:
+         break;
+   }
+}
+
+function collectBlockWrites(body: luaparse.Statement[]): Set<string> {
+   const writes = new Set<string>();
+   body.forEach(stmt => collectWrites(stmt, writes));
+   return writes;
+}
+
 function cloneScope(scope: PropScope): PropScope {
    return {env: new Map(scope.env), locals: new Set(scope.locals)};
 }
@@ -342,6 +410,42 @@ function simplifyExpression(expr: luaparse.Expression, scope: PropScope): luapar
    }
 }
 
+// Detect whether an expression references a given identifier name.
+function referencesIdentifier(expr: luaparse.Expression, name: string): boolean {
+   switch (expr.type) {
+      case "Identifier":
+         return expr.name === name;
+      case "UnaryExpression":
+         return referencesIdentifier(expr.argument, name);
+      case "BinaryExpression":
+      case "LogicalExpression":
+         return referencesIdentifier(expr.left, name) || referencesIdentifier(expr.right, name);
+      case "CallExpression":
+         return referencesIdentifier(expr.base, name) || expr.arguments.some(arg => referencesIdentifier(arg, name));
+      case "TableCallExpression":
+         return referencesIdentifier(expr.base, name) || referencesIdentifier(expr.arguments, name);
+      case "StringCallExpression":
+         return referencesIdentifier(expr.base, name);
+      case "MemberExpression":
+         return referencesIdentifier(expr.base, name) ||
+            (expr.identifier ? referencesIdentifier(expr.identifier as any, name) : false);
+      case "IndexExpression":
+         return referencesIdentifier(expr.base, name) || referencesIdentifier(expr.index, name);
+      case "TableConstructorExpression":
+         return expr.fields.some(field => {
+            if (field.type === "TableKey" || field.type === "TableKeyString") {
+               return (field.key && referencesIdentifier(field.key, name)) ||
+                  (field.value && referencesIdentifier(field.value, name));
+            } else if (field.type === "TableValue") {
+               return field.value ? referencesIdentifier(field.value, name) : false;
+            }
+            return false;
+         });
+      default:
+         return false;
+   }
+}
+
 function simplifyStatement(stmt: luaparse.Statement, scope: PropScope): void {
    switch (stmt.type) {
       case "LocalStatement": {
@@ -376,8 +480,12 @@ function simplifyStatement(stmt: luaparse.Statement, scope: PropScope): void {
                return;
             }
             const initExpr = simplifiedInit[idx];
-            const literal =
-               initExpr ? (isLiteral(initExpr) ? initExpr : null) : (defaultMissingToNil ? makeNilLiteral() : null);
+
+            // If RHS references the LHS (self-update) or is non-literal, drop from env.
+            const rhsUsesLhs = initExpr && referencesIdentifier(initExpr, variable.name);
+            const literal = !rhsUsesLhs && initExpr ? (isLiteral(initExpr) ? initExpr : null) :
+                                                      (!initExpr && defaultMissingToNil ? makeNilLiteral() : null);
+
             if (literal)
                scope.env.set(variable.name, literal as LiteralNode);
             else
@@ -408,14 +516,26 @@ function simplifyStatement(stmt: luaparse.Statement, scope: PropScope): void {
       }
 
       case "WhileStatement": {
-         stmt.condition = simplifyExpression(stmt.condition, scope);
-         simplifyBlock(stmt.body, cloneScope(scope));
+         const bodyWrites = collectBlockWrites(stmt.body);
+         bodyWrites.forEach(name => scope.env.delete(name));
+         const condScope = cloneScope(scope);
+         condScope.env = new Map(); // avoid propagating locals into loop conditions
+         stmt.condition = simplifyExpression(stmt.condition, condScope);
+         const inner = cloneScope(scope);
+         simplifyBlock(stmt.body, inner);
+         bodyWrites.forEach(name => scope.env.delete(name));
          break;
       }
 
       case "RepeatStatement": {
-         simplifyBlock(stmt.body, cloneScope(scope));
-         stmt.condition = simplifyExpression(stmt.condition, scope);
+         const bodyWrites = collectBlockWrites(stmt.body);
+         bodyWrites.forEach(name => scope.env.delete(name));
+         const inner = cloneScope(scope);
+         simplifyBlock(stmt.body, inner);
+         const condScope = cloneScope(scope);
+         condScope.env = new Map();
+         stmt.condition = simplifyExpression(stmt.condition, condScope);
+         bodyWrites.forEach(name => scope.env.delete(name));
          break;
       }
 
@@ -428,8 +548,11 @@ function simplifyStatement(stmt: luaparse.Statement, scope: PropScope): void {
          if (stmt.variable.type === "Identifier") {
             bodyScope.locals.add(stmt.variable.name);
             bodyScope.env.delete(stmt.variable.name);
+            scope.env.delete(stmt.variable.name); // do not treat loop var as const outside
          }
          simplifyBlock(stmt.body, bodyScope);
+         const bodyWrites = collectBlockWrites(stmt.body);
+         bodyWrites.forEach(name => scope.env.delete(name));
          break;
       }
 
@@ -440,9 +563,12 @@ function simplifyStatement(stmt: luaparse.Statement, scope: PropScope): void {
             if (v.type === "Identifier") {
                bodyScope.locals.add(v.name);
                bodyScope.env.delete(v.name);
+               scope.env.delete(v.name);
             }
          });
          simplifyBlock(stmt.body, bodyScope);
+         const bodyWrites = collectBlockWrites(stmt.body);
+         bodyWrites.forEach(name => scope.env.delete(name));
          break;
       }
 
