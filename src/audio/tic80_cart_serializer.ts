@@ -1,6 +1,6 @@
 import playroutineTemplateTxt from "../../bridge/playroutine.lua";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
-import type {ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument, WaveEngineId} from "../models/instruments";
+import {ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument, WaveEngineId} from "../models/instruments";
 import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
 import type {Song} from "../models/song";
 import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
@@ -41,30 +41,30 @@ function ToWaveEngineId(engine: SomaticInstrumentWaveEngine): WaveEngineId {
    throw new Error(`Unknown wave engine: ${engine}`);
 };
 
-type MorphEffectKind = SomaticEffectKind;
+//type MorphEffectKind = SomaticEffectKind;
 
-type Tic80MorphInstrumentConfig = {
-   waveEngine: SomaticInstrumentWaveEngine; //
-   waveEngineId: WaveEngineId;
-   sourceWaveformIndex: number; // 0-15
-   renderWaveformSlot: number;  // 0-15 also for PWM!
+// type Tic80MorphInstrumentConfig = {
+//    waveEngine: SomaticInstrumentWaveEngine; //
+//    waveEngineId: WaveEngineId;
+//    sourceWaveformIndex: number; // 0-15
+//    renderWaveformSlot: number;  // 0-15 also for PWM!
 
-   pwmDuty5: number;  // 0-31
-   pwmDepth5: number; // 0-31
+//    pwmDuty5: number;  // 0-31
+//    pwmDepth5: number; // 0-31
 
-   lowpassEnabled: boolean;
-   lowpassDurationTicks12: number; // 0-4095
-   lowpassCurveS6: number;         // signed 6-bit
-   lowpassModSource: number;       // 0=envelope,1=lfo
+//    lowpassEnabled: boolean;
+//    lowpassDurationTicks12: number; // 0-4095
+//    lowpassCurveS6: number;         // signed 6-bit
+//    lowpassModSource: number;       // 0=envelope,1=lfo
 
-   effectKind: MorphEffectKind;
-   effectAmtU8: number;           // 0-255 (wavefold amount or hardSync strength)
-   effectDurationTicks12: number; // 0-4095
-   effectCurveS6: number;         // signed 6-bit
-   effectModSource: number;       // 0=envelope,1=lfo
+//    effectKind: SomaticEffectKind;
+//    effectAmtU8: number;           // 0-255 (wavefold amount or hardSync strength)
+//    effectDurationTicks12: number; // 0-4095
+//    effectCurveS6: number;         // signed 6-bit
+//    effectModSource: number;       // 0=envelope,1=lfo
 
-   lfoCycleTicks12: number; // 0-4095
-};
+//    lfoCycleTicks12: number; // 0-4095
+// };
 
 function packWaveformSamplesToBytes16(samples32: ArrayLike<number>): number[] {
    // TIC-80 packs 2x 4-bit samples per byte.
@@ -137,8 +137,8 @@ function getMorphMap(song: Song): MorphEntryInput[] {
       // This prevents overwriting the bridge marker/mailboxes in RAM.
       const waveEngine: SomaticInstrumentWaveEngine = inst.waveEngine ?? "native";
       const lowpassEnabled = !!inst.lowpassEnabled;
-      const effectKind: MorphEffectKind = inst.effectKind ?? "none";
-      const needsRuntimeConfig = waveEngine !== "native" || lowpassEnabled || effectKind !== "none";
+      const effectKind: SomaticEffectKind = inst.effectKind ?? SomaticEffectKind.none;
+      const needsRuntimeConfig = waveEngine !== "native" || lowpassEnabled || effectKind !== SomaticEffectKind.none;
       if (!needsRuntimeConfig)
          continue;
 
@@ -159,8 +159,8 @@ function getMorphMap(song: Song): MorphEntryInput[] {
       const lfoCycleTicks12 = clamp(RateInHzToTicks60HzAllowZero(inst.lfoRateHz ?? 0), 0, 0x0fff);
       const effectModSource = modSourceToU8(inst.effectModSource);
       const effectCurveS6 = curveN11ToS6(inst.effectCurveN11);
-      const effectAmtU8 =
-         effectKind === "hardSync" ? hardSyncStrengthToU8(inst.effectAmount) : clamp(inst.effectAmount | 0, 0, 255);
+      const effectAmtU8 = effectKind === SomaticEffectKind.hardSync ? hardSyncStrengthToU8(inst.effectAmount) :
+                                                                      clamp(inst.effectAmount | 0, 0, 255);
       entries.push({
          instrumentId,
          cfg: {

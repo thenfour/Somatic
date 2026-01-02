@@ -5,12 +5,10 @@
 // normalization, and Lua minification lists are all derived from it automatically.
 
 import {SomaticCaps, Tic80Caps} from "../src/models/tic80Capabilities";
-import {WaveEngineId} from "../src/models/instruments";
+import {SomaticEffectKind, WaveEngineId} from "../src/models/instruments";
 import {clamp} from "../src/utils/utils";
 import {BitWriter, C, MemoryRegion, encodeWithOffsets, measureCodecOffsets, extractFieldInfo, fixedBits} from "../src/utils/bitpack/bitpack";
 import type {Codec, CodecFieldInfo} from "../src/utils/bitpack/bitpack";
-
-export type MorphEffectKind = "none"|"wavefold"|"hardSync";
 
 // Generate a normalization function from field metadata
 function makeNormalizer<T extends Record<string, any>>(fields: CodecFieldInfo[]): (input: T) => T {
@@ -40,9 +38,15 @@ function makeNormalizer<T extends Record<string, any>>(fields: CodecFieldInfo[])
 // All other structures (types, field lists, normalization) derive from this.
 
 const MorphEffectKindCodec = C.enum("MorphEffectKind", 2, {
-   none: 0,
-   wavefold: 1,
-   hardSync: 2,
+   none: SomaticEffectKind.none,
+   wavefold: SomaticEffectKind.wavefold,
+   hardSync: SomaticEffectKind.hardSync,
+});
+
+const WaveEngineIdCodec = C.enum("WaveEngineId", 2, {
+   native: WaveEngineId.native,
+   pwm: WaveEngineId.pwm,
+   morph: WaveEngineId.morph,
 });
 
 // =========================
@@ -68,7 +72,7 @@ export const WaveformMorphGradientCodec = C.varArray(
 
 export const MorphEntryCodec = C.struct("MorphEntry", [
    C.field("instrumentId", C.u8()),
-   C.field("waveEngineId", C.u(2)),
+   C.field("waveEngineId", WaveEngineIdCodec),
    C.field("sourceWaveformIndex", C.u(4)),
    C.field("renderWaveformSlot", C.u(4)),
    // Byte offset (from start of extra-song payload) to WaveformMorphGradient data.
@@ -120,22 +124,22 @@ const normalizeMorphEntry = makeNormalizer<MorphEntryPacked>(MORPH_ENTRY_FIELDS)
 
 // Type for the packed/flattened structure (inferred from codec fields)
 export type MorphEntryPacked = {
-   instrumentId: number;                 //
-   waveEngineId: WaveEngineId;           //
-   sourceWaveformIndex: number;          //
-   renderWaveformSlot: number;           //
-   gradientOffsetBytes: number;          //
-   pwmDuty5: number;                     //
-   pwmDepth5: number;                    //
-   lfoCycleTicks12: number;              //
-   lowpassEnabled: number;               //
-   lowpassDurationTicks12: number;       //
-   lowpassCurveS6: number;               //
-   lowpassModSource: number;             //
-   effectKind: MorphEffectKind | number; //
-   effectAmtU8: number;                  //
-   effectDurationTicks12: number;        //
-   effectCurveS6: number;                //
+   instrumentId: number;           //
+   waveEngineId: WaveEngineId;     //
+   sourceWaveformIndex: number;    //
+   renderWaveformSlot: number;     //
+   gradientOffsetBytes: number;    //
+   pwmDuty5: number;               //
+   pwmDepth5: number;              //
+   lfoCycleTicks12: number;        //
+   lowpassEnabled: number;         //
+   lowpassDurationTicks12: number; //
+   lowpassCurveS6: number;         //
+   lowpassModSource: number;       //
+   effectKind: SomaticEffectKind;  //
+   effectAmtU8: number;            //
+   effectDurationTicks12: number;  //
+   effectCurveS6: number;          //
    effectModSource: number;
 };
 
@@ -152,7 +156,7 @@ export type MorphEntryInput = {
       lowpassDurationTicks12: number; //
       lowpassCurveS6: number;         //
       lowpassModSource: number;       //
-      effectKind: MorphEffectKind;    //
+      effectKind: SomaticEffectKind;  //
       effectAmtU8: number;            //
       effectDurationTicks12: number;
       effectCurveS6: number;

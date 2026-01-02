@@ -602,13 +602,13 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
             mutator: (s) => {
                 const inst = s.instruments[instrumentIndex];
                 inst.effectKind = kind;
-                if (kind === 'none') {
+                if (kind === SomaticEffectKind.none) {
                     inst.effectAmount = 0;
                     inst.effectDurationSeconds = 0;
                     inst.effectCurveN11 = 0;
-                } else if (kind === 'wavefold' && inst.effectAmount < 0) {
+                } else if (kind === SomaticEffectKind.wavefold && inst.effectAmount < 0) {
                     inst.effectAmount = 0;
-                } else if (kind === 'hardSync' && inst.effectAmount < 1) {
+                } else if (kind === SomaticEffectKind.hardSync && inst.effectAmount < 1) {
                     inst.effectAmount = 1;
                 }
             },
@@ -633,7 +633,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
             mutator: (s) => {
                 const inst = s.instruments[instrumentIndex];
                 const k = inst.effectKind;
-                if (k === 'hardSync') {
+                if (k === SomaticEffectKind.hardSync) {
                     inst.effectAmount = clamp(value, 1, 8);
                 } else {
                     inst.effectAmount = clamp(value, 0, 255);
@@ -1000,9 +1000,9 @@ show render slot if there are k-rate effects enabled
                             <h4>Effect (wavefold / hard sync)</h4>
                             <div className="field-row">
                                 <label>Type</label>
-                                <RadioButton selected={instrument.effectKind === 'none'} onClick={() => setEffectKind('none')}>None</RadioButton>
-                                <RadioButton selected={instrument.effectKind === 'wavefold'} onClick={() => setEffectKind('wavefold')}>Wavefold</RadioButton>
-                                <RadioButton selected={instrument.effectKind === 'hardSync'} onClick={() => setEffectKind('hardSync')}>Hard Sync</RadioButton>
+                                <RadioButton selected={instrument.effectKind === SomaticEffectKind.none} onClick={() => setEffectKind(SomaticEffectKind.none)}>None</RadioButton>
+                                <RadioButton selected={instrument.effectKind === SomaticEffectKind.wavefold} onClick={() => setEffectKind(SomaticEffectKind.wavefold)}>Wavefold</RadioButton>
+                                <RadioButton selected={instrument.effectKind === SomaticEffectKind.hardSync} onClick={() => setEffectKind(SomaticEffectKind.hardSync)}>Hard Sync</RadioButton>
                             </div>
                             <div className="field-row">
                                 <label>Mod source</label>
@@ -1011,9 +1011,9 @@ show render slot if there are k-rate effects enabled
                             </div>
                             <div className="field-row">
                                 <ContinuousKnob
-                                    label={instrument.effectKind === 'hardSync' ? 'strength (x)' : 'strength'}
+                                    label={instrument.effectKind === SomaticEffectKind.hardSync ? 'strength (x)' : 'strength'}
                                     value={instrument.effectAmount}
-                                    config={instrument.effectKind === 'hardSync' ? HardSyncStrengthConfig : WavefoldAmountConfig}
+                                    config={instrument.effectKind === SomaticEffectKind.hardSync ? HardSyncStrengthConfig : WavefoldAmountConfig}
                                     onChange={setEffectAmount}
                                 />
                             </div>
@@ -1021,7 +1021,7 @@ show render slot if there are k-rate effects enabled
                                 <ContinuousKnob
                                     label='decay'
                                     value={instrument.effectDurationSeconds}
-                                    config={instrument.effectKind === 'hardSync' ? HardSyncDecayConfig : WavefoldDurationConfig}
+                                    config={instrument.effectKind === SomaticEffectKind.hardSync ? HardSyncDecayConfig : WavefoldDurationConfig}
                                     onChange={setEffectDuration}
                                 />
                             </div>
@@ -1032,7 +1032,7 @@ show render slot if there are k-rate effects enabled
                                 <ContinuousKnob
                                     label='curve'
                                     value={instrument.effectCurveN11}
-                                    config={instrument.effectKind === 'hardSync' ? HardSyncCurveConfig : WavefoldCurveConfig}
+                                    config={instrument.effectKind === SomaticEffectKind.hardSync ? HardSyncCurveConfig : WavefoldCurveConfig}
                                     onChange={setEffectCurve}
                                 />
                             </div>

@@ -5,6 +5,19 @@ import {WaveformBaseDto} from "./waveform";
 
 export type SomaticInstrumentWaveEngine = "morph"|"native"|"pwm";
 
+export type ModSource = "envelope"|"lfo";
+
+export interface WaveformMorphGradientNodeDto extends WaveformBaseDto {
+   durationSeconds: number;
+   curveN11: number; // -1..+1
+}
+
+export type WaveformMorphGradientNode = {
+   amplitudes: Uint8Array; // length = 32, values 0-15
+   durationSeconds: number;
+   curveN11: number;
+};
+
 // Numeric IDs used in the bridge payload schema.
 // Keep these as the single source of truth to avoid scattered magic numbers.
 export const WaveEngineId = {
@@ -14,24 +27,6 @@ export const WaveEngineId = {
 } as const;
 
 export type WaveEngineId = (typeof WaveEngineId)[keyof typeof WaveEngineId];
-
-export type ModSource = "envelope"|"lfo";
-
-export type SomaticWaveformEffect = "none"|"lowpass"|"wavefold";
-
-export type SomaticEffectKind = "none"|"wavefold"|"hardSync";
-
-export interface WaveformMorphGradientNodeDto extends WaveformBaseDto {
-   durationSeconds: number;
-   curveN11: number; // -1..+1
-}
-;
-
-export type WaveformMorphGradientNode = {
-   amplitudes: Uint8Array; // length = 32, values 0-15
-   durationSeconds: number;
-   curveN11: number;
-};
 
 function coerceWaveEngine(v: any): SomaticInstrumentWaveEngine {
    if (v === "morph" || v === "native" || v === "pwm")
@@ -51,15 +46,32 @@ function coerceModSource(v: any): ModSource {
    return "envelope";
 }
 
+export const SomaticEffectKind = {
+   none: 0,
+   wavefold: 1,
+   hardSync: 2,
+} as const;
+export type SomaticEffectKind = (typeof SomaticEffectKind)[keyof typeof SomaticEffectKind];
+
+// convert either number or string to SomaticEffectKind
 function coerceEffectKind(v: any, fallback: SomaticEffectKind): SomaticEffectKind {
-   if (v === "none" || v === "wavefold" || v === "hardSync")
-      return v;
-   if (v === 1)
-      return "wavefold";
-   if (v === 2)
-      return "hardSync";
+   if (v === "none" || v === SomaticEffectKind.none)
+      return SomaticEffectKind.none;
+   if (v === "wavefold" || v === SomaticEffectKind.wavefold)
+      return SomaticEffectKind.wavefold;
+   if (v === "hardSync" || v === SomaticEffectKind.hardSync)
+      return SomaticEffectKind.hardSync;
    return fallback;
 }
+// function coerceEffectKind(v: any, fallback: SomaticEffectKind): SomaticEffectKind {
+//    if (v === "none" || v === "wavefold" || v === "hardSync")
+//       return v;
+//    if (v === 1)
+//       return "wavefold";
+//    if (v === 2)
+//       return "hardSync";
+//    return fallback;
+// }
 
 //export const SFX_FRAME_COUNT = 30;
 
@@ -276,15 +288,17 @@ export class Tic80Instrument {
       const legacyHardSyncModSource =
          legacyHardSyncModSourceRaw === undefined ? undefined : coerceModSource(legacyHardSyncModSourceRaw);
 
-      const legacyEffectKind = legacyWavefoldAmt > 0 ? "wavefold" : (legacyHardSyncEnabled ? "hardSync" : "none");
+      const legacyEffectKind = legacyWavefoldAmt > 0 ?
+         SomaticEffectKind.wavefold :
+         (legacyHardSyncEnabled ? SomaticEffectKind.hardSync : SomaticEffectKind.none);
       const requestedEffectKind = coerceEffectKind(data.effectKind, legacyEffectKind);
       this.effectKind = requestedEffectKind;
-      if (this.effectKind === "wavefold") {
+      if (this.effectKind === SomaticEffectKind.wavefold) {
          this.effectAmount = clamp(data.effectAmount ?? legacyWavefoldAmt ?? 0, 0, 255);
          this.effectDurationSeconds = Math.max(0, data.effectDurationSeconds ?? legacyWavefoldDur ?? 0);
          this.effectCurveN11 = clamp(data.effectCurveN11 ?? legacyWavefoldCurve ?? 0, -1, 1);
          this.effectModSource = coerceModSource(data.effectModSource ?? legacyWavefoldModSource ?? "envelope");
-      } else if (this.effectKind === "hardSync") {
+      } else if (this.effectKind === SomaticEffectKind.hardSync) {
          this.effectAmount = clamp(data.effectAmount ?? legacyHardSyncStrength ?? 3, 1, 8);
          this.effectDurationSeconds = Math.max(0, data.effectDurationSeconds ?? legacyHardSyncDecay ?? 1.5);
          this.effectCurveN11 = clamp(data.effectCurveN11 ?? legacyHardSyncCurve ?? 0, -1, 1);
@@ -380,7 +394,7 @@ export class Tic80Instrument {
       if (this.lowpassEnabled) {
          return true;
       }
-      if (this.effectKind !== "none") {
+      if (this.effectKind !== SomaticEffectKind.none) {
          return true;
       }
       return false;

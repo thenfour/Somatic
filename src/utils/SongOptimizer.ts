@@ -1,7 +1,7 @@
 import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "../audio/encoding";
 import {encodePatternChannelDirect} from "../audio/pattern_encoding";
 import {prepareSongColumns} from "../audio/prepared_song";
-import {Tic80Instrument} from "../models/instruments";
+import {SomaticEffectKind, Tic80Instrument} from "../models/instruments";
 import {Pattern, PatternCell} from "../models/pattern";
 import {Song} from "../models/song";
 import {SongOrderItem} from "../models/songOrder";
@@ -372,12 +372,12 @@ export function OptimizeSong(song: Song): OptimizeResult {
          inst.lowpassModSource = "envelope";
       }
 
-      if (inst.effectKind === "wavefold" && inst.effectAmount > 0) {
+      if (inst.effectKind === SomaticEffectKind.wavefold && inst.effectAmount > 0) {
          featureUsage.wavefold = true;
-      } else if (inst.effectKind === "hardSync" && inst.effectAmount > 0) {
+      } else if (inst.effectKind === SomaticEffectKind.hardSync && inst.effectAmount > 0) {
          featureUsage.hardSync = true;
       } else {
-         inst.effectKind = "none";
+         inst.effectKind = SomaticEffectKind.none;
          inst.effectAmount = 0;
          inst.effectDurationSeconds = 0;
          inst.effectCurveN11 = 0;
@@ -435,9 +435,9 @@ export function analyzePlaybackFeatures(song: Song): PlaybackFeatureUsage {
       }
       if (inst.lowpassEnabled)
          usage.lowpass = true;
-      if (inst.effectKind === "wavefold" && inst.effectAmount > 0)
+      if (inst.effectKind === SomaticEffectKind.wavefold && inst.effectAmount > 0)
          usage.wavefold = true;
-      if (inst.effectKind === "hardSync" && inst.effectAmount > 0)
+      if (inst.effectKind === SomaticEffectKind.hardSync && inst.effectAmount > 0)
          usage.hardSync = true;
       const lfoUsed = inst.lfoRateHz > 0 && (inst.lowpassModSource === "lfo" || inst.effectModSource === "lfo");
       if (lfoUsed)
