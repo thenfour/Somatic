@@ -6,6 +6,8 @@ const baseOpts: OptimizationRuleOptions = {
    stripComments: false,
    stripDebugBlocks: false,
    maxIndentLevel: 50,
+   lineBehavior: "pretty",
+   maxLineLength: 120,
    renameLocalVariables: false,
    aliasRepeatedExpressions: false,
    aliasLiterals: false,
@@ -457,4 +459,165 @@ local b=a+1
          assert.equal(output, expected);
       });
    });
+
+   //////////////////////////////////////////////////////////////////////////////////////////
+   //////////////////////////////////////////////////////////////////////////////////////////
+   describe("Line Formatting", () => {
+      //////////////////////////////////////////////////////////////////////////////////////////
+      it("tight mode packs simple statements until reaching the max line length", () => {
+         const input = `
+local a=1
+local b=2
+local c=3
+`;
+         const output = runLua(input, {lineBehavior: "tight", maxLineLength: 40});
+         const expected = `local a=1 local b=2 local c=3
+`;
+         assert.equal(output, expected);
+      });
+
+      //////////////////////////////////////////////////////////////////////////////////////////
+      it("tight mode wraps when the next statement would overflow maxLineLength", () => {
+         const input = `
+local a=1
+local longVariableName=1234567890
+local c=2
+`;
+         const output = runLua(input, {lineBehavior: "tight", maxLineLength: 35});
+         const expected = `local a=1
+local longVariableName=1234567890
+local c=2
+`;
+         assert.equal(output, expected);
+      });
+
+      //////////////////////////////////////////////////////////////////////////////////////////
+      it("tight mode also inlines blocks", () => {
+         const input = `
+if cond then
+ c()
+end
+`;
+         const output = runLua(input, {lineBehavior: "tight", maxLineLength: 120});
+         const expected = `if cond then c() end`;
+         assert.equal(output.trim(), expected.trim());
+      });
+
+      //////////////////////////////////////////////////////////////////////////////////////////
+      it("tight mode doesn't inline blocks if it would exceed max line length", () => {
+         const input = `
+if cond then
+ c()
+end
+if cond then
+ longer_fn_name()
+end
+`;
+         const output = runLua(input, {lineBehavior: "tight", maxLineLength: 30});
+         const expected = `if cond then c() end
+if cond then
+ longer_fn_name()
+end
+`;
+         assert.equal(output, expected);
+      });
+
+      //////////////////////////////////////////////////////////////////////////////////////////
+      it("single-line-blocks mode packs simple blocks into single lines", () => {
+         const input = `
+if cond then
+ c()
+end
+`;
+         const output = runLua(input, {lineBehavior: "single-line-blocks", maxLineLength: 30});
+         const expected = `if cond then c() end`;
+         assert.equal(output.trim(), expected.trim());
+      });
+
+      //////////////////////////////////////////////////////////////////////////////////////////
+      it("single-line-blocks mode, narrow line length doesn't pack anything into single lines", () => {
+         const input = `
+local function fn()
+  z = z + 1
+  if abc() then
+    y = 2
+  end
+  z = z - 1
+end
+`;
+         const output = runLua(input, {lineBehavior: "single-line-blocks", maxLineLength: 22});
+         const expected = `
+local function fn()
+ z=z+1
+ if abc() then
+  y=2
+ end
+ z=z-1
+end
+`;
+         assert.equal(output.trim(), expected.trim());
+      });
+
+      //////////////////////////////////////////////////////////////////////////////////////////
+      it("single-line-blocks mode, increasing max line length allows inner blocks to be packed; begin & end scope-on-own-line is preserved",
+         () => {
+            const input = `
+local function fn()
+  z = z + 1
+  if abc() then
+    y = 2
+  end
+  z = z - 1
+end
+`;
+            const output = runLua(input, {lineBehavior: "single-line-blocks", maxLineLength: 23});
+            const expected = `
+local function fn()
+ z=z+1
+ if abc() then y=2 end
+ z=z-1
+end
+`;
+            assert.equal(output.trim(), expected.trim());
+         });
+
+      //////////////////////////////////////////////////////////////////////////////////////////
+      it("single-line-blocks mode, outer scope on one line is only performed when the entire scope fits.", () => {
+         const input = `
+local function fn()
+  z = z + 1
+  if abc() then
+    y = 2
+  end
+  z = z - 1
+end
+`;
+         const output = runLua(input, {lineBehavior: "single-line-blocks", maxLineLength: 56});
+         const expected = `
+local function fn()
+ z=z+1 if abc() then y=2 end z=z-1
+end
+`;
+         assert.equal(output.trim(), expected.trim());
+      });
+
+      //////////////////////////////////////////////////////////////////////////////////////////
+      it("single-line-blocks mode, increasing max line length allows inner blocks to be packed; begin & end scope-on-own-line is preserved",
+         () => {
+            const input = `
+local function fn()
+  z = z + 1
+  if abc() then
+    y = 2
+  end
+  z = z - 1
+end
+`;
+            const output = runLua(input, {lineBehavior: "single-line-blocks", maxLineLength: 58});
+            const expected = `
+local function fn() z=z+1 if abc() then y=2 end z=z-1 end
+`;
+            assert.equal(output.trim(), expected.trim());
+         });
+   }); // describe Line Formatting
 });

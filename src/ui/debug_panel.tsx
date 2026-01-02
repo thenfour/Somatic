@@ -27,6 +27,8 @@ end
         stripComments: false,
         stripDebugBlocks: true,
         maxIndentLevel: 10,
+        lineBehavior: "pretty",
+        maxLineLength: 120,
         aliasRepeatedExpressions: false,
         aliasLiterals: false,
         renameLocalVariables: false,
@@ -179,6 +181,51 @@ end
                                 style={{ width: '60px', marginLeft: '0.5rem' }}
                             />
                         </label>
+                    </div>
+                    <div className="debug-panel-option-group">
+                        <label>
+                            Line Behavior:
+                            <select
+                                value={options.lineBehavior}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        lineBehavior: e.target.value as OptimizationRuleOptions['lineBehavior'],
+                                    }))
+                                }
+                                style={{ marginLeft: '0.5rem' }}
+                            >
+                                <option value="pretty">Pretty</option>
+                                <option value="tight">Tight (pack lines)</option>
+                                <option value="single-line-blocks">Single-line blocks</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div className="debug-panel-option-group">
+                        <label>
+                            Max Line Length:
+                            <input
+                                type="range"
+                                min="1"
+                                max="500"
+                                value={options.maxLineLength}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        maxLineLength: parseInt(e.target.value, 10) || 0,
+                                    }))
+                                }
+                                style={{ width: '80px', marginLeft: '0.5rem' }}
+                            />
+                        </label>
+                        <div style={{ display: "flex", gap: "0.25rem", marginTop: "0.25rem" }}>
+                            {[20, 40, 60, 80, 120, 180, 240, 500].map((len) => (
+                                <button onClick={() => setOptions((prev) => ({
+                                    ...prev,
+                                    maxLineLength: len,
+                                }))}>{len}</button>
+                            ))}
+                        </div>
                     </div>
                     <div className="debug-panel-option-group">
                         <button onClick={() => setAllowedTableKeyRenames(MorphEntryFieldNamesToRename.join(", "))}>Morph entries</button>

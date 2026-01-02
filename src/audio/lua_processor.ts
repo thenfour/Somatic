@@ -14,6 +14,10 @@ export type OptimizationRuleOptions = {
    stripComments: boolean;    //
    stripDebugBlocks: boolean; //
    maxIndentLevel: number;    // limits indentation to N levels; beyond that, everything is flattened
+   // Line formatting behavior: pretty preserves newlines, tight packs lines up to maxLineLength,
+   // single-line-blocks packs only when an entire block fits on one line.
+   lineBehavior: "pretty" | "tight" | "single-line-blocks";
+   maxLineLength: number;
    renameLocalVariables: boolean;
    aliasRepeatedExpressions: boolean;
 
@@ -115,7 +119,9 @@ export class LuaPrinter {
    private options: OptimizationRuleOptions;
    private indentLevel = 0;
    private indentUnit = " "; // only used if !minified
+   private currentLine = "";
    private blockComments: Map<luaparse.Statement[], luaparse.Comment[]>;
+   private inlineMode = false; // When true, render everything on single lines without packing
 
    constructor(options: OptimizationRuleOptions, blockComments?: Map<luaparse.Statement[], luaparse.Comment[]>) {
       this.options = options;
@@ -124,19 +130,27 @@ export class LuaPrinter {
 
    print(chunk: luaparse.Chunk): string {
       this.buf = [];
+      this.currentLine = "";
       this.indentLevel = 0;
       this.printBlock(chunk.body);
+      if (this.currentLine.length > 0)
+         this.flushLine();
       return this.buf.join("");
    }
 
    // --- low-level emit helpers ---
 
    private emit(s: string) {
-      this.buf.push(s);
+      this.currentLine += s;
    }
 
    private newline() {
-      this.buf.push("\n");
+      this.flushLine();
+   }
+
+   private flushLine() {
+      this.buf.push(this.currentLine + "\n");
+      this.currentLine = "";
    }
 
    private emitKeyword(s: string) {
@@ -175,9 +189,195 @@ export class LuaPrinter {
          ci++;
       }
 
+      const mode = this.options.lineBehavior || "pretty";
+      const maxLen = this.options.maxLineLength || 120;
+
+      // In inline mode, render all statements space-separated on one line (no newlines)
+      if (this.inlineMode) {
+         for (let i = 0; i < items.length; i++) {
+            const node = items[i];
+            if (i > 0)
+               this.emit(" ");
+            this.printStatementInline(node);
+         }
+         return;
+      }
+
+      // In pretty mode, print each statement on its own line
+      if (mode === "pretty") {
+         for (const node of items) {
+            this.printIndent();
+            this.printStatement(node);
+         }
+         return;
+      }
+
+      // tight mode: pack statements with space separator, inline blocks when they fit
+      // single-line-blocks mode: blocks are either entirely single-line or multi-line
+      const flushLineIfAny = () => {
+         if (this.currentLine.length > 0)
+            this.flushLine();
+      };
+
       for (const node of items) {
+         // Comments always get their own line
+         if (node.type === "Comment") {
+            flushLineIfAny();
+            this.printIndent();
+            this.printStatement(node);
+            continue;
+         }
+
+         const stmt = node as luaparse.Statement;
+         const inline = this.renderInlineStatement(stmt, mode, maxLen);
+         const indent = this.indentUnit.repeat(Math.min(this.indentLevel, this.options.maxIndentLevel));
+
+         // Check if inline version fits on its own line (with indent)
+         const inlineWithIndent = inline !== null ? indent + inline : null;
+         const inlineFits = inlineWithIndent !== null && inlineWithIndent.length < maxLen;
+
+         if (inlineFits) {
+            // Try to pack onto current line
+            const sep = this.currentLine.length === 0 ? "" : " ";
+            const prefix = this.currentLine.length === 0 ? indent : this.currentLine;
+            const candidate = prefix + sep + inline;
+
+            if (candidate.length < maxLen || this.currentLine.length === 0) {
+               if (this.currentLine.length === 0) {
+                  this.currentLine = indent + inline;
+               } else {
+                  this.currentLine = this.currentLine + " " + inline;
+               }
+               continue;
+            }
+            // Doesn't fit on current line, but inline exists - start new line with inline
+            flushLineIfAny();
+            this.currentLine = indent + inline;
+            continue;
+         }
+
+         // Fallback to normal multi-line printing for this statement
+         flushLineIfAny();
          this.printIndent();
          this.printStatement(node);
+      }
+
+      // Ensure any buffered inline statements inside this block are flushed before exiting it.
+      flushLineIfAny();
+   }
+
+   // Print a statement without any newline at the end (for inline mode)
+   private printStatementInline(node: luaparse.Statement|luaparse.Comment): void {
+      switch (node.type) {
+         case "AssignmentStatement": {
+            const st = node as luaparse.AssignmentStatement;
+            const vars = st.variables.map(v => this.expr(v)).join(",");
+            const vals = st.init.map(v => this.expr(v)).join(",");
+            this.emit(vars + "=" + vals);
+            break;
+         }
+         case "LocalStatement": {
+            const st = node as luaparse.LocalStatement;
+            const vars = st.variables.map(v => this.expr(v)).join(",");
+            let s = "local " + vars;
+            if (st.init && st.init.length > 0) {
+               s += "=" + st.init.map(v => this.expr(v)).join(",");
+            }
+            this.emit(s);
+            break;
+         }
+         case "CallStatement": {
+            const st = node as luaparse.CallStatement;
+            this.emit(this.expr(st.expression));
+            break;
+         }
+         case "FunctionDeclaration": {
+            const fn = node as luaparse.FunctionDeclaration;
+            let s = fn.isLocal ? "local function " : "function ";
+            if (fn.identifier) {
+               s += this.expr(fn.identifier);
+            }
+            s += "(" + fn.parameters.map(p => this.expr(p)).join(",") + ") ";
+            this.emit(s);
+            this.printBlock(fn.body);
+            this.emit(" end");
+            break;
+         }
+         case "IfStatement": {
+            const ifs = node as luaparse.IfStatement;
+            for (let i = 0; i < ifs.clauses.length; i++) {
+               const clause = ifs.clauses[i];
+               if (clause.type === "IfClause") {
+                  this.emit("if " + this.expr(clause.condition) + " then ");
+               } else if (clause.type === "ElseifClause") {
+                  this.emit(" elseif " + this.expr(clause.condition) + " then ");
+               } else {
+                  this.emit(" else ");
+               }
+               this.printBlock(clause.body);
+            }
+            this.emit(" end");
+            break;
+         }
+         case "WhileStatement": {
+            const st = node as luaparse.WhileStatement;
+            this.emit("while " + this.expr(st.condition) + " do ");
+            this.printBlock(st.body);
+            this.emit(" end");
+            break;
+         }
+         case "RepeatStatement": {
+            const st = node as luaparse.RepeatStatement;
+            this.emit("repeat ");
+            this.printBlock(st.body);
+            this.emit(" until " + this.expr(st.condition));
+            break;
+         }
+         case "ForNumericStatement": {
+            const st = node as luaparse.ForNumericStatement;
+            let s = "for " + this.expr(st.variable) + "=" + this.expr(st.start) + "," + this.expr(st.end);
+            if (st.step) {
+               s += "," + this.expr(st.step);
+            }
+            s += " do ";
+            this.emit(s);
+            this.printBlock(st.body);
+            this.emit(" end");
+            break;
+         }
+         case "ForGenericStatement": {
+            const st = node as luaparse.ForGenericStatement;
+            const vars = st.variables.map(v => this.expr(v)).join(",");
+            const iters = st.iterators.map(it => this.expr(it)).join(",");
+            this.emit("for " + vars + " in " + iters + " do ");
+            this.printBlock(st.body);
+            this.emit(" end");
+            break;
+         }
+         case "ReturnStatement": {
+            const st = node as luaparse.ReturnStatement;
+            if (st.arguments.length > 0) {
+               this.emit("return " + st.arguments.map(a => this.expr(a)).join(","));
+            } else {
+               this.emit("return");
+            }
+            break;
+         }
+         case "BreakStatement":
+            this.emit("break");
+            break;
+         case "DoStatement": {
+            const st = node as luaparse.DoStatement;
+            this.emit("do ");
+            this.printBlock(st.body);
+            this.emit(" end");
+            break;
+         }
+         case "Comment":
+            // Skip comments in inline mode
+            break;
+         default:
+            break;
       }
    }
 
@@ -379,6 +579,45 @@ export class LuaPrinter {
          default:
             // console.warn("Unimplemented statement type:", node.type);
             break;
+      }
+   }
+
+   // Try to render a statement as a single-line string.
+   // For tight mode: render with nested blocks inlined if they fit.
+   // For single-line-blocks mode: only return non-null if the entire statement (including nested blocks) fits on one line.
+   // Returns null if the statement cannot be rendered inline under the given constraints.
+   private renderInlineStatement(stmt: luaparse.Statement, mode: "tight"|"single-line-blocks", maxLen: number): string
+      |null {
+      // Use a temporary printer in inline mode to render everything on one line
+      const temp = new LuaPrinter(this.options, this.blockComments);
+      temp.inlineMode = true;
+      temp.buf = [];
+      temp.currentLine = "";
+      temp.printStatementInline(stmt);
+      const out = temp.currentLine.trim();
+
+      // If it exceeds maxLen, cannot inline (unless we're the first thing on the line)
+      // But for single-line-blocks mode, we need to check if it would fit
+      if (out.length > maxLen) {
+         return null;
+      }
+
+      return out;
+   }
+
+   // Check if statement contains nested blocks
+   private isBlockStatement(stmt: luaparse.Statement): boolean {
+      switch (stmt.type) {
+         case "IfStatement":
+         case "WhileStatement":
+         case "RepeatStatement":
+         case "ForNumericStatement":
+         case "ForGenericStatement":
+         case "FunctionDeclaration":
+         case "DoStatement":
+            return true;
+         default:
+            return false;
       }
    }
 
