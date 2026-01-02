@@ -1,5 +1,5 @@
 import {assert, clamp} from "../utils/utils";
-import {SomaticCaps, SomaticEffectCommand, Tic80Caps, Tic80ChannelIndex} from "./tic80Capabilities";
+import {SomaticCaps, SomaticEffectCommand, SomaticPatternCommand, SOMATIC_PATTERN_COMMAND_DESCRIPTIONS, SOMATIC_PATTERN_COMMAND_LETTERS, TIC80_EFFECT_DESCRIPTIONS, TIC80_EFFECT_LETTERS, Tic80Caps, Tic80ChannelIndex} from "./tic80Capabilities";
 import type {Song} from "./song";
 
 
@@ -19,21 +19,12 @@ export type PatternCell = {
 };
 
 
-// TIC-80 effect command descriptions (indexed 0-6 for M,C,J,S,P,V,D)
-export const TIC80_EFFECT_DESCRIPTIONS: Record<number, string> = {
-   0: "M: Master volume",
-   1: "C: Chord",
-   2: "J: Jump (not supported in Somatic)",
-   3: "S: Slide",
-   4: "P: Pitch",
-   5: "V: Vibrato",
-   6: "D: Delay",
-};
-
-// Somatic effect command descriptions (indexed 0='E', 1='L')
-export const SOMATIC_EFFECT_DESCRIPTIONS: Record<number, string> = {
-   0: "E: Effect strength scale (00=bypass, FF=max)",
-   1: "L: Set LFO phase (00 - FF)",
+// Re-export TIC-80 and Somatic command metadata from tic80Capabilities for convenience
+export {
+   TIC80_EFFECT_LETTERS,
+   TIC80_EFFECT_DESCRIPTIONS,
+   SOMATIC_PATTERN_COMMAND_LETTERS,
+   SOMATIC_PATTERN_COMMAND_DESCRIPTIONS as SOMATIC_EFFECT_DESCRIPTIONS
 };
 
 
@@ -203,8 +194,7 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
                                                {paramU8: number}>(),
                                          }));
 
-   // Somatic command semantics (POC)
-   const SOMATIC_CMD_EFFECT_STRENGTH_SCALE = 0; // 'E'
+   // Somatic command semantics
    const SOMATIC_CMD_EFFECT_STRENGTH_SCALE_NOMINAL = 0xff;
 
    // init k-rate render slot per channel (for sustaining notes).
@@ -241,8 +231,8 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
             const paramU8 = (cell.somaticParam ?? SOMATIC_CMD_EFFECT_STRENGTH_SCALE_NOMINAL) & 0xff;
             const stateMap = fxCarryByChannel[channelIndex].somaticCommandStates;
 
-            // Currently only the 'E' command is supported.
-            if (somCmd === SOMATIC_CMD_EFFECT_STRENGTH_SCALE) {
+            // Currently only the 'E' command is tracked for carry-over warnings.
+            if (somCmd === SomaticPatternCommand.EffectStrengthScale) {
                // 0xFF is the nominal value; we do not warn about carrying this over.
                if (paramU8 === SOMATIC_CMD_EFFECT_STRENGTH_SCALE_NOMINAL) {
                   stateMap.delete(somCmd);

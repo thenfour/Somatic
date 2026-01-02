@@ -2,7 +2,8 @@ import { EditorState } from "../models/editor_state";
 import { formatPatternIndex, Song } from "../models/song";
 import { clamp, IsNullOrWhitespace } from "../utils/utils";
 import { useAppStatusBar } from "../hooks/useAppStatusBar";
-import { SOMATIC_EFFECT_DESCRIPTIONS, TIC80_EFFECT_DESCRIPTIONS } from "../models/pattern";
+import { TIC80_EFFECT_LETTERS, TIC80_EFFECT_DESCRIPTIONS, SOMATIC_EFFECT_DESCRIPTIONS, SOMATIC_PATTERN_COMMAND_LETTERS } from "../models/pattern";
+import { SomaticEffectCommand, SomaticPatternCommand } from "../models/tic80Capabilities";
 
 
 // Column type descriptions
@@ -51,21 +52,25 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
     if (editingCell) {
         // TIC-80 effect command
         if (editingCell.effect !== undefined && editingCell.effect !== null) {
-            const desc = TIC80_EFFECT_DESCRIPTIONS[editingCell.effect];
-            if (desc) {
+            const effectEnum = editingCell.effect as SomaticEffectCommand;
+            const letter = TIC80_EFFECT_LETTERS[effectEnum];
+            const description = TIC80_EFFECT_DESCRIPTIONS[effectEnum];
+            if (letter && description) {
                 const paramX = editingCell.effectX ?? 0;
                 const paramY = editingCell.effectY ?? 0;
                 const paramStr = `${paramX.toString(16).toUpperCase()}${paramY.toString(16).toUpperCase()}`;
-                commandDescParts.push(`${desc.split(':')[0]}${paramStr}`);
+                commandDescParts.push(`${letter}${paramStr}: ${description}`);
             }
         }
 
         // Somatic effect command
         if (editingCell.somaticEffect !== undefined && editingCell.somaticEffect !== null) {
-            const desc = SOMATIC_EFFECT_DESCRIPTIONS[editingCell.somaticEffect];
-            if (desc) {
+            const commandEnum = editingCell.somaticEffect as SomaticPatternCommand;
+            const letter = SOMATIC_PATTERN_COMMAND_LETTERS[commandEnum];
+            const description = SOMATIC_EFFECT_DESCRIPTIONS[commandEnum];
+            if (letter && description) {
                 const paramStr = (editingCell.somaticParam ?? 0).toString(16).toUpperCase().padStart(2, '0');
-                commandDescParts.push(`${desc.split(':')[0]}${paramStr}`);
+                commandDescParts.push(`${letter}${paramStr}: ${description}`);
             }
         }
     }

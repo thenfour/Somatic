@@ -27,6 +27,46 @@ export enum SomaticEffectCommand {
    D = 6,
 }
 
+export const TIC80_EFFECT_LETTERS: Record<SomaticEffectCommand, string> = {
+   [SomaticEffectCommand.M]: "M",
+   [SomaticEffectCommand.C]: "C",
+   [SomaticEffectCommand.J]: "J",
+   [SomaticEffectCommand.S]: "S",
+   [SomaticEffectCommand.P]: "P",
+   [SomaticEffectCommand.V]: "V",
+   [SomaticEffectCommand.D]: "D",
+};
+
+export const TIC80_EFFECT_DESCRIPTIONS: Record<SomaticEffectCommand, string> = {
+   [SomaticEffectCommand.M]: "Master volume",
+   [SomaticEffectCommand.C]: "Chord",
+   [SomaticEffectCommand.J]: "Jump (not supported in Somatic)",
+   [SomaticEffectCommand.S]: "Slide",
+   [SomaticEffectCommand.P]: "Pitch",
+   [SomaticEffectCommand.V]: "Vibrato",
+   [SomaticEffectCommand.D]: "Delay",
+};
+
+export enum SomaticPatternCommand {
+   EffectStrengthScale = 0, // 'E'
+   SetLFOPhase = 1,         // 'L'
+}
+
+export const SOMATIC_PATTERN_COMMAND_KEYS: Record<string, SomaticPatternCommand> = {
+   "e": SomaticPatternCommand.EffectStrengthScale,
+   "l": SomaticPatternCommand.SetLFOPhase,
+};
+
+export const SOMATIC_PATTERN_COMMAND_LETTERS: Record<SomaticPatternCommand, string> = {
+   [SomaticPatternCommand.EffectStrengthScale]: "E",
+   [SomaticPatternCommand.SetLFOPhase]: "L",
+};
+
+export const SOMATIC_PATTERN_COMMAND_DESCRIPTIONS: Record<SomaticPatternCommand, string> = {
+   [SomaticPatternCommand.EffectStrengthScale]: "Effect strength scale (00=bypass, FF=max)",
+   [SomaticPatternCommand.SetLFOPhase]: "Set LFO phase (00 - FF)",
+};
+
 export const Tic80Caps = {
    frameRate: 60,
 

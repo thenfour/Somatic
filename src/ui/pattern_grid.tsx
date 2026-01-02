@@ -7,7 +7,7 @@ import { useActionHandler } from '../keyb/useActionHandler';
 import { EditorState } from '../models/editor_state';
 import { analyzePatternPlaybackForGrid, isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { formatPatternIndex, Song } from '../models/song';
-import { gChannelsArray, SomaticCaps, SomaticEffectCommand, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
+import { gChannelsArray, SomaticCaps, SomaticEffectCommand, SomaticPatternCommand, SOMATIC_PATTERN_COMMAND_KEYS, SOMATIC_PATTERN_COMMAND_LETTERS, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
 import { CharMap, clamp, Coord2D, numericRange } from '../utils/utils';
 import { InterpolateTarget, PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
 import { useToasts } from './toast_provider';
@@ -30,8 +30,7 @@ const instrumentKeyMap = '0123456789abcdef'.split('');
 const commandKeyMap = 'mcjspvd'.split('');
 const paramKeyMap = instrumentKeyMap;
 
-// Somatic-specific pattern command keys: 'e' = effect strength scale, 'l' = set LFO phase
-const somaticCommandKeyMap = 'el'.split('');
+const somaticCommandKeyMap = Object.keys(SOMATIC_PATTERN_COMMAND_KEYS);
 const somaticParamKeyMap = instrumentKeyMap;
 
 
@@ -63,7 +62,8 @@ const formatCommand = (val: number | undefined | null) => {
 
 const formatSomaticCommand = (val: number | undefined | null) => {
     if (val === null || val === undefined) return '-';
-    return `${somaticCommandKeyMap[val].toUpperCase()}` || '?';
+    const letter = SOMATIC_PATTERN_COMMAND_LETTERS[val as SomaticPatternCommand];
+    return letter || '?';
 };
 
 const formatParams = (valX: number | undefined | null, valY: number | undefined | null) => {
@@ -653,7 +653,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         };
 
         const handleSomaticCommandKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
-            const idx = somaticCommandKeyMap.indexOf(key);
+            const cmd = SOMATIC_PATTERN_COMMAND_KEYS[key.toLowerCase()];
+            const idx = cmd !== undefined ? cmd : -1;
             if (idx === -1) return false;
             onSongChange({
                 description: 'Set Somatic effect command from key',
