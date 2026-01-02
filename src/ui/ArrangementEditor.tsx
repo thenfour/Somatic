@@ -272,6 +272,14 @@ export const ArrangementEditor: React.FC<{
                 }
             },
         });
+
+        // Adjust activeSongPosition to ensure it's within bounds after deletion
+        onEditorStateChange((state) => {
+            const newLength = song.songOrder.length - selection.length;
+            if (state.activeSongPosition >= newLength) {
+                state.setActiveSongPosition(Math.max(0, newLength - 1));
+            }
+        });
     };
 
     const handleRepeatSelection = () => {
