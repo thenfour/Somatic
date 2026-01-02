@@ -197,7 +197,7 @@ export type MorphEntryPacked = {
 // Input type with nested config (kept for ergonomic API)
 export type MorphEntryInput = {
    instrumentId: number; cfg: {
-   waveEngineId: WaveEngineId; //
+      waveEngineId: WaveEngineId; //
       sourceWaveformIndex: number;
       renderWaveformSlot: number;
       pwmDuty5: number;               //
