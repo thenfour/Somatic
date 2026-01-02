@@ -978,10 +978,6 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
       ast.comments = [];
    }
 
-   if (ruleOptions.packLocalDeclarations) {
-      ast = packLocalDeclarationsInAST(ast);
-   }
-
    if (ruleOptions.simplifyExpressions) {
       ast = simplifyExpressionsInAST(ast);
    }
@@ -996,6 +992,10 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
 
    if (ruleOptions.aliasRepeatedExpressions) {
       ast = aliasRepeatedExpressionsInAST(ast);
+   }
+
+   if (ruleOptions.packLocalDeclarations) {
+      ast = packLocalDeclarationsInAST(ast);
    }
 
    if (ruleOptions.renameLocalVariables) {
