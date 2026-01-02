@@ -8,6 +8,7 @@ import {packLocalDeclarationsInAST} from "./lua_pack_locals";
 import {simplifyExpressionsInAST} from "./lua_simplify";
 import {removeUnusedLocalsInAST} from "./lua_remove_unused_locals";
 import {renameTableFieldsInAST} from "./lua_rename_table_fields";
+import {renameAllowedTableKeysInAST} from "./lua_rename_allowed_table_keys";
 
 export type OptimizationRuleOptions = {
    stripComments: boolean;    //
@@ -32,6 +33,10 @@ export type OptimizationRuleOptions = {
 
    // Rename table literal field names when safe (non-escaping locals, string/identifier keys only).
    renameTableFields: boolean;
+
+   // Globally rename specific table entry keys (string/identifier keys and member/index accesses) to short names.
+   // Intended for callers that know these keys are safe to minify even when the table escapes.
+   tableEntryKeysToRename: string[];
 
    // Merge consecutive local declarations into one using packing.
    // e.g.,
@@ -729,6 +734,10 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
 
    if (ruleOptions.renameLocalVariables) {
       ast = renameLocalVariablesInAST(ast);
+   }
+
+   if (ruleOptions.tableEntryKeysToRename && ruleOptions.tableEntryKeysToRename.length > 0) {
+      ast = renameAllowedTableKeysInAST(ast, ruleOptions.tableEntryKeysToRename);
    }
 
    if (ruleOptions.renameTableFields) {

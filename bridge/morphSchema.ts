@@ -8,17 +8,21 @@ import type {Codec} from "./bitpack";
 export type MorphEffectKind = "none"|"wavefold"|"hardSync";
 
 export type MorphEntryInput = {
-   instrumentId: number; cfg: {
-      waveEngineId: number; sourceWaveformIndex: number; morphWaveB: number; renderWaveformSlot: number;
-      pwmDuty5: number;
-      pwmDepth5: number;
-      morphDurationTicks12: number;
-      morphCurveS6: number;
-      lowpassEnabled: boolean;
-      lowpassDurationTicks12: number;
-      lowpassCurveS6: number;
-      lowpassModSource: number;
-      effectKind: MorphEffectKind;
+   instrumentId: number; //
+   cfg: {
+      waveEngineId: number;           //
+      sourceWaveformIndex: number;    //
+      morphWaveB: number;             //
+      renderWaveformSlot: number;     //
+      pwmDuty5: number;               //
+      pwmDepth5: number;              //
+      morphDurationTicks12: number;   //
+      morphCurveS6: number;           //
+      lowpassEnabled: boolean;        //
+      lowpassDurationTicks12: number; //
+      lowpassCurveS6: number;         //
+      lowpassModSource: number;       //
+      effectKind: MorphEffectKind;    //
       effectAmtU8: number;
       effectDurationTicks12: number;
       effectCurveS6: number;
@@ -28,18 +32,21 @@ export type MorphEntryInput = {
 };
 
 type MorphEntryPacked = {
-   instrumentId: number; waveEngineId: number; sourceWaveformIndex: number; morphWaveB: number;
+   instrumentId: number;        //
+   waveEngineId: number;        //
+   sourceWaveformIndex: number; //
+   morphWaveB: number;
    renderWaveformSlot: number;
-   morphDurationTicks12: number;
-   morphCurveS6: number;
-   pwmDuty5: number;
-   pwmDepth5: number;
-   lfoCycleTicks12: number;
-   lowpassEnabled: number;
-   lowpassDurationTicks12: number;
-   lowpassCurveS6: number;
-   lowpassModSource: number;
-   effectKind: MorphEffectKind | number;
+   morphDurationTicks12: number;         //
+   morphCurveS6: number;                 //
+   pwmDuty5: number;                     //
+   pwmDepth5: number;                    //
+   lfoCycleTicks12: number;              //
+   lowpassEnabled: number;               //
+   lowpassDurationTicks12: number;       //
+   lowpassCurveS6: number;               //
+   lowpassModSource: number;             //
+   effectKind: MorphEffectKind | number; //
    effectAmtU8: number;
    effectDurationTicks12: number;
    effectCurveS6: number;
@@ -73,6 +80,28 @@ export const MorphEntryCodec = C.struct("MorphEntry", [
    C.field("effectCurveS6", C.i(6)),
    C.field("effectModSource", C.bool()),
 ]);
+
+export const MorphEntryFieldNamesToRename = [
+   "instrumentId",
+   "waveEngineId",
+   "sourceWaveformIndex",
+   "morphWaveB",
+   "renderWaveformSlot",
+   "morphDurationTicks12",
+   "morphCurveS6",
+   "pwmDuty5",
+   "pwmDepth5",
+   "lfoCycleTicks12",
+   "lowpassEnabled",
+   "lowpassDurationTicks12",
+   "lowpassCurveS6",
+   "lowpassModSource",
+   "effectKind",
+   "effectAmtU8",
+   "effectDurationTicks12",
+   "effectCurveS6",
+   "effectModSource",
+] as const;
 
 const MorphHeaderCodec = C.struct("MorphHeader", [
    C.field("entryCount", C.u8()),

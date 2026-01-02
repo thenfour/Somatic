@@ -6,7 +6,7 @@ import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex, TicMemor
 import {BakedSong, BakeSong} from "../utils/bakeSong";
 import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
 import bridgeConfig from "../../bridge/bridge_config";
-import {encodeMorphPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec} from "../../bridge/morphSchema";
+import {encodeMorphPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename} from "../../bridge/morphSchema";
 import {emitLuaDecoder} from "../../bridge/emitLuaDecoder";
 import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../utils/utils";
 import {LoopMode} from "./backend";
@@ -724,6 +724,7 @@ ${emitLuaDecoder(MorphEntryCodec, {
       simplifyExpressions: true,
       removeUnusedLocals: true,
       renameTableFields: true,
+      tableEntryKeysToRename: [...MorphEntryFieldNamesToRename],
    } : //
       {
          stripComments: false,
@@ -736,6 +737,7 @@ ${emitLuaDecoder(MorphEntryCodec, {
          simplifyExpressions: false,
          removeUnusedLocals: false,
          renameTableFields: false,
+         tableEntryKeysToRename: [],
       };
    code = processLua(code, optimizationRuleOptions);
 

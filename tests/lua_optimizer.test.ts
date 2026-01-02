@@ -12,6 +12,7 @@ const baseOpts: OptimizationRuleOptions = {
    simplifyExpressions: false,
    removeUnusedLocals: false,
    renameTableFields: false,
+   tableEntryKeysToRename: [],
    packLocalDeclarations: false,
 };
 
@@ -372,6 +373,36 @@ fn(config[k])
          const expected = `local config={width=1}
 local k="width"
 fn(config[k])
+`;
+         assert.equal(output, expected);
+      });
+   });
+
+   describe("Allowlisted Table Key Renaming", () => {
+      it("should rename allowlisted keys even when the table escapes", () => {
+         const input = `
+local cfg={
+ width=1,
+ height=2
+}
+
+fn(cfg)
+`;
+         const output = runLua(input, {tableEntryKeysToRename: ["width", "height"]});
+         const expected = `local cfg={a=1,b=2}
+fn(cfg)
+`;
+         assert.equal(output, expected);
+      });
+
+      it("should rewrite member access for allowlisted keys", () => {
+         const input = `
+local cfg={width=1}
+fn(cfg.width)
+`;
+         const output = runLua(input, {tableEntryKeysToRename: ["width"]});
+         const expected = `local cfg={a=1}
+fn(cfg.a)
 `;
          assert.equal(output, expected);
       });

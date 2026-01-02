@@ -5,9 +5,11 @@ import { OptimizationRuleOptions, processLua } from '../audio/lua_processor';
 import { CharMap } from '../utils/utils';
 import { BarValue, SizeValue } from './BarValue';
 import { useClipboard } from '../hooks/useClipboard';
+import { MorphEntryFieldNamesToRename } from '../../bridge/morphSchema';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const clipboard = useClipboard();
+    const [allowedTableKeyRenames, setAllowedTableKeyRenames] = useState<string>("");
     const [inputLua, setInputLua] = useState<string>(`-- Test repeated expressions and literals
 local x = math.cos(1) + math.cos(2) + math.cos(3)
 local y = "hello" .. "world" .. "hello" .. "hello"
@@ -32,6 +34,7 @@ end
         simplifyExpressions: false,
         removeUnusedLocals: false,
         renameTableFields: false,
+        tableEntryKeysToRename: [],
     });
 
     const outputLua = useMemo(() => {
@@ -48,6 +51,15 @@ end
             [key]: typeof prev[key] === 'boolean' ? !prev[key] : prev[key],
         }));
     };
+
+    // when allowedTableKeyRenames changes, update options
+    React.useEffect(() => {
+        const keys = allowedTableKeyRenames.split(',').map(k => k.trim()).filter(k => k.length > 0);
+        setOptions((prev) => ({
+            ...prev,
+            tableEntryKeysToRename: keys,
+        }));
+    }, [allowedTableKeyRenames]);
 
     return (
         <AppPanelShell
@@ -165,6 +177,18 @@ end
                                     }))
                                 }
                                 style={{ width: '60px', marginLeft: '0.5rem' }}
+                            />
+                        </label>
+                    </div>
+                    <div className="debug-panel-option-group">
+                        <button onClick={() => setAllowedTableKeyRenames(MorphEntryFieldNamesToRename.join(", "))}>Morph entries</button>
+                        <label>
+                            Allowed Table Key Renames (comma-separated):
+                            <input
+                                type="text"
+                                value={allowedTableKeyRenames}
+                                onChange={(e) => setAllowedTableKeyRenames(e.target.value)}
+                                style={{ width: '100%', marginTop: '0.25rem' }}
                             />
                         </label>
                     </div>
