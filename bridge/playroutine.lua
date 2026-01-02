@@ -176,7 +176,7 @@ do
 	end
 
 	local function apply_curveN11(t01, curveS6)
-		local t = clamp01(t01 or 0)
+		local t = clamp01(t01)
 		if t <= 0 then
 			return 0
 		end
@@ -213,8 +213,8 @@ do
 		local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
 		local si = 0
 		for i = 0, WAVE_BYTES_PER_WAVE - 1 do
-			local s0 = clamp_nibble_round(samples[si] or 0)
-			local s1 = clamp_nibble_round(samples[si + 1] or 0)
+			local s0 = clamp_nibble_round(samples[si])
+			local s1 = clamp_nibble_round(samples[si + 1])
 			poke(base + i, (s1 << 4) | s0)
 			si = si + 2
 		end
@@ -234,7 +234,7 @@ do
 	local lp_scratch_b = {}
 
 	local function apply_lowpass_effect_to_samples(samples, strength01)
-		local strength = clamp01(strength01 or 0)
+		local strength = clamp01(strength01)
 		if strength <= 0 then
 			return
 		end
@@ -244,7 +244,7 @@ do
 			amt = 0.95
 		end
 		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-			lp_scratch_a[i] = samples[i] or 0
+			lp_scratch_a[i] = samples[i]
 		end
 		local x = lp_scratch_a
 		local y = lp_scratch_b
@@ -268,13 +268,13 @@ do
 	end
 
 	local function apply_wavefold_effect_to_samples(samples, strength01)
-		local strength = clamp01(strength01 or 0)
+		local strength = clamp01(strength01)
 		if strength <= 0 then
 			return
 		end
 		local gain = 1 + strength * 20
 		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-			local s = samples[i] or 0
+			local s = samples[i]
 			local x = (s / 7.5) - 1
 			local folded = fold_reflect(x * gain)
 			local out = (folded + 1) * 7.5
@@ -299,7 +299,7 @@ do
 		local N = WAVE_SAMPLES_PER_WAVE
 
 		for i = 0, N - 1 do
-			hs_scratch[i] = samples[i] or 0
+			hs_scratch[i] = samples[i]
 		end
 
 		for i = 0, N - 1 do
@@ -367,12 +367,12 @@ do
 		-- END_FEATURE_LOWPASS
 		-- BEGIN_FEATURE_WAVEFOLD
 		local effectKind = cfg.effectKind
-		if effectKind == EFFECT_KIND_WAVEFOLD and (cfg.effectAmtU8 or 0) > 0 then
+		if effectKind == EFFECT_KIND_WAVEFOLD and cfg.effectAmtU8 > 0 then
 			return true
 		end
 		-- END_FEATURE_WAVEFOLD
 		-- BEGIN_FEATURE_HARDSYNC
-		if effectKind == EFFECT_KIND_HARDSYNC and (cfg.effectAmtU8 or 0) > 0 then
+		if effectKind == EFFECT_KIND_HARDSYNC and cfg.effectAmtU8 > 0 then
 			return true
 		end
 		-- END_FEATURE_HARDSYNC
@@ -391,8 +391,8 @@ do
 		wave_read_samples(cfg.sourceWaveformIndex, render_src_a)
 		wave_read_samples(cfg.morphWaveB, render_src_b)
 		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-			local a = render_src_a[i] or 0
-			local b = render_src_b[i] or 0
+			local a = render_src_a[i]
+			local b = render_src_b[i]
 			outSamples[i] = a + (b - a) * t
 		end
 		return true
@@ -402,7 +402,7 @@ do
 	-- BEGIN_FEATURE_PWM
 	local function render_waveform_pwm(cfg, ticksPlayed, outSamples, lfoTicks)
 		-- PWM speed is driven by the instrument LFO; pwmCycleInTicks and phase offset are ignored.
-		local cycle = cfg.lfoCycleInTicks or 0
+		local cycle = cfg.lfoCycleInTicks
 		local phase
 		if cycle <= 0 then
 			phase = 0
@@ -415,7 +415,7 @@ do
 		else
 			tri = 3 - phase * 4
 		end
-		local duty = (cfg.pwmDuty or 0) + (cfg.pwmDepth or 0) * tri
+		local duty = cfg.pwmDuty + cfg.pwmDepth * tri
 		if duty < 1 then
 			duty = 1
 		elseif duty > 30 then
@@ -461,7 +461,7 @@ do
 		end
 		local effectKind = cfg.effectKind or EFFECT_KIND_NONE
 		-- BEGIN_FEATURE_HARDSYNC
-		if effectKind == EFFECT_KIND_HARDSYNC and (cfg.effectAmtU8 or 0) > 0 then
+		if effectKind == EFFECT_KIND_HARDSYNC and cfg.effectAmtU8 > 0 then
 			local hsT = calculate_mod_t(
 				cfg.effectModSource or MOD_SRC_ENVELOPE,
 				cfg.effectDurationInTicks,
@@ -470,17 +470,17 @@ do
 				cfg.lfoCycleInTicks,
 				0
 			)
-			local env = 1 - apply_curveN11(hsT, cfg.effectCurveS6 or 0)
-			local multiplier = 1 + ((cfg.effectAmtU8 or 0) / 255) * 7 * env
+			local env = 1 - apply_curveN11(hsT, cfg.effectCurveS6)
+			local multiplier = 1 + (cfg.effectAmtU8 / 255) * 7 * env
 			apply_hardsync_effect_to_samples(render_out, multiplier)
 		end
 		-- END_FEATURE_HARDSYNC
 		-- BEGIN_FEATURE_WAVEFOLD
 		local effectModSource = cfg.effectModSource or MOD_SRC_ENVELOPE
-		local wavefoldHasTime = (effectModSource == MOD_SRC_LFO and (cfg.lfoCycleInTicks or 0) > 0)
-			or ((cfg.effectDurationInTicks or 0) > 0)
-		if effectKind == EFFECT_KIND_WAVEFOLD and (cfg.effectAmtU8 or 0) > 0 and wavefoldHasTime then
-			local maxAmt = clamp01((cfg.effectAmtU8 or 0) / 255)
+		local wavefoldHasTime = (effectModSource == MOD_SRC_LFO and cfg.lfoCycleInTicks > 0)
+			or (cfg.effectDurationInTicks > 0)
+		if effectKind == EFFECT_KIND_WAVEFOLD and cfg.effectAmtU8 > 0 and wavefoldHasTime then
+			local maxAmt = clamp01(cfg.effectAmtU8 / 255)
 			local wfT = calculate_mod_t(
 				effectModSource,
 				cfg.effectDurationInTicks,
@@ -489,7 +489,7 @@ do
 				cfg.lfoCycleInTicks,
 				0
 			)
-			local envShaped = 1 - apply_curveN11(wfT, cfg.effectCurveS6 or 0)
+			local envShaped = 1 - apply_curveN11(wfT, cfg.effectCurveS6)
 			local strength = maxAmt * envShaped
 			apply_wavefold_effect_to_samples(render_out, strength)
 		end
@@ -516,7 +516,7 @@ do
 		if not cfg_is_k_rate_processing(cfg) then
 			return
 		end
-		local lt = lfo_ticks_by_sfx[instId] or 0
+		local lt = lfo_ticks_by_sfx[instId]
 		render_tick_cfg(cfg, instId, 0, lt)
 	end
 
@@ -587,7 +587,7 @@ do
 			ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 			return
 		end
-		local lt = lfo_ticks_by_sfx[instId] or 0
+		local lt = lfo_ticks_by_sfx[instId]
 		render_tick_cfg(cfg, instId, ticksPlayed, lt)
 		ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 	end
@@ -703,7 +703,7 @@ do
 	local function swapInPlayorder(songPosition0b, destPointer)
 		local entry = SOMATIC_MUSIC_DATA.songOrder[songPosition0b + 1]
 		for ch = 0, 3 do
-			local columnIndex0b = entry[ch + 1] or 0
+			local columnIndex0b = entry[ch + 1]
 			local dst = destPointer + ch * PATTERN_BYTES_PER_PATTERN
 			blit_pattern_column(columnIndex0b, dst)
 		end

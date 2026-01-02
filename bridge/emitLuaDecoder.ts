@@ -141,7 +141,7 @@ export function emitLuaDecoder(codec: Codec, opt: LuaDecoderOptions = {}): strin
       throw new Error(`emitLuaDecoder: root codec must be struct/array, got ${codec.node.kind}`);
 
    const layoutComment = emitLayoutComment(codec, includeLayoutComments);
-   const body = `function ${functionName}(${baseArgName})\n  local ${localReaderName} = _bp_make_reader(${
+   const body = `local function ${functionName}(${baseArgName})\n  local ${localReaderName} = _bp_make_reader(${
       baseArgName})\n${indent(emitStatementsForCodec(codec, returnName, localReaderName, returnName), 2)}\nend`;
 
    const prelude = emitLuaPrelude(baseArgName);

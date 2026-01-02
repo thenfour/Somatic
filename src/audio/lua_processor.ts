@@ -7,6 +7,7 @@ import {aliasRepeatedExpressionsInAST} from "./lua_alias_expressions";
 import {packLocalDeclarationsInAST} from "./lua_pack_locals";
 import {simplifyExpressionsInAST} from "./lua_simplify";
 import {removeUnusedLocalsInAST} from "./lua_remove_unused_locals";
+import {renameTableFieldsInAST} from "./lua_rename_table_fields";
 
 export type OptimizationRuleOptions = {
    stripComments: boolean;    //
@@ -28,6 +29,9 @@ export type OptimizationRuleOptions = {
 
    // Remove local declarations that are never referenced (and whose initializers are side-effect free).
    removeUnusedLocals: boolean;
+
+   // Rename table literal field names when safe (non-escaping locals, string/identifier keys only).
+   renameTableFields: boolean;
 
    // Merge consecutive local declarations into one using packing.
    // e.g.,
@@ -725,6 +729,10 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
 
    if (ruleOptions.renameLocalVariables) {
       ast = renameLocalVariablesInAST(ast);
+   }
+
+   if (ruleOptions.renameTableFields) {
+      ast = renameTableFieldsInAST(ast);
    }
 
    return unparseLua(ast, ruleOptions);

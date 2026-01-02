@@ -723,6 +723,7 @@ ${emitLuaDecoder(MorphEntryCodec, {
       packLocalDeclarations: true,
       simplifyExpressions: true,
       removeUnusedLocals: true,
+      renameTableFields: true,
    } : //
       {
          stripComments: false,
@@ -734,6 +735,7 @@ ${emitLuaDecoder(MorphEntryCodec, {
          packLocalDeclarations: false,
          simplifyExpressions: false,
          removeUnusedLocals: false,
+         renameTableFields: false,
       };
    code = processLua(code, optimizationRuleOptions);
 

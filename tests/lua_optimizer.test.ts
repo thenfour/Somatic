@@ -11,6 +11,7 @@ const baseOpts: OptimizationRuleOptions = {
    aliasLiterals: false,
    simplifyExpressions: false,
    removeUnusedLocals: false,
+   renameTableFields: false,
    packLocalDeclarations: false,
 };
 
@@ -291,6 +292,86 @@ end
 local function f()
  return x
 end
+`;
+         assert.equal(output, expected);
+      });
+   });
+
+   describe("Table Field Renaming", () => {
+      it("should rename table literal fields when the table does not escape", () => {
+         const input = `
+local config={
+ width=1,
+ height=2
+}
+fn(config.width)
+fn(config.height)
+`;
+         const output = runLua(input, {renameTableFields: true});
+         const expected = `local config={a=1,b=2}
+fn(config.a)
+fn(config.b)
+`;
+         assert.equal(output, expected);
+      });
+
+      it("should not rename fields when the table escapes", () => {
+         const input = `
+local config={
+ width=1,
+ height=2
+}
+fn(config)
+fn(config.width)
+`;
+         const output = runLua(input, {renameTableFields: true});
+         const expected = `local config={width=1,height=2}
+fn(config)
+fn(config.width)
+`;
+         assert.equal(output, expected);
+      });
+
+      it("should not rename fields when returned", () => {
+         const input = `
+local config={width=1}
+return config.width,config
+`;
+         const output = runLua(input, {renameTableFields: true});
+         const expected = `local config={width=1}
+return config.width,config
+`;
+         assert.equal(output, expected);
+      });
+
+      it("should not rename fields accessed inside nested functions", () => {
+         const input = `
+local config={width=1}
+local function g()
+ return config.width
+end
+g()
+`;
+         const output = runLua(input, {renameTableFields: true});
+         const expected = `local config={width=1}
+local function g()
+ return config.width
+end
+g()
+`;
+         assert.equal(output, expected);
+      });
+
+      it("should not rename when indexed dynamically", () => {
+         const input = `
+local config={width=1}
+local k="width"
+fn(config[k])
+`;
+         const output = runLua(input, {renameTableFields: true});
+         const expected = `local config={width=1}
+local k="width"
+fn(config[k])
 `;
          assert.equal(output, expected);
       });

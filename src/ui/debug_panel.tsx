@@ -31,6 +31,7 @@ end
         packLocalDeclarations: false,
         simplifyExpressions: false,
         removeUnusedLocals: false,
+        renameTableFields: false,
     });
 
     const outputLua = useMemo(() => {
@@ -136,6 +137,16 @@ end
                                 onChange={() => handleOptionChange('removeUnusedLocals')}
                             />
                             Remove Unused Locals
+                        </label>
+                    </div>
+                    <div className="debug-panel-option-group">
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={options.renameTableFields}
+                                onChange={() => handleOptionChange('renameTableFields')}
+                            />
+                            Rename Table Fields
                         </label>
                     </div>
 
