@@ -9,6 +9,7 @@ import { useClipboard } from '../hooks/useClipboard';
 import { WaveformSelect } from './waveformEditor';
 import { WaveformSwatch } from './waveformSwatch';
 import { Tic80Waveform } from '../models/waveform';
+import { MorphGradientPreview } from './MorphGradientPreview';
 import './instrument_editor.css';
 import { AppPanelShell } from './AppPanelShell';
 import { RadioButton } from './basic/RadioButton';
@@ -161,6 +162,8 @@ const WaveformMorphGradientEditor: React.FC<{
             <div style={{ maxWidth: 520 }}>
                 Morph gradients are embedded per-instrument waveforms. The last node's duration/curve is stored but ignored.
             </div>
+
+            <MorphGradientPreview nodes={nodes} />
 
             {nodes.map((node, idx) => {
                 const isExpanded = expandedIndex === idx;
