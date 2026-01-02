@@ -4,8 +4,10 @@ import { AppPanelShell } from './AppPanelShell';
 import { OptimizationRuleOptions, processLua } from '../audio/lua_processor';
 import { CharMap } from '../utils/utils';
 import { BarValue, SizeValue } from './BarValue';
+import { useClipboard } from '../hooks/useClipboard';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+    const clipboard = useClipboard();
     const [inputLua, setInputLua] = useState<string>(`-- Test repeated expressions and literals
 local x = math.cos(1) + math.cos(2) + math.cos(3)
 local y = "hello" .. "world" .. "hello" .. "hello"
@@ -26,6 +28,7 @@ end
         aliasRepeatedExpressions: false,
         aliasLiterals: false,
         renameLocalVariables: false,
+        packLocalDeclarations: false,
     });
 
     const outputLua = useMemo(() => {
@@ -103,6 +106,16 @@ end
                             Rename Local Variables
                         </label>
                     </div>
+                    <div className="debug-panel-option-group">
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={options.packLocalDeclarations}
+                                onChange={() => handleOptionChange('packLocalDeclarations')}
+                            />
+                            Pack Local Declarations
+                        </label>
+                    </div>
 
                     <div className="debug-panel-option-group">
                         <label>
@@ -146,6 +159,7 @@ end
                     }}>
                         <BarValue value={inputLua.length} max={Math.max(inputLua.length, outputLua.length)} label={<SizeValue value={inputLua.length} />} />
                         <BarValue value={outputLua.length} max={Math.max(inputLua.length, outputLua.length)} label={<SizeValue value={outputLua.length} />} />
+                        <button onClick={() => clipboard.copyTextToClipboard(outputLua)}>Copy</button>
                     </div>
                     <div className="debug-panel-output-content">{outputLua}</div>
                 </div>

@@ -4,6 +4,7 @@ import {replaceLuaBlock, toLuaStringLiteral} from "../utils/utils";
 import {renameLocalVariablesInAST} from "./lua_renamer";
 import {aliasLiteralsInAST} from "./lua_alias_literals";
 import {aliasRepeatedExpressionsInAST} from "./lua_alias_expressions";
+import {packLocalDeclarationsInAST} from "./lua_pack_locals";
 
 export type OptimizationRuleOptions = {
    stripComments: boolean;    //
@@ -17,6 +18,29 @@ export type OptimizationRuleOptions = {
    // * only done for values that appear enough times to offset the cost of the local declaration.
    // * alias declaration placed in the narrowest possible scope that contains all uses.
    aliasLiterals: boolean;
+
+   // Merge consecutive local declarations into one using packing.
+   // e.g.,
+   // local a=1
+   // local b=2
+   // ->
+   // local a,b = 1,2
+   // (18 chars -> 15)
+   //
+   // we should be conservative in choosing to apply this treatment:
+   // * must be consecutive to guarantee no side-effects or dependencies in between.
+   // * it's NOT safe when there are any intervening statements with side effects.
+   // * or any dependencies between the variables being declared. like,
+   //   local a = 1
+   //   local b = a + c
+   //   -> cannot be packed.
+   //   local a, b = 1, a + c -- does not work because 'a' is not defined yet
+   // * or if any of the variables are used before all are declared. this is non-trivial because you could
+   //   have:
+   //   local a = 1
+   //   local b = doSomething() -- 'a' is used in doSomething()
+   // so we skip packing in that case.
+   packLocalDeclarations: boolean;
 };
 
 // Precedence tables, low → high
@@ -667,6 +691,10 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
 
    if (ruleOptions.stripComments) {
       ast.comments = [];
+   }
+
+   if (ruleOptions.packLocalDeclarations) {
+      ast = packLocalDeclarationsInAST(ast);
    }
 
    if (ruleOptions.aliasLiterals) {
