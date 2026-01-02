@@ -4,6 +4,16 @@
 local LOG_LINES = 15
 local log_lines = {}
 local log_serial = 0
+
+local function log(s)
+	log_serial = log_serial + 1
+	local prefix = string.format("[%03d] ", log_serial)
+	trace(prefix .. s)
+	table.insert(log_lines, 1, prefix .. s)
+	if #log_lines > LOG_LINES then
+		table.remove(log_lines)
+	end
+end
 -- END_DEBUG_ONLY
 
 do
@@ -29,20 +39,6 @@ do
 	local EFFECT_KIND_NONE = 0
 	local EFFECT_KIND_WAVEFOLD = 1
 	local EFFECT_KIND_HARDSYNC = 2
-
-	-- BEGIN_DEBUG_ONLY
-	-- Debug logging
-
-	local function log(s)
-		log_serial = log_serial + 1
-		local prefix = string.format("[%03d] ", log_serial)
-		trace(prefix .. s)
-		table.insert(log_lines, 1, prefix .. s)
-		if #log_lines > LOG_LINES then
-			table.remove(log_lines)
-		end
-	end
-	-- END_DEBUG_ONLY
 
 	-- =========================
 	-- general playroutine support
@@ -677,10 +673,8 @@ do
 		log(" firstBytes: [" .. firstBytes .. "]")
 	end
 	-- END_DEBUG_ONLY
-	local function getSongOrderCount()
-		local count = #SOMATIC_MUSIC_DATA.songOrder
-		log("getSongOrderCount: " .. tostring(count)) -- DEBUG_ONLY
-		return count
+	function somatic_get_song_order_count()
+		return #SOMATIC_MUSIC_DATA.songOrder
 	end
 
 	local function blit_pattern_column(columnIndex0b, destPointer)
@@ -711,20 +705,6 @@ do
 	-- =========================
 	-- general playroutine support
 
-	local function getBufferPointer()
-		if backBufferIsA then
-			return bufferALocation
-		else
-			return bufferBLocation
-		end
-	end
-
-	local function clearPatternBuffer(destPointer)
-		for i = 0, PATTERN_BUFFER_BYTES - 1 do
-			poke(destPointer + i, 0)
-		end
-	end
-
 	somatic_reset_state = function()
 		currentSongOrder = 0
 		lastPlayingFrame = -1
@@ -736,7 +716,7 @@ do
 
 	somatic_reset_state()
 
-	-- init state and begin playback from start
+	-- init state and begin playback. can be called multiple times.
 	somatic_init = function(songPosition, startRow)
 		songPosition = songPosition or 0
 		startRow = startRow or 0
@@ -767,7 +747,16 @@ do
 		if track == 255 then
 			track = -1
 		end -- stopped / none
-		return track, lastPlayingFrame, frame, row
+		-- currentSongOrder is the *next* entry to be queued
+		-- and lastPlayingFrame is not correct for this; it will report incorrect esp. when you seek in the middle of the song.
+		local playingSongOrder = math.max(0, currentSongOrder - 1)
+		return track, playingSongOrder, frame, row
+	end
+
+	function somatic_stop()
+		log("tick: stopping") -- DEBUG_ONLY
+		music() -- stops playback.
+		somatic_reset_state()
 	end
 
 	function somatic_tick()
@@ -786,12 +775,9 @@ do
 			return
 		end
 
-		log(string.format("tick: frm=%d last=%d", currentFrame, lastPlayingFrame)) -- DEBUG_ONLY
+		--log(string.format("tick: frm=%d last=%d", currentFrame, lastPlayingFrame)) -- DEBUG_ONLY
 
 		if stopPlayingOnNextFrame then
-			log("tick: stopping") -- DEBUG_ONLY
-			music() -- stops playback.
-			somatic_reset_state()
 			return
 		end
 
@@ -800,15 +786,13 @@ do
 		--ch_set_playroutine_regs(currentSongOrder) -- the queued pattern is now playing; inform host.
 		currentSongOrder = currentSongOrder + 1
 
-		local destPointer = getBufferPointer()
-		local orderCount = getSongOrderCount()
+		local destPointer = backBufferIsA and bufferALocation or bufferBLocation
+		local orderCount = somatic_get_song_order_count()
 
 		log(string.format("tick: advance to=%d count=%d", currentSongOrder, orderCount)) -- DEBUG_ONLY
 
 		if orderCount == 0 or currentSongOrder >= orderCount then
-			log("tick: end of song") -- DEBUG_ONLY
-			clearPatternBuffer(destPointer)
-			stopPlayingOnNextFrame = true
+			somatic_stop()
 			return
 		end
 
@@ -817,20 +801,53 @@ do
 end -- do
 
 -- BEGIN_DISABLE_MINIFICATION
+local lastKnownOrder = 0
+local lastKnownRow = 0
 function TIC()
+	-- call once per frame
 	somatic_tick()
 
-	-- "track" is -1 otherwise kinda worthless
+	-- somatic_get_song_order_count() returns the total number of song orders.
+	-- somatic_init(orderIndex0b, startRow0b) starts playback at the given order and row.
+	-- somatic_stop() stops playback.
+
+	-- somatic_get_state() returns four values:
+	-- "track" is -1 when stopped; otherwise kinda worthless
 	-- "playingSongOrder" is the song order index of the pattern currently being played (0-255)
 	-- "currentFrame" is the TIC-80 internal frame counter; kinda worthless.
 	-- "currentRow" is the current row within the pattern being played (0-63).
 	local track, playingSongOrder, currentFrame, currentRow = somatic_get_state()
 
+	if track ~= -1 then -- if playing
+		lastKnownOrder = playingSongOrder
+		lastKnownRow = currentRow
+	end
+
+	if btnp(2) then -- left
+		somatic_init(math.max(0, playingSongOrder - 1), 0)
+	end
+	if btnp(3) then -- right
+		-- clamping...
+		local nextPattern = math.min(somatic_get_song_order_count() - 1, playingSongOrder + 1)
+		somatic_init(nextPattern, 0)
+	end
+	if btnp(1) then -- down
+		if track == -1 then
+			somatic_init(lastKnownOrder, lastKnownRow)
+		else
+			somatic_stop()
+		end
+	end
+
 	cls(0)
 	local y = 2
-	print("Somatic playroutine", 52, y, 12)
+	print("Somatic playroutine", 0, y, 12)
 	y = y + 8
-	print(string.format("t:%d ord:%d r:%d", track, playingSongOrder, currentRow), 60, y, 6)
+	print("Left/Right = next/prev song order", 0, y, 15)
+	y = y + 8
+	print("Down = pause/resume", 0, y, 15)
+	y = y + 8
+	print(string.format("t:%d ord:%d r:%d", track, playingSongOrder, currentRow), 0, y, 6)
 
 	-- BEGIN_DEBUG_ONLY
 	-- Show logs
