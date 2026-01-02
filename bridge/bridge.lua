@@ -197,11 +197,36 @@ local host_last_seq = 0
 local SFX_CHANNELS = 4
 local ch_sfx_id = { -1, -1, -1, -1 } -- 0-based channel -> sfx id (or -1)
 local ch_sfx_ticks = { 0, 0, 0, 0 } -- 0-based channel -> duration since note-on (ticks)
+local ch_effect_strength_scale_u8 = { 255, 255, 255, 255 } -- per channel (0..3)
 
 local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
 
 -- SOMATIC_SFX_CONFIG lives below the MARKER region; fail fast if layout or payload is inconsistent.
 local MORPH_MAP_BYTES = ADDR.MARKER - MORPH_MAP_BASE
+
+local pattern_extra_cache = {}
+
+local function read_extra_song_header_counts()
+	local instrumentCount = peek(MORPH_MAP_BASE)
+	local patternCount = peek(MORPH_MAP_BASE + 1)
+	local needed = SOMATIC_EXTRA_SONG_HEADER_BYTES
+		+ instrumentCount * MORPH_ENTRY_BYTES
+		+ patternCount * SOMATIC_PATTERN_ENTRY_BYTES
+	assert(MORPH_MAP_BYTES > 0, "Invalid bridge memory map: SOMATIC_SFX_CONFIG must be below MARKER")
+	assert(
+		needed <= MORPH_MAP_BYTES,
+		"SOMATIC_SFX_CONFIG overflow: need="
+			.. tostring(needed)
+			.. " have="
+			.. tostring(MORPH_MAP_BYTES)
+			.. " (instrumentCount="
+			.. tostring(instrumentCount)
+			.. " patternCount="
+			.. tostring(patternCount)
+			.. ")"
+	)
+	return instrumentCount, patternCount
+end
 
 local function u8_to_s8(b)
 	if b > 0x7f then
@@ -262,17 +287,10 @@ end
 local lerp_nibble = lerp_nibble_lin
 
 local function read_sfx_cfg(instrumentId)
-	local rawCount = peek(MORPH_MAP_BASE)
-	local maxCount = math.floor((MORPH_MAP_BYTES - MORPH_HEADER_BYTES) / MORPH_ENTRY_BYTES)
-	assert(MORPH_MAP_BYTES > 0, "Invalid bridge memory map: SOMATIC_SFX_CONFIG must be below MARKER")
-	assert(
-		rawCount <= maxCount,
-		"SOMATIC_SFX_CONFIG overflow: entryCount=" .. tostring(rawCount) .. " max=" .. tostring(maxCount)
-	)
-	local count = rawCount
+	local count, _patternCount = read_extra_song_header_counts()
 
 	for i = 0, count - 1 do
-		local off = MORPH_MAP_BASE + MORPH_HEADER_BYTES + i * MORPH_ENTRY_BYTES
+		local off = MORPH_MAP_BASE + SOMATIC_EXTRA_SONG_HEADER_BYTES + i * MORPH_ENTRY_BYTES
 		local entry = decode_MorphEntry(off)
 		if entry.instrumentId == instrumentId then
 			local effectKindId = entry.effectKind -- EFFECT_KIND_* values
@@ -301,6 +319,30 @@ local function read_sfx_cfg(instrumentId)
 		end
 	end
 
+	return nil
+end
+
+local function read_pattern_extra_cells(patternIndex0b)
+	if patternIndex0b == nil then
+		return nil
+	end
+	local cached = pattern_extra_cache[patternIndex0b]
+	if cached ~= nil then
+		return cached
+	end
+
+	local instrumentCount, patternCount = read_extra_song_header_counts()
+	local patternsBase = MORPH_MAP_BASE + SOMATIC_EXTRA_SONG_HEADER_BYTES + instrumentCount * MORPH_ENTRY_BYTES
+	for i = 0, patternCount - 1 do
+		local off = patternsBase + i * SOMATIC_PATTERN_ENTRY_BYTES
+		local entry = decode_SomaticPatternEntry(off)
+		if entry.patternIndex == patternIndex0b then
+			pattern_extra_cache[patternIndex0b] = entry.cells
+			return entry.cells
+		end
+	end
+
+	pattern_extra_cache[patternIndex0b] = false
 	return nil
 end
 
@@ -582,7 +624,7 @@ local function render_waveform_samples(cfg, ticksPlayed, instrumentId, lfoTicks,
 	end
 end
 
-local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks)
+local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks, effectStrengthScaleU8)
 	if not cfg_is_k_rate_processing(cfg) then
 		return
 	end
@@ -591,8 +633,9 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks)
 	if not rendered then
 		return
 	end
+	local scale01 = clamp01((effectStrengthScaleU8 or 255) / 255)
 
-	if (cfg.effectKind == EFFECT_KIND_HARDSYNC) and cfg.effectAmtU8 > 0 then
+	if (cfg.effectKind == EFFECT_KIND_HARDSYNC) and cfg.effectAmtU8 > 0 and scale01 > 0 then
 		local hsT = calculate_mod_t(
 			cfg.effectModSource or MOD_SRC_ENVELOPE,
 			cfg.effectDurationInTicks,
@@ -602,7 +645,7 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks)
 			0
 		)
 		local env = 1 - apply_curveN11(hsT, cfg.effectCurveS6)
-		local multiplier = 1 + (cfg.effectAmtU8 / 255) * 7 * env
+		local multiplier = 1 + (cfg.effectAmtU8 / 255) * scale01 * 7 * env
 		apply_hardsync_effect_to_samples(render_out, multiplier)
 	end
 
@@ -610,8 +653,8 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks)
 	local wavefoldModSource = cfg.effectModSource or MOD_SRC_ENVELOPE
 	local wavefoldHasTime = (wavefoldModSource == MOD_SRC_LFO and (cfg.lfoCycleInTicks or 0) > 0)
 		or ((cfg.effectDurationInTicks or 0) > 0)
-	if (cfg.effectKind == EFFECT_KIND_WAVEFOLD) and cfg.effectAmtU8 > 0 and wavefoldHasTime then
-		local maxAmt = clamp01(cfg.effectAmtU8 / 255)
+	if (cfg.effectKind == EFFECT_KIND_WAVEFOLD) and cfg.effectAmtU8 > 0 and wavefoldHasTime and scale01 > 0 then
+		local maxAmt = clamp01(cfg.effectAmtU8 / 255) * scale01
 		local wfT =
 			calculate_mod_t(wavefoldModSource, cfg.effectDurationInTicks, ticksPlayed, lfoTicks, cfg.lfoCycleInTicks, 0)
 		local envShaped = 1 - apply_curveN11(wfT, cfg.effectCurveS6)
@@ -648,7 +691,7 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks)
 	wave_write_samples(cfg.renderWaveformSlot, render_out)
 end
 
-local function prime_render_slot_for_note_on(instrumentId)
+local function prime_render_slot_for_note_on(instrumentId, ch)
 	local cfg = read_sfx_cfg(instrumentId)
 	if cfg == nil then
 		return
@@ -658,7 +701,8 @@ local function prime_render_slot_for_note_on(instrumentId)
 	end
 	-- Render tick 0 so audio starts with a defined wavetable.
 	local lt = lfo_ticks_by_sfx[instrumentId] or 0
-	render_tick_cfg(cfg, instrumentId, 0, lt)
+	local scaleU8 = ch_effect_strength_scale_u8[(ch or 0) + 1] or 255
+	render_tick_cfg(cfg, instrumentId, 0, lt, scaleU8)
 end
 
 local function sfx_tick_channel(channel)
@@ -681,14 +725,15 @@ local function sfx_tick_channel(channel)
 	end
 
 	local lt = lfo_ticks_by_sfx[idx] or 0
-	render_tick_cfg(cfg, idx, ticksPlayed, lt)
+	local scaleU8 = ch_effect_strength_scale_u8[channel + 1] or 255
+	render_tick_cfg(cfg, idx, ticksPlayed, lt, scaleU8)
 	ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 end
 
 local function advance_all_lfo_ticks()
-	local count = peek(MORPH_MAP_BASE)
+	local count, _patternCount = read_extra_song_header_counts()
 	for i = 0, count - 1 do
-		local id = peek(MORPH_MAP_BASE + MORPH_HEADER_BYTES + i * MORPH_ENTRY_BYTES)
+		local id = peek(MORPH_MAP_BASE + SOMATIC_EXTRA_SONG_HEADER_BYTES + i * MORPH_ENTRY_BYTES)
 		lfo_ticks_by_sfx[id] = (lfo_ticks_by_sfx[id] or 0) + 1
 	end
 end
@@ -763,6 +808,20 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 	last_music_frame = frame
 	last_music_row = row
 
+	-- Apply Somatic per-pattern extra commands (currently: E param => effect strength scale)
+	local songPosition0b = peek(BRIDGE_CONFIG.memory.MUSIC_STATE_SOMATIC_SONG_POSITION)
+	if songPosition0b ~= nil and songPosition0b ~= 0xFF then
+		local base = ADDR.TF_ORDER_LIST_ENTRIES + songPosition0b * 4
+		for ch = 0, SFX_CHANNELS - 1 do
+			local columnIndex0b = peek(base + ch)
+			local cells = read_pattern_extra_cells(columnIndex0b)
+			local cell = cells and cells[row + 1] or nil
+			if cell and cell.effectId == 1 then
+				ch_effect_strength_scale_u8[ch + 1] = cell.paramU8 or 255
+			end
+		end
+	end
+
 	local p0, p1, p2, p3 = decode_track_frame_patterns(track, frame)
 	local patterns = { p0, p1, p2, p3 }
 
@@ -779,7 +838,7 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 			-- note-on
 			ch_sfx_id[ch + 1] = inst
 			ch_sfx_ticks[ch + 1] = 0
-			prime_render_slot_for_note_on(inst)
+			prime_render_slot_for_note_on(inst, ch)
 		end
 	end
 end
@@ -1174,6 +1233,8 @@ tf_music_reset_state = function()
 	backBufferIsA = false
 	stopPlayingOnNextFrame = false
 	loopSongForever = false
+	ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
+	pattern_extra_cache = {}
 	log("tf_music_reset_state: Music state reset.")
 	ch_set_playroutine_regs(0xFF)
 end

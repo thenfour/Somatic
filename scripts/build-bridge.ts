@@ -17,7 +17,7 @@ import path from "path";
 import {BUILD_INFO, getBridgeCartFilename} from "./buildInfo";
 import bridgeConfig, {BridgeConfig} from "../bridge/bridge_config";
 import {emitLuaDecoder} from "../bridge/emitLuaDecoder";
-import {MorphEntryCodec, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES} from "../bridge/morphSchema";
+import {MorphEntryCodec, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec,} from "../bridge/morphSchema";
 import {SomaticMemoryLayout, Tic80MemoryMap} from "../bridge/memory_layout";
 
 const BRIDGE_LUA_PATH = path.resolve(__dirname, "../bridge/bridge.lua");
@@ -100,9 +100,17 @@ function generateLuaAutogenBlock(config: BridgeConfig): string {
    lines.push("-- Morph schema (generated)");
    lines.push(`local MORPH_HEADER_BYTES = ${MORPH_HEADER_BYTES}`);
    lines.push(`local MORPH_ENTRY_BYTES = ${MORPH_ENTRY_BYTES}`);
+   lines.push(`local SOMATIC_EXTRA_SONG_HEADER_BYTES = ${SOMATIC_EXTRA_SONG_HEADER_BYTES}`);
+   lines.push(`local SOMATIC_PATTERN_ENTRY_BYTES = ${SOMATIC_PATTERN_ENTRY_BYTES}`);
    lines.push("");
    lines.push(emitLuaDecoder(MorphEntryCodec, {
                  functionName: "decode_MorphEntry",
+                 baseArgName: "base",
+                 includeLayoutComments: true,
+              }).trim());
+   lines.push("");
+   lines.push(emitLuaDecoder(SomaticPatternEntryCodec, {
+                 functionName: "decode_SomaticPatternEntry",
                  baseArgName: "base",
                  includeLayoutComments: true,
               }).trim());

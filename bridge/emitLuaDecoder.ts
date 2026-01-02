@@ -51,7 +51,13 @@ function emitDecodeExpr(codec: Codec, luaReader: string): string {
    }
 }
 
-function emitStatementsForCodec(codec: Codec, targetExpr: string, luaReader: string, returnName: string): string {
+function emitStatementsForCodec(
+   codec: Codec,
+   targetExpr: string,
+   luaReader: string,
+   returnName: string,
+   emitReturn = true,
+   ): string {
    const k = codec.node.kind;
    if (k === "struct") {
       const lines: string[] = [];
@@ -63,7 +69,7 @@ function emitStatementsForCodec(codec: Codec, targetExpr: string, luaReader: str
             if (subKind === "struct" || subKind === "array") {
                const childVar = `${it.name}`;
                lines.push(`do`);
-               lines.push(indent(emitStatementsForCodec(sub, childVar, luaReader, childVar), 2));
+               lines.push(indent(emitStatementsForCodec(sub, childVar, luaReader, childVar, false), 2));
                lines.push(indent(`${returnName}.${it.name} = ${childVar}`, 2));
                lines.push(`end`);
             } else {
@@ -79,7 +85,8 @@ function emitStatementsForCodec(codec: Codec, targetExpr: string, luaReader: str
                throw new Error(`emitLuaDecoder: unsupported directive kind '${dk}'`);
          }
       }
-      lines.push(`return ${returnName}`);
+      if (emitReturn)
+         lines.push(`return ${returnName}`);
       return lines.join("\n");
    }
 
@@ -90,7 +97,7 @@ function emitStatementsForCodec(codec: Codec, targetExpr: string, luaReader: str
       const elem: Codec = codec.node.elemCodec;
       if (elem.node.kind === "struct" || elem.node.kind === "array") {
          lines.push(indent(`do`, 2));
-         lines.push(indent(emitStatementsForCodec(elem, "_tmp", luaReader, "_tmp"), 4));
+         lines.push(indent(emitStatementsForCodec(elem, "_tmp", luaReader, "_tmp", false), 4));
          lines.push(indent(`${targetExpr}[i] = _tmp`, 4));
          lines.push(indent(`end`, 2));
       } else {

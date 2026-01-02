@@ -58,11 +58,13 @@ do
 	local SFX_CHANNELS = 4
 	local ch_sfx_id = { -1, -1, -1, -1 }
 	local ch_sfx_ticks = { 0, 0, 0, 0 }
+	local ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
 	local last_music_track = -2
 	local last_music_frame = -1
 	local last_music_row = -1
 
 	local morphMap = {}
+	local patternExtra = {}
 
 	local WAVE_BYTES_PER_WAVE = 16
 	local WAVE_SAMPLES_PER_WAVE = 32
@@ -322,9 +324,7 @@ do
 	local render_src_a = {}
 	local render_src_b = {}
 	local render_out = {}
-	-- BEGIN_FEATURE_LFO
 	local lfo_ticks_by_sfx = {}
-	-- END_FEATURE_LFO
 
 	local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)
 		-- BEGIN_FEATURE_LFO
@@ -451,16 +451,17 @@ do
 		return false
 	end
 
-	local function render_tick_cfg(cfg, instId, ticksPlayed, lfoTicks)
+	local function render_tick_cfg(cfg, instId, ticksPlayed, lfoTicks, effectStrengthScaleU8)
 		if not cfg_is_k_rate_processing(cfg) then
 			return
 		end
 		if not render_waveform_samples(cfg, ticksPlayed, render_out, lfoTicks) then
 			return
 		end
+		local scale01 = clamp01((effectStrengthScaleU8 or 255) / 255)
 		local effectKind = cfg.effectKind or EFFECT_KIND_NONE
 		-- BEGIN_FEATURE_HARDSYNC
-		if effectKind == EFFECT_KIND_HARDSYNC and cfg.effectAmtU8 > 0 then
+		if effectKind == EFFECT_KIND_HARDSYNC and cfg.effectAmtU8 > 0 and scale01 > 0 then
 			local hsT = calculate_mod_t(
 				cfg.effectModSource,
 				cfg.effectDurationTicks12,
@@ -470,7 +471,7 @@ do
 				0
 			)
 			local env = 1 - apply_curveN11(hsT, cfg.effectCurveS6)
-			local multiplier = 1 + (cfg.effectAmtU8 / 255) * 7 * env
+			local multiplier = 1 + (cfg.effectAmtU8 / 255) * scale01 * 7 * env
 			apply_hardsync_effect_to_samples(render_out, multiplier)
 		end
 		-- END_FEATURE_HARDSYNC
@@ -478,8 +479,8 @@ do
 		local effectModSource = cfg.effectModSource
 		local wavefoldHasTime = (effectModSource == MOD_SRC_LFO and cfg.lfoCycleTicks12 > 0)
 			or (cfg.effectDurationTicks12 > 0)
-		if effectKind == EFFECT_KIND_WAVEFOLD and cfg.effectAmtU8 > 0 and wavefoldHasTime then
-			local maxAmt = clamp01(cfg.effectAmtU8 / 255)
+		if effectKind == EFFECT_KIND_WAVEFOLD and cfg.effectAmtU8 > 0 and wavefoldHasTime and scale01 > 0 then
+			local maxAmt = clamp01(cfg.effectAmtU8 / 255) * scale01
 			local wfT = calculate_mod_t(
 				effectModSource,
 				cfg.effectDurationTicks12,
@@ -510,13 +511,14 @@ do
 		wave_write_samples(cfg.renderWaveformSlot, render_out)
 	end
 
-	local function prime_render_slot_for_note_on(instId)
+	local function prime_render_slot_for_note_on(instId, ch)
 		local cfg = morphMap and morphMap[instId]
 		if not cfg_is_k_rate_processing(cfg) then
 			return
 		end
 		local lt = lfo_ticks_by_sfx[instId]
-		render_tick_cfg(cfg, instId, 0, lt)
+		local scaleU8 = ch_effect_strength_scale_u8[(ch or 0) + 1] or 255
+		render_tick_cfg(cfg, instId, 0, lt, scaleU8)
 	end
 
 	local function decode_track_frame_patterns(trackIndex, frameIndex)
@@ -557,9 +559,23 @@ do
 		last_music_frame = frame
 		last_music_row = row
 
+		-- Apply Somatic per-pattern extra commands (currently: E param => effect strength scale)
+		local playingSongOrder = math.max(0, currentSongOrder - 1)
+		local orderEntry = SOMATIC_MUSIC_DATA.songOrder[playingSongOrder + 1]
+
 		local p0, p1, p2, p3 = decode_track_frame_patterns(track, frame)
 		local patterns = { p0, p1, p2, p3 }
 		for ch = 0, SFX_CHANNELS - 1 do
+			if orderEntry then
+				local columnIndex0b = orderEntry[ch + 1]
+				local cells = columnIndex0b ~= nil and patternExtra[columnIndex0b] or nil
+				local cell = cells and cells[row + 1] or nil
+				-- effectId: 0=none; 1='E'
+				if cell and cell.effectId == 1 then
+					ch_effect_strength_scale_u8[ch + 1] = cell.paramU8 or 255
+				end
+			end
+
 			local patternId1b = patterns[ch + 1]
 			local noteNibble, inst = decode_pattern_row(patternId1b, row)
 			if noteNibble == 0 then
@@ -570,7 +586,7 @@ do
 			else
 				ch_sfx_id[ch + 1] = inst
 				ch_sfx_ticks[ch + 1] = 0
-				prime_render_slot_for_note_on(inst)
+				prime_render_slot_for_note_on(inst, ch)
 			end
 		end
 	end
@@ -587,7 +603,8 @@ do
 			return
 		end
 		local lt = lfo_ticks_by_sfx[instId]
-		render_tick_cfg(cfg, instId, ticksPlayed, lt)
+		local scaleU8 = ch_effect_strength_scale_u8[ch + 1] or 255
+		render_tick_cfg(cfg, instId, ticksPlayed, lt, scaleU8)
 		ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 	end
 
@@ -603,18 +620,19 @@ do
 		end
 	end
 
-	local function decode_morph_map()
-		local m = SOMATIC_MUSIC_DATA.instrumentMorphMap
-		if not m or not m.morphMapB85 or not m.morphMapCLen then
+	local function decode_extra_song_data()
+		local m = SOMATIC_MUSIC_DATA.extraSongData
+		if not m or not m.payloadB85 or not m.payloadCLen then
 			return
 		end
 
 		-- let's use a part of pattern mem for temp storage
-		b85d(m.morphMapB85, m.morphMapCLen, __AUTOGEN_TEMP_PTR_A)
-		local rawLen = lzdm(__AUTOGEN_TEMP_PTR_A, m.morphMapCLen, __AUTOGEN_TEMP_PTR_B)
-		local count = peek(__AUTOGEN_TEMP_PTR_B)
-		local off = __AUTOGEN_TEMP_PTR_B + MORPH_HEADER_BYTES
-		for _ = 1, count do
+		b85d(m.payloadB85, m.payloadCLen, __AUTOGEN_TEMP_PTR_A)
+		lzdm(__AUTOGEN_TEMP_PTR_A, m.payloadCLen, __AUTOGEN_TEMP_PTR_B)
+		local instrumentCount = peek(__AUTOGEN_TEMP_PTR_B)
+		local patternCount = peek(__AUTOGEN_TEMP_PTR_B + 1)
+		local off = __AUTOGEN_TEMP_PTR_B + SOMATIC_EXTRA_SONG_HEADER_BYTES
+		for _ = 1, instrumentCount do
 			local entry = decode_MorphEntry(off)
 			local id = entry.instrumentId
 
@@ -641,9 +659,14 @@ do
 			morphMap[id] = cfg
 			off = off + MORPH_ENTRY_BYTES
 		end
+		for _ = 1, patternCount do
+			local entry = decode_SomaticPatternEntry(off)
+			patternExtra[entry.patternIndex] = entry.cells
+			off = off + SOMATIC_PATTERN_ENTRY_BYTES
+		end
 	end
 
-	decode_morph_map()
+	decode_extra_song_data()
 
 	-- BEGIN_DEBUG_ONLY
 	-- Computes a simple checksum and first-bytes hex preview for a memory region.
@@ -713,6 +736,7 @@ do
 		lastPlayingFrame = -1
 		backBufferIsA = false
 		stopPlayingOnNextFrame = false
+		ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
 		log("somatic_reset_state") -- DEBUG_ONLY
 		--ch_set_playroutine_regs(0xFF)
 	end

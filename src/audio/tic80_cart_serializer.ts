@@ -6,7 +6,7 @@ import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex, TicMemor
 import {BakedSong, BakeSong} from "../utils/bakeSong";
 import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
 import bridgeConfig from "../../bridge/bridge_config";
-import {encodeMorphPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename} from "../../bridge/morphSchema";
+import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec, type SomaticPatternEntryPacked,} from "../../bridge/morphSchema";
 import {emitLuaDecoder} from "../../bridge/emitLuaDecoder";
 import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../utils/utils";
 import {LoopMode} from "./backend";
@@ -171,28 +171,59 @@ function getMorphMap(song: Song): {instrumentId: number; cfg: Tic80MorphInstrume
    return entries;
 }
 
-function encodeMorphMapForBridge(song: Song): Uint8Array {
-   const entries = getMorphMap(song);
+function getSomaticPatternExtraEntries(prepared: PreparedSong): SomaticPatternEntryPacked[] {
+   const entries: SomaticPatternEntryPacked[] = [];
+
+   for (let patternIndex0b = 0; patternIndex0b < prepared.patternColumns.length; patternIndex0b++) {
+      const col = prepared.patternColumns[patternIndex0b];
+      const channel = col.channel;
+
+      let hasAny = false;
+      for (let row = 0; row < 64; row++) {
+         const cell = channel.rows[row];
+         if (!cell)
+            continue;
+         if (cell.somaticEffect !== undefined || cell.somaticParam !== undefined) {
+            hasAny = true;
+            break;
+         }
+      }
+      if (!hasAny)
+         continue;
+
+      const cells = new Array(64);
+      for (let row = 0; row < 64; row++) {
+         const cell = channel.rows[row];
+         // effectId: 0 = none; 1.. = command index + 1
+         const effectId = (cell?.somaticEffect ?? null) == null ? 0 : ((cell!.somaticEffect! + 1) & 0x0f);
+         const paramU8 = (cell?.somaticParam ?? 0) & 0xff;
+         cells[row] = {effectId, paramU8};
+      }
+
+      entries.push({patternIndex: patternIndex0b & 0xff, cells});
+   }
+
+   return entries;
+}
+
+function encodeExtraSongDataForBridge(song: Song, prepared: PreparedSong): Uint8Array {
+   const instruments = getMorphMap(song);
+   const patterns = getSomaticPatternExtraEntries(prepared);
    const totalBytes = getSomaticSfxConfigBytes();
-   const maxEntryCount = Math.floor((totalBytes - MORPH_HEADER_BYTES) / MORPH_ENTRY_BYTES);
-   assert(entries.length <= 255, `SOMATIC_SFX_CONFIG overflow: too many entries (${entries.length})`);
-   assert(
-      entries.length <= maxEntryCount,
-      `SOMATIC_SFX_CONFIG overflow: need ${MORPH_HEADER_BYTES + entries.length * MORPH_ENTRY_BYTES} bytes, have ${
-         totalBytes} bytes`);
 
    // Fixed-size buffer so we always fully overwrite the region (avoids stale entries)
    // and never overwrite the marker/mailboxes above it.
-   return encodeMorphPayload(entries, totalBytes);
+   return encodeSomaticExtraSongDataPayload({instruments, patterns}, totalBytes);
 }
 
-function makeMorphMapLua(song: Song): string {
-   const entries = getMorphMap(song);
-   const packed = encodeMorphPayload(entries);
+function makeExtraSongDataLua(song: Song, prepared: PreparedSong): string {
+   const instruments = getMorphMap(song);
+   const patterns = getSomaticPatternExtraEntries(prepared);
+   const packed = encodeSomaticExtraSongDataPayload({instruments, patterns});
    const compressed = lzCompress(packed, gSomaticLZDefaultConfig);
    const b85 = base85Encode(compressed);
 
-   return `{ morphMapB85=${toLuaStringLiteral(b85)}, morphMapCLen=${compressed.length} }`;
+   return `{ payloadB85=${toLuaStringLiteral(b85)}, payloadCLen=${compressed.length} }`;
 }
 
 
@@ -441,8 +472,8 @@ export interface Tic80SerializedSong {
    sfxData: Uint8Array;
    trackData: Uint8Array;
 
-   // Packed morphing instrument config for the bridge cart.
-   morphMapData: Uint8Array;
+   // Packed Somatic extra song data for the bridge cart (instruments + patterns).
+   extraSongData: Uint8Array;
 
    // length + order itself
    songOrderData: Uint8Array;
@@ -467,7 +498,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
       bakedSong.bakedSong, bakedSong.bakedSong.waveforms.length); // always send all waveforms even if unused
    const sfxData = encodeSfx(bakedSong.bakedSong, bakedSong.bakedSong.instruments.length);
    const trackData = encodeTrack(bakedSong.bakedSong);
-   const morphMapData = encodeMorphMapForBridge(bakedSong.bakedSong);
+   const extraSongData = encodeExtraSongDataForBridge(bakedSong.bakedSong, preparedSong);
 
    const songOrderData = new Uint8Array(1 + SomaticCaps.maxSongLength * Tic80Caps.song.audioChannels);
    songOrderData[0] = preparedSong.songOrder.length;
@@ -495,7 +526,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
       waveformData,
       sfxData,
       trackData,
-      morphMapData,
+      extraSongData,
       songOrderData,
       patternData: ch_serializePatterns(preparedPatternData),
    };
@@ -620,7 +651,7 @@ function getCode(song: Song, variant: "debug"|"release", featureUsage?: Playback
    const songOrder =
       preparedSong.songOrder.map((entry) => `{${entry.patternColumnIndices.map((v) => v.toString()).join(",")}}`)
          .join(",");
-   const morphMapLua = makeMorphMapLua(song);
+   const extraSongDataLua = makeExtraSongDataLua(song, preparedSong);
 
    const patternChunks: Uint8Array[] = [];
    const patternLengths: number[] = []; // size of the base85-decoded (still compressed) pattern data
@@ -656,7 +687,7 @@ function getCode(song: Song, variant: "debug"|"release", featureUsage?: Playback
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
 local SOMATIC_MUSIC_DATA = {
  songOrder = { ${songOrder} },
- instrumentMorphMap = ${morphMapLua},
+ extraSongData = ${extraSongDataLua},
  patternLengths = { ${patternLengths.join(",")} },
  patterns = {
   ${patternArray}
@@ -679,9 +710,17 @@ local PATTERN_BUFFER_B = ${SomaticMemoryLayout.patternBufferB.address}
 local SOMATIC_SFX_CONFIG = ${SomaticMemoryLayout.somaticSfxConfig.address}
 local MORPH_HEADER_BYTES = ${MORPH_HEADER_BYTES}
 local MORPH_ENTRY_BYTES = ${MORPH_ENTRY_BYTES}
+local SOMATIC_EXTRA_SONG_HEADER_BYTES = ${SOMATIC_EXTRA_SONG_HEADER_BYTES}
+local SOMATIC_PATTERN_ENTRY_BYTES = ${SOMATIC_PATTERN_ENTRY_BYTES}
 
 ${emitLuaDecoder(MorphEntryCodec, {
       functionName: "decode_MorphEntry",
+      baseArgName: "base",
+      includeLayoutComments: true,
+   }).trim()}
+
+${emitLuaDecoder(SomaticPatternEntryCodec, {
+      functionName: "decode_SomaticPatternEntry",
       baseArgName: "base",
       includeLayoutComments: true,
    }).trim()}`;

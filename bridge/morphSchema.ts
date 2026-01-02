@@ -120,6 +120,27 @@ export const MorphEntryCodec = C.struct("MorphEntry", [
    C.field("effectModSource", C.bool()),
 ]);
 
+// =========================
+// Somatic per-pattern extra data (POC: per-row Somatic command + param)
+
+export const SomaticExtraSongDataHeaderCodec = C.struct("SomaticExtraSongDataHeader", [
+   C.field("instrumentEntryCount", C.u8()),
+   C.field("patternEntryCount", C.u8()),
+]);
+
+export const SomaticPatternCellCodec = C.struct("SomaticPatternCell", [
+   // 0 = none; 1..15 = command id + 1
+   // (UI stores 0-based command indices; we offset by +1 so 0 can mean "none")
+   C.field("effectId", C.u(4)),
+   C.field("paramU8", C.u8()),
+]);
+
+export const SomaticPatternEntryCodec = C.struct("SomaticPatternEntry", [
+   // 0-based pattern-column index (preparedSong.patternColumns index)
+   C.field("patternIndex", C.u8()),
+   C.field("cells", C.array("cells", SomaticPatternCellCodec, 64)),
+]);
+
 // Derive everything else from the codec
 const MORPH_ENTRY_FIELDS = extractFieldInfo(MorphEntryCodec);
 
@@ -216,6 +237,91 @@ export const MORPH_ENTRY_BITS = fixedBits(MorphEntryCodec, "MorphEntry");
 export const MORPH_ENTRY_BYTES = MorphEntryCodec.byteSizeCeil!();
 export const MORPH_HEADER_BITS = fixedBits(MorphHeaderCodec, "MorphHeader");
 export const MORPH_HEADER_BYTES = MorphHeaderCodec.byteSizeCeil!();
+
+export const SOMATIC_EXTRA_SONG_HEADER_BITS = fixedBits(SomaticExtraSongDataHeaderCodec, "SomaticExtraSongDataHeader");
+export const SOMATIC_EXTRA_SONG_HEADER_BYTES = SomaticExtraSongDataHeaderCodec.byteSizeCeil!();
+
+export const SOMATIC_PATTERN_ENTRY_BITS = fixedBits(SomaticPatternEntryCodec, "SomaticPatternEntry");
+export const SOMATIC_PATTERN_ENTRY_BYTES = SomaticPatternEntryCodec.byteSizeCeil!();
+
+export type SomaticPatternCellPacked = {
+   // 0 = none; 1..15 = command id + 1
+   effectId: number; paramU8: number;
+};
+
+export type SomaticPatternEntryPacked = {
+   patternIndex: number; cells: SomaticPatternCellPacked[]; // length 64
+};
+
+export type SomaticExtraSongDataInput = {
+   instruments: MorphEntryInput[]; patterns: SomaticPatternEntryPacked[];
+};
+
+function clampU(value: number, bits: number): number {
+   const v = Math.trunc(value);
+   const max = (1 << bits) - 1;
+   return clamp(v, 0, max);
+}
+
+function clampU8(value: number): number {
+   return clamp(Math.trunc(value), 0, 255);
+}
+
+function normalizeSomaticPatternEntry(entry: SomaticPatternEntryPacked): SomaticPatternEntryPacked {
+   const cells: SomaticPatternCellPacked[] = new Array(64);
+   for (let i = 0; i < 64; i++) {
+      const c = entry.cells[i] ?? {effectId: 0, paramU8: 0};
+      cells[i] = {
+         effectId: clampU(c.effectId, 4),
+         paramU8: clampU8(c.paramU8),
+      };
+   }
+   return {
+      patternIndex: clampU8(entry.patternIndex),
+      cells,
+   };
+}
+
+export function encodeSomaticExtraSongDataPayload(input: SomaticExtraSongDataInput, totalBytes?: number): Uint8Array {
+   const instrumentEntryCount = input.instruments.length;
+   const patternEntryCount = input.patterns.length;
+   if (instrumentEntryCount > 255) {
+      throw new Error(`SOMATIC_SFX_CONFIG overflow: too many instrument entries (${instrumentEntryCount})`);
+   }
+   if (patternEntryCount > 255) {
+      throw new Error(`SOMATIC_SFX_CONFIG overflow: too many pattern entries (${patternEntryCount})`);
+   }
+
+   const neededBytes = SOMATIC_EXTRA_SONG_HEADER_BYTES + instrumentEntryCount * MORPH_ENTRY_BYTES +
+      patternEntryCount * SOMATIC_PATTERN_ENTRY_BYTES;
+
+   if (typeof totalBytes === "number" && neededBytes > totalBytes) {
+      throw new Error(`SOMATIC_SFX_CONFIG overflow: need ${neededBytes} bytes, have ${totalBytes}`);
+   }
+
+   const out = new Uint8Array(totalBytes ?? neededBytes);
+   out.fill(0);
+
+   const region = new MemoryRegion("somatic_extra_song_data", 0, out.length);
+   const writer = new BitWriter(out, region);
+
+   SomaticExtraSongDataHeaderCodec.encode({instrumentEntryCount, patternEntryCount}, writer);
+
+   for (const entry of input.instruments) {
+      writer.alignToByte();
+      const packed = flattenEntry(entry);
+      const normalized = normalizeMorphEntry(packed);
+      MorphEntryCodec.encode(normalized, writer);
+   }
+
+   for (const entry of input.patterns) {
+      writer.alignToByte();
+      const normalized = normalizeSomaticPatternEntry(entry);
+      SomaticPatternEntryCodec.encode(normalized, writer);
+   }
+
+   return out;
+}
 
 export function encodeMorphPayload(entries: MorphEntryInput[], totalBytes?: number): Uint8Array {
    const entryCount = entries.length;
