@@ -14,7 +14,7 @@ import './instrument_editor.css';
 import { AppPanelShell } from './AppPanelShell';
 import { RadioButton } from './basic/RadioButton';
 import { Tooltip } from './basic/tooltip';
-import { ContinuousKnob, ContinuousParamConfig } from './basic/knob';
+import { ContinuousKnob, ContinuousParamConfig } from './basic/oldknob';
 import { TabPanel, Tab } from './basic/Tabs';
 import { InstrumentChip } from './InstrumentChip';
 import { WaveformMorphGradientEditor } from './WaveformMorphGradientEditor';

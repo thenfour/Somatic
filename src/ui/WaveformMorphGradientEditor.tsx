@@ -9,7 +9,7 @@ import { Tic80Waveform } from "../models/waveform";
 import { Tic80WaveformDto } from "../models/waveform";
 import { WaveformSwatch } from "./waveformSwatch";
 import { WaveformCanvas } from "./waveform_canvas";
-import { ContinuousKnob, ContinuousParamConfig } from "./basic/knob";
+import { ContinuousKnob, ContinuousParamConfig } from "./basic/oldknob";
 
 
 const MorphDurationConfig: ContinuousParamConfig = {
