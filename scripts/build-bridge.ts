@@ -7,7 +7,12 @@
 //   ts-node scripts/build-bridge.ts
 //   npm run build-bridge
 
+// Add support for importing .lua files as text
 import fs from "fs";
+(require as any).extensions[".lua"] = (module: any, filename: string) => {
+   module.exports = fs.readFileSync(filename, "utf8");
+};
+
 import path from "path";
 import {BUILD_INFO, getBridgeCartFilename} from "./buildInfo";
 import bridgeConfig, {BridgeConfig} from "../bridge/bridge_config";

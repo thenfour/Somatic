@@ -361,8 +361,8 @@ do
 			return true
 		end
 		-- END_FEATURE_LOWPASS
-		-- BEGIN_FEATURE_WAVEFOLD
 		local effectKind = cfg.effectKind
+		-- BEGIN_FEATURE_WAVEFOLD
 		if effectKind == EFFECT_KIND_WAVEFOLD and cfg.effectAmtU8 > 0 then
 			return true
 		end
