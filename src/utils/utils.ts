@@ -63,6 +63,52 @@ export function toLuaStringLiteral(str: string): string {
 // Replace one or more Lua "blocks" delimited by begin/end marker lines.
 // - Markers are matched as substrings within their lines (so callers can pass "-- BEGIN_BLARG").
 // - The entire block (including marker lines and inner contents) is replaced with `replacement`.
+type LuaBlockSpan = {
+   eol: string; beginLineStart0: number; innerStart: number; endLineStart0: number; blockEnd: number;
+   nextSearchFrom: number;
+};
+
+function findNextLuaBlockSpan(
+   src: string,
+   beginMarker: string,
+   endMarker: string,
+   searchFrom: number,
+   strict: boolean,
+   ): LuaBlockSpan|null {
+   const eol = src.includes("\r\n") ? "\r\n" : "\n";
+
+   const beginIdx = src.indexOf(beginMarker, searchFrom);
+   if (beginIdx < 0)
+      return null;
+
+   const beginLineStart = Math.max(0, src.lastIndexOf(eol, beginIdx));
+   const beginLineStart0 = (beginLineStart === 0) ? 0 : beginLineStart + eol.length;
+   const beginLineEnd = src.indexOf(eol, beginIdx);
+   const innerStart = (beginLineEnd < 0) ? src.length : beginLineEnd + eol.length;
+
+   const endIdx = src.indexOf(endMarker, innerStart);
+   if (endIdx < 0) {
+      if (strict) {
+         assert(false, `replaceLuaBlock: end marker not found: ${endMarker}`);
+      }
+      return null;
+   }
+
+   const endLineStart = Math.max(0, src.lastIndexOf(eol, endIdx));
+   const endLineStart0 = (endLineStart === 0) ? 0 : endLineStart + eol.length;
+   const endLineEnd = src.indexOf(eol, endIdx);
+   const blockEnd = (endLineEnd < 0) ? src.length : endLineEnd + eol.length;
+
+   return {
+      eol,
+      beginLineStart0,
+      innerStart,
+      endLineStart0,
+      blockEnd,
+      nextSearchFrom: beginLineStart0,
+   };
+}
+
 export function replaceLuaBlock(
    src: string,
    beginMarker: string,
@@ -76,27 +122,53 @@ export function replaceLuaBlock(
    let out = src;
    let searchFrom = 0;
    while (true) {
-      const beginIdx = out.indexOf(beginMarker, searchFrom);
-      if (beginIdx < 0) {
+      const span = findNextLuaBlockSpan(out, beginMarker, endMarker, searchFrom, true);
+      if (!span)
          break;
-      }
 
-      const beginLineStart = Math.max(0, out.lastIndexOf(eol, beginIdx));
-      const beginLineStart0 = (beginLineStart === 0) ? 0 : beginLineStart + eol.length;
-      const beginLineEnd = out.indexOf(eol, beginIdx);
-      const innerStart = (beginLineEnd < 0) ? out.length : beginLineEnd + eol.length;
-
-      const endIdx = out.indexOf(endMarker, innerStart);
-      assert(endIdx >= 0, `replaceLuaBlock: end marker not found: ${endMarker}`);
-
-      const endLineEnd = out.indexOf(eol, endIdx);
-      const blockEnd = (endLineEnd < 0) ? out.length : endLineEnd + eol.length;
-
-      out = out.slice(0, beginLineStart0) + replacementNorm + out.slice(blockEnd);
-      searchFrom = beginLineStart0 + replacementNorm.length;
+      out = out.slice(0, span.beginLineStart0) + replacementNorm + out.slice(span.blockEnd);
+      searchFrom = span.beginLineStart0 + replacementNorm.length;
    }
 
    return out;
+}
+
+export type ExtractedLuaBlock = {
+   placeholder: string; content: string;
+};
+
+// Extract blocks delimited by begin/end markers and replace them with placeholders.
+// Similar scanning semantics to replaceLuaBlock(), but captures inner content for reinsertion.
+export function extractLuaBlocks(
+   src: string,
+   beginMarker: string,
+   endMarker: string,
+   placeholderFactory: (index: number) => string,
+   options?: {strict?: boolean},
+   ): {code: string; blocks: ExtractedLuaBlock[]} {
+   const strict = options?.strict ?? false;
+   const blocks: ExtractedLuaBlock[] = [];
+
+   let out = src;
+   let searchFrom = 0;
+   let i = 0;
+
+   while (true) {
+      const span = findNextLuaBlockSpan(out, beginMarker, endMarker, searchFrom, strict);
+      if (!span)
+         break;
+
+      const content = out.slice(span.innerStart, span.endLineStart0);
+      const placeholder = placeholderFactory(i);
+      const replacement = placeholder + span.eol;
+
+      blocks.push({placeholder, content});
+      out = out.slice(0, span.beginLineStart0) + replacement + out.slice(span.blockEnd);
+      searchFrom = span.beginLineStart0 + replacement.length;
+      i++;
+   }
+
+   return {code: out, blocks};
 }
 
 
@@ -380,4 +452,10 @@ export function curveT(t: number, k: number, s: number = 4): number {
       // complementary mirror
       return 1 - Math.pow(1 - t, a(-kk));
    }
+}
+
+
+// Escape special characters in a string for use in a RegExp
+export function escapeRegExp(s: string): string {
+   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

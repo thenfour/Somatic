@@ -1,6 +1,6 @@
 
 import * as luaparse from "luaparse";
-import {replaceLuaBlock, toLuaStringLiteral} from "../utils/utils";
+import {escapeRegExp, extractLuaBlocks, replaceLuaBlock, toLuaStringLiteral} from "../utils/utils";
 import {renameLocalVariablesInAST} from "./lua_renamer";
 import {aliasLiteralsInAST} from "./lua_alias_literals";
 import {aliasRepeatedExpressionsInAST} from "./lua_alias_expressions";
@@ -950,6 +950,17 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
       processedCode = filteredLines.join(eol);
    }
 
+   // Honor explicit directives to keep certain regions verbatim
+   // doing this at text level for simplification and because the printer can reformat everything.
+   const disableMinify = extractLuaBlocks(
+      processedCode,
+      "-- BEGIN_DISABLE_MINIFICATION",
+      "-- END_DISABLE_MINIFICATION",
+      (i) => `__SOMATIC_DISABLED_MINIFICATION_BLOCK_${i}__()`,
+      {strict: false},
+   );
+   processedCode = disableMinify.code;
+
    let ast = parseLua(processedCode);
    if (!ast) {
       console.error("Failed to parse Lua code; returning original code.");
@@ -993,5 +1004,28 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
       ast = renameTableFieldsInAST(ast);
    }
 
-   return unparseLua(ast, ruleOptions);
+   const minified = unparseLua(ast, ruleOptions);
+   return reinsertDisableMinificationBlocks(minified, disableMinify.blocks);
+}
+
+type DisabledMinificationBlock = {
+   placeholder: string; //
+   content: string;
+};
+
+function reinsertDisableMinificationBlocks(src: string, blocks: DisabledMinificationBlock[]): string {
+   if (blocks.length === 0)
+      return src;
+
+   let out = src;
+   for (const b of blocks) {
+      // normalize line endings and trim trailing newlines from the block content
+      const normalized = b.content.replace(/\r?\n/g, "\n").replace(/\n+$/g, "");
+      const replacement = `\n${normalized}\n`;
+
+      // remove surrounding whitespace introduced by tight packing.
+      const re = new RegExp(`[\\t ]*${escapeRegExp(b.placeholder)}[\\t ]*`, "g");
+      out = out.replace(re, replacement);
+   }
+   return out;
 }

@@ -817,6 +817,7 @@ do
 	end
 end -- do
 
+-- BEGIN_DISABLE_MINIFICATION
 function TIC()
 	somatic_tick()
 
@@ -843,3 +844,4 @@ function TIC()
 	end
 	-- END_DEBUG_ONLY
 end
+-- END_DISABLE_MINIFICATION

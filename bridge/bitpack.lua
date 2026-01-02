@@ -1,4 +1,4 @@
--- bitpack.lua (generated)
+-- support system for our bitpacking/schema stuff
 -- LSB-first bits within each byte; assembled LSB-first into integers.
 local function _bp_make_reader(__BP_BASE__)
 	local bytePos = 0

@@ -620,4 +620,39 @@ local function fn() z=z+1 if abc() then y=2 end z=z-1 end
             assert.equal(output.trim(), expected.trim());
          });
    }); // describe Line Formatting
+
+   describe("Minification Directives", () => {
+      it("BEGIN_DISABLE_MINIFICATION preserves the block verbatim", () => {
+         const input = `
+local a=1
+-- BEGIN_DISABLE_MINIFICATION
+function TIC()
+  local x = 1
+  -- keep this comment + indentation
+  x = x + 1
+end
+-- END_DISABLE_MINIFICATION
+local b=2
+`;
+
+         const output = runLua(input, {
+            lineBehavior: "tight",
+            maxLineLength: 120,
+            // Keep comments enabled globally so we can verify the directive actually preserves them.
+            stripComments: false,
+         });
+
+         const expected = `
+local a=1
+function TIC()
+  local x = 1
+  -- keep this comment + indentation
+  x = x + 1
+end
+local b=2
+`;
+
+         assert.equal(output.trim(), expected.trim());
+      });
+   });
 });
