@@ -4,6 +4,7 @@
 // The codec definition is the single source of truth. Field names, types, ranges,
 // normalization, and Lua minification lists are all derived from it automatically.
 
+import {SomaticCaps, Tic80Caps} from "../src/models/tic80Capabilities";
 import {clamp} from "../src/utils/utils";
 import {BitWriter, C, MemoryRegion} from "./bitpack";
 import type {Codec} from "./bitpack";
@@ -268,8 +269,8 @@ function clampU8(value: number): number {
 }
 
 function normalizeSomaticPatternEntry(entry: SomaticPatternEntryPacked): SomaticPatternEntryPacked {
-   const cells: SomaticPatternCellPacked[] = new Array(64);
-   for (let i = 0; i < 64; i++) {
+   const cells: SomaticPatternCellPacked[] = new Array(Tic80Caps.pattern.maxRows);
+   for (let i = 0; i < Tic80Caps.pattern.maxRows; i++) {
       const c = entry.cells[i] ?? {effectId: 0, paramU8: 0};
       cells[i] = {
          effectId: clampU(c.effectId, 4),
