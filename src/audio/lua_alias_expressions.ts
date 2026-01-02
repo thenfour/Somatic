@@ -8,8 +8,13 @@ import {AliasTracker, AliasInfo, buildScopeHierarchy, findCommonAncestor, insert
 // Configuration
 const ALIAS_THRESHOLD = 3;     // Minimum occurrences before creating an alias
 const EXPR_ALIAS_PREFIX = "_"; // Prefix for generated alias names
+const SAFE_GLOBAL_BASES = new Set(["math", "string", "table", "utf8", "bit", "bit32", "coroutine"]);
 
 type StringLiteralNode = luaparse.StringLiteral&{value?: string | null};
+
+function baseIsSafeGlobal(expr: luaparse.Expression): boolean {
+   return expr.type === "Identifier" && SAFE_GLOBAL_BASES.has(expr.name);
+}
 
 // Serialize an expression to a string key for comparison
 function serializeExpression(node: luaparse.Expression|null|undefined): string|null {
@@ -21,6 +26,8 @@ function serializeExpression(node: luaparse.Expression|null|undefined): string|n
          return `id:${node.name}`;
 
       case "MemberExpression": {
+         if (!baseIsSafeGlobal(node.base))
+            return null;
          const base = serializeExpression(node.base);
          const identifier = node.identifier?.name || serializeExpression(node.identifier);
          if (!base || !identifier)
@@ -29,6 +36,8 @@ function serializeExpression(node: luaparse.Expression|null|undefined): string|n
       }
 
       case "IndexExpression": {
+         if (!baseIsSafeGlobal(node.base))
+            return null;
          const base = serializeExpression(node.base);
          const index = serializeExpression(node.index);
          if (!base || !index)
@@ -63,12 +72,12 @@ function isAliasableExpression(node: luaparse.Expression|null|undefined): boolea
 
    switch (node.type) {
       case "MemberExpression":
-         // Alias things like math.cos, string.sub, etc.
-         return true;
+         // Only alias safe global library member access (e.g., math.cos)
+         return baseIsSafeGlobal(node.base);
 
       case "IndexExpression":
-         // Could alias table[key] accesses
-         return true;
+         // Only alias safe global library index access (e.g., math["cos"])
+         return baseIsSafeGlobal(node.base);
 
       // Don't alias simple identifiers or literals
       case "Identifier":
