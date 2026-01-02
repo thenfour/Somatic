@@ -7,8 +7,8 @@
 import {SomaticCaps, Tic80Caps} from "../src/models/tic80Capabilities";
 import {WaveEngineId} from "../src/models/instruments";
 import {clamp} from "../src/utils/utils";
-import {BitWriter, C, MemoryRegion} from "./bitpack";
-import type {Codec} from "./bitpack";
+import {BitWriter, C, MemoryRegion} from "../src/utils/bitpack/bitpack";
+import type {Codec} from "../src/utils/bitpack/bitpack";
 
 export type MorphEffectKind = "none"|"wavefold"|"hardSync";
 

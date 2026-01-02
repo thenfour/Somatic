@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import './debug_panel.css';
 import { AppPanelShell } from './AppPanelShell';
-import { OptimizationRuleOptions, processLua } from '../audio/lua_processor';
 import { CharMap } from '../utils/utils';
 import { BarValue, SizeValue } from './BarValue';
 import { useClipboard } from '../hooks/useClipboard';
 import { MorphEntryFieldNamesToRename } from '../../bridge/morphSchema';
+import { OptimizationRuleOptions, processLua } from '../utils/lua/lua_processor';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const clipboard = useClipboard();

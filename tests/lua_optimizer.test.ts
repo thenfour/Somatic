@@ -1,6 +1,6 @@
 import {describe, it} from "node:test";
 import assert from "node:assert/strict";
-import {processLua, OptimizationRuleOptions} from "../src/audio/lua_processor";
+import {OptimizationRuleOptions, processLua} from "../src/utils/lua/lua_processor";
 
 const baseOpts: OptimizationRuleOptions = {
    stripComments: false,

@@ -1,6 +1,6 @@
 // Centralized TIC-80 memory layout for Somatic bridge and playroutines.
 
-import {MemoryRegion} from "./bitpack";
+import {MemoryRegion} from "../src/utils/bitpack/bitpack";
 
 // https://github.com/nesbox/TIC-80/wiki/RAM
 export const Tic80MemoryMap = {
@@ -47,12 +47,6 @@ export function RegionForWaveform(waveformIndex: number) {
    return Tic80MemoryMap.Waveforms.getCell(Tic80Constants.BYTES_PER_WAVEFORM, waveformIndex);
 }
 
-
-
-//const TIC80_BYTES_PER_PATTERN = 192; // Each pattern is 192 bytes (64 rows * 3 bytes)
-//const TIC80_CHANNELS = 4;            // TIC-80 supports 4 audio channels
-const TIC80_BYTES_PER_WAVEFORM = 16; // 32 samples * 4 bits, packed 2 per byte
-const TIC80_BYTES_PER_SFX = 66;      // Each SFX is 66 bytes
 
 // Somatic Requirements
 

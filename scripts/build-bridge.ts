@@ -16,7 +16,7 @@ import fs from "fs";
 import path from "path";
 import {BUILD_INFO, getBridgeCartFilename} from "./buildInfo";
 import bridgeConfig, {BridgeConfig} from "../bridge/bridge_config";
-import {emitLuaDecoder} from "../bridge/emitLuaDecoder";
+import {emitLuaDecoder} from "../src/utils/bitpack/emitLuaDecoder";
 import {MorphEntryCodec, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec, WaveformMorphGradientCodec,} from "../bridge/morphSchema";
 import {SomaticMemoryLayout, Tic80MemoryMap} from "../bridge/memory_layout";
 

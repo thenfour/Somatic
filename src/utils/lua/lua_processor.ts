@@ -1,6 +1,6 @@
 
 import * as luaparse from "luaparse";
-import {escapeRegExp, extractLuaBlocks, replaceLuaBlock, toLuaStringLiteral} from "../utils/utils";
+import {escapeRegExp, extractLuaBlocks, replaceLuaBlock, toLuaStringLiteral} from "../utils";
 import {renameLocalVariablesInAST} from "./lua_renamer";
 import {aliasLiteralsInAST} from "./lua_alias_literals";
 import {aliasRepeatedExpressionsInAST} from "./lua_alias_expressions";
