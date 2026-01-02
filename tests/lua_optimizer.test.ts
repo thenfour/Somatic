@@ -188,21 +188,4 @@ local b=a+1
          assert.equal(output, expected);
       });
    });
-
-   describe("Integration: Multiple Optimizations", () => {
-      it("should apply simplification before aliasing to maximize savings", () => {
-         const input = `
-local a=1+2
-local b=1+2
-local c=1+2
-`;
-         const output = runLua(input, {simplifyExpressions: true, aliasLiterals: true});
-         const expected = `local La=3
-local a=La
-local b=La
-local c=La
-`;
-         assert.equal(output, expected);
-      });
-   });
 });

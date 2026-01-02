@@ -35,17 +35,27 @@ function serializeExpression(node: luaparse.Expression|null|undefined): string|n
       case "MemberExpression": {
          if (!baseIsSafeGlobal(node.base))
             return null;
-         const base = serializeExpression(node.base);
-         const identifier = node.identifier?.name || serializeExpression(node.identifier);
-         if (!base || !identifier)
+         const baseName = (node.base as luaparse.Identifier).name;
+         const id = node.identifier;
+         let identifier: string|null = null;
+
+         if (id) {
+            if (id.type === "Identifier")
+               identifier = id.name;
+            else
+               identifier = serializeExpression(id);
+         }
+
+         if (!identifier)
             return null;
-         return `member:${base}.${identifier}`;
+
+         return `member:${baseName}.${identifier}`;
       }
 
       case "IndexExpression": {
          if (!baseIsSafeGlobal(node.base))
             return null;
-         const base = serializeExpression(node.base);
+         const base = (node.base as luaparse.Identifier).name;
          const index = serializeExpression(node.index);
          if (!base || !index)
             return null;
