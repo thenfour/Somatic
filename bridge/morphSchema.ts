@@ -314,7 +314,7 @@ export function encodeSomaticExtraSongDataPayload(input: SomaticExtraSongDataInp
    }
 
    // Get total size from measurement
-   const measuredBytes = ctx._writer!.cur.currentByteIndex();
+   const measuredBytes = ctx._writer!.cur.currentByteLengthCeil();
 
    if (typeof totalBytes === "number" && measuredBytes > totalBytes) {
       throw new Error(`SOMATIC_SFX_CONFIG overflow: need ${measuredBytes} bytes, have ${totalBytes}`);

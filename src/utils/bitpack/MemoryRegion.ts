@@ -97,6 +97,13 @@ export class BitCursor {
    currentByteIndex() {
       return (this.bitOffset / 8) | 0;
    }
+   /**
+    * Returns the number of bytes required to cover all bits written so far.
+    * Equivalent to ceil(bitOffset / 8).
+    */
+   currentByteLengthCeil() {
+      return ((this.bitOffset + 7) / 8) | 0;
+   }
    byteIndexAbs() {
       return (this.region.address + ((this.bitOffset / 8) | 0)) | 0;
    }
