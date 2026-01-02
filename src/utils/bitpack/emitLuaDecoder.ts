@@ -1,7 +1,7 @@
 // Lua decoder code generator for TIC-80 RAM (peek-based) readers.
 // Emits a Lua function that decodes a bitpack `Codec` starting at a base address.
 
-import type {Codec, BitSize} from "./bitpack";
+import type {Codec, BitSize, CodecNode} from "./bitpack";
 import bitpackPreludeLua from "./bitpack.lua";
 
 const BITPACK_BASE_PLACEHOLDER = "__BP_BASE__";
@@ -23,17 +23,13 @@ function indent(lines: string, nSpaces: number): string {
    return lines.split("\n").map((l) => (l.length ? pad + l : l)).join("\n");
 }
 
-function emitDecodeExpr(codec: Codec, luaReader: string): string {
+function emitDecodeExpr(codec: Codec<unknown>, luaReader: string): string {
    const k = codec.node.kind;
    switch (k) {
       case "u":
          return `${luaReader}.u(${codec.node.n})`;
       case "i":
          return `${luaReader}.i(${codec.node.n})`;
-      case "u8":
-         return `${luaReader}.align(); ${luaReader}.u(8)`;
-      case "i8":
-         return `${luaReader}.align(); ${luaReader}.i(8)`;
       case "u16le":
          return `${luaReader}.align(); (${luaReader}.u(8) | (${luaReader}.u(8) << 8))`;
       case "i16le":
@@ -52,17 +48,17 @@ function emitDecodeExpr(codec: Codec, luaReader: string): string {
 }
 
 function emitStatementsForCodec(
-   codec: Codec,
+   codec: Codec<unknown>,
    targetExpr: string,
    luaReader: string,
    returnName: string,
    emitReturn = true,
-   ): string {
+): string {
    const k = codec.node.kind;
    if (k === "struct") {
       const lines: string[] = [];
       lines.push(`local ${returnName} = {}`);
-      for (const it of codec.node.seq as Array<{kind: string; name?: string; codec: Codec;}>) {
+      for (const it of codec.node.seq) {
          if (it.kind === "field") {
             const sub = it.codec;
             const subKind = sub.node.kind;
@@ -76,11 +72,13 @@ function emitStatementsForCodec(
                lines.push(`${returnName}.${it.name} = ${emitDecodeExpr(sub, luaReader)}`);
             }
          } else {
-            const dk = (it as any).codec.node.kind;
+            // it.kind === "anon"
+            const anonCodec = it.codec;
+            const dk = anonCodec.node.kind;
             if (dk === "alignToByte")
                lines.push(`${luaReader}.align()`);
             else if (dk === "padBits")
-               lines.push(`${luaReader}.u(${(it as any).codec.node.n}) -- pad`);
+               lines.push(`${luaReader}.u(${anonCodec.node.n}) -- pad`);
             else
                throw new Error(`emitLuaDecoder: unsupported directive kind '${dk}'`);
          }
@@ -94,7 +92,7 @@ function emitStatementsForCodec(
       const lines: string[] = [];
       lines.push(`local ${targetExpr} = {}`);
       lines.push(`for i=1,${codec.node.count} do`);
-      const elem: Codec = codec.node.elemCodec;
+      const elem: Codec<unknown> = codec.node.elemCodec;
       if (elem.node.kind === "struct" || elem.node.kind === "array" || elem.node.kind === "varArray") {
          lines.push(indent(`do`, 2));
          lines.push(indent(emitStatementsForCodec(elem, "_tmp", luaReader, "_tmp", false), 4));
@@ -122,7 +120,7 @@ function emitStatementsForCodec(
       if (codec.node.alignToByteAfterLength)
          lines.push(`${luaReader}.align()`);
       lines.push(`for i=1,${lenVar} do`);
-      const elem: Codec = codec.node.elemCodec;
+      const elem: Codec<unknown> = codec.node.elemCodec;
       if (elem.node.kind === "struct" || elem.node.kind === "array" || elem.node.kind === "varArray") {
          lines.push(indent(`do`, 2));
          lines.push(indent(emitStatementsForCodec(elem, "_tmp", luaReader, "_tmp", false), 4));
@@ -140,7 +138,7 @@ function emitStatementsForCodec(
    throw new Error(`emitLuaDecoder: emitStatementsForCodec only supports struct/array/varArray; got ${k}`);
 }
 
-function emitLayoutComment(codec: Codec, include: boolean): string {
+function emitLayoutComment(codec: Codec<unknown>, include: boolean): string {
    if (!include || codec.node.kind !== "struct")
       return "";
    const layout: LayoutEntry[] = codec.node.layout || codec.getLayout?.() || [];
@@ -163,9 +161,9 @@ function emitLuaPrelude(baseArgName: string): string {
    return bitpackPreludeLua.split(BITPACK_BASE_PLACEHOLDER).join(baseArgName);
 }
 
-export function emitLuaDecoder(codec: Codec, opt: LuaDecoderOptions = {}): string {
+export function emitLuaDecoder(codec: Codec<unknown>, opt: LuaDecoderOptions = {}): string {
    const {
-      functionName = `decode_${codec.node && codec.node.name ? codec.node.name : "payload"}`,
+      functionName = `decode_${codec.node.kind === "struct" || codec.node.kind === "array" || codec.node.kind === "varArray" ? codec.node.name : "payload"}`,
       baseArgName = "base",
       returnName = "out",
       includeLayoutComments = true,

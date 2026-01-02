@@ -3,8 +3,26 @@ import {assertBitsFitInRegion, maskLowBits} from "./utils";
 
 export type BitSize = number|"variable";
 
-export interface Codec<T = any> {
-   node: any;
+/**
+ * Discriminated union of all possible codec node types.
+ * Each codec has a 'node' property containing metadata used for code generation and introspection.
+ */
+export type CodecNode =
+   | { kind: "u"; n: number }
+   | { kind: "i"; n: number }
+   | { kind: "u16le" }
+   | { kind: "i16le" }
+   | { kind: "u16be" }
+   | { kind: "i16be" }
+   | { kind: "alignToByte" }
+   | { kind: "padBits"; n: number }
+   | { kind: "enum"; name: string; nBits: number; mapping: Record<string, number> }
+   | { kind: "struct"; name: string; seq: StructSeqItem[]; layout: LayoutItem[] }
+   | { kind: "array"; name: string; elemCodec: Codec<unknown>; count: number }
+   | { kind: "varArray"; name: string; elemCodec: Codec<unknown>; lengthCodec: Codec<number>; maxCount: number; alignToByteAfterLength: boolean };
+
+export interface Codec<T = unknown> {
+   node: CodecNode;
    bitSize: BitSize;
    encode(value: T, writer: BitWriter): void;
    decode(reader: BitReader): T;
@@ -18,7 +36,7 @@ type FieldEntry<T = unknown> = {
    codec: Codec<T>
 };
 type AnonEntry = {
-   kind: "anon"; codec: Codec<any>
+   kind: "anon"; codec: Codec<unknown>
 };
 type StructSeqItem = FieldEntry|AnonEntry;
 type LayoutItem = {
@@ -190,11 +208,11 @@ class BitWriter {
 }
 
 function _codec<T>(
-   node: any,
+   node: CodecNode,
    encode: (value: T, writer: BitWriter) => void,
    decode: (reader: BitReader) => T,
    bitSize: BitSize,
-   ): Codec<T> {
+): Codec<T> {
    return {node, bitSize, encode, decode};
 }
 
@@ -287,14 +305,15 @@ const C = {
       );
    },
    field: <T>(name: string, codec: Codec<T>): FieldEntry<T> => ({kind: "field", name, codec}),
-   struct: (name: string, items: Array<FieldEntry|Codec<any>>): Codec<Record<string, unknown>> => {
+   struct: (name: string, items: Array<FieldEntry | Codec<unknown>>): Codec<Record<string, unknown>> => {
       const seq: StructSeqItem[] = items.map((it) => {
          if (!it)
             throw new Error(`struct(${name}): null item`);
          if ((it as FieldEntry).kind === "field")
             return it as FieldEntry;
-         if ((it as Codec<any>).node && (it as Codec<any>).encode && (it as Codec<any>).decode)
-            return {kind: "anon", codec: it as Codec<any>};
+         const maybeCodec = it as Codec<unknown>;
+         if (maybeCodec.node && typeof maybeCodec.encode === 'function' && typeof maybeCodec.decode === 'function')
+            return {kind: "anon", codec: maybeCodec};
          throw new Error(`struct(${name}): item must be field(...) or codec, got ${JSON.stringify(it)}`);
       });
       const layout: LayoutItem[] = [];
@@ -331,7 +350,7 @@ const C = {
       const bitSize = fixed ? bitOff : "variable";
       const codec = _codec(
          {kind: "struct", name, seq, layout},
-         (obj: any, w: BitWriter) => {
+         (obj: Record<string, unknown>, w: BitWriter) => {
             for (const it of seq) {
                if (it.kind === "field")
                   it.codec.encode(obj[it.name], w);
@@ -340,7 +359,7 @@ const C = {
             }
          },
          (r: BitReader) => {
-            const out: any = {};
+            const out: Record<string, unknown> = {};
             for (const it of seq) {
                if (it.kind === "field") {
                   out[it.name] = it.codec.decode(r);
