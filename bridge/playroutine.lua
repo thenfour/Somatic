@@ -605,8 +605,7 @@ do
 	end
 
 	local function decode_morph_map()
-		local smd = SOMATIC_MUSIC_DATA or {}
-		local m = smd.instrumentMorphMap or nil
+		local m = SOMATIC_MUSIC_DATA.instrumentMorphMap
 		if not m or not m.morphMapB85 or not m.morphMapCLen then
 			return
 		end
