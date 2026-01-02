@@ -477,7 +477,7 @@ local c=3
       });
 
       //////////////////////////////////////////////////////////////////////////////////////////
-      it("tight packing should not output many short lines", () => {
+      it("tight packing should not output many short lines #1", () => {
          const input = `
 do
  local function fn()
@@ -501,6 +501,73 @@ which is incorrect with max line length 39; the middle line is only 33 chars (6 
          const expected = `
 do local function fn() return z end
 end
+`;
+         assert.equal(
+            output.trim(),
+            expected
+               .trim()); // trim so we don't care about leading/trailing newlines in printing or these test literals
+      });
+
+      //////////////////////////////////////////////////////////////////////////////////////////
+      it("tight packing should not output many short lines #2", () => {
+         const input = `
+local function fn()
+ return some_call()
+end
+`;
+
+         /*
+with max line len 38, currently getting:
+
+local function fn()
+ return some_call()
+end
+
+which is not correct; the longest line here is 21 chars and can hold the next line's contents.
+
+*/
+
+         const output = runLua(input, {lineBehavior: "tight", maxLineLength: 38});
+         const expected = `
+local function fn() return some_call()
+end
+`;
+         assert.equal(
+            output.trim(),
+            expected
+               .trim()); // trim so we don't care about leading/trailing newlines in printing or these test literals
+      });
+
+      //////////////////////////////////////////////////////////////////////////////////////////
+      it("tight packing should not output short lines #3", () => {
+         const input = `
+local function fn()
+ return some_call()
+end
+local x = 1
+local function fn2()
+ return some_call()
+end
+`;
+
+         /*
+with max line len 42, currently getting:
+
+local function fn() return some_call()
+end
+local x=1
+local function fn2() return some_call()
+end
+
+which is not correct; the second line is only 3 chars and could hold `local x=1`
+
+*/
+
+         const output = runLua(input, {lineBehavior: "tight", maxLineLength: 42});
+         const expected = `
+local function fn() return some_call()
+end local x=1 local function fn2() return
+some_call() end
 `;
          assert.equal(
             output.trim(),

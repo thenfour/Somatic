@@ -129,6 +129,14 @@ export class LuaPrinter {
    }
 
    print(chunk: luaparse.Chunk): string {
+      const mode = this.options.lineBehavior || "pretty";
+
+      // For tight mode, use the token-stream approach
+      if (mode === "tight") {
+         return this.printTightMode(chunk);
+      }
+
+      // For pretty and single-line-blocks, use structured approach
       this.buf = [];
       this.currentLine = "";
       this.indentLevel = 0;
@@ -136,6 +144,213 @@ export class LuaPrinter {
       if (this.currentLine.length > 0)
          this.flushLine();
       return this.buf.join("");
+   }
+
+   // ===== TIGHT MODE: Token-stream based packing =====
+   // Renders everything to space-separated tokens, then packs into lines
+
+   private printTightMode(chunk: luaparse.Chunk): string {
+      const tokens = this.collectTokens(chunk.body);
+      return this.packTokensIntoLines(tokens);
+   }
+
+   // Collect all tokens from a block of statements
+   private collectTokens(body: luaparse.Statement[]): string[] {
+      const comments = [...(this.blockComments.get(body) || [])];
+      const items: Array<luaparse.Statement|luaparse.Comment> = [];
+      let ci = 0;
+
+      for (const stmt of body) {
+         while (ci < comments.length && this.startPos(comments[ci]) <= this.startPos(stmt)) {
+            items.push(comments[ci]);
+            ci++;
+         }
+         items.push(stmt);
+      }
+      while (ci < comments.length) {
+         items.push(comments[ci]);
+         ci++;
+      }
+
+      const tokens: string[] = [];
+      for (const node of items) {
+         if (node.type === "Comment") {
+            // Comments get special handling - they force a line break
+            tokens.push("\n" + this.renderComment(node as luaparse.Comment));
+         } else {
+            const stmtTokens = this.statementToTokens(node as luaparse.Statement);
+            tokens.push(...stmtTokens);
+         }
+      }
+      return tokens;
+   }
+
+   // Convert a statement to tokens (space-separated pieces)
+   // For maximum packing flexibility, we separate keywords from their arguments
+   private statementToTokens(stmt: luaparse.Statement): string[] {
+      const tokens: string[] = [];
+
+      switch (stmt.type) {
+         case "AssignmentStatement": {
+            const st = stmt as luaparse.AssignmentStatement;
+            const vars = st.variables.map(v => this.expr(v)).join(",");
+            const vals = st.init.map(v => this.expr(v)).join(",");
+            tokens.push(vars + "=" + vals);
+            break;
+         }
+         case "LocalStatement": {
+            const st = stmt as luaparse.LocalStatement;
+            const vars = st.variables.map(v => this.expr(v)).join(",");
+            let s = "local " + vars;
+            if (st.init && st.init.length > 0) {
+               s += "=" + st.init.map(v => this.expr(v)).join(",");
+            }
+            tokens.push(s);
+            break;
+         }
+         case "CallStatement": {
+            const st = stmt as luaparse.CallStatement;
+            tokens.push(this.expr(st.expression));
+            break;
+         }
+         case "ReturnStatement": {
+            const st = stmt as luaparse.ReturnStatement;
+            tokens.push("return");
+            // Each return argument is a separate token for flexible packing
+            for (const arg of st.arguments) {
+               tokens.push(this.expr(arg));
+            }
+            break;
+         }
+         case "BreakStatement":
+            tokens.push("break");
+            break;
+         case "FunctionDeclaration": {
+            const fn = stmt as luaparse.FunctionDeclaration;
+            let s = fn.isLocal ? "local function " : "function ";
+            if (fn.identifier) {
+               s += this.expr(fn.identifier);
+            }
+            s += "(" + fn.parameters.map(p => this.expr(p)).join(",") + ")";
+            tokens.push(s);
+            tokens.push(...this.collectTokens(fn.body));
+            tokens.push("end");
+            break;
+         }
+         case "IfStatement": {
+            const ifs = stmt as luaparse.IfStatement;
+            for (const clause of ifs.clauses) {
+               if (clause.type === "IfClause") {
+                  tokens.push("if " + this.expr(clause.condition) + " then");
+               } else if (clause.type === "ElseifClause") {
+                  tokens.push("elseif " + this.expr(clause.condition) + " then");
+               } else {
+                  tokens.push("else");
+               }
+               tokens.push(...this.collectTokens(clause.body));
+            }
+            tokens.push("end");
+            break;
+         }
+         case "WhileStatement": {
+            const st = stmt as luaparse.WhileStatement;
+            tokens.push("while " + this.expr(st.condition) + " do");
+            tokens.push(...this.collectTokens(st.body));
+            tokens.push("end");
+            break;
+         }
+         case "RepeatStatement": {
+            const st = stmt as luaparse.RepeatStatement;
+            tokens.push("repeat");
+            tokens.push(...this.collectTokens(st.body));
+            tokens.push("until " + this.expr(st.condition));
+            break;
+         }
+         case "ForNumericStatement": {
+            const st = stmt as luaparse.ForNumericStatement;
+            let s = "for " + this.expr(st.variable) + "=" + this.expr(st.start) + "," + this.expr(st.end);
+            if (st.step) {
+               s += "," + this.expr(st.step);
+            }
+            s += " do";
+            tokens.push(s);
+            tokens.push(...this.collectTokens(st.body));
+            tokens.push("end");
+            break;
+         }
+         case "ForGenericStatement": {
+            const st = stmt as luaparse.ForGenericStatement;
+            const vars = st.variables.map(v => this.expr(v)).join(",");
+            const iters = st.iterators.map(it => this.expr(it)).join(",");
+            tokens.push("for " + vars + " in " + iters + " do");
+            tokens.push(...this.collectTokens(st.body));
+            tokens.push("end");
+            break;
+         }
+         case "DoStatement": {
+            const st = stmt as luaparse.DoStatement;
+            tokens.push("do");
+            tokens.push(...this.collectTokens(st.body));
+            tokens.push("end");
+            break;
+         }
+         default:
+            break;
+      }
+      return tokens;
+   }
+
+   // Pack tokens into lines respecting maxLineLength
+   private packTokensIntoLines(tokens: string[]): string {
+      const maxLen = this.options.maxLineLength || 120;
+      const lines: string[] = [];
+      let currentLine = "";
+
+      for (const token of tokens) {
+         // Special case: comment tokens start with \n and force a new line
+         if (token.startsWith("\n")) {
+            if (currentLine.length > 0) {
+               lines.push(currentLine);
+               currentLine = "";
+            }
+            lines.push(token.slice(1)); // Remove the leading \n marker
+            continue;
+         }
+
+         if (currentLine.length === 0) {
+            currentLine = token;
+         } else {
+            const candidate = currentLine + " " + token;
+            // Use <= to allow filling lines up to exactly maxLen
+            // EXCEPT: if the token is 'end', use < to prefer wrapping
+            // This avoids packing 'end' to fill exactly maxLen
+            const isEndToken = token === "end";
+            const fits = isEndToken
+               ? candidate.length < maxLen
+               : candidate.length <= maxLen;
+
+            if (fits) {
+               currentLine = candidate;
+            } else {
+               lines.push(currentLine);
+               currentLine = token;
+            }
+         }
+      }
+
+      if (currentLine.length > 0) {
+         lines.push(currentLine);
+      }
+
+      return lines.join("\n") + (lines.length > 0 ? "\n" : "");
+   }
+
+   // Render a comment for tight mode
+   private renderComment(comment: luaparse.Comment): string {
+      if (comment.raw) {
+         return comment.raw.trim();
+      }
+      return "--" + comment.value;
    }
 
    // --- low-level emit helpers ---
@@ -212,8 +427,8 @@ export class LuaPrinter {
          return;
       }
 
-      // tight mode: pack statements with space separator, inline blocks when they fit
       // single-line-blocks mode: blocks are either entirely single-line or multi-line
+      // (tight mode is handled separately via printTightMode)
       const flushLineIfAny = () => {
          if (this.currentLine.length > 0)
             this.flushLine();
@@ -229,7 +444,7 @@ export class LuaPrinter {
          }
 
          const stmt = node as luaparse.Statement;
-         const inline = this.renderInlineStatement(stmt, mode, maxLen);
+         const inline = this.renderInlineStatement(stmt, maxLen);
          const indent = this.indentUnit.repeat(Math.min(this.indentLevel, this.options.maxIndentLevel));
 
          // Check if inline version fits on its own line (with indent)
@@ -420,7 +635,6 @@ export class LuaPrinter {
 
          case "FunctionDeclaration": {
             const fn = node as luaparse.FunctionDeclaration;
-            const mode = this.options.lineBehavior || "pretty";
             if (fn.isLocal) {
                this.emitKeyword("local");
                this.emit(" ");
@@ -433,155 +647,81 @@ export class LuaPrinter {
             this.emit("(");
             this.emit(fn.parameters.map(p => this.expr(p)).join(","));
             this.emit(")");
-
-            if (mode === "tight") {
-               // In tight mode, pack opening with body content
-               this.indentLevel++;
-               this.printBlock(fn.body);
-               this.indentLevel--;
-               // End on its own line
-               if (this.currentLine.length > 0) {
-                  this.flushLine();
-               }
-               this.printIndent();
-               this.emitKeyword("end");
-               this.newline();
-            } else {
-               this.newline();
-               this.indentLevel++;
-               this.printBlock(fn.body);
-               this.indentLevel--;
-               this.printIndent();
-               this.emitKeyword("end");
-               this.newline();
-            }
+            this.newline();
+            this.indentLevel++;
+            this.printBlock(fn.body);
+            this.indentLevel--;
+            this.printIndent();
+            this.emitKeyword("end");
+            this.newline();
             break;
          }
 
          case "IfStatement": {
             const ifs = node as luaparse.IfStatement;
-            const mode = this.options.lineBehavior || "pretty";
-            if (mode === "tight") {
-               // In tight mode, pack clauses with body content
-               ifs.clauses.forEach((clause, idx) => {
-                  if (idx > 0) {
-                     // For subsequent clauses, flush current line and emit on new line
-                     if (this.currentLine.length > 0) {
-                        this.flushLine();
-                     }
-                     this.printIndent();
-                  }
-                  if (clause.type === "IfClause") {
-                     this.emit("if " + this.expr(clause.condition) + " then");
-                  } else if (clause.type === "ElseifClause") {
-                     this.emit("elseif " + this.expr(clause.condition) + " then");
-                  } else {
-                     this.emit("else");
-                  }
-                  this.indentLevel++;
-                  this.printBlock(clause.body);
-                  this.indentLevel--;
-               });
-               // End on its own line
-               if (this.currentLine.length > 0) {
-                  this.flushLine();
+            ifs.clauses.forEach((clause, idx) => {
+               // The enclosing block printer (`printBlock`) emits indentation only once for the
+               // top-level statement. Subsequent clauses need to re-emit indentation explicitly,
+               // otherwise `elseif`/`else` start at column 0.
+               if (idx > 0) {
+                  this.printIndent();
                }
-               this.printIndent();
-               this.emitKeyword("end");
+               if (clause.type === "IfClause") {
+                  this.emitKeyword("if");
+                  this.emit(" ");
+                  this.emit(this.expr(clause.condition));
+                  this.emitKeyword(" then");
+               } else if (clause.type === "ElseifClause") {
+                  this.emitKeyword("elseif");
+                  this.emit(" ");
+                  this.emit(this.expr(clause.condition));
+                  this.emitKeyword(" then");
+               } else {
+                  this.emitKeyword("else");
+               }
                this.newline();
-            } else {
-               ifs.clauses.forEach((clause, idx) => {
-                  // The enclosing block printer (`printBlock`) emits indentation only once for the
-                  // top-level statement. Subsequent clauses need to re-emit indentation explicitly,
-                  // otherwise `elseif`/`else` start at column 0.
-                  if (idx > 0) {
-                     this.printIndent();
-                  }
-                  if (clause.type === "IfClause") {
-                     this.emitKeyword("if");
-                     this.emit(" ");
-                     this.emit(this.expr(clause.condition));
-                     this.emitKeyword(" then");
-                  } else if (clause.type === "ElseifClause") {
-                     this.emitKeyword("elseif");
-                     this.emit(" ");
-                     this.emit(this.expr(clause.condition));
-                     this.emitKeyword(" then");
-                  } else {
-                     this.emitKeyword("else");
-                  }
-                  this.newline();
-                  this.indentLevel++;
-                  this.printBlock(clause.body);
-                  this.indentLevel--;
-               });
-               this.printIndent();
-               this.emitKeyword("end");
-               this.newline();
-            }
+               this.indentLevel++;
+               this.printBlock(clause.body);
+               this.indentLevel--;
+            });
+            this.printIndent();
+            this.emitKeyword("end");
+            this.newline();
             break;
          }
 
          case "WhileStatement": {
             const st = node as luaparse.WhileStatement;
-            const mode = this.options.lineBehavior || "pretty";
             this.emitKeyword("while");
             this.emit(" ");
             this.emit(this.expr(st.condition));
             this.emitKeyword(" do");
-            if (mode === "tight") {
-               // In tight mode, pack opening with body content
-               this.indentLevel++;
-               this.printBlock(st.body);
-               this.indentLevel--;
-               if (this.currentLine.length > 0) {
-                  this.flushLine();
-               }
-               this.printIndent();
-               this.emitKeyword("end");
-               this.newline();
-            } else {
-               this.newline();
-               this.indentLevel++;
-               this.printBlock(st.body);
-               this.indentLevel--;
-               this.printIndent();
-               this.emitKeyword("end");
-               this.newline();
-            }
+            this.newline();
+            this.indentLevel++;
+            this.printBlock(st.body);
+            this.indentLevel--;
+            this.printIndent();
+            this.emitKeyword("end");
+            this.newline();
             break;
          }
 
          case "RepeatStatement": {
             const st = node as luaparse.RepeatStatement;
-            const mode = this.options.lineBehavior || "pretty";
             this.emitKeyword("repeat");
-            if (mode === "tight") {
-               this.indentLevel++;
-               this.printBlock(st.body);
-               this.indentLevel--;
-               if (this.currentLine.length > 0) {
-                  this.flushLine();
-               }
-               this.printIndent();
-               this.emit("until " + this.expr(st.condition));
-               this.newline();
-            } else {
-               this.newline();
-               this.indentLevel++;
-               this.printBlock(st.body);
-               this.indentLevel--;
-               this.emitKeyword("until");
-               this.emit(" ");
-               this.emit(this.expr(st.condition));
-               this.newline();
-            }
+            this.newline();
+            this.indentLevel++;
+            this.printBlock(st.body);
+            this.indentLevel--;
+            this.emitKeyword("until");
+            this.emit(" ");
+            this.emit(this.expr(st.condition));
+            this.newline();
             break;
          }
 
          case "ForNumericStatement": {
             const st = node as luaparse.ForNumericStatement;
-            const mode = this.options.lineBehavior || "pretty";
             this.emitKeyword("for");
             this.emit(" ");
             this.emit(this.expr(st.variable));
@@ -594,56 +734,31 @@ export class LuaPrinter {
                this.emit(this.expr(st.step));
             }
             this.emitKeyword(" do");
-            if (mode === "tight") {
-               this.indentLevel++;
-               this.printBlock(st.body);
-               this.indentLevel--;
-               if (this.currentLine.length > 0) {
-                  this.flushLine();
-               }
-               this.printIndent();
-               this.emitKeyword("end");
-               this.newline();
-            } else {
-               this.newline();
-               this.indentLevel++;
-               this.printBlock(st.body);
-               this.indentLevel--;
-               this.printIndent();
-               this.emitKeyword("end");
-               this.newline();
-            }
+            this.newline();
+            this.indentLevel++;
+            this.printBlock(st.body);
+            this.indentLevel--;
+            this.printIndent();
+            this.emitKeyword("end");
+            this.newline();
             break;
          }
 
          case "ForGenericStatement": {
             const st = node as luaparse.ForGenericStatement;
-            const mode = this.options.lineBehavior || "pretty";
             this.emitKeyword("for");
             this.emit(" ");
             this.emit(st.variables.map(v => this.expr(v)).join(","));
             this.emitKeyword(" in ");
             this.emit(st.iterators.map(it => this.expr(it)).join(","));
             this.emitKeyword(" do");
-            if (mode === "tight") {
-               this.indentLevel++;
-               this.printBlock(st.body);
-               this.indentLevel--;
-               if (this.currentLine.length > 0) {
-                  this.flushLine();
-               }
-               this.printIndent();
-               this.emitKeyword("end");
-               this.newline();
-            } else {
-               this.newline();
-               this.indentLevel++;
-               this.printBlock(st.body);
-               this.indentLevel--;
-               this.printIndent();
-               this.emitKeyword("end");
-               this.newline();
-            }
+            this.newline();
+            this.indentLevel++;
+            this.printBlock(st.body);
+            this.indentLevel--;
+            this.printIndent();
+            this.emitKeyword("end");
+            this.newline();
             break;
          }
 
@@ -666,30 +781,14 @@ export class LuaPrinter {
 
          case "DoStatement": {
             const st = node as luaparse.DoStatement;
-            const mode = this.options.lineBehavior || "pretty";
-            if (mode === "tight") {
-               // In tight mode, pack opening with body content
-               this.emit("do");
-               this.indentLevel++;
-               this.printBlock(st.body);
-               this.indentLevel--;
-               // End on its own line
-               if (this.currentLine.length > 0) {
-                  this.flushLine();
-               }
-               this.printIndent();
-               this.emitKeyword("end");
-               this.newline();
-            } else {
-               this.emitKeyword("do");
-               this.newline();
-               this.indentLevel++;
-               this.printBlock(st.body);
-               this.indentLevel--;
-               this.printIndent();
-               this.emitKeyword("end");
-               this.newline();
-            }
+            this.emitKeyword("do");
+            this.newline();
+            this.indentLevel++;
+            this.printBlock(st.body);
+            this.indentLevel--;
+            this.printIndent();
+            this.emitKeyword("end");
+            this.newline();
             break;
          }
 
@@ -703,11 +802,9 @@ export class LuaPrinter {
    }
 
    // Try to render a statement as a single-line string.
-   // For tight mode: render with nested blocks inlined if they fit.
    // For single-line-blocks mode: only return non-null if the entire statement (including nested blocks) fits on one line.
    // Returns null if the statement cannot be rendered inline under the given constraints.
-   private renderInlineStatement(stmt: luaparse.Statement, mode: "tight"|"single-line-blocks", maxLen: number): string
-      |null {
+   private renderInlineStatement(stmt: luaparse.Statement, maxLen: number): string|null {
       // Use a temporary printer in inline mode to render everything on one line
       const temp = new LuaPrinter(this.options, this.blockComments);
       temp.inlineMode = true;
@@ -716,8 +813,7 @@ export class LuaPrinter {
       temp.printStatementInline(stmt);
       const out = temp.currentLine.trim();
 
-      // If it exceeds maxLen, cannot inline (unless we're the first thing on the line)
-      // But for single-line-blocks mode, we need to check if it would fit
+      // If it exceeds maxLen, cannot inline
       if (out.length > maxLen) {
          return null;
       }
