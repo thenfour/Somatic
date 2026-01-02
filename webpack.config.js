@@ -1,5 +1,11 @@
 require('ts-node').register({ transpileOnly: true, compilerOptions: { module: 'commonjs' } });
 
+// Some TS modules imported during config evaluation import Lua sources (e.g. `import x from "./file.lua"`).
+// Webpack handles this via `raw-loader`, but Node/ts-node needs a require hook during config load.
+require.extensions['.lua'] = function (module, filename) {
+  module.exports = require('fs').readFileSync(filename, 'utf8');
+};
+
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
