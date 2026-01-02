@@ -325,9 +325,7 @@ export class LuaPrinter {
             // EXCEPT: if the token is 'end', use < to prefer wrapping
             // This avoids packing 'end' to fill exactly maxLen
             const isEndToken = token === "end";
-            const fits = isEndToken
-               ? candidate.length < maxLen
-               : candidate.length <= maxLen;
+            const fits = isEndToken ? candidate.length < maxLen : candidate.length <= maxLen;
 
             if (fits) {
                currentLine = candidate;
