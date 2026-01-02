@@ -9,6 +9,7 @@ import {WaveEngineId} from "../src/models/instruments";
 import {clamp} from "../src/utils/utils";
 import {BitWriter, C, MemoryRegion} from "../src/utils/bitpack/bitpack";
 import type {Codec} from "../src/utils/bitpack/bitpack";
+import {LayoutBuilder} from "../src/utils/bitpack/LayoutBuilder";
 
 export type MorphEffectKind = "none"|"wavefold"|"hardSync";
 
@@ -319,101 +320,87 @@ function normalizeSomaticPatternEntry(entry: SomaticPatternEntryPacked): Somatic
 export function encodeSomaticExtraSongDataPayload(input: SomaticExtraSongDataInput, totalBytes?: number): Uint8Array {
    const instrumentEntryCount = input.instruments.length;
    const patternEntryCount = input.patterns.length;
-   if (instrumentEntryCount > 255) {
-      throw new Error(`SOMATIC_SFX_CONFIG overflow: too many instrument entries (${instrumentEntryCount})`);
-   }
-   if (patternEntryCount > 255) {
-      throw new Error(`SOMATIC_SFX_CONFIG overflow: too many pattern entries (${patternEntryCount})`);
-   }
 
-   // Layout:
-   // [header][fixed instrument entries][fixed pattern entries][gradient blobs]
-   const fixedBytes = SOMATIC_EXTRA_SONG_HEADER_BYTES + instrumentEntryCount * MORPH_ENTRY_BYTES +
-      patternEntryCount * SOMATIC_PATTERN_ENTRY_BYTES;
-
-   // Pre-compute gradient blob offsets/sizes (and validate node payloads) before encoding.
-   type GradientPlan = {
-      instrumentIndex: number; //
-      offsetBytes: number;
-      bytes: number;
-      nodes: WaveformMorphGradientNodePacked[]
-   };
-   const gradients: GradientPlan[] = [];
-   let blobBytes = 0;
+   // collect gradient data (and associate with instrument indices)
+   type GradientData = { instrumentIndex: number; nodes: WaveformMorphGradientNodePacked[]; };
+   const gradients: GradientData[] = [];
    for (let i = 0; i < instrumentEntryCount; i++) {
       const inst = input.instruments[i];
       const waveEngineId: WaveEngineId = inst.cfg.waveEngineId;
       if (waveEngineId !== WaveEngineId.morph)
          continue;
-
-      const nodes = inst.morphGradientNodes;
-      if (!Array.isArray(nodes))
-         throw new Error(`SOMATIC_SFX_CONFIG: morph instrument ${inst.instrumentId} is missing morphGradientNodes`);
-      if (nodes.length <= 0)
-         throw new Error(`SOMATIC_SFX_CONFIG: morph instrument ${inst.instrumentId} has empty morphGradientNodes`);
-      if (nodes.length > 31)
-         throw new Error(`SOMATIC_SFX_CONFIG: morph instrument ${inst.instrumentId} has too many morphGradientNodes (${
-            nodes.length})`);
-
-      // WaveformMorphGradientCodec is length-prefixed and byte-aligned after the length.
-      // With u5 length and align, the prefix is exactly 1 byte.
-      const bytes = 1 + nodes.length * WAVEFORM_MORPH_GRADIENT_NODE_BYTES;
-      gradients.push({instrumentIndex: i, offsetBytes: 0, bytes, nodes});
-      blobBytes += bytes;
+      const nodes = inst.morphGradientNodes || [];
+      gradients.push({instrumentIndex: i, nodes});
    }
 
-   // Assign offsets (from start of payload)
-   let running = 0;
-   for (const g of gradients) {
-      g.offsetBytes = fixedBytes + running;
-      running += g.bytes;
+   // Use LayoutBuilder to compute section offsets declaratively
+   const layout = new LayoutBuilder();
+   layout.addSection("header", SomaticExtraSongDataHeaderCodec, {instrumentEntryCount, patternEntryCount});
+
+   // Add instrument entries (each needs to know its gradient offset if applicable)
+   // We'll add them as placeholders first, then patch gradientOffsetBytes after finalizing layout
+   const instrumentSections: {id: string; packed: MorphEntryPacked; normalized: MorphEntryPacked}[] = [];
+   for (let i = 0; i < input.instruments.length; i++) {
+      const entry = input.instruments[i];
+      const packed = flattenEntry(entry);
+      const normalized = normalizeMorphEntry(packed);
+      const sectionId = `instrument_${i}`;
+      instrumentSections.push({id: sectionId, packed, normalized});
+      layout.addSection(sectionId, MorphEntryCodec, normalized);
    }
 
-   const neededBytes = fixedBytes + blobBytes;
-
-   if (typeof totalBytes === "number" && neededBytes > totalBytes) {
-      throw new Error(`SOMATIC_SFX_CONFIG overflow: need ${neededBytes} bytes, have ${totalBytes}`);
+   // Add pattern entries
+   for (let i = 0; i < input.patterns.length; i++) {
+      const normalized = normalizeSomaticPatternEntry(input.patterns[i]);
+      layout.addSection(`pattern_${i}`, SomaticPatternEntryCodec, normalized);
    }
 
-   const out = new Uint8Array(totalBytes ?? neededBytes);
+   // Add gradient blobs
+   for (let i = 0; i < gradients.length; i++) {
+      const g = gradients[i];
+      layout.addSection(`gradient_${i}`, WaveformMorphGradientCodec, g.nodes);
+   }
+
+   // Finalize layout (computes all offsets and total size)
+   const plan = layout.finalize();
+
+   if (typeof totalBytes === "number" && plan.totalBytes > totalBytes) {
+      throw new Error(`SOMATIC_SFX_CONFIG overflow: need ${plan.totalBytes} bytes, have ${totalBytes}`);
+   }
+
+   const out = new Uint8Array(totalBytes ?? plan.totalBytes);
    out.fill(0);
 
    const region = new MemoryRegion("somatic_extra_song_data", 0, out.length);
    const writer = new BitWriter(out, region);
 
+   // Encode header
    SomaticExtraSongDataHeaderCodec.encode({instrumentEntryCount, patternEntryCount}, writer);
 
-   // Instruments (fixed-size entries)
-   for (let i = 0; i < input.instruments.length; i++) {
-      const entry = input.instruments[i];
+   // Encode instruments (now with correct gradient offsets)
+   for (let i = 0; i < instrumentSections.length; i++) {
       writer.advanceToNextByteBoundary();
-      const packed = flattenEntry(entry);
-      // Fill in gradient offset if this instrument has an associated blob.
-      const g = gradients.find((x) => x.instrumentIndex === i);
-      if (g) {
-         packed.gradientOffsetBytes = clampU16(g.offsetBytes);
+      const section = instrumentSections[i];
+      // Find corresponding gradient (if any) and patch offset
+      const gradientIndex = gradients.findIndex((g) => g.instrumentIndex === i);
+      if (gradientIndex !== -1) {
+         const gradientOffset = plan.offsets.get(`gradient_${gradientIndex}`)!;
+         section.normalized.gradientOffsetBytes = clampU16(gradientOffset);
       }
-      const normalized = normalizeMorphEntry(packed);
-      MorphEntryCodec.encode(normalized, writer);
+      MorphEntryCodec.encode(section.normalized, writer);
    }
 
-   // Patterns (fixed-size entries)
-   for (const entry of input.patterns) {
+   // Encode patterns
+   for (let i = 0; i < input.patterns.length; i++) {
       writer.advanceToNextByteBoundary();
-      const normalized = normalizeSomaticPatternEntry(entry);
+      const normalized = normalizeSomaticPatternEntry(input.patterns[i]);
       SomaticPatternEntryCodec.encode(normalized, writer);
    }
 
-   // Gradient blobs (variable-size)
-   for (const g of gradients) {
+   // Encode gradient blobs
+   for (let i = 0; i < gradients.length; i++) {
       writer.advanceToNextByteBoundary();
-      const expectedByteOff = g.offsetBytes;
-      const actualByteOff = writer.cur.tellBytesFloor();
-      if (actualByteOff !== expectedByteOff) {
-         throw new Error(
-            `SOMATIC_SFX_CONFIG: gradient blob offset mismatch (expected ${expectedByteOff}, got ${actualByteOff})`);
-      }
-      WaveformMorphGradientCodec.encode(g.nodes, writer);
+      WaveformMorphGradientCodec.encode(gradients[i].nodes, writer);
    }
 
    return out;

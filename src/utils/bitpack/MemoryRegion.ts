@@ -94,7 +94,7 @@ export class BitCursor {
    tellBits() {
       return this.bitOffset;
    }
-   tellBytesFloor() {
+   currentByteIndex() {
       return (this.bitOffset / 8) | 0;
    }
    byteIndexAbs() {
