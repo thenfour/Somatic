@@ -2,6 +2,9 @@
 // Emits a Lua function that decodes a bitpack `Codec` starting at a base address.
 
 import type {Codec, BitSize} from "./bitpack";
+import bitpackPreludeLua from "./bitpack.lua";
+
+const BITPACK_BASE_PLACEHOLDER = "__BP_BASE__";
 
 type LuaDecoderOptions = {
    functionName?: string;
@@ -120,9 +123,7 @@ function emitLayoutComment(codec: Codec, include: boolean): string {
 }
 
 function emitLuaPrelude(baseArgName: string): string {
-   return `-- bitpack.lua (generated)\n-- LSB-first bits within each byte; assembled LSB-first into integers.\nlocal function _bp_make_reader(${
-      baseArgName})\n  local bytePos = 0\n  local bitPos = 0\n\n  local function _bp_align_byte()\n    if bitPos ~= 0 then\n      bitPos = 0\n      bytePos = bytePos + 1\n    end\n  end\n\n  local function _bp_read_bits(n)\n    local v = 0\n    local shift = 0\n    while n > 0 do\n      local b = peek(${
-      baseArgName} + bytePos)\n      local avail = 8 - bitPos\n      local k = (n < avail) and n or avail\n      local mask = (1 << k) - 1\n      local part = (b >> bitPos) & mask\n      v = v | (part << shift)\n      bitPos = bitPos + k\n      if bitPos >= 8 then\n        bitPos = 0\n        bytePos = bytePos + 1\n      end\n      shift = shift + k\n      n = n - k\n    end\n    return v\n  end\n\n  local function _bp_read_sbits(n)\n    local v = _bp_read_bits(n)\n    local sign = 1 << (n - 1)\n    if (v & sign) ~= 0 then\n      v = v - (1 << n)\n    end\n    return v\n  end\n\n  return {\n    align = _bp_align_byte,\n    u = _bp_read_bits,\n    i = _bp_read_sbits,\n  }\nend`;
+   return bitpackPreludeLua.split(BITPACK_BASE_PLACEHOLDER).join(baseArgName);
 }
 
 export function emitLuaDecoder(codec: Codec, opt: LuaDecoderOptions = {}): string {
