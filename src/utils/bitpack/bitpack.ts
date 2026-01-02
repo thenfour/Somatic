@@ -20,17 +20,102 @@ export type CodecNode =
    | { kind: "enum"; name: string; nBits: number; mapping: Record<string, number> }
    | { kind: "struct"; name: string; seq: StructSeqItem[]; layout: LayoutItem[] }
    | { kind: "array"; name: string; elemCodec: Codec<unknown>; count: number }
-   | { kind: "varArray"; name: string; elemCodec: Codec<unknown>; lengthCodec: Codec<number>; maxCount: number; alignToByteAfterLength: boolean };
+   | { kind: "varArray"; name: string; elemCodec: Codec<unknown>; lengthCodec: Codec<number>; maxCount: number; alignToByteAfterLength: boolean }
+   | { kind: "runtimeArray"; name: string; elemCodec: Codec<unknown>; alignToByteBeforeEachElement: boolean }
+   | { kind: "computed"; name: string; baseCodec: Codec<unknown>; compute: (ctx: ComputeContext) => unknown };
 
 // clang-format on
+
+/**
+ * Context provided to computed field functions during encoding.
+ * Allows fields to access offsets, sizes, and other computed values.
+ * Paths use dot notation: "field.subfield" or "array[0]"
+ */
+export interface ComputeContext {
+   /** Get the byte offset of a path from the root (e.g., "gradients[0]", "header.count") */
+   getOffset(path: string): number;
+   /** Internal: current path during encoding (for building offset map) */
+   _currentPath?: string;
+   /** Internal: offset map built during measurement pass */
+   _offsets?: Map<string, number>;
+   /** Internal: writer used during measurement (for tracking byte positions) */
+   _writer?: BitWriter;
+   /** Custom properties set by the encoder */
+   [key: string]: unknown;
+}
 
 export interface Codec<T = unknown> {
    node: CodecNode;
    bitSize: BitSize;
-   encode(value: T, writer: BitWriter): void;
+   encode(value: T, writer: BitWriter, ctx?: ComputeContext): void;
    decode(reader: BitReader): T;
    getLayout?: () => LayoutItem[];
    byteSizeCeil?: () => number;
+}
+
+/**
+ * Metadata extracted from a codec field for introspection.
+ * Useful for validation, normalization, and code generation.
+ */
+export type CodecFieldInfo = {
+   name: string; codec: Codec<unknown>; bitSize: number | "variable"; min: number; max: number; signed: boolean;
+};
+
+/**
+ * Extract field metadata from a struct codec.
+ * Returns information about each field including its type, size, and numeric range.
+ */
+export function extractFieldInfo(structCodec: Codec<unknown>): CodecFieldInfo[] {
+   const node = structCodec.node;
+   if (node.kind !== "struct") {
+      throw new Error("extractFieldInfo requires a struct codec");
+   }
+
+   const fields: CodecFieldInfo[] = [];
+   for (const item of node.seq) {
+      if (item.kind !== "field")
+         continue;
+
+      const codec = item.codec;
+      const codecNode = codec.node;
+      let min = 0;
+      let max = 0;
+      let signed = false;
+
+      if (codecNode.kind === "u") {
+         signed = false;
+         max = Math.pow(2, codecNode.n) - 1;
+      } else if (codecNode.kind === "i") {
+         signed = true;
+         const halfRange = Math.pow(2, codecNode.n - 1);
+         min = -halfRange;
+         max = halfRange - 1;
+      } else if (codecNode.kind === "enum") {
+         // Enums are handled by the codec itself, just pass through
+         min = 0;
+         max = Math.pow(2, codecNode.nBits) - 1;
+      }
+
+      fields.push({
+         name: item.name,
+         codec,
+         bitSize: codec.bitSize,
+         min,
+         max,
+         signed,
+      });
+   }
+
+   return fields;
+}
+
+/**
+ * Get the fixed bit size of a codec, throwing if it's variable-sized.
+ */
+export function fixedBits(codec: Codec<unknown>, name: string): number {
+   if (codec.bitSize === "variable")
+      throw new Error(`${name} codec must be fixed size`);
+   return codec.bitSize;
 }
 
 type FieldEntry<T = unknown> = {
@@ -212,7 +297,7 @@ class BitWriter {
 
 function _codec<T>(
    node: CodecNode,
-   encode: (value: T, writer: BitWriter) => void,
+   encode: (value: T, writer: BitWriter, ctx?: ComputeContext) => void,
    decode: (reader: BitReader) => T,
    bitSize: BitSize,
    ): Codec<T> {
@@ -353,12 +438,23 @@ const C = {
       const bitSize = fixed ? bitOff : "variable";
       const codec = _codec(
          {kind: "struct", name, seq, layout},
-         (obj: Record<string, unknown>, w: BitWriter) => {
+         (obj: Record<string, unknown>, w: BitWriter, ctx?: ComputeContext) => {
             for (const it of seq) {
-               if (it.kind === "field")
-                  it.codec.encode(obj[it.name], w);
-               else
-                  it.codec.encode(undefined, w);
+               if (it.kind === "field") {
+                  const fieldPath = ctx?._currentPath ? `${ctx._currentPath}.${it.name}` : it.name;
+                  const byteOffset = w.cur.currentByteIndex();
+                  if (ctx?._offsets) {
+                     ctx._offsets.set(fieldPath, byteOffset);
+                  }
+                  const prevPath = ctx?._currentPath;
+                  if (ctx)
+                     ctx._currentPath = fieldPath;
+                  it.codec.encode(obj[it.name], w, ctx);
+                  if (ctx)
+                     ctx._currentPath = prevPath;
+               } else {
+                  it.codec.encode(undefined, w, ctx);
+               }
             }
          },
          (r: BitReader) => {
@@ -390,13 +486,13 @@ const C = {
       const bitSize = (elemBits === "variable") ? "variable" : (elemBits * count);
       return _codec(
          {kind: "array", name, elemCodec, count},
-         (arr: T[], w: BitWriter) => {
+         (arr: T[], w: BitWriter, ctx?: ComputeContext) => {
             if (!Array.isArray(arr))
                throw new Error(`array(${name}): expected array, got ${typeof arr}`);
             if (arr.length !== count)
                throw new Error(`array(${name}): expected length ${count}, got ${arr.length}`);
             for (let i = 0; i < count; i++)
-               elemCodec.encode(arr[i], w);
+               elemCodec.encode(arr[i], w, ctx);
          },
          (r: BitReader) => {
             const out: T[] = new Array(count);
@@ -426,17 +522,28 @@ const C = {
          throw new Error(`varArray(${name}): maxCount must be >=0, got ${maxCount}`);
       return _codec(
          {kind: "varArray", name, elemCodec, lengthCodec, maxCount, alignToByteAfterLength},
-         (arr: T[], w: BitWriter) => {
+         (arr: T[], w: BitWriter, ctx?: ComputeContext) => {
             if (!Array.isArray(arr))
                throw new Error(`varArray(${name}): expected array, got ${typeof arr}`);
             const len = arr.length | 0;
             if (len < 0 || len > maxCount)
                throw new Error(`varArray(${name}): length out of range: ${len} (max ${maxCount})`);
-            lengthCodec.encode(len, w);
+            lengthCodec.encode(len, w, ctx);
             if (alignToByteAfterLength)
                w.advanceToNextByteBoundary();
-            for (let i = 0; i < len; i++)
-               elemCodec.encode(arr[i], w);
+            for (let i = 0; i < len; i++) {
+               const elemPath = ctx?._currentPath ? `${ctx._currentPath}[${i}]` : `[${i}]`;
+               const byteOffset = w.cur.currentByteIndex();
+               if (ctx?._offsets) {
+                  ctx._offsets.set(elemPath, byteOffset);
+               }
+               const prevPath = ctx?._currentPath;
+               if (ctx)
+                  ctx._currentPath = elemPath;
+               elemCodec.encode(arr[i], w, ctx);
+               if (ctx)
+                  ctx._currentPath = prevPath;
+            }
          },
          (r: BitReader) => {
             const len = lengthCodec.decode(r) | 0;
@@ -452,6 +559,100 @@ const C = {
          "variable",
       );
    },
+
+   // Runtime-sized array (count determined at encode time, not codec construction).
+   // Unlike varArray, this doesn't encode the length - the decoder must know the count by other means.
+   // Useful for top-level payloads where the count comes from headers or external sources.
+   runtimeArray: <T>(
+      name: string,
+      elemCodec: Codec<T>,
+      alignToByteBeforeEachElement = false,
+      ): Codec<T[]> => {
+      return _codec(
+         {kind: "runtimeArray", name, elemCodec, alignToByteBeforeEachElement},
+         (arr: T[], w: BitWriter, ctx?: ComputeContext) => {
+            if (!Array.isArray(arr))
+               throw new Error(`runtimeArray(${name}): expected array, got ${typeof arr}`);
+            for (let i = 0; i < arr.length; i++) {
+               if (alignToByteBeforeEachElement)
+                  w.advanceToNextByteBoundary();
+               const elemPath = ctx?._currentPath ? `${ctx._currentPath}[${i}]` : `[${i}]`;
+               const byteOffset = w.cur.currentByteIndex();
+               if (ctx?._offsets) {
+                  ctx._offsets.set(elemPath, byteOffset);
+               }
+               const prevPath = ctx?._currentPath;
+               if (ctx)
+                  ctx._currentPath = elemPath;
+               elemCodec.encode(arr[i], w, ctx);
+               if (ctx)
+                  ctx._currentPath = prevPath;
+            }
+         },
+         (r: BitReader) => {
+            throw new Error(`runtimeArray(${name}): decode not supported - count must be known at decode time`);
+         },
+         "variable",
+      );
+   },
+
+   // Computed field - value is computed during encoding based on context (e.g., section offsets).
+   // The baseCodec defines the encoding format; compute() provides the value.
+   computed: <T>(name: string, baseCodec: Codec<T>, compute: (ctx: ComputeContext) => T): Codec<T> => {
+      return _codec(
+         {kind: "computed", name, baseCodec, compute},
+         (_value: T, w: BitWriter, ctx?: ComputeContext) => {
+            if (!ctx)
+               throw new Error(`computed(${name}): requires ComputeContext but none provided`);
+            const computedValue = compute(ctx);
+            baseCodec.encode(computedValue, w, ctx);
+         },
+         (r: BitReader) => {
+            return baseCodec.decode(r);
+         },
+         baseCodec.bitSize,
+      );
+   },
 };
+
+/**
+ * Measure a codec with data and build an offset map.
+ * Returns a context that can be used to query offsets during actual encoding.
+ */
+export function measureCodecOffsets<T>(codec: Codec<T>, data: T): ComputeContext {
+   // Create a large temporary buffer for measurement
+   const measureBuf = new Uint8Array(256 * 1024);
+   const measureRegion = new MemoryRegion("measure", 0, measureBuf.length);
+   const measureWriter = new BitWriter(measureBuf, measureRegion);
+
+   const offsets = new Map<string, number>();
+   const ctx: ComputeContext = {
+      getOffset: (path: string) => {
+         const offset = offsets.get(path);
+         if (offset === undefined)
+            throw new Error(`getOffset: unknown path '${path}'`);
+         return offset;
+      },
+      _currentPath: "",
+      _offsets: offsets,
+      _writer: measureWriter,
+   };
+
+   codec.encode(data, measureWriter, ctx);
+   return ctx;
+}
+
+/**
+ * Encode with automatic offset tracking.
+ * First measures to build offset map, then encodes with that context.
+ */
+export function encodeWithOffsets<T>(codec: Codec<T>, data: T, out: Uint8Array, region: MemoryRegion): void {
+   const ctx = measureCodecOffsets(codec, data);
+   const writer = new BitWriter(out, region);
+   // Reset path for actual encoding
+   ctx._currentPath = "";
+   ctx._writer = writer;
+   codec.encode(data, writer, ctx);
+}
 
 export {MemoryRegion, BitCursor, BitReader, BitWriter, C};
