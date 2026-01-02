@@ -778,6 +778,9 @@ do
 		--log(string.format("tick: frm=%d last=%d", currentFrame, lastPlayingFrame)) -- DEBUG_ONLY
 
 		if stopPlayingOnNextFrame then
+			-- We already cleared the upcoming buffer when we hit end-of-song;
+			-- once the music engine advances again, stop cleanly.
+			somatic_stop()
 			return
 		end
 
@@ -792,7 +795,13 @@ do
 		log(string.format("tick: advance to=%d count=%d", currentSongOrder, orderCount)) -- DEBUG_ONLY
 
 		if orderCount == 0 or currentSongOrder >= orderCount then
-			somatic_stop()
+			-- No next entry to queue. Don't stop *immediately* (that would kill playback
+			-- when starting on the last order / length==1). Instead, clear the next buffer
+			-- so the next advance is silent, and stop on the following tick.
+			for i = 0, PATTERN_BUFFER_BYTES - 1 do
+				poke(destPointer + i, 0)
+			end
+			stopPlayingOnNextFrame = true
 			return
 		end
 
