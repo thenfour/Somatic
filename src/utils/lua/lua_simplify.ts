@@ -1,7 +1,6 @@
 import * as luaparse from "luaparse";
+import {LiteralNode, StringLiteralNode, stringValue} from "./lua_utils";
 
-type StringLiteralNode = luaparse.StringLiteral&{value?: string | null};
-type LiteralNode = luaparse.NumericLiteral|StringLiteralNode|luaparse.BooleanLiteral|luaparse.NilLiteral;
 
 type ConstEnv = Map<string, LiteralNode>;
 
@@ -138,36 +137,6 @@ function missingInitDefaultsToNil(init: luaparse.Expression[]|undefined): boolea
    const last = init[init.length - 1];
    return last.type !== "CallExpression" && last.type !== "TableCallExpression" &&
       last.type !== "StringCallExpression" && last.type !== "VarargLiteral";
-}
-
-function decodeRawString(raw: string|undefined): string|null {
-   if (!raw || raw.length < 2)
-      return null;
-   // Handle long bracket strings [[...]] (naive but sufficient for folding literals)
-   if (raw.startsWith("[[") && raw.endsWith("]]"))
-      return raw.slice(2, -2);
-
-   const quote = raw[0];
-   const tail = raw[raw.length - 1];
-   if ((quote === "\"" || quote === "'") && tail === quote) {
-      const inner = raw.slice(1, -1);
-      try {
-         if (quote === "\"")
-            return JSON.parse(raw);
-         // Convert single-quoted Lua string to JSON-friendly double-quoted string
-         const escaped = inner.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
-         return JSON.parse(`"${escaped}"`);
-      } catch {
-         return null;
-      }
-   }
-   return null;
-}
-
-function stringValue(node: StringLiteralNode): string|null {
-   if (typeof node.value === "string")
-      return node.value;
-   return decodeRawString(node.raw);
 }
 
 function literalEquals(a: LiteralNode, b: LiteralNode): boolean {

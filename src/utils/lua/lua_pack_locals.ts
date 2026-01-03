@@ -1,7 +1,8 @@
 import * as luaparse from "luaparse";
+import {StringLiteralNode} from "./lua_utils";
 
-// Optional string literal value helper (luaparse may omit value)
-type StringLiteralNode = luaparse.StringLiteral&{value?: string | null};
+// // Optional string literal value helper (luaparse may omit value)
+// type StringLiteralNode = luaparse.StringLiteral&{value?: string | null};
 
 function usesAnyIdentifier(node: luaparse.Expression, names: Set<string>): boolean {
    switch (node.type) {

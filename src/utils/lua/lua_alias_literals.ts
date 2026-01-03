@@ -1,5 +1,6 @@
 import * as luaparse from "luaparse";
 import {AliasInfo, runAliasPass} from "./lua_alias_shared";
+import {LiteralNode, StringLiteralNode} from "./lua_utils";
 
 // ============================================================================
 // Literal Aliasing - Create local aliases for repeated literal values
@@ -8,8 +9,8 @@ import {AliasInfo, runAliasPass} from "./lua_alias_shared";
 // Configuration
 const LITERAL_ALIAS_PREFIX = "L";
 
-type StringLiteralNode = luaparse.StringLiteral&{value?: string | null};
-type LiteralNode = StringLiteralNode|luaparse.NumericLiteral|luaparse.BooleanLiteral|luaparse.NilLiteral;
+//type StringLiteralNode = luaparse.StringLiteral&{value?: string | null};
+//type LiteralNode = StringLiteralNode|luaparse.NumericLiteral|luaparse.BooleanLiteral|luaparse.NilLiteral;
 
 // Serialize a literal to a string key for comparison
 function serializeLiteral(node: luaparse.Expression): string|null {
@@ -98,9 +99,9 @@ function replaceLiteral(node: luaparse.Expression, tracker: any): luaparse.Expre
    const key = serializeLiteral(node);
    if (key) {
       const alias = tracker.getAlias(key);
-      const literalNode = node as LiteralNode;
-      const displayValue =
-         literalNode.type === "StringLiteral" ? (literalNode.raw ?? "<missing raw>") : literalNode.value;
+      //const literalNode = node as LiteralNode;
+      // const displayValue =
+      //    literalNode.type === "StringLiteral" ? (literalNode.raw ?? "<missing raw>") : literalNode.value;
       if (alias) {
          // This literal should be replaced with an alias
          return {

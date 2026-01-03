@@ -1,5 +1,6 @@
 import * as luaparse from "luaparse";
 import {AliasInfo, runAliasPass} from "./lua_alias_shared";
+import {StringLiteralNode} from "./lua_utils";
 
 // ============================================================================
 // Expression Aliasing - Create local aliases for repeated expressions
@@ -15,7 +16,7 @@ const SAFE_GLOBAL_FUNCS = new Set([
    "btnp", "key",  "keyp",  "mouse", "time",   "tstamp", "sync", "trace", "exit",
 ]);
 
-type StringLiteralNode = luaparse.StringLiteral&{value?: string | null};
+//type StringLiteralNode = luaparse.StringLiteral&{value?: string | null};
 
 function baseIsSafeGlobal(expr: luaparse.Expression): boolean {
    return expr.type === "Identifier" && SAFE_GLOBAL_BASES.has(expr.name);

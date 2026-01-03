@@ -1,17 +1,6 @@
 import * as luaparse from "luaparse";
 import {isIdentifier, LUA_RESERVED_WORDS} from "./lua_ast";
-
-// Generate short variable names for minification: a, b, c, ..., z, aa, ab, ...
-function generateShortName(index: number): string {
-   const alphabet = "abcdefghijklmnopqrstuvwxyz";
-   let name = "";
-   let n = index;
-   do {
-      name = alphabet[n % 26] + name;
-      n = Math.floor(n / 26) - 1;
-   } while (n >= 0);
-   return name;
-}
+import {generateShortName} from "./lua_utils";
 
 // tracks scope hierarchy for variable rename scope
 class RenameScope {
@@ -41,7 +30,7 @@ class RenameScope {
 
 export function renameLocalVariablesInAST(ast: luaparse.Chunk): luaparse.Chunk {
    let nameCounter = 0;
-   const usedNamesGlobal = new Set<string>();
+   //const usedNamesGlobal = new Set<string>();
 
    function generateUniqueName(): string {
       let name: string;

@@ -19,49 +19,12 @@ we would need to follow data flow across function boundaries to track that, whic
 */
 
 import * as luaparse from "luaparse";
-import {LUA_RESERVED_WORDS} from "./lua_ast";
-
-// Short name generator (a, b, c, ..., z, aa, ab, ...), skipping Lua reserved words.
-function generateShortName(index: number): string {
-   const alphabet = "abcdefghijklmnopqrstuvwxyz";
-   let name = "";
-   let n = index;
-   do {
-      name = alphabet[n % 26] + name;
-      n = Math.floor(n / 26) - 1;
-   } while (n >= 0);
-   return name;
-}
-
-function nextFreeName(counter: {value: number}): string {
-   while (true) {
-      const name = generateShortName(counter.value++);
-      if (!LUA_RESERVED_WORDS.has(name))
-         return name;
-   }
-}
+import {isStringLiteral, nextFreeName, stringValue} from "./lua_utils";
 
 type Candidate = {
    name: string; ctor: luaparse.TableConstructorExpression; fields: Set<string>; disqualified: boolean;
    mapping: Map<string, string>;
 };
-
-function isStringLiteral(node: luaparse.Expression|undefined|null): node is luaparse.StringLiteral {
-   return !!node && node.type === "StringLiteral";
-}
-
-// Extract string value from a StringLiteral (prefer .value, fall back to raw stripping quotes)
-function stringLiteralValue(lit: luaparse.StringLiteral): string|null {
-   if (typeof lit.value === "string")
-      return lit.value;
-   if (lit.raw && lit.raw.length >= 2) {
-      const quote = lit.raw[0];
-      const tail = lit.raw[lit.raw.length - 1];
-      if (quote === tail && (quote === "\"" || quote === "'"))
-         return lit.raw.slice(1, -1);
-   }
-   return null;
-}
 
 function recordCtorFields(candidate: Candidate): void {
    candidate.ctor.fields.forEach(field => {
@@ -69,7 +32,7 @@ function recordCtorFields(candidate: Candidate): void {
          if (field.key && field.key.type === "Identifier")
             candidate.fields.add(field.key.name);
          else if (isStringLiteral(field.key)) {
-            const val = stringLiteralValue(field.key as luaparse.StringLiteral);
+            const val = stringValue(field.key as luaparse.StringLiteral);
             if (val != null)
                candidate.fields.add(val);
          }
@@ -116,7 +79,7 @@ function scanExpression(expr: luaparse.Expression, candidates: Map<string, Candi
                   return;
                }
                if (isStringLiteral(expr.index)) {
-                  const val = stringLiteralValue(expr.index as luaparse.StringLiteral);
+                  const val = stringValue(expr.index as luaparse.StringLiteral);
                   if (val != null)
                      cand.fields.add(val);
                   else
@@ -275,7 +238,7 @@ function rewriteExpression(expr: luaparse.Expression, candidates: Map<string, Ca
          if (expr.base.type === "Identifier") {
             const cand = candidates.get(expr.base.name);
             if (cand && !cand.disqualified && isStringLiteral(expr.index)) {
-               const val = stringLiteralValue(expr.index as luaparse.StringLiteral);
+               const val = stringValue(expr.index as luaparse.StringLiteral);
                if (val != null) {
                   const mapped = cand.mapping.get(val);
                   if (mapped) {
@@ -426,7 +389,7 @@ function rewriteConstructors(candidates: Map<string, Candidate>): void {
                if (mapped)
                   field.key.name = mapped;
             } else if (isStringLiteral(field.key)) {
-               const val = stringLiteralValue(field.key as luaparse.StringLiteral);
+               const val = stringValue(field.key as luaparse.StringLiteral);
                if (val != null) {
                   const mapped = cand.mapping.get(val);
                   if (mapped) {

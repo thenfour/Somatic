@@ -1,41 +1,6 @@
 import * as luaparse from "luaparse";
 import {LUA_RESERVED_WORDS} from "./lua_ast";
-
-// Short name generator (a, b, c, ..., z, aa, ab, ...), skipping Lua reserved words.
-function generateShortName(index: number): string {
-   const alphabet = "abcdefghijklmnopqrstuvwxyz";
-   let name = "";
-   let n = index;
-   do {
-      name = alphabet[n % 26] + name;
-      n = Math.floor(n / 26) - 1;
-   } while (n >= 0);
-   return name;
-}
-
-function nextFreeName(counter: {value: number}): string {
-   while (true) {
-      const name = generateShortName(counter.value++);
-      if (!LUA_RESERVED_WORDS.has(name))
-         return name;
-   }
-}
-
-function isStringLiteral(node: luaparse.Expression|undefined|null): node is luaparse.StringLiteral {
-   return !!node && node.type === "StringLiteral";
-}
-
-function stringLiteralValue(lit: luaparse.StringLiteral): string|null {
-   if (typeof lit.value === "string")
-      return lit.value;
-   if (lit.raw && lit.raw.length >= 2) {
-      const quote = lit.raw[0];
-      const tail = lit.raw[lit.raw.length - 1];
-      if (quote === tail && (quote === "\"" || quote === "'"))
-         return lit.raw.slice(1, -1);
-   }
-   return null;
-}
+import {isStringLiteral, nextFreeName, stringValue} from "./lua_utils";
 
 function rewriteExpression(expr: luaparse.Expression, mapping: Map<string, string>): void {
    switch (expr.type) {
@@ -56,7 +21,7 @@ function rewriteExpression(expr: luaparse.Expression, mapping: Map<string, strin
          rewriteExpression(expr.base, mapping);
          rewriteExpression(expr.index, mapping);
          if (isStringLiteral(expr.index)) {
-            const val = stringLiteralValue(expr.index);
+            const val = stringValue(expr.index);
             if (val != null) {
                const mapped = mapping.get(val);
                if (mapped) {
@@ -104,7 +69,7 @@ function rewriteExpression(expr: luaparse.Expression, mapping: Map<string, strin
                   if (mapped)
                      field.key.name = mapped;
                } else if (isStringLiteral(field.key)) {
-                  const val = stringLiteralValue(field.key as luaparse.StringLiteral);
+                  const val = stringValue(field.key as luaparse.StringLiteral);
                   if (val != null) {
                      const mapped = mapping.get(val);
                      if (mapped) {
