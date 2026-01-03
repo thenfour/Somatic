@@ -102,7 +102,17 @@ const THEME_VARS = {
         '--knob-track',
         '--knob-highlight',
         '--knob-thumb',
-    ]
+    ],
+    "Button": [
+        '--button-background-enabled',
+        '--button-foreground-enabled',
+        '--button-background-hovered',
+        '--button-foreground-hovered',
+        '--button-background-disabled',
+        '--button-foreground-disabled',
+        '--button-background-highlighted',
+        '--button-foreground-highlighted',
+    ],
 
 } as const;
 

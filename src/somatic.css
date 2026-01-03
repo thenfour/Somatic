@@ -145,6 +145,14 @@
     --knob-track: #94b0c2;
     --knob-highlight: #73eff7;
     --knob-thumb: #ef7d57;
+    --button-background-enabled: #94b0c2;
+    --button-foreground-enabled: #1a1c2c;
+    --button-background-hovered: #38b764;
+    --button-foreground-hovered: #f4f4f4;
+    --button-background-disabled: #566c86;
+    --button-foreground-disabled: #1a1c2c;
+    --button-background-highlighted: #a7f070;
+    --button-foreground-highlighted: #1a1c2c;
 }
 
 .theme-dark {
@@ -226,6 +234,14 @@
     --knob-track: #257179;
     --knob-highlight: #73eff7;
     --knob-thumb: #ffcd75;
+    --button-background-enabled: #3b5dc9;
+    --button-foreground-enabled: #f4f4f4;
+    --button-background-hovered: #41a6f6;
+    --button-foreground-hovered: #f4f4f4;
+    --button-background-disabled: #333c57;
+    --button-foreground-disabled: #566c86;
+    --button-background-highlighted: #38b764;
+    --button-foreground-highlighted: #fff;
 }
 
 html,

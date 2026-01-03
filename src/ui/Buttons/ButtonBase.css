@@ -1,0 +1,72 @@
+.somatic-button-base {
+    /* --button-background-enabled: #0ff;
+    --button-foreground-enabled: #000;
+    --button-background-hovered: #f80;
+    --button-foreground-hovered: #000;
+    --button-background-disabled: #333;
+    --button-foreground-disabled: #888;
+    --button-background-highlighted: #808;
+    --button-foreground-highlighted: #fff; */
+
+    /* doesn't really work with dividers; need to emit more classes for beginning & ends of sub groups*/
+    --button-border-radius: 0;
+
+    background-color: var(--button-background-enabled);
+    color: var(--button-foreground-enabled);
+    border: none;
+    border-radius: var(--button-border-radius);
+    padding: 3px 8px;
+    margin: 2px;
+}
+
+.somatic-button-base.somatic-button-base--disabled {
+    background-color: var(--button-background-disabled);
+    color: var(--button-foreground-disabled);
+    /* cursor: not-allowed; */
+}
+
+.somatic-button-base:hover:not(.somatic-button-base--disabled) {
+    background-color: var(--button-background-hovered);
+    color: var(--button-foreground-hovered);
+}
+
+.somatic-button-base.somatic-button-base--not-highlighted {}
+
+.somatic-button-base.somatic-button-base--highlighted {
+    background-color: var(--button-background-highlighted);
+    color: var(--button-foreground-highlighted);
+}
+
+.somatic-button-group {
+    display: inline-flex;
+
+}
+
+/* butt buttons next to each other */
+.somatic-button-group .somatic-button-base {
+    border-radius: 0;
+    margin: 0;
+    border-right: 1px solid var(--border);
+}
+
+.somatic-button-group .somatic-button-base:last-child {
+    border-right: none;
+}
+
+.somatic-button-group .somatic-button-base:first-child {
+    border-top-left-radius: var(--button-border-radius);
+    border-bottom-left-radius: var(--button-border-radius);
+}
+
+.somatic-button-group .somatic-button-base:last-child {
+    border-top-right-radius: var(--button-border-radius);
+    border-bottom-right-radius: var(--button-border-radius);
+}
+
+/* subtle vertical divider between buttons */
+.somatic-button-group .somatic-divider {
+    width: 1px;
+    background: var(--border);
+    margin-left: 6px;
+    margin-right: 6px;
+}

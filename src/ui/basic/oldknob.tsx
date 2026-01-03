@@ -1,13 +1,5 @@
 import React from "react";
-import "./oldknob.css";
 import { Knob } from "./Knob2";
-// todo: make this more beautiful
-// - svg, 1-dimension sweeping
-// - shift for fine control
-// - ctrl+click to set default
-// - param curving
-
-// internally we use 0-1; externally the user defines mapping & formatting.
 
 export interface ContinuousParamConfig {
     resolutionSteps: number;
@@ -26,8 +18,6 @@ interface ContinuousKnobProps {
 
 export const ContinuousKnob: React.FC<ContinuousKnobProps> = ({ label, value, onChange, config }) => {
     return <Knob
-        //toUnit={(x) => config.convertTo01(x)}
-        //fromUnit={(x) => config.convertFrom01(x)}
         min={0}
         max={1}
         step={1 / (config.resolutionSteps - 1)}
@@ -41,34 +31,4 @@ export const ContinuousKnob: React.FC<ContinuousKnobProps> = ({ label, value, on
     />;
 };
 
-
-// export const ContinuousKnob: React.FC<ContinuousKnobProps> = ({ label, value, onChange, config }) => {
-//     return (
-//         <div className="knob continuous-knob"
-//             onMouseDown={(e) => {
-//                 if (e.ctrlKey) {
-//                     e.preventDefault();
-//                     e.stopPropagation();
-//                     onChange(config.default);
-//                 }
-//             }}
-//         >
-//             <label>
-//                 {label}: {config.format(value)}
-//                 <input
-//                     type="range"
-//                     min={0}
-//                     max={1}
-//                     step={1 / (config.resolutionSteps - 1)}
-//                     value={config.convertTo01(value)}
-//                     onChange={(e) => {
-//                         const val = config.convertFrom01(parseFloat(e.target.value));
-//                         onChange(val);
-//                     }}
-//                 />
-//             </label>
-//         </div>
-//     );
-// };
-
-
+// todo: knob wrappers for other curves, param types. see #133

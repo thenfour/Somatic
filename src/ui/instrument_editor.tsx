@@ -12,7 +12,7 @@ import { Tic80Waveform } from '../models/waveform';
 import { MorphGradientPreview } from './MorphGradientPreview';
 import './instrument_editor.css';
 import { AppPanelShell } from './AppPanelShell';
-import { RadioButton } from './basic/RadioButton';
+import { RadioButton } from './Buttons/RadioButton';
 import { Tooltip } from './basic/tooltip';
 import { ContinuousKnob, ContinuousParamConfig } from './basic/oldknob';
 import { TabPanel, Tab } from './basic/Tabs';

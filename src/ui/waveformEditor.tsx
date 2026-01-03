@@ -341,7 +341,7 @@ export const WaveformEditorPanel: React.FC<{
                     <button type="button" onClick={handleSaw}>Saw</button>
                     <button type="button" onClick={handleTriangle}>Tri</button>
                     <button type="button" onClick={handleSine}>Sine</button>
-                    <button type="button" onClick={handleNoise}>Noise</button>
+                    <button type="button" onClick={handleNoise}>Random</button>
                 </div>
                 <div className="waveform-editor-controls__row">
                     <span className="waveform-editor-controls__label">Shift</span>

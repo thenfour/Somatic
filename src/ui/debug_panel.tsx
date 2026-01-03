@@ -6,6 +6,9 @@ import { BarValue, SizeValue } from './basic/BarValue';
 import { useClipboard } from '../hooks/useClipboard';
 import { MorphEntryFieldNamesToRename } from '../../bridge/morphSchema';
 import { OptimizationRuleOptions, processLua } from '../utils/lua/lua_processor';
+import { ComponentTester } from './ComponentTester';
+import { ButtonGroup } from './Buttons/ButtonGroup';
+import { Button } from './Buttons/PushButton';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const clipboard = useClipboard();
@@ -219,12 +222,18 @@ end
                             />
                         </label>
                         <div style={{ display: "flex", gap: "0.25rem", marginTop: "0.25rem" }}>
-                            {[20, 40, 60, 80, 120, 180, 240, 500].map((len) => (
-                                <button onClick={() => setOptions((prev) => ({
-                                    ...prev,
-                                    maxLineLength: len,
-                                }))}>{len}</button>
-                            ))}
+                            <ButtonGroup>
+                                {[20, 40, 60, 80, 120, 180, 240, 500].map((len) => (
+                                    <Button
+                                        onClick={() => setOptions((prev) => ({
+                                            ...prev,
+                                            maxLineLength: len,
+                                        }))}
+                                        key={len}
+                                        highlighted={options.maxLineLength === len}
+                                    >{len}</Button>
+                                ))}
+                            </ButtonGroup>
                             <span>Current: {options.maxLineLength}</span>
                         </div>
                     </div>
@@ -267,6 +276,10 @@ end
                         <button onClick={() => clipboard.copyTextToClipboard(outputLua)}>Copy</button>
                     </div>
                     <div className="debug-panel-output-content">{outputLua}</div>
+                </div>
+
+                <div>
+                    <ComponentTester />
                 </div>
             </div>
         </AppPanelShell>
