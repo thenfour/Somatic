@@ -30,7 +30,7 @@
 // https://github.com/thenfour/digifujam/blob/master/source/DFclient/ui/knob.js
 //
 
-import "./Knob.css";
+import "./Knob2.css";
 import React, {
     useCallback,
     useMemo,
@@ -223,15 +223,18 @@ export const Knob: React.FC<KnobProps> = ({
     const valueAngle = startAngle + unitValue * sweepAngle;
     const centerAngle = startAngle + unitCenter * sweepAngle;
 
-    const radius = 30;
-    const centerX = radius;
-    const centerY = radius;
-    const trackWidth = 6;
-    const thumbRadius = radius * 0.2;
-    const margin = 8;
 
-    const labelY = centerY - radius - margin * 0.4;
-    const valueY = centerY + radius + margin * 0.8;
+    const trackOuterRadius = 25;
+    const trackWidth = 9; // i.e. track's inner radius is trackOuterRadius - trackWidth
+    const thumbRadius = 7; // thumb will NOT have a stroke; it's just a filled circle
+
+    // Derived geometry.
+    // SVG strokes are centered on the arc radius. To make the *outer* edge land exactly at
+    // trackOuterRadius, we draw the arc at the midpoint radius.
+    const trackRadius = trackOuterRadius - trackWidth / 2;
+    const boundsRadius = Math.max(trackOuterRadius, trackRadius + thumbRadius);
+    const centerX = boundsRadius;
+    const centerY = boundsRadius;
 
     const formattedValue = useMemo(() => {
         if (formatValue) return formatValue(value);
@@ -326,15 +329,15 @@ export const Knob: React.FC<KnobProps> = ({
     );
 
     const thumbPos = useMemo(
-        () => polarToCartesian(centerX, centerY, radius, valueAngle),
-        [centerX, centerY, radius, valueAngle]
+        () => polarToCartesian(centerX, centerY, trackRadius, valueAngle),
+        [centerX, centerY, trackRadius, valueAngle]
     );
 
     const activeHasLength = Math.abs(valueAngle - centerAngle) > 0.5;
 
     const trackPath = useMemo(
-        () => describeArc(centerX, centerY, radius, startAngle, endAngle),
-        [centerX, centerY, radius, startAngle, endAngle]
+        () => describeArc(centerX, centerY, trackRadius, startAngle, endAngle),
+        [centerX, centerY, trackRadius, startAngle, endAngle]
     );
 
     const highlightPath = useMemo(() => {
@@ -342,82 +345,73 @@ export const Knob: React.FC<KnobProps> = ({
         const a0 = centerAngle;
         const a1 = valueAngle;
         // Always draw from center towards value along the same direction as the main arc.
-        return describeArc(centerX, centerY, radius, a0, a1);
-    }, [activeHasLength, centerAngle, valueAngle, centerX, centerY, radius]);
+        return describeArc(centerX, centerY, trackRadius, a0, a1);
+    }, [activeHasLength, centerAngle, valueAngle, centerX, centerY, trackRadius]);
 
     const ariaLabel = label ?? "Knob";
 
     return (
-        <svg
-            className={`somatic-knob ${className || ""}`}
-            width={radius * 2}
-            height={radius * 2}
-            viewBox={`0 0 ${radius * 2} ${radius * 2}`}
-            style={{ cursor: disabled ? "default" : "ns-resize", touchAction: "none" }}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-            onPointerLeave={handlePointerLeave}
-            role="slider"
-            aria-label={ariaLabel}
-            aria-valuemin={minMaxFixed.min}
-            aria-valuemax={minMaxFixed.max}
-            aria-valuenow={value}
-            aria-disabled={disabled || undefined}
-        >
+        <div className={`somatic-knob ${className || ""}`}>
             {/* Label */}
             {label && (
-                <text
-                    x={centerX}
-                    y={labelY}
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    className="somatic-knob-label"
-                >
+                <div className="somatic-knob-label">
                     {label}
-                </text>
+                </div>
             )}
 
-            {/* Track arc */}
-            <path
-                d={trackPath}
-                fill="none"
-                strokeWidth={trackWidth}
-                strokeLinecap="round"
-                className="somatic-knob-track"
-            />
-
-            {/* Highlight arc from center value to current value */}
-            {activeHasLength && (
+            {/* SVG knob */}
+            <svg
+                className="somatic-knob-svg"
+                width={boundsRadius * 2}
+                height={boundsRadius * 2}
+                viewBox={`0 0 ${boundsRadius * 2} ${boundsRadius * 2}`}
+                style={{ cursor: disabled ? "default" : "ns-resize", touchAction: "none" }}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                onPointerLeave={handlePointerLeave}
+                role="slider"
+                aria-label={ariaLabel}
+                aria-valuemin={minMaxFixed.min}
+                aria-valuemax={minMaxFixed.max}
+                aria-valuenow={value}
+                aria-disabled={disabled || undefined}
+            >
+                {/* Track arc */}
                 <path
-                    d={highlightPath}
+                    d={trackPath}
                     fill="none"
-                    className="somatic-knob-highlight"
-                    strokeWidth={trackWidth * 0.9}
+                    strokeWidth={trackWidth}
                     strokeLinecap="round"
+                    className="somatic-knob-track"
                 />
-            )}
 
-            {/* Thumb */}
-            <circle
-                cx={thumbPos.x}
-                cy={thumbPos.y}
-                r={thumbRadius}
-                className="somatic-knob-thumb"
-                strokeWidth={trackWidth * 0.3}
-            />
+                {/* Highlight arc from center value to current value */}
+                {activeHasLength && (
+                    <path
+                        d={highlightPath}
+                        fill="none"
+                        className="somatic-knob-highlight"
+                        strokeWidth={trackWidth * 0.9}
+                        strokeLinecap="round"
+                    />
+                )}
+
+                {/* Thumb */}
+                <circle
+                    cx={thumbPos.x}
+                    cy={thumbPos.y}
+                    r={thumbRadius}
+                    className="somatic-knob-thumb"
+                    stroke="none"
+                />
+            </svg>
 
             {/* Value text */}
-            <text
-                x={centerX}
-                y={valueY}
-                textAnchor="middle"
-                dominantBaseline="central"
-                className="somatic-knob-value"
-            >
+            <div className="somatic-knob-value">
                 {formattedValue}
-            </text>
-        </svg>
+            </div>
+        </div>
     );
 };

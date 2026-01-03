@@ -1,6 +1,6 @@
 import React from "react";
 import "./oldknob.css";
-import { Knob } from "./knob";
+import { Knob } from "./Knob2";
 // todo: make this more beautiful
 // - svg, 1-dimension sweeping
 // - shift for fine control
