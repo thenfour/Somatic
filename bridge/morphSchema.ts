@@ -56,7 +56,7 @@ const WaveEngineIdCodec = C.enum<WaveEngineId>("WaveEngineId", 2, {
 // Each node stores the waveform as 16 bytes (2x 4-bit samples per byte), plus per-segment duration+curve.
 // Note: The last node's duration+curve are stored but ignored at runtime.
 export const WaveformMorphGradientNodeCodec = C.struct("WaveformMorphGradientNode", [
-   C.field("waveBytes", C.array("waveBytes", C.u(8), 16)),
+   C.field("waveBytes", C.array("waveBytes", C.u(8), 16)), // 16 bytes; each byte packs 2 4-bit samples.
    C.field("durationTicks10", C.u(10)),
    C.field("curveS6", C.i(6)),
 ]);
@@ -67,7 +67,7 @@ export const WaveformMorphGradientCodec = C.varArray(
    "WaveformMorphGradient",
    WaveformMorphGradientNodeCodec,
    C.u(5),
-   16,
+   SomaticCaps.maxMorphGradientNodes,
    true,
 );
 
