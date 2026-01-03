@@ -329,6 +329,7 @@ do
 	local render_src_b = {}
 	local render_out = {}
 	local lfo_ticks_by_sfx = {}
+	local morphIds = {}
 
 	local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)
 		-- BEGIN_FEATURE_LFO
@@ -659,8 +660,9 @@ do
 	local function somatic_sfx_tick(track, frame, row)
 		apply_music_row_to_sfx_state(track, frame, row)
 		-- BEGIN_FEATURE_LFO
-		for id, _ in pairs(morphMap) do
-			lfo_ticks_by_sfx[id] = (lfo_ticks_by_sfx[id] or 0) + 1
+		for i = 1, #morphIds do
+			local id = morphIds[i]
+			lfo_ticks_by_sfx[id] = lfo_ticks_by_sfx[id] + 1
 		end
 		-- END_FEATURE_LFO
 		for ch = 0, SFX_CHANNELS - 1 do
@@ -673,6 +675,10 @@ do
 		if not m or not m.payloadB85 or not m.payloadCLen then
 			return
 		end
+
+		morphMap = {}
+		patternExtra = {}
+		morphIds = {}
 
 		-- let's use a part of pattern mem for temp storage
 		b85d(m.payloadB85, m.payloadCLen, __AUTOGEN_TEMP_PTR_A)
@@ -688,6 +694,7 @@ do
 			entry.lowpassEnabled = entry.lowpassEnabled ~= 0
 
 			morphMap[id] = entry
+			morphIds[#morphIds + 1] = id
 			off = off + MORPH_ENTRY_BYTES
 		end
 		for _ = 1, patternCount do
@@ -768,6 +775,7 @@ do
 		backBufferIsA = false
 		stopPlayingOnNextFrame = false
 		ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
+		lfo_ticks_by_sfx = {}
 		log("somatic_reset_state") -- DEBUG_ONLY
 		--ch_set_playroutine_regs(0xFF)
 	end
@@ -788,6 +796,11 @@ do
 		stopPlayingOnNextFrame = false
 
 		swapInPlayorder(currentSongOrder, bufferALocation)
+
+		-- Seed LFO tick counters so per-tick advancement can be branch-free.
+		for i = 1, #morphIds do
+			lfo_ticks_by_sfx[morphIds[i]] = 0
+		end
 
 		music(
 			0, -- track
