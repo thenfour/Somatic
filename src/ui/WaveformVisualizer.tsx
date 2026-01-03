@@ -158,7 +158,7 @@ export const WaveformVisualizer: React.FC<{
             // Sparse rendering: there are too few samples per pixel column.
             // here the min/max-per-pixel approach produces glitches
             // so instead we draw a polyline stepping by sample.
-            const useSparsePath = framesPerCol <= 2;
+            const useSparsePath = framesPerCol <= 4;
 
             if (useSparsePath) {
                 ctx.beginPath();

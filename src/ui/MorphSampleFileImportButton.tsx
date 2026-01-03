@@ -6,7 +6,10 @@ export const MorphSampleFileImportButton: React.FC<{
     onFileSelected: (file: File) => Promise<void>;
 }> = ({ disabled, onFileSelected }) => {
     const handleClick = async () => {
-        const files = (await fileDialog({ accept: ".wav", multiple: false })) as FileList | File[] | undefined;
+        const files = (await fileDialog({
+            accept: "audio/*",
+            multiple: false //
+        })) as FileList | File[] | undefined;
         const fileArray = files ? Array.from(files as any) : [];
         const file = fileArray[0] as File | undefined;
         if (!file) return;

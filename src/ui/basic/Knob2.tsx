@@ -83,6 +83,7 @@ export interface KnobProps {
      * E.g. 0.2 means “5x finer” when Shift is pressed.
      */
     fineTuneScale?: number;
+    normalDeltaScale?: number;
 
     /**
      * Dead angle in degrees centered at the bottom of the knob (180°).
@@ -148,7 +149,8 @@ export const Knob: React.FC<KnobProps> = ({
     //parseValue, // currently unused, future double-click to type
     //size = 80,
     dragSensitivity = 150,
-    fineTuneScale = 0.2,
+    fineTuneScale = 0.02,
+    normalDeltaScale = 0.2,
     deadAngle = 60,
     //theme,
     disabled = false,
@@ -279,7 +281,7 @@ export const Knob: React.FC<KnobProps> = ({
             const { startY, startUnit } = dragStateRef.current;
             const dy = e.clientY - startY;
 
-            const fineScale = e.shiftKey ? fineTuneScale : 1.0;
+            const fineScale = e.shiftKey ? fineTuneScale : normalDeltaScale;
             const deltaUnit = (-dy / dragSensitivity) * fineScale; // drag up = increase value
 
             const nextUnit = clamp01(startUnit + deltaUnit);
@@ -292,6 +294,7 @@ export const Knob: React.FC<KnobProps> = ({
             disabled,
             dragSensitivity,
             fineTuneScale,
+            normalDeltaScale,
             externalFromUnit,
             onChange,
         ]

@@ -93,11 +93,12 @@ export function decodeFloat32PcmFromDto(dto: MorphSamplePcmDto): DecodedPcm {
 }
 
 export async function decodeWavFileToDto(file: File): Promise<MorphSamplePcmDto> {
-   if (!file.name.toLowerCase().endsWith(".wav")) {
-      throw new Error("Only .wav files are supported");
-   }
+   //    if (!file.name.toLowerCase().endsWith(".wav")) {
+   //       throw new Error("Only .wav files are supported");
+   //    }
    if (file.size > SomaticCaps.maxImportedWavBytes) {
-      throw new Error(`WAV file is too large (max ${(SomaticCaps.maxImportedWavBytes / (1024 * 1024)).toFixed(1)}MB)`);
+      throw new Error(
+         `Sound file is too large (max ${(SomaticCaps.maxImportedWavBytes / (1024 * 1024)).toFixed(1)}MB)`);
    }
 
    const wavBytes = await file.arrayBuffer();

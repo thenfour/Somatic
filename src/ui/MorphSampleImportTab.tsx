@@ -142,9 +142,7 @@ export const MorphSampleImportTab: React.FC<{
 
     const toggleButtonStyle = (selected: boolean): React.CSSProperties => {
         return {
-            border: "1px solid var(--panel-border)",
             background: selected ? "var(--panel-strong)" : "transparent",
-            color: "inherit",
             padding: "4px 8px",
         };
     };
@@ -283,6 +281,13 @@ export const MorphSampleImportTab: React.FC<{
         return () => window.clearTimeout(handle);
     }, [decoded, instrument.waveEngine, instrument.morphGradientNodes, instrumentIndex, onSongChange, state.autoWindowParams.targetDurationSeconds, state.windows]);
 
+    // zoom to the source duration.
+    const sourceSlice = useMemo(() => {
+        if (!monoSamples) return null;
+        const end = Math.floor(monoSamples.length * clamp(state.autoWindowParams.sourceDuration01, 0, 1));
+        return monoSamples.slice(0, end);
+    }, [monoSamples, state.autoWindowParams.sourceDuration01]);
+
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -308,7 +313,7 @@ export const MorphSampleImportTab: React.FC<{
             {monoSamples && (
                 <>
                     <WaveformVisualizer
-                        samples={monoSamples}
+                        samples={sourceSlice ?? monoSamples}
                         height={140}
                         highlights={showSelectedWindowHighlights ? highlightWindows : []}
                         secondaryHighlights={showAutoWindowPreviewHighlights ? previewHighlightWindows : []}
@@ -335,7 +340,7 @@ export const MorphSampleImportTab: React.FC<{
                         </span>
                     </div>
 
-                    <div style={{ border: "1px solid var(--panel-border)", padding: 8 }}>
+                    <div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <strong>Auto-window</strong>
                             <div className="field-row">

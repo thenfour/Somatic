@@ -169,7 +169,7 @@ export const WaveformMorphGradientEditor: React.FC<{
                 const wf = new Tic80Waveform({ name: '', amplitudes: [...node.amplitudes] });
 
                 return (
-                    <div key={idx} style={{ border: '1px solid var(--panel-border)', padding: 8 }}>
+                    <div key={idx} style={{ padding: 8 }}>
                         <div
                             style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
                             onClick={() => setExpandedIndex(isExpanded ? null : idx)}

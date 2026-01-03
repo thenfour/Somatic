@@ -1,10 +1,12 @@
 import React, { useMemo } from "react";
 import { ContinuousKnob, ContinuousParamConfig } from "./basic/oldknob";
 import { WaveformVisualizer } from "./WaveformVisualizer";
+import { WaveformSwatch } from "./waveformSwatch";
 import { MorphSampleImportWindowDto } from "../models/instruments";
 import { Tic80Caps } from "../models/tic80Capabilities";
+import { Tic80Waveform } from "../models/waveform";
 import { clamp } from "../utils/utils";
-import { windowDtoToFrames } from "../audio/morph_sample_import";
+import { resampleWindowToTic80Amplitudes, windowDtoToFrames } from "../audio/morph_sample_import";
 
 const Begin01Config: ContinuousParamConfig = {
     resolutionSteps: 1000,
@@ -36,8 +38,13 @@ export const MorphSampleWindowItem: React.FC<{
         return monoSamples.slice(frames.beginFrame, frames.beginFrame + frames.frameLength);
     }, [monoSamples, frames.beginFrame, frames.frameLength]);
 
+    const windowWaveformSwatch = useMemo(() => {
+        const amps = resampleWindowToTic80Amplitudes(slice);
+        return new Tic80Waveform({ name: "", amplitudes: [...amps] });
+    }, [slice]);
+
     return (
-        <div style={{ border: "1px solid var(--panel-border)", padding: 8, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
                 <strong>Window {index + 1}</strong>
                 <span style={{ fontSize: 12, opacity: 0.8 }}>
@@ -45,11 +52,23 @@ export const MorphSampleWindowItem: React.FC<{
                 </span>
             </div>
 
-            <WaveformVisualizer
-                samples={slice}
-                height={70}
-                dottedMarkers={[0, slice.length]}
-            />
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <WaveformVisualizer
+                        samples={slice}
+                        height={70}
+                        dottedMarkers={[0, slice.length]}
+                    />
+                </div>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                    <WaveformSwatch
+                        value={windowWaveformSwatch}
+                        scale={4}
+                        displayStyle="muted"
+                        overlayText={`${index + 1}`}
+                    />
+                </div>
+            </div>
 
             <div className="field-row">
                 <ContinuousKnob
