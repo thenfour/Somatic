@@ -1,7 +1,7 @@
 import {isNoteCut, Pattern, PatternCell} from "../models/pattern";
 import {SomaticCaps, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex} from "../models/tic80Capabilities";
 import {InterpolateTarget} from "../ui/PatternAdvancedPanel";
-import {clamp} from "./utils";
+import {clamp, lerp} from "./utils";
 
 
 export type RowRange = {
@@ -279,7 +279,7 @@ export const interpolatePatternValues = (
       const span = endRow - startRow;
       for (let row = startRow + 1; row < endRow; row++) {
          const t = (row - startRow) / span;
-         const interpolated = startValue + (endValue - startValue) * t;
+         const interpolated = lerp(startValue, endValue, t);
          const clampedValue = clamp(Math.round(interpolated), accessor.min, accessor.max);
          const cell = pattern.getCell(channelIndex, row);
          const updated = accessor.write(cell, clampedValue);

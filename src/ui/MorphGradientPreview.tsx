@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Tic80Caps } from '../models/tic80Capabilities';
 import { WaveformMorphGradientNode } from '../models/instruments';
 import { Tic80Waveform } from '../models/waveform';
-import { clamp, clamp01, curveT } from '../utils/utils';
+import { clamp, clamp01, curveT, lerp } from '../utils/utils';
 import { WaveformSwatch } from './waveformSwatch';
 
 export const MorphGradientPreview: React.FC<{
@@ -52,7 +52,7 @@ export const MorphGradientPreview: React.FC<{
         const amps = Array.from({ length: Tic80Caps.waveform.pointCount }, (_, i) => {
             const va = a[i] ?? 0;
             const vb = b[i] ?? 0;
-            const v = va + (vb - va) * shapedT;
+            const v = lerp(va, vb, shapedT);
             return clamp(Math.round(v), 0, maxAmp);
         });
 

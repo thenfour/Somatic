@@ -1,5 +1,5 @@
 import {MemoryRegion, BitCursor} from "./MemoryRegion";
-import {assertBitsFitInRegion, maskLowBits} from "./utils";
+import {assertBitsFitInRegion, maskLowBits} from "./bitpackUtils";
 
 export type BitSize = number|"variable";
 

@@ -18,6 +18,7 @@ import { ContinuousKnob, ContinuousParamConfig } from './basic/oldknob';
 import { TabPanel, Tab } from './basic/Tabs';
 import { InstrumentChip } from './InstrumentChip';
 import { WaveformMorphGradientEditor } from './WaveformMorphGradientEditor';
+import { MorphSampleImportTab } from './MorphSampleImportTab';
 
 const PWMDutyConfig: ContinuousParamConfig = {
     resolutionSteps: 32,
@@ -317,6 +318,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
     const clipboard = useClipboard();
     const [hoveredWaveform, setHoveredWaveform] = useState<WaveformCanvasHover | null>(null);
     const [selectedTab, setSelectedTab] = useState<string>('volume');
+    const [selectedMorphSubtab, setSelectedMorphSubtab] = useState<string>('gradient');
 
     const songOrderKey = useMemo(
         () => song.songOrder.map((item) => clamp(item.patternIndex ?? 0, 0, song.patterns.length - 1)).join(','),
@@ -819,12 +821,28 @@ show render slot if there are k-rate effects enabled
                         )}
 
                         {instrument.waveEngine === 'morph' && (
-                            <WaveformMorphGradientEditor
-                                song={song}
-                                instrument={instrument}
-                                instrumentIndex={instrumentIndex}
-                                onSongChange={onSongChange}
-                            />
+                            <TabPanel
+                                selectedTabId={selectedMorphSubtab}
+                                handleTabChange={(_, tabId) => setSelectedMorphSubtab(tabId as string)}
+                                tablListStyle={{ marginTop: 12 }}
+                            >
+                                <Tab thisTabId="gradient" summaryTitle="Gradient" canBeDefault={true}>
+                                    <WaveformMorphGradientEditor
+                                        song={song}
+                                        instrument={instrument}
+                                        instrumentIndex={instrumentIndex}
+                                        onSongChange={onSongChange}
+                                    />
+                                </Tab>
+                                <Tab thisTabId="import" summaryTitle="Import sample">
+                                    <MorphSampleImportTab
+                                        song={song}
+                                        instrument={instrument}
+                                        instrumentIndex={instrumentIndex}
+                                        onSongChange={onSongChange}
+                                    />
+                                </Tab>
+                            </TabPanel>
                         )}
 
                         {instrument.waveEngine === 'pwm' && (

@@ -15,6 +15,10 @@ export const SomaticCaps = {
    maxPatternLengthToBridge: 40000,
    maxSongTitleLength: 200,
    maxMorphGradientNodes: 16,
+   // Reject imported WAVs larger than this
+   maxImportedWavBytes: 5 * 1024 * 1024,
+   // UI limit for the sample->morph conversion target duration.
+   maxMorphGradientTotalDurationSeconds: 15,
 } as const;
 
 export enum SomaticEffectCommand {

@@ -18,6 +18,114 @@ export type WaveformMorphGradientNode = {
    curveN11: number;
 };
 
+export interface MorphSamplePcmDto {
+   fileName: string;
+   sampleRateHz: number;
+   channelCount: number;
+   frameCount: number;
+   // Base64-encoded little-endian Float32 PCM.
+   // One entry per channel; each decodes to Float32Array length = frameCount.
+   channelPcmF32Base64: string[];
+}
+
+export interface MorphSampleImportAutoWindowParamsDto {
+   // 0..1 fraction of the source waveform to consider.
+   sourceDuration01: number;
+   // 0..SomaticCaps.maxMorphGradientTotalDurationSeconds
+   targetDurationSeconds: number;
+   // 1..SomaticCaps.maxMorphGradientNodes
+   windowCount: number;
+   // A multiplier of TIC-80 waveform points (32).
+   // Example: 2.0 => window length = 64 samples (in the decoded PCM frame domain).
+   perWindowDurationWaveforms: number;
+   // 0.25..4 suggested; 1 == linear.
+   placementExponent: number;
+}
+
+const defaultAutoWindowParams: MorphSampleImportAutoWindowParamsDto = {
+   sourceDuration01: 1,
+   targetDurationSeconds: 4,
+   windowCount: 4,
+   perWindowDurationWaveforms: 2,
+   placementExponent: 1,
+} as const;
+
+export interface MorphSampleImportWindowDto {
+   // 0..1 position within the full decoded source.
+   begin01: number;
+   // 1..N where N is a multiplier of TIC-80 waveform points (32).
+   lengthWaveforms: number;
+}
+
+export interface MorphSampleImportStateDto {
+   sample?: MorphSamplePcmDto;
+   autoWindowParams: MorphSampleImportAutoWindowParamsDto;
+   windows: MorphSampleImportWindowDto[];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+   return value != null && typeof value === "object";
+}
+
+function coerceMorphSamplePcmDto(value: unknown): MorphSamplePcmDto|undefined {
+   if (!isRecord(value))
+      return undefined;
+
+   const channelPcmRaw = value.channelPcmF32Base64;
+   const channelPcmF32Base64 = Array.isArray(channelPcmRaw) ? channelPcmRaw.map((s) => String(s ?? "")) : [];
+
+   return {
+      fileName: String(value.fileName ?? ""),
+      sampleRateHz: Math.max(1, Number(value.sampleRateHz ?? 44100)),
+      channelCount: Math.max(1, Math.trunc(Number(value.channelCount ?? 1))),
+      frameCount: Math.max(0, Math.trunc(Number(value.frameCount ?? 0))),
+      channelPcmF32Base64,
+   };
+}
+
+function coerceMorphSampleImportAutoWindowParamsDto(
+   value: unknown,
+   fallback: MorphSampleImportAutoWindowParamsDto,
+   ): MorphSampleImportAutoWindowParamsDto {
+   if (!isRecord(value))
+      return fallback;
+
+   return {
+      sourceDuration01: clamp(Number(value.sourceDuration01 ?? fallback.sourceDuration01), 0, 1),
+      targetDurationSeconds: Math.max(0, Number(value.targetDurationSeconds ?? fallback.targetDurationSeconds)),
+      windowCount: Math.max(1, Math.trunc(Number(value.windowCount ?? fallback.windowCount))),
+      perWindowDurationWaveforms:
+         Math.max(1, Number(value.perWindowDurationWaveforms ?? fallback.perWindowDurationWaveforms)),
+      placementExponent: Math.max(0.01, Number(value.placementExponent ?? fallback.placementExponent)),
+   };
+}
+
+function coerceMorphSampleImportWindows(value: unknown): MorphSampleImportWindowDto[] {
+   if (!Array.isArray(value))
+      return [];
+
+   return value.filter((w) => isRecord(w)).map((w) => ({
+                                                  begin01: clamp(Number(w.begin01 ?? 0), 0, 1),
+                                                  lengthWaveforms: Math.max(1, Number(w.lengthWaveforms ?? 1)),
+                                               }));
+}
+
+function coerceMorphSampleImportStateDto(value: unknown): MorphSampleImportStateDto {
+   if (!isRecord(value)) {
+      return {
+         sample: undefined,
+         autoWindowParams: {...defaultAutoWindowParams},
+         windows: [],
+      };
+   }
+
+   return {
+      sample: coerceMorphSamplePcmDto(value.sample),
+      autoWindowParams: coerceMorphSampleImportAutoWindowParamsDto(value.autoWindowParams, defaultAutoWindowParams),
+      windows: coerceMorphSampleImportWindows(value.windows),
+   };
+}
+
 // Numeric IDs used in the bridge payload schema.
 // Keep these as the single source of truth to avoid scattered magic numbers.
 export const WaveEngineId = {
@@ -119,6 +227,9 @@ export interface Tic80InstrumentDto {
    // When waveEngine != "morph", this should be empty or undefined.
    morphGradientNodes?: WaveformMorphGradientNodeDto[];
 
+   // Editor-only (persisted in song JSON): imported waveform + conversion params.
+   morphSampleImport?: MorphSampleImportStateDto;
+
    pwmDuty: number;  // 0-31
    pwmDepth: number; // 0-31
 
@@ -172,6 +283,9 @@ export class Tic80Instrument {
    sourceWaveformIndex: number; // 0-15
    renderWaveformSlot: number;  // 0-15 -- which waveform slot to use for live k-rate processing. used for PWM as well!
    morphGradientNodes: WaveformMorphGradientNode[];
+
+   // editor-only, persisted
+   morphSampleImport?: MorphSampleImportStateDto;
 
    pwmDuty: number;  // 0-31
    pwmDepth: number; // 0-31
@@ -267,6 +381,8 @@ export class Tic80Instrument {
          };
       });
 
+      this.morphSampleImport = coerceMorphSampleImportStateDto(data.morphSampleImport);
+
       this.pwmDuty = clamp(data.pwmDuty ?? 16, 0, 31);
       this.pwmDepth = clamp(data.pwmDepth ?? 10, 0, 31);
 
@@ -352,6 +468,7 @@ export class Tic80Instrument {
                                                             durationSeconds: n.durationSeconds,
                                                             curveN11: n.curveN11,
                                                          })),
+         morphSampleImport: this.morphSampleImport,
          pwmDuty: this.pwmDuty,
          pwmDepth: this.pwmDepth,
          lowpassEnabled: this.lowpassEnabled,

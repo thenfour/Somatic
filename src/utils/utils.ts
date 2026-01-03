@@ -5,6 +5,10 @@ export function assert(condition: boolean = true, message: string = "Assertion f
    }
 };
 
+export function lerp(a: number, b: number, t: number): number {
+   return a + (b - a) * t;
+}
+
 export const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
 
 export const clamp01 = (v: number) => clamp(v, 0, 1);
@@ -467,7 +471,6 @@ export function curveT(t: number, k: number, s: number = 4): number {
       return 1 - Math.pow(1 - t, a(-kk));
    }
 }
-
 
 // Escape special characters in a string for use in a RegExp
 export function escapeRegExp(s: string): string {
