@@ -11,6 +11,10 @@ import './waveformEditor.css';
 import { AppPanelShell } from './AppPanelShell';
 import { calculateSongUsage, getMaxWaveformUsedIndex, SongUsage } from "../utils/SongOptimizer";
 import { Button } from "./Buttons/PushButton";
+import { ButtonGroup } from "./Buttons/ButtonGroup";
+import { IconButton } from "./Buttons/IconButton";
+import { mdiContentCopy, mdiContentPaste } from "@mdi/js";
+import { Tooltip } from "./basic/tooltip";
 
 export const WaveformSelect: React.FC<{
     song: Song;
@@ -304,10 +308,18 @@ export const WaveformEditorPanel: React.FC<{
             />
 
             <div className="waveform-editor-controls">
-                <div className="waveform-editor-controls__row">
+                <ButtonGroup>
+                    <Tooltip title="Copy waveform to clipboard">
+                        <IconButton onClick={handleCopy} iconPath={mdiContentCopy} />
+                    </Tooltip>
+                    <Tooltip title="Paste waveform from clipboard">
+                        <IconButton onClick={handlePaste} iconPath={mdiContentPaste} />
+                    </Tooltip>
+                </ButtonGroup>
+                {/* <div className="waveform-editor-controls__row">
                     <button type="button" onClick={handleCopy}>Copy</button>
                     <button type="button" onClick={handlePaste}>Paste</button>
-                </div>
+                </div> */}
                 <div className="waveform-editor-controls__row">
                     <span className="waveform-editor-controls__label">Mix</span>
                     <input
@@ -322,30 +334,35 @@ export const WaveformEditorPanel: React.FC<{
                 </div>
                 <div className="waveform-editor-controls__row">
                     <span className="waveform-editor-controls__label">Harmonic</span>
-                    {[1, 2, 3, 4, 5].map((h) => (
-                        <button
-                            key={h}
-                            type="button"
-                            className={h === harmonic ? "waveform-editor-controls__button waveform-editor-controls__button--active" : "waveform-editor-controls__button"}
-                            onClick={() => setHarmonic(h)}
-                        >
-                            {h}
-                        </button>
-                    ))}
+                    <ButtonGroup>
+                        {[1, 2, 3, 4, 5].map((h) => (
+                            <Button
+                                key={h}
+                                highlighted={h === harmonic}
+                                //className={h === harmonic ? "waveform-editor-controls__button waveform-editor-controls__button--active" : "waveform-editor-controls__button"}
+                                onClick={() => setHarmonic(h)}
+                            >
+                                {h}
+                            </Button>
+                        ))}
+                    </ButtonGroup>
                 </div>
-                <div className="waveform-editor-controls__row">
-                    <button type="button" onClick={handlePulse}>Pulse</button>
-                    <button type="button" onClick={handleSaw}>Saw</button>
-                    <button type="button" onClick={handleTriangle}>Tri</button>
-                    <button type="button" onClick={handleSine}>Sine</button>
-                    <button type="button" onClick={handleNoise}>Random</button>
-                </div>
+
+                <ButtonGroup>
+                    <Button onClick={handlePulse}>Pulse</Button>
+                    <Button onClick={handleSaw}>Saw</Button>
+                    <Button onClick={handleTriangle}>Tri</Button>
+                    <Button onClick={handleSine}>Sine</Button>
+                    <Button onClick={handleNoise}>Random</Button>
+                </ButtonGroup>
                 <div className="waveform-editor-controls__row">
                     <span className="waveform-editor-controls__label">Shift</span>
-                    <button type="button" onClick={() => handleShift(1)}>Up</button>
-                    <button type="button" onClick={() => handleShift(-1)}>Down</button>
-                    <button type="button" onClick={handleNormalize}>Normalize</button>
-                    <button type="button" onClick={handleLowpass}>Lowpass</button>
+                    <ButtonGroup>
+                        <Button onClick={() => handleShift(1)}>Up</Button>
+                        <Button onClick={() => handleShift(-1)}>Down</Button>
+                        <Button onClick={handleNormalize}>Normalize</Button>
+                        <Button onClick={handleLowpass}>Lowpass</Button>
+                    </ButtonGroup>
                 </div>
             </div>
         </AppPanelShell>
