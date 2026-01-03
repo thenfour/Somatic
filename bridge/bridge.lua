@@ -205,6 +205,76 @@ local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
 local MORPH_MAP_BYTES = ADDR.MARKER - MORPH_MAP_BASE
 
 local pattern_extra_cache = {}
+local morph_nodes_cache = {}
+local MORPH_GRADIENT_BASE = MORPH_MAP_BASE
+
+local function clamp01(x)
+	if x < 0 then
+		return 0
+	elseif x > 1 then
+		return 1
+	end
+	return x
+end
+
+local function clamp_nibble_round(v)
+	if v < 0 then
+		v = 0
+	elseif v > 15 then
+		v = 15
+	end
+	return math.floor(v + 0.5)
+end
+
+local function lerp(a, b, t)
+	return a + (b - a) * t
+end
+
+-- a,b: 0..15, t: 0..1
+local function lerp_nibble_lin(a, b, t)
+	local v = a + (b - a) * t
+	if v < 0 then
+		v = 0
+	elseif v > 15 then
+		v = 15
+	end
+	return math.floor(v + 0.5)
+end
+
+-- equal power (sqrt or sine law) makes a better xfade, but it doesn't preserve the waveshapes at either end so... not the best idea
+local lerp_nibble = lerp_nibble_lin
+
+local function wave_unpack_byte_to_samples(b, outSamples, si)
+	outSamples[si] = b & 0x0f
+	outSamples[si + 1] = (b >> 4) & 0x0f
+	return si + 2
+end
+
+local function morph_get_nodes(offBytes)
+	if offBytes == nil or offBytes <= 0 then
+		return nil
+	end
+	local cached = morph_nodes_cache[offBytes]
+	if cached ~= nil then
+		return cached or nil
+	end
+	local nodes = decode_WaveformMorphGradient(MORPH_GRADIENT_BASE + offBytes)
+	if nodes == nil or #nodes == 0 then
+		morph_nodes_cache[offBytes] = false
+		return nil
+	end
+	for ni = 1, #nodes do
+		local wb = nodes[ni].waveBytes
+		local s = {}
+		local si = 0
+		for bi = 1, 16 do
+			si = wave_unpack_byte_to_samples(wb[bi] or 0, s, si)
+		end
+		nodes[ni].samples = s
+	end
+	morph_nodes_cache[offBytes] = nodes
+	return nodes
+end
 
 local function read_extra_song_header_counts()
 	local instrumentCount = peek(MORPH_MAP_BASE)
@@ -250,48 +320,6 @@ local WAVE_BASE = BRIDGE_CONFIG.memory.WAVEFORMS_ADDR
 local WAVE_BYTES_PER_WAVE = 16 -- 32x 4-bit samples packed 2-per-byte
 local WAVE_SAMPLES_PER_WAVE = 32
 
-local function clamp01(x)
-	if x < 0 then
-		return 0
-	elseif x > 1 then
-		return 1
-	end
-	return x
-end
-
-local function clamp_nibble_round(v)
-	if v < 0 then
-		v = 0
-	elseif v > 15 then
-		v = 15
-	end
-	return math.floor(v + 0.5)
-end
-
-local function lerp(a, b, t)
-	return a + (b - a) * t
-end
-
--- a,b: 0..15, t: 0..1
-local function lerp_nibble_lin(a, b, t)
-	local v = a + (b - a) * t
-	if v < 0 then
-		v = 0
-	elseif v > 15 then
-		v = 15
-	end
-	return math.floor(v + 0.5)
-end
-
--- equal power (sqrt or sine law) makes a better xfade, but it doesn't preserve the waveshapes at either end so... not the best idea
-local lerp_nibble = lerp_nibble_lin
-
-local function wave_unpack_byte_to_samples(b, outSamples, si)
-	outSamples[si] = b & 0x0f
-	outSamples[si + 1] = (b >> 4) & 0x0f
-	return si + 2
-end
-
 local function read_sfx_cfg(instrumentId)
 	local count, _patternCount = read_extra_song_header_counts()
 
@@ -331,18 +359,7 @@ local function read_sfx_cfg(instrumentId)
 					error("morph instrument is missing gradientOffsetBytes")
 				end
 				assert(offBytes < MORPH_MAP_BYTES, "morph gradient offset out of range: " .. tostring(offBytes))
-
-				local nodes = decode_WaveformMorphGradient(MORPH_MAP_BASE + offBytes)
-				for ni = 1, #nodes do
-					local wb = nodes[ni].waveBytes
-					local s = {}
-					local si = 0
-					for bi = 1, 16 do
-						si = wave_unpack_byte_to_samples(wb[bi] or 0, s, si)
-					end
-					nodes[ni].samples = s
-				end
-				cfg.morphGradientNodes = nodes
+				cfg.morphGradientNodes = morph_get_nodes(offBytes)
 			end
 			-- END_FEATURE_WAVEMORPH
 
@@ -896,6 +913,8 @@ end
 -- Commands
 local function handle_transmit()
 	sync(24, 0, true)
+	pattern_extra_cache = {}
+	morph_nodes_cache = {}
 	publish_cmd(CMD_TRANSMIT, 0)
 end
 
@@ -908,6 +927,8 @@ local function handle_play()
 	-- bank = 0 (default)
 	-- true means sync from runtime -> cart.
 	sync(24, 0, true)
+	pattern_extra_cache = {}
+	morph_nodes_cache = {}
 
 	local songPosition = peek(INBOX.SONG_POSITION)
 	local startRow = peek(INBOX.ROW)

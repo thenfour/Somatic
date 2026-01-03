@@ -326,6 +326,8 @@ do
 	local render_out = {}
 	local lfo_ticks_by_sfx = {}
 	local morphIds = {}
+	local morph_nodes_cache = {}
+	local MORPH_GRADIENT_BASE = __AUTOGEN_TEMP_PTR_B
 
 	local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)
 		-- BEGIN_FEATURE_LFO
@@ -380,12 +382,19 @@ do
 	end
 
 	-- BEGIN_FEATURE_WAVEMORPH
-	local function render_waveform_morph(cfg, ticksPlayed, outSamples)
-		local offBytes = cfg.gradientOffsetBytes or 0
-		if offBytes <= 0 then
-			return false
+	local function morph_get_nodes(offBytes)
+		if offBytes == nil or offBytes <= 0 then
+			return nil
 		end
-		local nodes = decode_WaveformMorphGradient(__AUTOGEN_TEMP_PTR_B + offBytes)
+		local cached = morph_nodes_cache[offBytes]
+		if cached ~= nil then
+			return cached or nil
+		end
+		local nodes = decode_WaveformMorphGradient(MORPH_GRADIENT_BASE + offBytes)
+		if nodes == nil or #nodes == 0 then
+			morph_nodes_cache[offBytes] = false
+			return nil
+		end
 		for ni = 1, #nodes do
 			local wb = nodes[ni].waveBytes
 			local s = {}
@@ -395,6 +404,12 @@ do
 			end
 			nodes[ni].samples = s
 		end
+		morph_nodes_cache[offBytes] = nodes
+		return nodes
+	end
+
+	local function render_waveform_morph(cfg, ticksPlayed, outSamples)
+		local nodes = cfg.morphGradientNodes
 		if nodes == nil or #nodes == 0 then
 			return false
 		end
@@ -675,6 +690,7 @@ do
 		morphMap = {}
 		patternExtra = {}
 		morphIds = {}
+		morph_nodes_cache = {}
 
 		-- let's use a part of pattern mem for temp storage
 		b85d(m.payloadB85, m.payloadCLen, __AUTOGEN_TEMP_PTR_A)
@@ -688,6 +704,11 @@ do
 
 			-- adjust fields as needed
 			entry.lowpassEnabled = entry.lowpassEnabled ~= 0
+			-- BEGIN_FEATURE_WAVEMORPH
+			if entry.waveEngineId == WAVE_ENGINE_MORPH then
+				entry.morphGradientNodes = morph_get_nodes(entry.gradientOffsetBytes or 0)
+			end
+			-- END_FEATURE_WAVEMORPH
 
 			morphMap[id] = entry
 			morphIds[#morphIds + 1] = id
