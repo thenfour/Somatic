@@ -1,5 +1,6 @@
 import React from "react";
 import "./oldknob.css";
+import { Knob } from "./knob";
 // todo: make this more beautiful
 // - svg, 1-dimension sweeping
 // - shift for fine control
@@ -17,39 +18,48 @@ export interface ContinuousParamConfig {
 };
 
 interface ContinuousKnobProps {
-    label: React.ReactNode;
+    label?: string | undefined;
     value: number;
     onChange: (newValue: number) => void;
     config: ContinuousParamConfig;
 }
 
 export const ContinuousKnob: React.FC<ContinuousKnobProps> = ({ label, value, onChange, config }) => {
-    return (
-        <div className="knob continuous-knob"
-            onMouseDown={(e) => {
-                if (e.ctrlKey) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onChange(config.default);
-                }
-            }}
-        >
-            <label>
-                {label}: {config.format(value)}
-                <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={1 / (config.resolutionSteps - 1)}
-                    value={config.convertTo01(value)}
-                    onChange={(e) => {
-                        const val = config.convertFrom01(parseFloat(e.target.value));
-                        onChange(val);
-                    }}
-                />
-            </label>
-        </div>
-    );
+    return <Knob
+        label={label}
+        onChange={onChange}
+        value={value}
+    />;
 };
+
+
+// export const ContinuousKnob: React.FC<ContinuousKnobProps> = ({ label, value, onChange, config }) => {
+//     return (
+//         <div className="knob continuous-knob"
+//             onMouseDown={(e) => {
+//                 if (e.ctrlKey) {
+//                     e.preventDefault();
+//                     e.stopPropagation();
+//                     onChange(config.default);
+//                 }
+//             }}
+//         >
+//             <label>
+//                 {label}: {config.format(value)}
+//                 <input
+//                     type="range"
+//                     min={0}
+//                     max={1}
+//                     step={1 / (config.resolutionSteps - 1)}
+//                     value={config.convertTo01(value)}
+//                     onChange={(e) => {
+//                         const val = config.convertFrom01(parseFloat(e.target.value));
+//                         onChange(val);
+//                     }}
+//                 />
+//             </label>
+//         </div>
+//     );
+// };
 
 

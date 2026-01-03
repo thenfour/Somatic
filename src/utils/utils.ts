@@ -54,6 +54,19 @@ export function getBufferFingerprint(buf: Uint8Array, length = 16): FingerprintR
 }
 
 
+/**
+ * Convert polar coordinates (angle in degrees, 0° at top, CW positive)
+ * to cartesian SVG coordinates.
+ */
+export function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
+   const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
+   return {
+      x: centerX + radius * Math.cos(angleInRadians),
+      y: centerY + radius * Math.sin(angleInRadians),
+   };
+}
+
+
 // takes string contents, returns Lua string literal with quotes and escapes.
 export function toLuaStringLiteral(str: string): string {
    const escaped = str.replace(/\\/g, "\\\\").replace(/"/g, "\\\"").replace(/\n/g, "\\n").replace(/\r/g, "\\r");
