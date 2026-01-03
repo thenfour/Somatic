@@ -584,10 +584,11 @@ end
 
 local function render_waveform_morph(cfg, ticksPlayed, outSamples)
 	local nodes = cfg.morphGradientNodes
-	if nodes == nil or #nodes == 0 then
+	local n = #nodes
+	if nodes == nil or n == 0 then
 		return false
 	end
-	if #nodes == 1 then
+	if n == 1 then
 		local s = nodes[1].samples
 		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
 			outSamples[i] = s[i]
@@ -595,26 +596,26 @@ local function render_waveform_morph(cfg, ticksPlayed, outSamples)
 		return true
 	end
 
-	local tRemaining = ticksPlayed or 0
-	local seg = (#nodes - 1)
+	local tRemaining = ticksPlayed
+	local seg = (n - 1)
 	local localT = 1.0
-	for i = 1, (#nodes - 1) do
-		local dur = nodes[i].durationTicks10 or 0
+	for i = 1, (n - 1) do
+		local dur = nodes[i].durationTicks10
 		if dur > 0 then
 			if tRemaining < dur then
 				seg = i
-				localT = clamp01(tRemaining / dur)
+				localT = tRemaining / dur
 				break
 			end
 			tRemaining = tRemaining - dur
 		end
 	end
 
-	local shapedT = apply_curveN11(localT, nodes[seg].curveS6 or 0)
+	local shapedT = apply_curveN11(localT, nodes[seg].curveS6)
 	local a = nodes[seg].samples
 	local b = nodes[seg + 1].samples
 	for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-		outSamples[i] = (a[i] or 0) + ((b[i] or 0) - (a[i] or 0)) * shapedT
+		outSamples[i] = a[i] + (b[i] - a[i]) * shapedT
 	end
 	return true
 end
