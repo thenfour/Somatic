@@ -19,6 +19,9 @@ import { TabPanel, Tab } from './basic/Tabs';
 import { InstrumentChip } from './InstrumentChip';
 import { WaveformMorphGradientEditor } from './WaveformMorphGradientEditor';
 import { MorphSampleImportTab } from './MorphSampleImportTab';
+import { ButtonGroup } from './Buttons/ButtonGroup';
+import { Button } from './Buttons/PushButton';
+import { Divider } from './basic/Divider';
 
 const PWMDutyConfig: ContinuousParamConfig = {
     resolutionSteps: 32,
@@ -684,6 +687,7 @@ show render slot if there are k-rate effects enabled
     return (
         <AppPanelShell
             className="instrument-panel"
+            onClose={onClose}
             title={<>
                 Instrument
                 <Tooltip title="This instrument uses effects processing that will render at 60Hz" disabled={!instrument.isKRateProcessing()}>
@@ -708,9 +712,12 @@ show render slot if there are k-rate effects enabled
                         value={instrument.name}
                         onChange={handleNameChange}
                     />
-                    <button onClick={handleCopy}>Copy</button>
-                    <button onClick={handlePaste}>Paste</button>
-                    <button onClick={onClose}>Close</button>
+                    <ButtonGroup>
+                        <Button onClick={handleCopy}>Copy</Button>
+                        <Button onClick={handlePaste}>Paste</Button>
+                        {/* <Divider />
+                        <Button onClick={onClose}>Close</Button> */}
+                    </ButtonGroup>
                 </>
             )}
         >

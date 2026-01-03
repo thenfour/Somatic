@@ -6,16 +6,16 @@ import React from "react";
 import "./ButtonBase.css";
 
 export interface ButtonBaseProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-    children: React.ReactNode;
+    children?: React.ReactNode;
     highlighted?: boolean; // use for highlighting / selecetd state.
     className?: string;
 }
 
-export const ButtonBase: React.FC<ButtonBaseProps> = ({ children, className, ...props }) => {
+export const ButtonBase: React.FC<ButtonBaseProps> = ({ children, className, highlighted, ...props }) => {
     const classes = [
         `somatic-button-base`,
         className,
-        props.highlighted ? 'somatic-button-base--highlighted' : 'somatic-button-base--not-highlighted',
+        highlighted ? 'somatic-button-base--highlighted' : 'somatic-button-base--not-highlighted',
         props.disabled ? 'somatic-button-base--disabled' : 'somatic-button-base--enabled',
     ];
 

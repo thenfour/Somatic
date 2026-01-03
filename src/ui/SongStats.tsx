@@ -13,6 +13,7 @@ import { AppPanelShell } from "./AppPanelShell";
 import { BarValue, SizeValue } from "./basic/BarValue";
 import { KeyValueTable } from "./basic/KeyValueTable";
 import { Tooltip } from "./basic/tooltip";
+import { Button } from "./Buttons/PushButton";
 
 type ChunkInfo = {
     name: string; //
@@ -330,10 +331,11 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
         <AppPanelShell
             className="song-stats-panel"
             title="Song Stats"
+            onClose={onClose}
             actions={(
                 <>
-                    <button type="button" onClick={handleCopyGeneratedCode} disabled={!input}>Copy generated code</button>
-                    <button type="button" onClick={onClose}>Close</button>
+                    <Button onClick={handleCopyGeneratedCode} disabled={!input}>Copy generated code</Button>
+                    {/* <Button onClick={onClose}>Close</Button> */}
                 </>
             )}
         >

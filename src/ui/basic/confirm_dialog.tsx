@@ -3,6 +3,7 @@ import { ModalDialog } from './ModalDialog';
 import { ShortcutManagerProvider, useShortcutManager } from '../../keyb/KeyboardShortcutManager';
 import { useActionHandler } from '../../keyb/useActionHandler';
 import type { ActionRegistry } from '../../keyb/KeyboardShortcutTypes';
+import { Button } from '../Buttons/PushButton';
 
 export type ConfirmDialogOptions = {
     content: React.ReactNode;
@@ -89,22 +90,22 @@ export const ConfirmDialogProvider: React.FC<{ children: React.ReactNode }> = ({
                     {options?.content}
                 </div>
                 <div className="modal-dialog__footer">
-                    <button
+                    <Button
                         type="button"
-                        className="modal-dialog__button modal-dialog__button--primary"
                         onClick={handleYes}
+                        tabIndex={0}
                         autoFocus={options?.defaultAction !== 'no'}
                     >
                         {options?.yesLabel}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
-                        className="modal-dialog__button"
                         onClick={handleNo}
+                        tabIndex={0}
                         autoFocus={options?.defaultAction === 'no'}
                     >
                         {options?.noLabel}
-                    </button>
+                    </Button>
                 </div>
             </ModalDialog>
         );

@@ -10,6 +10,7 @@ import { WaveformSwatch, WaveformSwatchDisplayStyle } from "./waveformSwatch";
 import './waveformEditor.css';
 import { AppPanelShell } from './AppPanelShell';
 import { calculateSongUsage, getMaxWaveformUsedIndex, SongUsage } from "../utils/SongOptimizer";
+import { Button } from "./Buttons/PushButton";
 
 export const WaveformSelect: React.FC<{
     song: Song;
@@ -273,11 +274,7 @@ export const WaveformEditorPanel: React.FC<{
         <AppPanelShell
             className="waveform-editor-panel"
             title="Waveform Editor"
-            actions={(
-                <>
-                    <button type="button" onClick={onClose}>Close</button>
-                </>
-            )}
+            onClose={onClose}
         >
             <WaveformSelect
                 onClickWaveform={setEditingWaveformId}

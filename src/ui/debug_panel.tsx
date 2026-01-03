@@ -70,9 +70,7 @@ end
         <AppPanelShell
             title="Debug Panel"
             className="debug-panel"
-            actions={
-                <button type="button" onClick={onClose}>Close</button>
-            }
+            onClose={onClose}
         >
             <div className="debug-panel-content">
                 <div className="debug-panel-options">

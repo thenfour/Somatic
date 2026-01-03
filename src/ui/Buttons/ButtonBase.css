@@ -13,16 +13,26 @@
 
     background-color: var(--button-background-enabled);
     color: var(--button-foreground-enabled);
-    border: none;
+    border: 1px solid var(--border);
     border-radius: var(--button-border-radius);
     padding: 3px 8px;
     margin: 2px;
+
+
+
+    cursor: pointer;
+}
+
+/* focus rect */
+.somatic-button-base:focus-visible {
+    outline: 1px solid var(--button-foreground-highlighted);
+    /* outline-offset: 2px; */
 }
 
 .somatic-button-base.somatic-button-base--disabled {
     background-color: var(--button-background-disabled);
     color: var(--button-foreground-disabled);
-    /* cursor: not-allowed; */
+    cursor: not-allowed;
 }
 
 .somatic-button-base:hover:not(.somatic-button-base--disabled) {
@@ -46,9 +56,17 @@
 .somatic-button-group .somatic-button-base {
     border-radius: 0;
     margin: 0;
-    border-right: 1px solid var(--border);
+    /* border-right: 1px solid transparent; */
 }
 
+/* no border between consecutive buttons under .somatic-button-group */
+.somatic-button-group .somatic-button-base+.somatic-button-base {
+    border-left: none;
+}
+
+
+
+/* 
 .somatic-button-group .somatic-button-base:last-child {
     border-right: none;
 }
@@ -61,12 +79,22 @@
 .somatic-button-group .somatic-button-base:last-child {
     border-top-right-radius: var(--button-border-radius);
     border-bottom-right-radius: var(--button-border-radius);
-}
+} */
 
 /* subtle vertical divider between buttons */
 .somatic-button-group .somatic-divider {
     width: 1px;
-    background: var(--border);
+    /* background: var(--border); */
     margin-left: 6px;
     margin-right: 6px;
+}
+
+/* icon buttons */
+
+.somatic-button-base.somatic-icon-button {
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
 }

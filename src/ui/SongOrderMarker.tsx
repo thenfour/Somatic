@@ -1,3 +1,4 @@
+// mdi/js icons browse @ https://pictogrammers.com/library/mdi/
 import {
     mdiAlphaACircle,
     mdiAlphaBCircle,

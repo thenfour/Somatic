@@ -2,6 +2,7 @@ import React from 'react';
 import type { MidiDevice, MidiStatus } from '../midi/midi_manager';
 import { KeyboardShortcutConfigurator } from '../keyb/KeyboardShortcutConfigurator';
 import { AppPanelShell } from './AppPanelShell';
+import { Button } from './Buttons/PushButton';
 
 interface MidiDeviceChipProps {
     device: MidiDevice;
@@ -51,12 +52,13 @@ type PreferencesPanelProps = {
 export const PreferencesPanel: React.FC<PreferencesPanelProps> = ({ midiStatus, midiDevices, disabledMidiDeviceIds, onClose, onDisconnectMidiDevice, onEnableMidiDevice }) => (
     <AppPanelShell
         className="preferences-panel"
+        onClose={onClose}
         role="dialog"
         ariaLabel="Preferences"
         title="Preferences"
-        actions={(
-            <button onClick={onClose}>Close</button>
-        )}
+    // actions={(
+    //     <Button onClick={onClose}>Close</Button>
+    // )}
     >
         <section>
             <h3>MIDI</h3>

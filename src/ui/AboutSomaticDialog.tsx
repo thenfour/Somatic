@@ -2,6 +2,7 @@ import React from 'react';
 import { buildInfo } from '../buildInfo';
 import { DateValue } from './basic/DateValue';
 import { ModalDialog } from './basic/ModalDialog';
+import { Button } from './Buttons/PushButton';
 
 export interface AboutSomaticDialogProps {
     open: boolean;
@@ -78,13 +79,12 @@ export const AboutSomaticDialog: React.FC<AboutSomaticDialogProps> = ({ open, on
                 </ul>
             </div>
             <div className="modal-dialog__footer">
-                <button
+                <Button
                     type="button"
-                    className="modal-dialog__button modal-dialog__button--primary"
                     onClick={onClose}
                 >
                     Close
-                </button>
+                </Button>
             </div>
         </ModalDialog>
     );

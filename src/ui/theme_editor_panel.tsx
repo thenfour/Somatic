@@ -3,6 +3,7 @@ import { useToasts } from './toast_provider';
 import './theme_editor_panel.css';
 import { typedEntries, typedValues } from '../utils/utils';
 import { AppPanelShell } from './AppPanelShell';
+import { Button } from './Buttons/PushButton';
 
 const PALETTE_KEYS = Array.from({ length: 16 }, (_, i) => `--tic-${i}`);
 const PALETTE_CONTRAST_KEYS = PALETTE_KEYS.map((k) => `${k}-contrast`);
@@ -201,10 +202,11 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
             role="dialog"
             ariaLabel="Theme editor"
             title="Theme Editor"
+            onClose={onClose}
             actions={(
                 <>
-                    <button type="button" onClick={handleCopy}>Export CSS vars</button>
-                    <button type="button" onClick={onClose}>Close</button>
+                    <Button onClick={handleCopy}>Export CSS vars</Button>
+                    {/* <Button onClick={onClose}>Close</Button> */}
                 </>
             )}
             headerExtra={<>

@@ -1,8 +1,11 @@
+import { mdiWindowClose } from '@mdi/js';
 import React from 'react';
 import './AppPanelShell.css';
+import { IconButton } from './Buttons/IconButton';
 
 export type AppPanelShellProps = {
     title: React.ReactNode;
+    onClose?: () => void;
     className?: string;
     actions?: React.ReactNode;
     headerContent?: React.ReactNode;
@@ -21,6 +24,7 @@ export const AppPanelShell: React.FC<AppPanelShellProps> = ({
     ariaLabel,
     children,
     headerExtra,
+    onClose,
 }) => {
     const classes = ['app-panel', 'app-panel-shell'];
     if (className) classes.push(className);
@@ -29,6 +33,7 @@ export const AppPanelShell: React.FC<AppPanelShellProps> = ({
         <div className={classes.join(' ')} role={role} aria-label={ariaLabel}>
             <div className="app-panel-shell__header">
                 <div className="app-panel-shell__header-top">
+                    {onClose && <IconButton onClick={onClose} iconPath={mdiWindowClose} />}
                     <div className="app-panel-shell__title-group">
                         <h2 className="app-panel-shell__title">{title}</h2>
                         {headerContent && (

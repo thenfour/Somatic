@@ -807,29 +807,6 @@ option {
     gap: 8px;
 }
 
-.modal-dialog__button {
-    padding: 4px 10px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
-    background: var(--panel);
-    color: var(--text);
-    cursor: pointer;
-}
-
-.modal-dialog__button:hover {
-    background: var(--panel-strong);
-}
-
-.modal-dialog__button--primary {
-    border-color: var(--accent);
-    background: var(--accent);
-    color: var(--tic-0);
-}
-
-.modal-dialog__button--primary:hover {
-    background: var(--accent-strong);
-}
-
 .leftAsideStack {
     display: flex;
     flex-direction: column;

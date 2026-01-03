@@ -11,6 +11,7 @@ import { TryParseInt } from '../utils/utils';
 import { Tooltip } from './basic/tooltip';
 import { Dropdown } from './basic/Dropdown';
 import { InstrumentChip } from './InstrumentChip';
+import { Button } from './Buttons/PushButton';
 
 type SongEditorProps = {
     song: Song;
@@ -139,7 +140,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 />
             </label>
             <Tooltip title={`Decrease instrument (${getActionBindingLabel("DecreaseInstrument")}).`}>
-                <button
+                <Button
                     style={{ display: "inline-block" }}
                     onClick={() => {
                         onEditorStateChange((state) => {
@@ -147,10 +148,10 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                             state.setCurrentInstrument(newInstr);
                         });
                     }}
-                >{"<"}</button>
+                >{"<"}</Button>
             </Tooltip>
             <Tooltip title={`Increase instrument (${getActionBindingLabel("IncreaseInstrument")}).`}>
-                <button
+                <Button
                     style={{ display: "inline-block" }}
                     onClick={() => {
                         onEditorStateChange((state) => {
@@ -158,7 +159,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                             state.setCurrentInstrument(newInstr);
                         });
                     }}
-                >{">"}</button>
+                >{">"}</Button>
             </Tooltip>
             <label>
                 Song title
