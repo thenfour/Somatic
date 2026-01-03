@@ -2,11 +2,11 @@ import React, { useMemo } from "react";
 import { ContinuousKnob, ContinuousParamConfig } from "./basic/oldknob";
 import { WaveformVisualizer } from "./WaveformVisualizer";
 import { WaveformSwatch } from "./waveformSwatch";
-import { MorphSampleImportWindowDto } from "../models/instruments";
+import { MorphSampleImportWindowDto, WaveformMorphGradientNode } from "../models/instruments";
 import { Tic80Caps } from "../models/tic80Capabilities";
 import { Tic80Waveform } from "../models/waveform";
 import { clamp } from "../utils/utils";
-import { resampleWindowToTic80Amplitudes, windowDtoToFrames } from "../audio/morph_sample_import";
+import { windowDtoToFrames } from "../audio/morph_sample_import";
 
 const Begin01Config: ContinuousParamConfig = {
     resolutionSteps: 1000,
@@ -28,8 +28,9 @@ export const MorphSampleWindowItem: React.FC<{
     index: number;
     window: MorphSampleImportWindowDto;
     monoSamples: Float32Array;
+    gradientNode?: WaveformMorphGradientNode;
     onChange: (next: MorphSampleImportWindowDto) => void;
-}> = ({ index, window, monoSamples, onChange }) => {
+}> = ({ index, window, monoSamples, gradientNode, onChange }) => {
     const frames = useMemo(() => {
         return windowDtoToFrames(window, monoSamples.length);
     }, [window, monoSamples.length]);
@@ -39,9 +40,9 @@ export const MorphSampleWindowItem: React.FC<{
     }, [monoSamples, frames.beginFrame, frames.frameLength]);
 
     const windowWaveformSwatch = useMemo(() => {
-        const amps = resampleWindowToTic80Amplitudes(slice);
-        return new Tic80Waveform({ name: "", amplitudes: [...amps] });
-    }, [slice]);
+        if (!gradientNode) return null;
+        return new Tic80Waveform({ name: "", amplitudes: [...gradientNode.amplitudes] });
+    }, [gradientNode]);
 
     return (
         <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -61,12 +62,14 @@ export const MorphSampleWindowItem: React.FC<{
                     />
                 </div>
                 <div style={{ display: "flex", alignItems: "center" }}>
-                    <WaveformSwatch
-                        value={windowWaveformSwatch}
-                        scale={4}
-                        displayStyle="muted"
-                        overlayText={`${index + 1}`}
-                    />
+                    {windowWaveformSwatch && (
+                        <WaveformSwatch
+                            value={windowWaveformSwatch}
+                            scale={4}
+                            displayStyle="muted"
+                            overlayText={`${index + 1}`}
+                        />
+                    )}
                 </div>
             </div>
 

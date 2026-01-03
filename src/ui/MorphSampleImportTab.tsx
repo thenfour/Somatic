@@ -418,6 +418,7 @@ export const MorphSampleImportTab: React.FC<{
                                 index={idx}
                                 window={w}
                                 monoSamples={monoSamples}
+                                gradientNode={instrument.morphGradientNodes?.[idx]}
                                 onChange={(next) => {
                                     const copy = state.windows.slice();
                                     copy[idx] = next;
