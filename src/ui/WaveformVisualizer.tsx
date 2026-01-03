@@ -11,9 +11,10 @@ export const WaveformVisualizer: React.FC<{
     className?: string;
     height?: number;
     highlights?: WaveformHighlightWindow[];
+    secondaryHighlights?: WaveformHighlightWindow[];
     // Optional start/end markers (dotted) in frame indices.
     dottedMarkers?: number[];
-}> = ({ samples, className, height = 120, highlights = [], dottedMarkers = [] }) => {
+}> = ({ samples, className, height = 120, highlights = [], secondaryHighlights = [], dottedMarkers = [] }) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [layoutTick, setLayoutTick] = useState(0);
 
@@ -29,6 +30,17 @@ export const WaveformVisualizer: React.FC<{
         }
         return safe;
     }, [highlights, frameCount]);
+
+    const secondaryHighlightsClamped = useMemo(() => {
+        const safe: WaveformHighlightWindow[] = [];
+        for (const h of secondaryHighlights) {
+            if (!h) continue;
+            const begin = Math.max(0, Math.min(frameCount, Math.trunc(h.beginFrame)));
+            const len = Math.max(0, Math.trunc(h.frameLength));
+            safe.push({ beginFrame: begin, frameLength: len });
+        }
+        return safe;
+    }, [secondaryHighlights, frameCount]);
 
     const dottedMarkersClamped = useMemo(() => {
         return dottedMarkers
@@ -89,6 +101,29 @@ export const WaveformVisualizer: React.FC<{
                 ctx.fillRect(x0, 0, Math.max(1, x1 - x0), h);
             }
             ctx.globalAlpha = 1;
+        }
+
+        // secondary highlight windows (preview)
+        if (secondaryHighlightsClamped.length > 0 && frameCount > 0) {
+            // Use a lighter fill + dashed outline so it reads as a preview layer.
+            ctx.fillStyle = loopLine;
+            ctx.globalAlpha = 0.15;
+            for (const hw of secondaryHighlightsClamped) {
+                const x0 = (hw.beginFrame / frameCount) * w;
+                const x1 = ((hw.beginFrame + hw.frameLength) / frameCount) * w;
+                ctx.fillRect(x0, 0, Math.max(1, x1 - x0), h);
+            }
+            ctx.globalAlpha = 1;
+
+            ctx.strokeStyle = loopLine;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([6, 6]);
+            for (const hw of secondaryHighlightsClamped) {
+                const x0 = (hw.beginFrame / frameCount) * w;
+                const x1 = ((hw.beginFrame + hw.frameLength) / frameCount) * w;
+                ctx.strokeRect(x0, 1, Math.max(1, x1 - x0), h - 2);
+            }
+            ctx.setLineDash([]);
         }
 
         // dotted markers (e.g. auto-window source range)
@@ -168,7 +203,7 @@ export const WaveformVisualizer: React.FC<{
             }
             ctx.stroke();
         }
-    }, [samples, frameCount, height, highlightsClamped, dottedMarkersClamped, layoutTick]);
+    }, [samples, frameCount, height, highlightsClamped, secondaryHighlightsClamped, dottedMarkersClamped, layoutTick]);
 
     // Redraw on resize (cheap: just re-run effect)
     useEffect(() => {

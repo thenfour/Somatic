@@ -105,6 +105,8 @@ export const MorphSampleImportTab: React.FC<{
     const [isImporting, setIsImporting] = useState(false);
     const [importError, setImportError] = useState<string | null>(null);
     const [autoWindowError, setAutoWindowError] = useState<string | null>(null);
+    const [showSelectedWindowHighlights, setShowSelectedWindowHighlights] = useState(true);
+    const [showAutoWindowPreviewHighlights, setShowAutoWindowPreviewHighlights] = useState(true);
 
     const decoded = useMemo(() => {
         if (!state.sample) return null;
@@ -127,6 +129,25 @@ export const MorphSampleImportTab: React.FC<{
             return { beginFrame: f.beginFrame, frameLength: f.frameLength };
         });
     }, [monoSamples, state.windows]);
+
+    const previewHighlightWindows = useMemo(() => {
+        if (!monoSamples) return [];
+        const result = autoSelectWindows({ frameCount: monoSamples.length, params: state.autoWindowParams });
+        if (!result.ok) return [];
+        return result.windows.map((w) => {
+            const f = windowDtoToFrames(w, monoSamples.length);
+            return { beginFrame: f.beginFrame, frameLength: f.frameLength };
+        });
+    }, [monoSamples, state.autoWindowParams]);
+
+    const toggleButtonStyle = (selected: boolean): React.CSSProperties => {
+        return {
+            border: "1px solid var(--panel-border)",
+            background: selected ? "var(--panel-strong)" : "transparent",
+            color: "inherit",
+            padding: "4px 8px",
+        };
+    };
 
     const dottedMarkers = useMemo(() => {
         if (!monoSamples) return [];
@@ -289,9 +310,30 @@ export const MorphSampleImportTab: React.FC<{
                     <WaveformVisualizer
                         samples={monoSamples}
                         height={140}
-                        highlights={highlightWindows}
+                        highlights={showSelectedWindowHighlights ? highlightWindows : []}
+                        secondaryHighlights={showAutoWindowPreviewHighlights ? previewHighlightWindows : []}
                         dottedMarkers={dottedMarkers}
                     />
+
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <button
+                            type="button"
+                            style={toggleButtonStyle(showSelectedWindowHighlights)}
+                            onClick={() => setShowSelectedWindowHighlights((v) => !v)}
+                        >
+                            Windows
+                        </button>
+                        <button
+                            type="button"
+                            style={toggleButtonStyle(showAutoWindowPreviewHighlights)}
+                            onClick={() => setShowAutoWindowPreviewHighlights((v) => !v)}
+                        >
+                            Auto-window preview
+                        </button>
+                        <span style={{ fontSize: 12, opacity: 0.8 }}>
+                            Toggle highlight overlays
+                        </span>
+                    </div>
 
                     <div style={{ border: "1px solid var(--panel-border)", padding: 8 }}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
