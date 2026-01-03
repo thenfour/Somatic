@@ -487,43 +487,29 @@ local function apply_lowpass_effect_to_samples(samples, strength01)
 	end
 end
 
-local function fold_reflect(u)
-	-- Reflect u into [-1, 1] with repeated folding.
-	-- Period 4 in "u-space": [-1..1] then reflected pieces beyond.
-	local v = (u + 1) % 4 -- v in [0,4)
-	if v > 2 then
-		v = 4 - v
-	end -- reflect into [0,2]
-	return v - 1 -- back to [-1,1]
-end
-
 local function apply_wavefold_effect_to_samples(samples, strength01)
-	local strength = clamp01(strength01)
-	if strength <= 0 then
+	local gain = 1 + 20 * clamp01(strength01 or 0)
+	if gain <= 1 then
 		return
 	end
 
-	local gain = 1 + strength * 20
-
 	for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-		local s = samples[i] or 0
+		-- map 0..15 -> -1..1 and apply gain
+		local x = (samples[i] / 7.5 - 1) * gain
 
-		-- 0..15 -> -1..1
-		local x = (s / 7.5) - 1
+		-- triangle-ish fold in [-1,1]
+		local y = (2 / math.pi) * math.asin(math.sin(x))
 
-		local folded = fold_reflect(x * gain)
-
-		-- optional dry/wet (keeps strength intuitive)
-		--local y = lerp(x, folded, strength)
-		local y = folded
-
-		-- -1..1 -> 0..15 (with quantize + clamp)
+		-- back to 0..15
 		local out = (y + 1) * 7.5
+
+		-- clamp and quantize
 		if out < 0 then
 			out = 0
 		elseif out > 15 then
 			out = 15
 		end
+
 		samples[i] = math.floor(out + 0.5)
 	end
 end

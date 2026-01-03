@@ -260,33 +260,33 @@ do
 	-- END_FEATURE_LOWPASS
 
 	-- BEGIN_FEATURE_WAVEFOLD
-	local function fold_reflect(u)
-		local v = (u + 1) % 4
-		if v > 2 then
-			v = 4 - v
-		end
-		return v - 1
-	end
-
 	local function apply_wavefold_effect_to_samples(samples, strength01)
-		local strength = clamp01(strength01)
-		if strength <= 0 then
+		local gain = 1 + 20 * clamp01(strength01 or 0)
+		if gain <= 1 then
 			return
 		end
-		local gain = 1 + strength * 20
+
 		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-			local s = samples[i]
-			local x = (s / 7.5) - 1
-			local folded = fold_reflect(x * gain)
-			local out = (folded + 1) * 7.5
+			-- map 0..15 -> -1..1 and apply gain
+			local x = (samples[i] / 7.5 - 1) * gain
+
+			-- triangle-ish fold in [-1,1]
+			local y = (2 / math.pi) * math.asin(math.sin(x))
+
+			-- back to 0..15
+			local out = (y + 1) * 7.5
+
+			-- clamp and quantize
 			if out < 0 then
 				out = 0
 			elseif out > 15 then
 				out = 15
 			end
+
 			samples[i] = math.floor(out + 0.5)
 		end
 	end
+
 	-- END_FEATURE_WAVEFOLD
 
 	-- BEGIN_FEATURE_HARDSYNC
