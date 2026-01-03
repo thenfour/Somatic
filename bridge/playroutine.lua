@@ -226,41 +226,37 @@ do
 	end
 
 	-- BEGIN_FEATURE_LOWPASS
-	local function lp_diffuse_wrap(x, y, n, amt)
-		for i = 0, n - 1 do
-			local xm1 = x[(i - 1) % n]
-			local x0 = x[i]
-			local xp1 = x[(i + 1) % n]
-			y[i] = x0 + amt * (((xm1 + xp1) * 0.5) - x0)
-		end
-	end
-
-	local lp_scratch_a = {}
-	local lp_scratch_b = {}
-
+	-- a 1-pole lowpass filter applied forward and backward for zero-phase
 	local function apply_lowpass_effect_to_samples(samples, strength01)
-		local strength = clamp01(strength01)
-		if strength <= 0 then
-			return
+		local strength = (clamp01(1 - strength01))
+		strength = strength * strength -- better param curve
+
+		local n = WAVE_SAMPLES_PER_WAVE
+
+		local alpha = 0.02 + 0.95 * strength
+
+		-- estimate initial state as average to reduce edge junk
+		local acc = 0
+		for i = 0, n - 1 do
+			acc = acc + samples[i]
 		end
-		local steps = math.floor(1 + strength * 23 + 0.5) -- 1..24
-		local amt = 0.02 + strength * 0.88 -- ~0.02..0.90
-		if amt > 0.95 then
-			amt = 0.95
+		local y = acc / n
+
+		-- forward pass
+		for i = 0, n - 1 do
+			local x = samples[i]
+			y = y + alpha * (x - y)
+			samples[i] = y
 		end
-		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-			lp_scratch_a[i] = samples[i]
-		end
-		local x = lp_scratch_a
-		local y = lp_scratch_b
-		for _ = 1, steps do
-			lp_diffuse_wrap(x, y, WAVE_SAMPLES_PER_WAVE, amt)
-			x, y = y, x
-		end
-		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-			samples[i] = x[i]
+
+		-- backward pass for zero-phase
+		for i = n - 1, 0, -1 do
+			local x = samples[i]
+			y = y + alpha * (x - y)
+			samples[i] = y
 		end
 	end
+
 	-- END_FEATURE_LOWPASS
 
 	-- BEGIN_FEATURE_WAVEFOLD
