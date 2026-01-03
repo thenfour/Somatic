@@ -206,6 +206,7 @@ local MORPH_MAP_BYTES = ADDR.MARKER - MORPH_MAP_BASE
 
 local pattern_extra_cache = {}
 local morph_nodes_cache = {}
+local sfx_cfg_cache = {}
 local MORPH_GRADIENT_BASE = MORPH_MAP_BASE
 
 local function clamp01(x)
@@ -321,6 +322,14 @@ local WAVE_BYTES_PER_WAVE = 16 -- 32x 4-bit samples packed 2-per-byte
 local WAVE_SAMPLES_PER_WAVE = 32
 
 local function read_sfx_cfg(instrumentId)
+	if instrumentId == nil then
+		return nil
+	end
+	local cached = sfx_cfg_cache[instrumentId]
+	if cached ~= nil then
+		return cached or nil
+	end
+
 	local count, _patternCount = read_extra_song_header_counts()
 
 	for i = 0, count - 1 do
@@ -367,6 +376,7 @@ local function read_sfx_cfg(instrumentId)
 		end
 	end
 
+	sfx_cfg_cache[instrumentId] = false
 	return nil
 end
 
@@ -915,6 +925,7 @@ local function handle_transmit()
 	sync(24, 0, true)
 	pattern_extra_cache = {}
 	morph_nodes_cache = {}
+	sfx_cfg_cache = {}
 	publish_cmd(CMD_TRANSMIT, 0)
 end
 
@@ -929,6 +940,7 @@ local function handle_play()
 	sync(24, 0, true)
 	pattern_extra_cache = {}
 	morph_nodes_cache = {}
+	sfx_cfg_cache = {}
 
 	local songPosition = peek(INBOX.SONG_POSITION)
 	local startRow = peek(INBOX.ROW)
