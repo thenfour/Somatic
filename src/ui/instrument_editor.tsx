@@ -22,6 +22,8 @@ import { MorphSampleImportTab } from './MorphSampleImportTab';
 import { ButtonGroup } from './Buttons/ButtonGroup';
 import { Button } from './Buttons/PushButton';
 import { Divider } from './basic/Divider';
+import { IconButton } from './Buttons/IconButton';
+import { mdiArrowDown, mdiArrowLeft, mdiArrowRight, mdiArrowUp, mdiContentCopy, mdiContentPaste } from '@mdi/js';
 
 const PWMDutyConfig: ContinuousParamConfig = {
     resolutionSteps: 32,
@@ -294,14 +296,14 @@ export const InstrumentEnvelopeEditor: React.FC<{
                     loopLength={loopLength}
                     onHoverChange={onHoverChange}
                 />
-                <div className="instrument-envelope-editor__controls">
-                    <button onClick={handleRotateUp} title="Rotate up">↑</button>
-                    <button onClick={handleRotateDown} title="Rotate down">↓</button>
-                    <button onClick={handleRotateLeft} title="Rotate left">←</button>
-                    <button onClick={handleRotateRight} title="Rotate right">→</button>
-                    <button onClick={handleCopy} title="Copy">Copy</button>
-                    <button onClick={handlePaste} title="Paste">Paste</button>
-                </div>
+                <ButtonGroup>
+                    <IconButton onClick={handleRotateUp} title="Rotate up" iconPath={mdiArrowUp}></IconButton>
+                    <IconButton onClick={handleRotateDown} title="Rotate down" iconPath={mdiArrowDown}></IconButton>
+                    <IconButton onClick={handleRotateLeft} title="Rotate left" iconPath={mdiArrowLeft}></IconButton>
+                    <IconButton onClick={handleRotateRight} title="Rotate right" iconPath={mdiArrowRight}></IconButton>
+                    <IconButton onClick={handleCopy} title="Copy" iconPath={mdiContentCopy}></IconButton>
+                    <IconButton onClick={handlePaste} title="Paste" iconPath={mdiContentPaste}></IconButton>
+                </ButtonGroup>
             </div>
         </div>
     );
@@ -780,15 +782,17 @@ show render slot if there are k-rate effects enabled
 
                 <Tab thisTabId="waveform" summaryTitle="Waveform">
                     <div className="instrument-tab-content">
-                        <Tooltip title="The native TIC-80 waveform engine.">
-                            <RadioButton selected={instrument.waveEngine === 'native'} onClick={() => handleSetWaveEngine('native')}>Native</RadioButton>
-                        </Tooltip>
-                        <Tooltip title="Morph between two waveforms over time.">
-                            <RadioButton selected={instrument.waveEngine === 'morph'} onClick={() => handleSetWaveEngine('morph')}>Morph</RadioButton>
-                        </Tooltip>
-                        <Tooltip title="PWM waveform synthesis.">
-                            <RadioButton selected={instrument.waveEngine === 'pwm'} onClick={() => handleSetWaveEngine('pwm')}>PWM</RadioButton>
-                        </Tooltip>
+                        <ButtonGroup>
+                            <Tooltip title="The native TIC-80 waveform engine.">
+                                <RadioButton selected={instrument.waveEngine === 'native'} onClick={() => handleSetWaveEngine('native')}>Native</RadioButton>
+                            </Tooltip>
+                            <Tooltip title="Morph between two waveforms over time.">
+                                <RadioButton selected={instrument.waveEngine === 'morph'} onClick={() => handleSetWaveEngine('morph')}>Morph</RadioButton>
+                            </Tooltip>
+                            <Tooltip title="PWM waveform synthesis.">
+                                <RadioButton selected={instrument.waveEngine === 'pwm'} onClick={() => handleSetWaveEngine('pwm')}>PWM</RadioButton>
+                            </Tooltip>
+                        </ButtonGroup>
 
 
                         {showSourceWaveform && (

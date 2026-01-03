@@ -7,6 +7,7 @@ import { useToasts } from "./toast_provider";
 import { Divider } from "./basic/Divider";
 import { IconButton } from "./Buttons/IconButton";
 import { mdiClipboard, mdiNetwork, mdiSettingsHelper, mdiTree } from "@mdi/js";
+import { CheckboxButton } from "./Buttons/CheckboxButton";
 
 export const ComponentTester: React.FC = () => {
     const [knobValue, setKnobValue] = React.useState(0.5);
@@ -101,6 +102,19 @@ export const ComponentTester: React.FC = () => {
                     <IconButton highlighted={radio3Selected} tabIndex={0} onClick={() => setRadio3Selected(x => !x)} iconPath={mdiTree}>
                         with label
                     </IconButton>
+                </ButtonGroup>
+            </div>
+            {/* checkbox drop-in replacement */}
+            <div>
+                <h4>Checkbox Button</h4>
+                <ButtonGroup>
+                    <CheckboxButton checked={radio1Selected} onChange={() => setRadio1Selected(x => !x)}>Checkbox 1</CheckboxButton>
+                    <CheckboxButton checked={radio2Selected} onChange={() => setRadio2Selected(x => !x)}>
+                        Checkbox 2
+                    </CheckboxButton>
+                    <CheckboxButton checked={radio3Selected} onChange={() => setRadio3Selected(x => !x)}>
+                        Checkbox 3
+                    </CheckboxButton>
                 </ButtonGroup>
             </div>
         </div>

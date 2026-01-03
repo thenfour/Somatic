@@ -9,6 +9,7 @@ import { OptimizationRuleOptions, processLua } from '../utils/lua/lua_processor'
 import { ComponentTester } from './ComponentTester';
 import { ButtonGroup } from './Buttons/ButtonGroup';
 import { Button } from './Buttons/PushButton';
+import { CheckboxButton } from './Buttons/CheckboxButton';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const clipboard = useClipboard();
@@ -75,94 +76,58 @@ end
             <div className="debug-panel-content">
                 <div className="debug-panel-options">
                     <div className="debug-panel-option-group">
-                        <label>
-                            <input
-                                type="checkbox"
-                                checked={options.stripComments}
-                                onChange={() => handleOptionChange('stripComments')}
-                            />
-                            Strip Comments
-                        </label>
+                        <CheckboxButton
+                            checked={options.stripComments}
+                            onChange={() => handleOptionChange('stripComments')}
+                        >Strip Comments</CheckboxButton>
                     </div>
                     <div className="debug-panel-option-group">
-                        <label>
-                            <input
-                                type="checkbox"
-                                checked={options.stripDebugBlocks}
-                                onChange={() => handleOptionChange('stripDebugBlocks')}
-                            />
-                            Strip Debug Blocks
-                        </label>
+                        <CheckboxButton
+                            checked={options.stripDebugBlocks}
+                            onChange={() => handleOptionChange('stripDebugBlocks')}
+                        >Strip Debug Blocks</CheckboxButton>
                     </div>
                     <div className="debug-panel-option-group">
-                        <label>
-                            <input
-                                type="checkbox"
-                                checked={options.aliasRepeatedExpressions}
-                                onChange={() => handleOptionChange('aliasRepeatedExpressions')}
-                            />
-                            Alias Repeated Expressions
-                        </label>
+                        <CheckboxButton
+                            checked={options.aliasRepeatedExpressions}
+                            onChange={() => handleOptionChange('aliasRepeatedExpressions')}
+                        >Alias Repeated Expressions</CheckboxButton>
                     </div>
                     <div className="debug-panel-option-group">
-                        <label>
-                            <input
-                                type="checkbox"
-                                checked={options.aliasLiterals}
-                                onChange={() => handleOptionChange('aliasLiterals')}
-                            />
-                            Alias Literals
-                        </label>
+                        <CheckboxButton
+                            checked={options.aliasLiterals}
+                            onChange={() => handleOptionChange('aliasLiterals')}
+                        >Alias Literals</CheckboxButton>
                     </div>
                     <div className="debug-panel-option-group">
-                        <label>
-                            <input
-                                type="checkbox"
-                                checked={options.renameLocalVariables}
-                                onChange={() => handleOptionChange('renameLocalVariables')}
-                            />
-                            Rename Local Variables
-                        </label>
+                        <CheckboxButton
+                            checked={options.renameLocalVariables}
+                            onChange={() => handleOptionChange('renameLocalVariables')}
+                        >Rename Local Variables</CheckboxButton>
                     </div>
                     <div className="debug-panel-option-group">
-                        <label>
-                            <input
-                                type="checkbox"
-                                checked={options.packLocalDeclarations}
-                                onChange={() => handleOptionChange('packLocalDeclarations')}
-                            />
-                            Pack Local Declarations
-                        </label>
+                        <CheckboxButton
+                            checked={options.packLocalDeclarations}
+                            onChange={() => handleOptionChange('packLocalDeclarations')}
+                        >Pack Local Declarations</CheckboxButton>
                     </div>
                     <div className="debug-panel-option-group">
-                        <label>
-                            <input
-                                type="checkbox"
-                                checked={options.simplifyExpressions}
-                                onChange={() => handleOptionChange('simplifyExpressions')}
-                            />
-                            Simplify Expressions
-                        </label>
+                        <CheckboxButton
+                            checked={options.simplifyExpressions}
+                            onChange={() => handleOptionChange('simplifyExpressions')}
+                        >Simplify Expressions</CheckboxButton>
                     </div>
                     <div className="debug-panel-option-group">
-                        <label>
-                            <input
-                                type="checkbox"
-                                checked={options.removeUnusedLocals}
-                                onChange={() => handleOptionChange('removeUnusedLocals')}
-                            />
-                            Remove Unused Locals
-                        </label>
+                        <CheckboxButton
+                            checked={options.removeUnusedLocals}
+                            onChange={() => handleOptionChange('removeUnusedLocals')}
+                        >Remove Unused Locals</CheckboxButton>
                     </div>
                     <div className="debug-panel-option-group">
-                        <label>
-                            <input
-                                type="checkbox"
-                                checked={options.renameTableFields}
-                                onChange={() => handleOptionChange('renameTableFields')}
-                            />
-                            Rename Table Fields
-                        </label>
+                        <CheckboxButton
+                            checked={options.renameTableFields}
+                            onChange={() => handleOptionChange('renameTableFields')}
+                        >Rename Table Fields</CheckboxButton>
                     </div>
 
                     <div className="debug-panel-option-group">
@@ -280,6 +245,6 @@ end
                     <ComponentTester />
                 </div>
             </div>
-        </AppPanelShell>
+        </AppPanelShell >
     );
 };
