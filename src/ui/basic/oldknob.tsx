@@ -26,9 +26,18 @@ interface ContinuousKnobProps {
 
 export const ContinuousKnob: React.FC<ContinuousKnobProps> = ({ label, value, onChange, config }) => {
     return <Knob
+        //toUnit={(x) => config.convertTo01(x)}
+        //fromUnit={(x) => config.convertFrom01(x)}
+        min={0}
+        max={1}
+        step={1 / (config.resolutionSteps - 1)}
         label={label}
-        onChange={onChange}
-        value={value}
+        onChange={(x) => {
+            const val = config.convertFrom01(x);
+            onChange(val);
+        }}
+        formatValue={(x) => config.format(config.convertFrom01(x))}
+        value={config.convertTo01(value)}
     />;
 };
 

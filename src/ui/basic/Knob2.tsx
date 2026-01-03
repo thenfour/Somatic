@@ -215,6 +215,13 @@ export const Knob: React.FC<KnobProps> = ({
         [centerValExternal, unitFromExternal]
     );
 
+    // External-domain value corresponding to the current knob position.
+    // This ensures the displayed label reflects min/max/step (and fromUnit) rather than 0–1.
+    const valueExternalForDisplay = useMemo(
+        () => externalFromUnit(unitValue),
+        [externalFromUnit, unitValue]
+    );
+
     // Angles for track & highlight.
     const sweepAngle = 360 - deadAngle;
     const startAngle = 180 + deadAngle / 2; // left-bottom edge of dead zone
@@ -237,10 +244,9 @@ export const Knob: React.FC<KnobProps> = ({
     const centerY = boundsRadius;
 
     const formattedValue = useMemo(() => {
-        if (formatValue) return formatValue(value);
-        return value.toFixed(2);
-
-    }, [formatValue, value]);
+        if (formatValue) return formatValue(valueExternalForDisplay);
+        return valueExternalForDisplay.toFixed(2);
+    }, [formatValue, valueExternalForDisplay]);
 
     const handlePointerDown = useCallback(
         (e: PointerEvent<SVGSVGElement>) => {
@@ -375,7 +381,7 @@ export const Knob: React.FC<KnobProps> = ({
                 aria-label={ariaLabel}
                 aria-valuemin={minMaxFixed.min}
                 aria-valuemax={minMaxFixed.max}
-                aria-valuenow={value}
+                aria-valuenow={valueExternalForDisplay}
                 aria-disabled={disabled || undefined}
             >
                 {/* Track arc */}
