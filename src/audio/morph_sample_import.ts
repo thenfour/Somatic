@@ -122,22 +122,43 @@ export function Float32ToTic80Amplitude(s: number): number {
 }
 
 // resample a window of Float32 samples to Tic-80 waveform amplitudes (0-15)
-export function resampleWindowToTic80Amplitudes(windowSamples: Float32Array): Uint8Array {
+export function resampleWindowToTic80Amplitudes(windowSamples: Float32Array, gain: number = 1): Uint8Array {
    const out = new Uint8Array(Tic80Caps.waveform.pointCount);
    const n = windowSamples.length;
-   const maxAmp = Tic80Caps.waveform.amplitudeRange - 1;
 
    if (n <= 0) {
       return out;
    }
 
+   const g = Number.isFinite(gain) && gain > 0 ? gain : 1;
+
    for (let i = 0; i < out.length; i++) {
       const pos = out.length <= 1 ? 0 : (i * (n - 1)) / (out.length - 1);
-      const s = sampleLinear(windowSamples, pos);
-      out[i] = Float32ToTic80Amplitude(s);
+      const s = sampleLinear(windowSamples, pos) * g;
+      out[i] = Float32ToTic80Amplitude(clamp(s, -1, 1));
    }
 
    return out;
+}
+
+function computeWindowNormalizationGain(mono: Float32Array, windows: MorphSampleImportWindowDto[]): number {
+   let maxAbs = 0;
+
+   for (const w of windows) {
+      const {beginFrame, frameLength} = windowDtoToFrames(w, mono.length);
+      const endFrame = Math.min(mono.length, beginFrame + frameLength);
+
+      for (let i = beginFrame; i < endFrame; i++) {
+         const v = mono[i] ?? 0;
+         const a = Math.abs(v);
+         if (a > maxAbs)
+            maxAbs = a;
+      }
+   }
+
+   if (maxAbs <= 0 || !Number.isFinite(maxAbs))
+      return 1;
+   return 1 / maxAbs;
 }
 
 // build the morph gradient nodes from the sample import data
@@ -150,6 +171,8 @@ export function buildMorphGradientFromSampleImport(
    const durationTotal = clamp(args.targetDurationSeconds, 0, SomaticCaps.maxMorphGradientTotalDurationSeconds);
    const perNodeDuration = cappedWindowCount > 0 ? durationTotal / cappedWindowCount : 0;
 
+   const gain = computeWindowNormalizationGain(mono, args.windows.slice(0, cappedWindowCount));
+
    const nodes: WaveformMorphGradientNode[] = [];
 
    for (let i = 0; i < cappedWindowCount; i++) {
@@ -158,7 +181,7 @@ export function buildMorphGradientFromSampleImport(
          continue;
       const {beginFrame, frameLength} = windowDtoToFrames(w, mono.length);
       const slice = mono.slice(beginFrame, beginFrame + frameLength);
-      const amps = resampleWindowToTic80Amplitudes(slice);
+      const amps = resampleWindowToTic80Amplitudes(slice, gain);
       nodes.push({
          amplitudes: amps,
          durationSeconds: perNodeDuration,
