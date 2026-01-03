@@ -301,15 +301,18 @@ local function read_sfx_cfg(instrumentId)
 		if entry.instrumentId == instrumentId then
 			local effectKindId = entry.effectKind -- EFFECT_KIND_* values
 
+			-- adjust fields as needed.
+			entry.lowpassEnabled = entry.lowpassEnabled ~= 0
+
 			-- Shape matches makeMorphMapLua(): values are numeric IDs.
 			local cfg = {
-				waveEngine = entry.waveEngineId,
+				waveEngineId = entry.waveEngineId,
 				sourceWaveformIndex = entry.sourceWaveformIndex,
 				renderWaveformSlot = entry.renderWaveformSlot,
 				gradientOffsetBytes = entry.gradientOffsetBytes,
 				pwmDuty = entry.pwmDuty5,
 				pwmDepth = entry.pwmDepth5,
-				lowpassEnabled = entry.lowpassEnabled ~= 0,
+				lowpassEnabled = entry.lowpassEnabled,
 				lowpassDurationInTicks = entry.lowpassDurationTicks12,
 				lowpassCurveS6 = entry.lowpassCurveS6,
 				effectKind = effectKindId,
@@ -322,7 +325,7 @@ local function read_sfx_cfg(instrumentId)
 			}
 
 			-- BEGIN_FEATURE_WAVEMORPH
-			if cfg.waveEngine == WAVE_ENGINE_MORPH then
+			if cfg.waveEngineId == WAVE_ENGINE_MORPH then
 				local offBytes = cfg.gradientOffsetBytes or 0
 				if offBytes <= 0 then
 					error("morph instrument is missing gradientOffsetBytes")
@@ -544,7 +547,7 @@ local function apply_hardsync_effect_to_samples(samples, multiplier)
 end
 
 local function cfg_is_k_rate_processing(cfg)
-	if cfg.waveEngine == WAVE_ENGINE_MORPH or cfg.waveEngine == WAVE_ENGINE_PWM then
+	if cfg.waveEngineId == WAVE_ENGINE_MORPH or cfg.waveEngineId == WAVE_ENGINE_PWM then
 		return true
 	end
 	if cfg.lowpassEnabled then
@@ -656,11 +659,11 @@ end
 
 local function render_waveform_samples(cfg, ticksPlayed, instrumentId, lfoTicks, outSamples)
 	-- Output format: 0-based array of 32 samples in 0..15 (floats ok).
-	if cfg.waveEngine == WAVE_ENGINE_MORPH then
+	if cfg.waveEngineId == WAVE_ENGINE_MORPH then
 		return render_waveform_morph(cfg, ticksPlayed, outSamples)
-	elseif cfg.waveEngine == WAVE_ENGINE_PWM then
+	elseif cfg.waveEngineId == WAVE_ENGINE_PWM then
 		return render_waveform_pwm(cfg, ticksPlayed, instrumentId, lfoTicks, outSamples)
-	elseif cfg.waveEngine == WAVE_ENGINE_NATIVE then
+	elseif cfg.waveEngineId == WAVE_ENGINE_NATIVE then
 		return render_waveform_native(cfg, outSamples)
 	end
 end

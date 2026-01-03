@@ -185,7 +185,12 @@ export function MakeOptimizeResultEmpty(song: Song): OptimizeResult {
 }
 
 export type PlaybackFeatureUsage = {
-   waveMorph: boolean; pwm: boolean; lowpass: boolean; wavefold: boolean; hardSync: boolean; lfo: boolean;
+   waveMorph: boolean; //
+   pwm: boolean;
+   lowpass: boolean; //
+   wavefold: boolean;
+   hardSync: boolean;
+   lfo: boolean;
 };
 
 const makeFeatureUsage = (): PlaybackFeatureUsage => ({

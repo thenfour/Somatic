@@ -684,26 +684,10 @@ do
 			local entry = decode_MorphEntry(off)
 			local id = entry.instrumentId
 
-			local cfg = {
-				waveEngineId = entry.waveEngineId,
-				sourceWaveformIndex = entry.sourceWaveformIndex,
-				renderWaveformSlot = entry.renderWaveformSlot,
-				gradientOffsetBytes = entry.gradientOffsetBytes,
-				pwmDuty5 = entry.pwmDuty5,
-				pwmDepth5 = entry.pwmDepth5,
-				lowpassEnabled = entry.lowpassEnabled ~= 0,
-				lowpassDurationTicks12 = entry.lowpassDurationTicks12,
-				lowpassCurveS6 = entry.lowpassCurveS6,
-				lowpassModSource = entry.lowpassModSource,
-				effectKind = entry.effectKind,
-				effectAmtU8 = entry.effectAmtU8,
-				effectDurationTicks12 = entry.effectDurationTicks12,
-				effectCurveS6 = entry.effectCurveS6,
-				effectModSource = entry.effectModSource,
-				lfoCycleTicks12 = entry.lfoCycleTicks12,
-			}
+			-- adjust fields as needed
+			entry.lowpassEnabled = entry.lowpassEnabled ~= 0
 
-			morphMap[id] = cfg
+			morphMap[id] = entry
 			off = off + MORPH_ENTRY_BYTES
 		end
 		for _ = 1, patternCount do

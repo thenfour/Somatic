@@ -458,6 +458,32 @@ local b=a+1
          // Cannot pack when b depends on a
          assert.equal(output, expected);
       });
+
+      it("should not pack when an earlier initializer references a later local name", () => {
+         const input = `
+local a=b
+local b=1
+`;
+         const output = runLua(input, {packLocalDeclarations: true});
+         const expected = `local a=b
+local b=1
+`;
+         // Packing would turn this into `local a,b=b,1` where the RHS `b` resolves to the new local (nil).
+         assert.equal(output, expected);
+      });
+
+      it("should not pack when a later local relies on multi-return fill", () => {
+         const input = `
+local orderEntry=t[k]
+local p0,p1,p2,p3=f()
+`;
+         const output = runLua(input, {packLocalDeclarations: true});
+         const expected = `local orderEntry=t[k]
+local p0,p1,p2,p3=f()
+`;
+         // Packing these would require preserving Lua's multi-return semantics; unsafe to merge.
+         assert.equal(output, expected);
+      });
    });
 
    //////////////////////////////////////////////////////////////////////////////////////////

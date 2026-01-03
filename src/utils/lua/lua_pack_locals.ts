@@ -118,7 +118,10 @@ function statementUsesNames(stmt: luaparse.Statement, names: Set<string>): boole
 }
 
 function isPackableLocal(stmt: luaparse.LocalStatement): boolean {
-   return stmt.variables.every(v => v.type === "Identifier");
+   // Only pack 1-variable locals. Multi-variable locals can rely on Lua's multi-return
+   // fill semantics (e.g. `local a,b,c = f()`), and packing them with neighbors can
+   // silently change results.
+   return stmt.variables.length === 1 && stmt.variables.every(v => v.type === "Identifier");
 }
 
 function nilLiteral(): luaparse.NilLiteral {
@@ -144,6 +147,22 @@ function processBlock(body: luaparse.Statement[]): luaparse.Statement[] {
          while (j < body.length) {
             const next = body[j];
             if (next.type !== "LocalStatement" || !isPackableLocal(next))
+               break;
+
+            // Don't pack across a redeclaration (Lua allows it; packing would change shadowing boundaries).
+            const nextVarNames = new Set((next.variables as luaparse.Identifier[]).map(v => v.name));
+            const isRedeclaration = [...nextVarNames].some(n => declared.has(n));
+            if (isRedeclaration)
+               break;
+
+            // Forward-reference hazard: if any earlier initializer references a name that will be declared
+            // by `next`, packing would make that identifier resolve to an uninitialized local (nil) instead
+            // of a global/outer binding.
+            const groupHasForwardRef = group.some(ls => {
+               const inits = ls.init || [];
+               return inits.some(expr => usesAnyIdentifier(expr, nextVarNames));
+            });
+            if (groupHasForwardRef)
                break;
 
             // dependency check: next init must not reference already-declared names in this group

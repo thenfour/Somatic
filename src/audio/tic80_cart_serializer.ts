@@ -778,8 +778,7 @@ ${emitLuaDecoder(WaveformMorphGradientCodec, {
              .replace(/__AUTOGEN_BUF_PTR_A/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_A.toString(16)}`)
              .replace(/__AUTOGEN_BUF_PTR_B/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_B.toString(16)}`);
 
-   // optimize code
-   const optimizationRuleOptions: OptimizationRuleOptions = variant === "release" ? {
+   const releaseOptions: OptimizationRuleOptions = {
       stripComments: true,
       stripDebugBlocks: true,
       maxIndentLevel: 1,
@@ -793,22 +792,27 @@ ${emitLuaDecoder(WaveformMorphGradientCodec, {
       removeUnusedLocals: true,
       renameTableFields: true,
       tableEntryKeysToRename: [...MorphEntryFieldNamesToRename],
-   } : //
-      {
-         stripComments: false,
-         stripDebugBlocks: false,
-         maxIndentLevel: 50,
-         lineBehavior: "pretty",
-         maxLineLength: 120,
-         aliasRepeatedExpressions: false,
-         renameLocalVariables: false,
-         aliasLiterals: false,
-         packLocalDeclarations: false,
-         simplifyExpressions: false,
-         removeUnusedLocals: false,
-         renameTableFields: false,
-         tableEntryKeysToRename: [],
-      };
+   } as const;
+
+   const debugOptions: OptimizationRuleOptions = {
+      stripComments: false,
+      stripDebugBlocks: false,
+      maxIndentLevel: 50,
+      lineBehavior: "pretty",
+      maxLineLength: 120,
+      aliasRepeatedExpressions: false,
+      renameLocalVariables: false,
+      aliasLiterals: false,
+      packLocalDeclarations: false,
+      simplifyExpressions: false,
+      removeUnusedLocals: false,
+      renameTableFields: false,
+      tableEntryKeysToRename: [],
+   } as const;
+
+
+   // optimize code
+   const optimizationRuleOptions: OptimizationRuleOptions = variant === "release" ? releaseOptions : debugOptions;
    code = processLua(code, optimizationRuleOptions);
 
    return {
