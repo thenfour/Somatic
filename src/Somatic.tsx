@@ -121,6 +121,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const [editorState, setEditorState] = useState(() => new EditorState(loopState));
 
+    const [debugMode, setDebugMode] = useLocalStorage("somatic-debugMode", false);
+
     const [patternEditorOpen, setPatternEditorOpen] = useLocalStorage("somatic-patternEditorOpen", true);
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useLocalStorage("somatic-instrumentPanelOpen", false);
     const [waveformEditorPanelOpen, setWaveformEditorPanelOpen] = useLocalStorage("somatic-waveformEditorPanelOpen", false);
@@ -604,6 +606,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         }
     };
 
+    useActionHandler<GlobalActionId>("ToggleDebugMode", () => setDebugMode(d => !d));
     useActionHandler("Panic", onPanic);
     useActionHandler("Undo", handleUndo);
     useActionHandler("Redo", handleRedo);
@@ -899,19 +902,19 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     >
                                         Preferences
                                     </DesktopMenu.Item>
-                                    <DesktopMenu.Item
+                                    {debugMode && <DesktopMenu.Item
                                         checked={themePanelOpen}
                                         onSelect={() => setThemePanelOpen((open) => !open)}
                                     >
                                         Theme Editor
-                                    </DesktopMenu.Item>
-                                    <DesktopMenu.Item
+                                    </DesktopMenu.Item>}
+                                    {debugMode && <DesktopMenu.Item
                                         checked={debugPanelOpen}
                                         onSelect={() => setDebugPanelOpen((open) => !open)}
                                         shortcut={mgr.getActionBindingLabel("ToggleDebugPanel")}
                                     >
                                         Debug Panel
-                                    </DesktopMenu.Item>
+                                    </DesktopMenu.Item>}
                                     <DesktopMenu.Item
                                         checked={tic80FrameSizeIndex !== 0}
                                         closeOnSelect={false}

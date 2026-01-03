@@ -9,6 +9,7 @@ export const GlobalActions = {
    Panic: "Panic",
    Undo: "Undo",
    Redo: "Redo",
+   ToggleDebugMode: "ToggleDebugMode",
    TogglePreferencesPanel: "TogglePreferencesPanel",
    ToggleDebugPanel: "ToggleDebugPanel",
    FocusPattern: "FocusPattern",

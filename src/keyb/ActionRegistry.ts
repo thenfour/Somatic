@@ -42,6 +42,16 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       ],
    },
 
+   "ToggleDebugMode": {
+      id: "ToggleDebugMode",
+      title: "toggle debug mode",
+      description: "enable or disable debug mode.",
+      category: "View",
+      defaultBindings: [
+         {kind: "character", key: "0", alt: true},
+      ],
+   },
+
    "Undo": {
       id: "Undo",
       title: "undo",
@@ -126,9 +136,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       title: "toggle on-screen keyboard",
       description: "show or hide the on-screen keyboard.",
       category: "View",
-      defaultBindings: [
-         {kind: "character", key: "9", alt: true},
-      ],
+      defaultBindings: [],
    },
 
    "ToggleAdvancedEditPanel": {
@@ -156,9 +164,7 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       title: "play song from start",
       description: "start playback from the beginning of the song.",
       category: "Transport",
-      defaultBindings: [
-         {kind: "character", key: "0", alt: true},
-      ],
+      defaultBindings: [],
    },
 
    "PlayFromPosition": {
@@ -167,7 +173,6 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       description: "start playback from the current row in the active position.",
       category: "Transport",
       defaultBindings: [
-         //{kind: "character", key: "9", alt: true},
          {kind: "character", key: "Space", shift: true},
       ],
    },
@@ -179,7 +184,6 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       category: "Transport",
       defaultBindings: [
          {kind: "character", key: "Space"},
-         //{kind: "character", key: "8", alt: true},
       ],
    },
 
