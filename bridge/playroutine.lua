@@ -72,22 +72,21 @@ do
 	local PATTERN_BYTES_PER_PATTERN = 192
 	local ROW_BYTES = 3
 
-	local function clamp01(x)
-		if x < 0 then
-			return 0
-		elseif x > 1 then
-			return 1
+	local function clamp(x, minVal, maxVal)
+		if x < minVal then
+			return minVal
+		elseif x > maxVal then
+			return maxVal
 		end
 		return x
 	end
 
+	local function clamp01(x)
+		return clamp(x, 0, 1)
+	end
+
 	local function clamp_nibble_round(v)
-		if v < 0 then
-			v = 0
-		elseif v > 15 then
-			v = 15
-		end
-		return math.floor(v + 0.5)
+		return math.floor(clamp(v, 0, 15) + 0.5)
 	end
 
 	local function wave_unpack_byte_to_samples(b, outSamples, si)
@@ -182,8 +181,7 @@ do
 		return di
 	end
 
-	local function apply_curveN11(t01, curveS6)
-		local t = clamp01(t01)
+	local function apply_curveN11(t, curveS6)
 		if t <= 0 then
 			return 0
 		end
@@ -192,11 +190,7 @@ do
 		end
 
 		local k = curveS6 / 31 -- curveS6 is signed 6-bit (-32..31)
-		if k < -1 then
-			k = -1
-		elseif k > 1 then
-			k = 1
-		end
+		k = clamp(k, -1, 1)
 		if k == 0 then
 			return t
 		end
@@ -277,13 +271,7 @@ do
 			local out = (y + 1) * 7.5
 
 			-- clamp and quantize
-			if out < 0 then
-				out = 0
-			elseif out > 15 then
-				out = 15
-			end
-
-			samples[i] = math.floor(out + 0.5)
+			samples[i] = clamp_nibble_round(out, 0, 15)
 		end
 	end
 
@@ -449,12 +437,9 @@ do
 
 	-- BEGIN_FEATURE_PWM
 	local function render_waveform_pwm(cfg, ticksPlayed, outSamples, lfoTicks)
-		-- PWM speed is driven by the instrument LFO; pwmCycleInTicks and phase offset are ignored.
 		local cycle = cfg.lfoCycleTicks12
-		local phase
-		if cycle <= 0 then
-			phase = 0
-		else
+		local phase = 0
+		if cycle > 0 then
 			phase = (lfoTicks % cycle) / cycle
 		end
 		local tri
@@ -464,11 +449,8 @@ do
 			tri = 3 - phase * 4
 		end
 		local duty = cfg.pwmDuty5 + cfg.pwmDepth5 * tri
-		if duty < 1 then
-			duty = 1
-		elseif duty > 30 then
-			duty = 30
-		end
+		-- important to avoid all-high or all-low; it produces noise on TIC-80
+		duty = clamp(duty, 1, 30)
 		local threshold = (duty / 31) * WAVE_SAMPLES_PER_WAVE
 		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
 			outSamples[i] = (i < threshold) and 15 or 0
