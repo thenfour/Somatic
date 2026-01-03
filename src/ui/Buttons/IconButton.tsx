@@ -8,13 +8,23 @@ type IconButtonProps = ButtonBaseProps & {
     iconPath?: string;
 };
 
-export const IconButton: React.FC<IconButtonProps> = ({ children, className, iconPath, ...props }) => {
-    return <ButtonBase className={`somatic-icon-button ${className ?? ""}`} {...props}>
-        {iconPath && <div className="somatic-icon-button__icon">
-            <Icon path={iconPath} size={1} />
-        </div>}
-        {children && <div className="somatic-icon-button__content">
-            {children}
-        </div>}
-    </ButtonBase>;
-};
+export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
+    ({ children, className, iconPath, ...props }, ref) => {
+        return (
+            <ButtonBase ref={ref} className={`somatic-icon-button ${className ?? ""}`} {...props}>
+                {iconPath && (
+                    <div className="somatic-icon-button__icon">
+                        <Icon path={iconPath} size={1} />
+                    </div>
+                )}
+                {children && (
+                    <div className="somatic-icon-button__content">
+                        {children}
+                    </div>
+                )}
+            </ButtonBase>
+        );
+    },
+);
+
+IconButton.displayName = "IconButton";

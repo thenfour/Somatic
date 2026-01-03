@@ -11,21 +11,26 @@ export interface ButtonBaseProps extends React.ButtonHTMLAttributes<HTMLButtonEl
     className?: string;
 }
 
-export const ButtonBase: React.FC<ButtonBaseProps> = ({ children, className, highlighted, ...props }) => {
-    const classes = [
-        `somatic-button-base`,
-        className,
-        highlighted ? 'somatic-button-base--highlighted' : 'somatic-button-base--not-highlighted',
-        props.disabled ? 'somatic-button-base--disabled' : 'somatic-button-base--enabled',
-    ];
+export const ButtonBase = React.forwardRef<HTMLButtonElement, ButtonBaseProps>(
+    ({ children, className, highlighted, ...props }, ref) => {
+        const classes = [
+            `somatic-button-base`,
+            className,
+            highlighted ? 'somatic-button-base--highlighted' : 'somatic-button-base--not-highlighted',
+            props.disabled ? 'somatic-button-base--disabled' : 'somatic-button-base--enabled',
+        ];
 
-    return (
-        <button
-            className={classes.filter(Boolean).join(' ')}
-            {...props}
-        >
-            {children}
-        </button>
-    );
-};
+        return (
+            <button
+                ref={ref}
+                className={classes.filter(Boolean).join(' ')}
+                {...props}
+            >
+                {children}
+            </button>
+        );
+    },
+);
+
+ButtonBase.displayName = "ButtonBase";
 

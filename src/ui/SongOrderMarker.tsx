@@ -1,4 +1,5 @@
 // mdi/js icons browse @ https://pictogrammers.com/library/mdi/
+import React from "react";
 import {
     mdiAlphaACircle,
     mdiAlphaBCircle,
@@ -85,33 +86,38 @@ interface SongOrderMarkerControlProps {
     style?: React.CSSProperties;
 };
 
-export const SongOrderMarkerControl: React.FC<SongOrderMarkerControlProps> = (props) => {
-    const { value, onChange, className, style } = props;
+export const SongOrderMarkerControl = React.forwardRef<HTMLButtonElement, SongOrderMarkerControlProps>(
+    (props, ref) => {
+        const { value, onChange, className, style } = props;
 
-    return (
-        <DesktopMenu.Root>
-            <DesktopMenu.Trigger
-                className={`song-order-marker-control ${className || ""}`}
-                style={style}
-                caret={false}
-            >
-                <SongOrderMarkerValue value={value} />
-            </DesktopMenu.Trigger>
-            <DesktopMenu.Content>
-                {SongOrderMarkerVariantValues.map((variant) => (
-                    <DesktopMenu.Item
-                        key={variant}
-                        checked={value === variant}
-                        onSelect={() => {
-                            if (onChange) {
-                                onChange(variant);
-                            }
-                        }}
-                    >
-                        <SongOrderMarkerValue value={variant} />
-                    </DesktopMenu.Item>
-                ))}
-            </DesktopMenu.Content>
-        </DesktopMenu.Root>
-    );
-};
+        return (
+            <DesktopMenu.Root>
+                <DesktopMenu.Trigger
+                    ref={ref}
+                    className={`song-order-marker-control ${className || ""}`}
+                    style={style}
+                    caret={false}
+                >
+                    <SongOrderMarkerValue value={value} />
+                </DesktopMenu.Trigger>
+                <DesktopMenu.Content>
+                    {SongOrderMarkerVariantValues.map((variant) => (
+                        <DesktopMenu.Item
+                            key={variant}
+                            checked={value === variant}
+                            onSelect={() => {
+                                if (onChange) {
+                                    onChange(variant);
+                                }
+                            }}
+                        >
+                            <SongOrderMarkerValue value={variant} />
+                        </DesktopMenu.Item>
+                    ))}
+                </DesktopMenu.Content>
+            </DesktopMenu.Root>
+        );
+    },
+);
+
+SongOrderMarkerControl.displayName = "SongOrderMarkerControl";

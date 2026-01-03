@@ -7,7 +7,7 @@
 
 .tab-header {
     border-bottom: 2px solid var(--border);
-    background: var(--panel);
+    /* background: var(--button-background-enabled); */
     padding: 0;
 }
 
@@ -26,22 +26,24 @@
     padding: 8px 16px;
     cursor: pointer;
     border-right: 1px solid var(--border);
-    background: var(--panel);
-    color: var(--text);
+    background: var(--button-background-enabled);
+    color: var(--button-foreground-enabled);
     min-width: 80px;
 }
 
 .tab-header-root:hover {
-    background: var(--panel-strong);
+    background: var(--button-background-hovered);
+    color: var(--button-foreground-hovered);
 }
 
 .tab-header-selected {
-    background: var(--accent);
-    color: var(--text);
+    background: var(--button-background-highlighted);
+    color: var(--button-foreground-highlighted);
 }
 
 .tab-header-selected:hover {
-    background: var(--accent);
+    background: var(--button-background-highlighted);
+    color: var(--button-foreground-highlighted);
 }
 
 .tab-header-notselected {
