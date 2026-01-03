@@ -153,11 +153,12 @@
     gap: 10px;
 }
 
+/* 
 .pattern-advanced-panel__buttonRow,
 .pattern-advanced-panel__toggleRow {
     display: flex;
     gap: 8px;
-}
+} */
 
 .pattern-advanced-panel__button {
     background: var(--panel-strong);
