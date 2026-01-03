@@ -14,7 +14,7 @@ import { AsyncMutex } from "../utils/async_mutex";
 import { assert } from "../utils/utils";
 import { gLog } from "../utils/logger";
 import { Tic80Iframe, Tic80IframeHandle } from "./Tic80EmbedIframe";
-import { Tic80TopLevel, Tic80TopLevelHandle } from "./Tic80TopLevel";
+//import { Tic80TopLevel, Tic80TopLevelHandle } from "./Tic80TopLevel";
 
 declare global {
     interface Window {
@@ -97,7 +97,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         },
         ref
     ) {
-        const iframeRef = useRef<Tic80IframeHandle | Tic80TopLevelHandle | null>(null);
+        const iframeRef = useRef<Tic80IframeHandle | null>(null);
 
         const bridgeBuildId = buildInfo.commitHash || "dev";
         const bridgeCartPath = `/bridge-${bridgeBuildId}.tic`;
@@ -592,16 +592,9 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         );
 
         return (<>
-            {embedMode === "toplevel" ? (
-                <Tic80TopLevel
-                    ref={iframeRef}
-                    args={[bridgeCartPath, "--skip", "--vsync"]}
-                />
-            ) : (
-                <Tic80Iframe
-                    ref={iframeRef}
-                />
-            )}
+            <Tic80Iframe
+                ref={iframeRef}
+            />
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
                 <button onClick={() => {
                     ping();

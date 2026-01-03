@@ -142,7 +142,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [somaticTransportState, setSomaticTransportState] = useState<SomaticTransportState>(() => audio.getSomaticTransportState());
     const [bridgeReady, setBridgeReady] = useState(false);
     const [aboutOpen, setAboutOpen] = useState(false);
-    const [embedMode, setEmbedMode] = useState<"iframe" | "toplevel">("iframe");
     const clipboard = useClipboard();
 
     const songStatsData = useSongStatsData(song, songStatsVariant);
@@ -166,21 +165,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         midiRef.current?.setDisabledDeviceIds(disabledMidiDeviceIds);
     }, [disabledMidiDeviceIds]);
 
-    useEffect(() => {
-        if (typeof window === "undefined") return;
-        try {
-            const params = new URLSearchParams(window.location.search);
-            const mode = params.get("embed");
-            if (mode === "toplevel") {
-                setEmbedMode("toplevel");
-            } else {
-                setEmbedMode("iframe");
-            }
-        } catch {
-            // ignore
-        }
-    }, []);
-
     const keyboardIndicatorState = keyboardEnabled ? 'ok' : 'off';
     const keyboardIndicatorLabel = keyboardEnabled ? 'Keyb note inp' : 'Keyb off';
     const keyboardIndicatorTitle = keyboardEnabled ? 'Keyboard note input enabled. Click to disable.' : 'Keyboard note input disabled. Click to enable.';
@@ -196,21 +180,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const toggleKeyboardEnabled = () => {
         const newEnabled = !keyboardEnabled;
         setKeyboardEnabled(newEnabled);
-    };
-
-    const switchEmbedMode = (mode: "iframe" | "toplevel") => {
-        if (typeof window === "undefined") return;
-        try {
-            const url = new URL(window.location.href);
-            url.searchParams.set("embed", mode);
-            window.location.href = url.toString();
-        } catch {
-            // fall back: simple search string change
-            const base = window.location.origin + window.location.pathname;
-            const search = `?embed=${mode}`;
-            const hash = window.location.hash || "";
-            window.location.href = base + search + hash;
-        }
     };
 
     const cycleTic80FrameSize = () => {
@@ -809,6 +778,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         Save Song
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Divider />
+                                    <DesktopMenu.Item onSelect={() => { void copyNative(); }}>Copy Song JSON</DesktopMenu.Item>
+                                    <DesktopMenu.Item onSelect={() => { void pasteSong(); }}>Paste Song JSON</DesktopMenu.Item>
+                                    <DesktopMenu.Divider />
                                     <DesktopMenu.Sub>
                                         <DesktopMenu.SubTrigger>Export Cart</DesktopMenu.SubTrigger>
                                         <DesktopMenu.SubContent>
@@ -853,8 +825,21 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         })()}
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Divider />
-                                    <DesktopMenu.Item onSelect={() => { void copyNative(); }}>Copy Song JSON</DesktopMenu.Item>
-                                    <DesktopMenu.Item onSelect={() => { void pasteSong(); }}>Paste Song JSON</DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={editorState.editingEnabled}
+                                        onSelect={toggleEditingEnabled}
+                                        shortcut={mgr.getActionBindingLabel("ToggleEditMode")}
+                                    >
+                                        Editing Mode Enabled
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Divider />
+                                    <DesktopMenu.Item
+                                        checked={preferencesPanelOpen}
+                                        onSelect={() => setPreferencesPanelOpen((open) => !open)}
+                                        shortcut={mgr.getActionBindingLabel("TogglePreferencesPanel")}
+                                    >
+                                        Preferences
+                                    </DesktopMenu.Item>
                                 </DesktopMenu.Content>
                             </DesktopMenu.Root>
                             <DesktopMenu.Root>
@@ -895,13 +880,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     >
                                         Show Advanced Edit Panel
                                     </DesktopMenu.Item>
-                                    <DesktopMenu.Item
-                                        checked={preferencesPanelOpen}
-                                        onSelect={() => setPreferencesPanelOpen((open) => !open)}
-                                        shortcut={mgr.getActionBindingLabel("TogglePreferencesPanel")}
-                                    >
-                                        Preferences
-                                    </DesktopMenu.Item>
                                     {debugMode && <DesktopMenu.Item
                                         checked={themePanelOpen}
                                         onSelect={() => setThemePanelOpen((open) => !open)}
@@ -923,31 +901,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     >
                                         TIC-80 Size
                                     </DesktopMenu.Item>
-                                    <DesktopMenu.Sub>
-                                        <DesktopMenu.SubTrigger>TIC-80 Embed Variant</DesktopMenu.SubTrigger>
-                                        <DesktopMenu.SubContent>
-                                            <DesktopMenu.Item
-                                                checked={embedMode === "iframe"}
-                                                onSelect={() => switchEmbedMode("iframe")}
-                                            >
-                                                Iframe (default)
-                                            </DesktopMenu.Item>
-                                            <DesktopMenu.Item
-                                                checked={embedMode === "toplevel"}
-                                                onSelect={() => switchEmbedMode("toplevel")}
-                                            >
-                                                Top-level (experimental)
-                                            </DesktopMenu.Item>
-                                        </DesktopMenu.SubContent>
-                                    </DesktopMenu.Sub>
                                     <DesktopMenu.Divider />
-                                    <DesktopMenu.Item
-                                        checked={editorState.editingEnabled}
-                                        onSelect={toggleEditingEnabled}
-                                        shortcut={mgr.getActionBindingLabel("ToggleEditMode")}
-                                    >
-                                        Editing Mode Enabled
-                                    </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={theme === 'dark'}
                                         onSelect={onToggleTheme}
