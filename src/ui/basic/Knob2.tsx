@@ -149,7 +149,7 @@ export const Knob: React.FC<KnobProps> = ({
     //parseValue, // currently unused, future double-click to type
     //size = 80,
     dragSensitivity = 150,
-    fineTuneScale = 0.02,
+    fineTuneScale = 0.005,
     normalDeltaScale = 0.2,
     deadAngle = 60,
     //theme,
