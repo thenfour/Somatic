@@ -8,7 +8,7 @@ import {BakedSong, BakeSong} from "../utils/bakeSong";
 import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
 import bridgeConfig from "../../bridge/bridge_config";
 import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec, WaveformMorphGradientCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked,} from "../../bridge/morphSchema";
-import {emitLuaDecoder} from "../utils/bitpack/emitLuaDecoder";
+import {emitLuaBitpackPrelude, emitLuaDecoder} from "../utils/bitpack/emitLuaDecoder";
 import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../utils/utils";
 import {LoopMode} from "./backend";
 import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
@@ -733,6 +733,8 @@ local MORPH_HEADER_BYTES = ${MORPH_HEADER_BYTES}
 local MORPH_ENTRY_BYTES = ${MORPH_ENTRY_BYTES}
 local SOMATIC_EXTRA_SONG_HEADER_BYTES = ${SOMATIC_EXTRA_SONG_HEADER_BYTES}
 local SOMATIC_PATTERN_ENTRY_BYTES = ${SOMATIC_PATTERN_ENTRY_BYTES}
+
+${emitLuaBitpackPrelude({baseArgName: "base"}).trim()}
 
 ${emitLuaDecoder(MorphEntryCodec, {
       functionName: "decode_MorphEntry",

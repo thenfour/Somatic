@@ -12,6 +12,7 @@ type LuaDecoderOptions = {
    returnName?: string;
    includeLayoutComments?: boolean;
    localReaderName?: string;
+   //includePrelude?: boolean;
 };
 
 type LayoutEntry = {
@@ -161,6 +162,12 @@ function emitLuaPrelude(baseArgName: string): string {
    return bitpackPreludeLua.split(BITPACK_BASE_PLACEHOLDER).join(baseArgName);
 }
 
+// Emit the shared Lua bitpack reader helpers. Intended to be included once per generated Lua file.
+export function emitLuaBitpackPrelude(opt: Pick<LuaDecoderOptions, "baseArgName"> = {}): string {
+   const {baseArgName = "base"} = opt;
+   return emitLuaPrelude(baseArgName) + "\n";
+}
+
 export function emitLuaDecoder(codec: Codec<unknown>, opt: LuaDecoderOptions = {}): string {
    const {
       functionName = `decode_${
@@ -182,8 +189,7 @@ export function emitLuaDecoder(codec: Codec<unknown>, opt: LuaDecoderOptions = {
    const body = `local function ${functionName}(${baseArgName})\n  local ${localReaderName} = _bp_make_reader(${
       baseArgName})\n${indent(emitStatementsForCodec(codec, returnName, localReaderName, returnName), 2)}\nend`;
 
-   const prelude = emitLuaPrelude(baseArgName);
-   return [prelude, layoutComment, body].filter(Boolean).join("\n\n") + "\n";
+   return [layoutComment, body].filter(Boolean).join("\n\n") + "\n";
 }
 
 export type {LuaDecoderOptions};
