@@ -150,7 +150,7 @@ export const Knob: React.FC<KnobProps> = ({
     //size = 80,
     dragSensitivity = 150,
     fineTuneScale = 0.005,
-    normalDeltaScale = 0.2,
+    normalDeltaScale = 0.4,
     deadAngle = 70,
     //theme,
     disabled = false,
@@ -161,6 +161,7 @@ export const Knob: React.FC<KnobProps> = ({
     const dragStateRef = useRef<{
         startY: number;
         startUnit: number;
+        lastShiftKey: boolean;
     } | null>(null);
 
     const minMaxFixed = useMemo(() => {
@@ -268,6 +269,7 @@ export const Knob: React.FC<KnobProps> = ({
             dragStateRef.current = {
                 startY: e.clientY,
                 startUnit: unitValue,
+                lastShiftKey: e.shiftKey,
             };
             setIsDragging(true);
         },
@@ -278,13 +280,28 @@ export const Knob: React.FC<KnobProps> = ({
         (e: PointerEvent<SVGSVGElement>) => {
             if (!isDragging || !dragStateRef.current || disabled) return;
 
-            const { startY, startUnit } = dragStateRef.current;
-            const dy = e.clientY - startY;
+            const state = dragStateRef.current;
+            const dy = e.clientY - state.startY;
+
+            // If the user toggles Shift mid-drag, re-baseline from the *current* value so
+            // the knob doesn't jump back toward the drag-start value.
+            if (state.lastShiftKey !== e.shiftKey) {
+                const prevScale = state.lastShiftKey ? fineTuneScale : normalDeltaScale;
+                const prevDeltaUnit = (-dy / dragSensitivity) * prevScale;
+                const unitAtTransition = clamp01(state.startUnit + prevDeltaUnit);
+
+                state.startY = e.clientY;
+                state.startUnit = unitAtTransition;
+                state.lastShiftKey = e.shiftKey;
+
+                onChange(externalFromUnit(unitAtTransition));
+                return;
+            }
 
             const fineScale = e.shiftKey ? fineTuneScale : normalDeltaScale;
             const deltaUnit = (-dy / dragSensitivity) * fineScale; // drag up = increase value
 
-            const nextUnit = clamp01(startUnit + deltaUnit);
+            const nextUnit = clamp01(state.startUnit + deltaUnit);
             const nextExternal = externalFromUnit(nextUnit);
 
             onChange(nextExternal);
@@ -295,6 +312,7 @@ export const Knob: React.FC<KnobProps> = ({
             dragSensitivity,
             fineTuneScale,
             normalDeltaScale,
+            unitValue,
             externalFromUnit,
             onChange,
         ]
