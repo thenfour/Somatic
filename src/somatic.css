@@ -142,6 +142,9 @@
     --arr-thumb-fill: #566c86;
     --arr-thumb-highlight: #ef7d57;
     --arr-thumb-border: #73eff7;
+    --knob-track: #94b0c2;
+    --knob-highlight: #73eff7;
+    --knob-thumb: #ef7d57;
 }
 
 .theme-dark {
@@ -220,6 +223,9 @@
     --arr-thumb-fill: #3b5dc9;
     --arr-thumb-highlight: #ef7d57;
     --arr-thumb-border: #41a6f6;
+    --knob-track: #257179;
+    --knob-highlight: #73eff7;
+    --knob-thumb: #ffcd75;
 }
 
 html,

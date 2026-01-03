@@ -98,6 +98,11 @@ const THEME_VARS = {
         '--arr-thumb-highlight',
         '--arr-thumb-border',
     ],
+    "Knob": [
+        '--knob-track',
+        '--knob-highlight',
+        '--knob-thumb',
+    ]
 
 } as const;
 

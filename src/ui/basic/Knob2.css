@@ -32,16 +32,15 @@
 /* SVG Elements */
 
 .somatic-knob-track {
-    stroke: var(--panel-strong);
+    stroke: var(--knob-track);
 }
 
 .somatic-knob-highlight {
-    stroke: var(--highlight);
+    stroke: var(--knob-highlight);
 }
 
 .somatic-knob-thumb {
-    fill: var(--knob-thumb-fill, #ffffff);
-    stroke: var(--knob-thumb-stroke, #4a9eff);
+    fill: var(--knob-thumb);
 }
 
 /* Disabled State */

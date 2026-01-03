@@ -227,7 +227,7 @@ do
 
 		local n = WAVE_SAMPLES_PER_WAVE
 
-		local alpha = 0.02 + 0.95 * strength
+		local alpha = 0.03 + 0.95 * strength
 
 		-- estimate initial state as average to reduce edge junk
 		local acc = 0
@@ -236,19 +236,15 @@ do
 		end
 		local y = acc / n
 
-		-- forward pass
-		for i = 0, n - 1 do
-			local x = samples[i]
-			y = y + alpha * (x - y)
-			samples[i] = y
+		local function doPass(from, to, step)
+			for i = from, to, step do
+				local x = samples[i]
+				y = y + alpha * (x - y)
+				samples[i] = y
+			end
 		end
-
-		-- backward pass for zero-phase
-		for i = n - 1, 0, -1 do
-			local x = samples[i]
-			y = y + alpha * (x - y)
-			samples[i] = y
-		end
+		doPass(0, n - 1, 1) -- forward pass
+		doPass(n - 1, 0, -1) -- backward pass for zero-phase
 	end
 
 	-- END_FEATURE_LOWPASS

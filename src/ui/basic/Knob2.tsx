@@ -151,7 +151,7 @@ export const Knob: React.FC<KnobProps> = ({
     dragSensitivity = 150,
     fineTuneScale = 0.005,
     normalDeltaScale = 0.2,
-    deadAngle = 60,
+    deadAngle = 70,
     //theme,
     disabled = false,
     className,
@@ -234,8 +234,8 @@ export const Knob: React.FC<KnobProps> = ({
 
 
     const trackOuterRadius = 25;
-    const trackWidth = 9; // i.e. track's inner radius is trackOuterRadius - trackWidth
-    const thumbRadius = 7; // thumb will NOT have a stroke; it's just a filled circle
+    const trackWidth = 10; // i.e. track's inner radius is trackOuterRadius - trackWidth
+    const thumbRadius = 6; // thumb will NOT have a stroke; it's just a filled circle
 
     // Derived geometry.
     // SVG strokes are centered on the arc radius. To make the *outer* edge land exactly at
@@ -392,7 +392,7 @@ export const Knob: React.FC<KnobProps> = ({
                     d={trackPath}
                     fill="none"
                     strokeWidth={trackWidth}
-                    strokeLinecap="round"
+                    //strokeLinecap="round"
                     className="somatic-knob-track"
                 />
 
@@ -402,8 +402,8 @@ export const Knob: React.FC<KnobProps> = ({
                         d={highlightPath}
                         fill="none"
                         className="somatic-knob-highlight"
-                        strokeWidth={trackWidth * 0.9}
-                        strokeLinecap="round"
+                        strokeWidth={trackWidth}
+                    //strokeLinecap="round"
                     />
                 )}
 
