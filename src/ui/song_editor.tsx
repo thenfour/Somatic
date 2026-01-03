@@ -12,6 +12,8 @@ import { Tooltip } from './basic/tooltip';
 import { Dropdown } from './basic/Dropdown';
 import { InstrumentChip } from './InstrumentChip';
 import { Button } from './Buttons/PushButton';
+import { IconButton } from './Buttons/IconButton';
+import { mdiMenuLeft, mdiMenuRight } from '@mdi/js';
 
 type SongEditorProps = {
     song: Song;
@@ -82,7 +84,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
     }, [song.instruments]);
 
     return (
-        <div className="section">
+        <div className="section song-editor-root">
             <Tooltip title={`Song tempo (${bpm} BPM); ${getActionBindingLabel("IncreaseTempo")} / ${getActionBindingLabel("DecreaseTempo")} to adjust.`}>
                 <div className="field-row">
                     <label htmlFor="song-tempo">Tempo</label>
@@ -140,26 +142,28 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 />
             </label>
             <Tooltip title={`Decrease instrument (${getActionBindingLabel("DecreaseInstrument")}).`}>
-                <Button
-                    style={{ display: "inline-block" }}
+                <IconButton
+                    style={{ display: "inline-block", margin: 0, padding: 0 }}
                     onClick={() => {
                         onEditorStateChange((state) => {
                             const newInstr = (state.currentInstrument - 1 + Tic80Caps.sfx.count) % Tic80Caps.sfx.count;
                             state.setCurrentInstrument(newInstr);
                         });
                     }}
-                >{"<"}</Button>
+                    iconPath={mdiMenuLeft}
+                />
             </Tooltip>
             <Tooltip title={`Increase instrument (${getActionBindingLabel("IncreaseInstrument")}).`}>
-                <Button
-                    style={{ display: "inline-block" }}
+                <IconButton
+                    style={{ display: "inline-block", margin: 0, padding: 0 }}
                     onClick={() => {
                         onEditorStateChange((state) => {
                             const newInstr = (state.currentInstrument + 1) % Tic80Caps.sfx.count;
                             state.setCurrentInstrument(newInstr);
                         });
                     }}
-                >{">"}</Button>
+                    iconPath={mdiMenuRight}
+                />
             </Tooltip>
             <label>
                 Song title

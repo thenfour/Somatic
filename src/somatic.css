@@ -543,8 +543,9 @@ option {
     margin-top: 12px;
 }
 
-.section {
-    clear: both;
+.song-editor-root {
+    display: flex;
+
 }
 
 .toolbar {
