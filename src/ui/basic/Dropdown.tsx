@@ -19,6 +19,7 @@ export type DropdownProps<TValue> = {
     contentClassName?: string;
     disabled?: boolean;
     showCheckmark?: boolean;
+    showCaret?: boolean;
 };
 
 export function Dropdown<TValue>(props: DropdownProps<TValue>): JSX.Element {
@@ -32,6 +33,7 @@ export function Dropdown<TValue>(props: DropdownProps<TValue>): JSX.Element {
         contentClassName,
         disabled,
         showCheckmark = true,
+        showCaret = true,
     } = props;
 
     const selectedOption = React.useMemo(() => {
@@ -53,6 +55,7 @@ export function Dropdown<TValue>(props: DropdownProps<TValue>): JSX.Element {
             <DesktopMenu.Trigger
                 className={triggerClassName}
                 disabled={disabled}
+                caret={showCaret}
             >
                 {triggerLabel}
             </DesktopMenu.Trigger>

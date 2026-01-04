@@ -32,6 +32,7 @@ type ShortcutManagerApi<TActionId extends string> = {
     getResolvedBindings: () => Record<TActionId, ShortcutChord[]>;
     getActionBindingLabel: (actionId: TActionId) => string | undefined;
     getActionBindingLabelAlways: (actionId: TActionId) => string;
+    getActionBindingLabelAsTooltipSuffix: (actionId: TActionId) => string;
     suspendShortcuts: () => () => void; // returns a release function
 };
 
@@ -236,6 +237,11 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
         getActionBindingLabelAlways: (actionId: TActionId): string => {
             const label = getActionBindingLabel(actionId);
             return label ?? "Unbound";
+        },
+        getActionBindingLabelAsTooltipSuffix: (actionId: TActionId): string => {
+            const label = getActionBindingLabel(actionId);
+            if (!label) return "";
+            return ` (${label})`;
         },
         getResolvedBindings,
         getActionBindingLabel,

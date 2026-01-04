@@ -7,7 +7,7 @@
     color: var(--text);
     font-size: 13px;
     font-family: var(--ff-mono);
-    border-top: 1px solid var(--border);
+    /* border-top: 1px solid var(--border); */
 }
 
 .app-status-bar-group {

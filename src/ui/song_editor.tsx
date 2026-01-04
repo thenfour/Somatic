@@ -105,67 +105,6 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 </div>
             </Tooltip>
             <label>
-                Highlight rows
-                <input
-                    type="number"
-                    min={1}
-                    max={64}
-                    value={song.highlightRowCount}
-                    onChange={onHighlightRowCountChange}
-                />
-            </label>
-            <Tooltip title={`Number of rows the cursor moves after note input. ${getActionBindingLabel("IncreaseEditStep")} / ${getActionBindingLabel("DecreaseEditStep")} to adjust.`}>
-                <label>
-                    Edit step
-                    <input
-                        type="number"
-                        min={0}
-                        max={32}
-                        value={song.patternEditStep}
-                        onChange={onEditStepChange}
-                    />
-                </label>
-            </Tooltip>
-            <Tooltip title={`Current octave for note input. ${getActionBindingLabel("IncreaseOctave")} / ${getActionBindingLabel("DecreaseOctave")} to adjust.`}>
-                <label>
-                    Octave
-                    <input type="number" min={1} max={Tic80Caps.pattern.octaveCount/* -1 + 1 for 1-baseddisplay */} value={editorState.octave} onChange={onOctaveChange} />
-                </label>
-            </Tooltip>
-            <label>Instrument
-                <Dropdown
-                    value={editorState.currentInstrument}
-                    onChange={(newInstr) => {
-                        onEditorStateChange((state) => state.setCurrentInstrument(newInstr));
-                    }}
-                    options={instrumentOptions}
-                />
-            </label>
-            <Tooltip title={`Decrease instrument (${getActionBindingLabel("DecreaseInstrument")}).`}>
-                <IconButton
-                    style={{ display: "inline-block", margin: 0, padding: 0 }}
-                    onClick={() => {
-                        onEditorStateChange((state) => {
-                            const newInstr = (state.currentInstrument - 1 + Tic80Caps.sfx.count) % Tic80Caps.sfx.count;
-                            state.setCurrentInstrument(newInstr);
-                        });
-                    }}
-                    iconPath={mdiMenuLeft}
-                />
-            </Tooltip>
-            <Tooltip title={`Increase instrument (${getActionBindingLabel("IncreaseInstrument")}).`}>
-                <IconButton
-                    style={{ display: "inline-block", margin: 0, padding: 0 }}
-                    onClick={() => {
-                        onEditorStateChange((state) => {
-                            const newInstr = (state.currentInstrument + 1) % Tic80Caps.sfx.count;
-                            state.setCurrentInstrument(newInstr);
-                        });
-                    }}
-                    iconPath={mdiMenuRight}
-                />
-            </Tooltip>
-            <label>
                 Song title
                 <input
                     type="text"

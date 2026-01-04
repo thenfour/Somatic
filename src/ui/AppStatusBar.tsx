@@ -22,9 +22,10 @@ interface AppStatusBarProps {
     currentColumnType?: string;
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
+    rightContent?: React.ReactNode;
 };
 
-export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, currentColumnType, onSongChange, onEditorStateChange }) => {
+export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, currentColumnType, onSongChange, onEditorStateChange, rightContent }) => {
     const { currentMessage } = useAppStatusBar();
 
     const editingCell = editorState.getEditingCell(song);
@@ -88,14 +89,15 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
                 <span className="app-status-bar-label">{positionStr}</span>
                 {columnDesc && <span className="app-status-bar-column">{columnDesc}</span>}
             </div>
-            {commandStr && (
-                <div className="app-status-bar-group app-status-bar-commands">
-                    <span>{commandStr}</span>
-                </div>
-            )}
-            {displayMessage && (
-                <div className="app-status-bar-group app-status-bar-message">
-                    <span>{displayMessage}</span>
+            <div className="app-status-bar-group app-status-bar-commands">
+                <span>{commandStr}</span>
+            </div>
+            <div className="app-status-bar-group app-status-bar-message">
+                <span>{displayMessage}</span>
+            </div>
+            {rightContent && (
+                <div className="app-status-bar-group app-status-bar-right-content">
+                    {rightContent}
                 </div>
             )}
         </div>

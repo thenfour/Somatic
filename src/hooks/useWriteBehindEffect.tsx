@@ -334,7 +334,7 @@ export function useWriteBehindEffect<T, R = unknown>(
     return api;
 }
 
-
+export type WriteBehind<T> = ReturnType<typeof useWriteBehindEffect<T>>;
 
 export function useNopWriteBehindEffect<T, R = unknown>(
     effect: WriteBehindEffect<T, R>,

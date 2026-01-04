@@ -349,16 +349,15 @@ export const SongStats: React.FC<{ data: SongStatsData; onTogglePanel: () => voi
     });
 
     return (
-        <Tooltip title="Toggle Song Stats panel">
-            <button
-                type="button"
+        <Tooltip title={`Cartridge size: ${data.totalSize} bytes. Click to show cartridge info`}>
+            <Button
                 className={`songStatsPanel ${data.error ? 'error' : ''}`}
                 onClick={onTogglePanel}
             >
                 <div className="cartSize__label" style={{ cursor: 'pointer' }}>
-                    cart: {formatBytes(data.totalSize)}
+                    {formatBytes(data.totalSize)}
                 </div>
-            </button>
+            </Button>
         </Tooltip>
     );
 };

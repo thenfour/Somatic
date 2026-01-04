@@ -83,6 +83,26 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       ],
    },
 
+   "ToggleCartStatsPanel": {
+      id: "ToggleCartStatsPanel",
+      title: "toggle cart stats panel",
+      description: "open or close the cart stats panel.",
+      category: "View",
+      defaultBindings: [
+         {kind: "character", key: "?", primary: true, shift: true},
+      ],
+   },
+
+   "ToggleSongSettingsPanel": {
+      id: "ToggleSongSettingsPanel",
+      title: "toggle song settings panel",
+      description: "open or close the song settings panel.",
+      category: "View",
+      defaultBindings: [
+         {kind: "character", key: "+", primary: true, shift: true},
+      ],
+   },
+
    "ToggleDebugPanel": {
       id: "ToggleDebugPanel",
       title: "toggle debug panel",

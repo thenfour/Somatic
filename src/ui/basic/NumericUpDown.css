@@ -1,0 +1,21 @@
+.integer-up-down {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.integer-up-down__input {
+    width: 40px;
+    border: none;
+    padding: 4px 8px;
+    font-size: var(--ff-size-1x);
+    text-align: center;
+    outline: none;
+}
+
+.integer-up-down__input:disabled {
+    background-color: var(--panel);
+    color: var(--muted);
+}

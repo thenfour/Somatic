@@ -13,40 +13,40 @@ import { useClipboard } from './hooks/useClipboard';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useRenderAlarm } from './hooks/useRenderAlarm';
 import { useWriteBehindEffect } from './hooks/useWriteBehindEffect';
+import { GlobalActionId } from './keyb/ActionIds';
 import { useShortcutManager } from './keyb/KeyboardShortcutManager';
 import { useActionHandler } from './keyb/useActionHandler';
-import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { KeyboardActionNoteInput } from './midi/keyboard_action_input';
+import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
-import { calculateSongPositionInSeconds, gChannelsArray, Tic80Caps, ToTic80ChannelIndex } from './models/tic80Capabilities';
+import { gChannelsArray, ToTic80ChannelIndex } from './models/tic80Capabilities';
 import { AboutSomaticDialog } from './ui/AboutSomaticDialog';
 import { AppStatusBar } from './ui/AppStatusBar';
 import { ArrangementEditor } from './ui/ArrangementEditor';
 import { useConfirmDialog } from './ui/basic/confirm_dialog';
+import { DiscordLogo, GithubLogo } from './ui/basic/Socicon';
+import { DebugPanel } from './ui/debug_panel';
 import { DesktopMenu } from './ui/DesktopMenu/DesktopMenu';
 import { InstrumentPanel } from './ui/instrument_editor';
 import { Keyboard } from './ui/keyboard';
-import { MidiStatusIndicator } from './ui/MidiStatusIndicator';
-import { MusicStateDisplay } from './ui/MusicStateDisplay';
 import { PatternGrid, PatternGridHandle } from './ui/pattern_grid';
 import { PreferencesPanel } from './ui/preferences_panel';
 import { SongEditor } from './ui/song_editor';
-import { SongStats, SongStatsAppPanel, useSongStatsData } from './ui/SongStats';
+import { SongStatsAppPanel, useSongStatsData } from './ui/SongStats';
 import { Theme, ThemeEditorPanel } from './ui/theme_editor_panel';
-import { DebugPanel } from './ui/debug_panel';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { useToasts } from './ui/toast_provider';
-import { Tooltip } from './ui/basic/tooltip';
-import { TransportTime } from './ui/transportTime';
+import { TransportControls } from './ui/TransportControls';
 import { WaveformEditorPanel } from './ui/waveformEditor';
 import { gLog } from './utils/logger';
 import { OptimizeSong } from './utils/SongOptimizer';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
-import { CharMap } from './utils/utils';
-import { GlobalActionId } from './keyb/ActionIds';
-import { DiscordLogo, GithubLogo } from './ui/basic/Socicon';
+import { StatusChips } from './ui/StatusChips';
+import { SongSettingsPanel } from './ui/SongSettingsPanel';
+import { EditorStateControls } from './ui/EditorStateControls';
+import { Tooltip } from './ui/basic/tooltip';
 
 const TIC80_FRAME_SIZES = [
 
@@ -131,11 +131,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [advancedEditPanelOpen, setAdvancedEditPanelOpen] = useLocalStorage("somatic-advancedEditPanelOpen", false);
     const [midiEnabled, setMidiEnabled] = useLocalStorage("somatic-midiEnabled", true);
     const [keyboardEnabled, setKeyboardEnabled] = useLocalStorage("somatic-keyboardEnabled", true);
+    const [songStatsPanelOpen, setSongStatsPanelOpen] = useLocalStorage("somatic-songStatsPanelOpen", false);
+    const [songSettingsPanelOpen, setSongSettingsPanelOpen] = useLocalStorage("somatic-songSettingsPanelOpen", false);
 
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
     const [debugPanelOpen, setDebugPanelOpen] = useState(false);
-    const [songStatsPanelOpen, setSongStatsPanelOpen] = useState(false);
     const [songStatsVariant, setSongStatsVariant] = useState<"debug" | "release">("release");
     const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
@@ -146,17 +147,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const songStatsData = useSongStatsData(song, songStatsVariant);
 
-    // in order of cycle
-    const LOOP_MODE_OPTIONS: { value: LoopMode; label: string }[] = [
-        { value: "off", label: "Off" },
-        { value: "song", label: "Song" },
-        { value: "selectionInSongOrder", label: "Selection in Song Order" },
-        { value: "pattern", label: "Pattern" },
-        { value: "halfPattern", label: "1/2 pattern" },
-        { value: "quarterPattern", label: "1/4 pattern" },
-        { value: "selectionInPattern", label: "Selection in Pattern" },
-    ];
-
     if (!undoStackRef.current) {
         undoStackRef.current = new UndoStack(200);
     }
@@ -164,10 +154,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useEffect(() => {
         midiRef.current?.setDisabledDeviceIds(disabledMidiDeviceIds);
     }, [disabledMidiDeviceIds]);
-
-    const keyboardIndicatorState = keyboardEnabled ? 'ok' : 'off';
-    const keyboardIndicatorLabel = keyboardEnabled ? 'Keyb note inp' : 'Keyb off';
-    const keyboardIndicatorTitle = keyboardEnabled ? 'Keyboard note input enabled. Click to disable.' : 'Keyboard note input disabled. Click to enable.';
 
     const toggleEditingEnabled = () => updateEditorState((s) => s.setEditingEnabled(!s.editingEnabled));
 
@@ -539,42 +525,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         void playSongWithFlush("play from position", ed.activeSongPosition, ed.patternEditRow);
     };
 
-    const setLoopMode = (mode: LoopMode) => {
-        updateEditorState((s) => s.setLoopMode(mode));
-        setLoopState((prev) => ({
-            loopMode: mode,
-            lastNonOffLoopMode: mode !== "off" ? mode : prev.lastNonOffLoopMode,
-        }));
-    };
-
-    const handleLoopModeChange: React.ChangeEventHandler<HTMLSelectElement> = (evt) => {
-        const next = evt.target.value as LoopMode;
-        setLoopMode(next);
-    };
-
-    const handleNextLoopMode = () => {
-        const current = editorRef.current.loopMode;
-        const idx = LOOP_MODE_OPTIONS.findIndex(option => option.value === current);
-        const nextIdx = (idx + 1) % LOOP_MODE_OPTIONS.length;
-        setLoopMode(LOOP_MODE_OPTIONS[nextIdx].value);
-    };
-
-    const handlePreviousLoopMode = () => {
-        const current = editorRef.current.loopMode;
-        const idx = LOOP_MODE_OPTIONS.findIndex(option => option.value === current);
-        const prevIdx = (idx - 1 + LOOP_MODE_OPTIONS.length) % LOOP_MODE_OPTIONS.length;
-        setLoopMode(LOOP_MODE_OPTIONS[prevIdx].value);
-    };
-
-    const handleToggleLoop = () => {
-        const current = editorRef.current.loopMode;
-        if (current === "off") {
-            setLoopMode(editorRef.current.lastNonOffLoopMode);
-        } else {
-            setLoopMode("off");
-        }
-    };
-
     useActionHandler<GlobalActionId>("ToggleDebugMode", () => setDebugMode(d => !d));
     useActionHandler("Panic", onPanic);
     useActionHandler("Undo", handleUndo);
@@ -593,16 +543,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("PlaySong", onPlayAll);
     useActionHandler("PlayFromPosition", onPlayFromPosition);
     useActionHandler("PlayPattern", onPlayPattern);
-    useActionHandler("SetLoopOff", () => setLoopMode("off"));
-    useActionHandler("SetLoopSong", () => setLoopMode("song"));
-    useActionHandler("SetLoopSelectionInSongOrder", () => setLoopMode("selectionInSongOrder"));
-    useActionHandler("SetLoopSelectionInPattern", () => setLoopMode("selectionInPattern"));
-    useActionHandler("SetLoopPattern", () => setLoopMode("pattern"));
-    useActionHandler("SetLoopHalfPattern", () => setLoopMode("halfPattern"));
-    useActionHandler("SetLoopQuarterPattern", () => setLoopMode("quarterPattern"));
-    useActionHandler("NextLoopMode", handleNextLoopMode);
-    useActionHandler("PreviousLoopMode", handlePreviousLoopMode);
-    useActionHandler("ToggleLoopModeOff", handleToggleLoop);
     useActionHandler("ToggleEditMode", toggleEditingEnabled);
     useActionHandler("DecreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave - 1)));
     useActionHandler("IncreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave + 1)));
@@ -706,6 +646,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         if (!patternGridRef.current) return;
         patternGridRef.current?.nudgeInstrumentInSelection(-1, 'selection');
     });
+    mgr.useActionHandler("ToggleCartStatsPanel", () => {
+        setSongStatsPanelOpen(open => !open);
+    });
+    mgr.useActionHandler("ToggleSongSettingsPanel", () => {
+        setSongSettingsPanelOpen(open => !open);
+    });
 
     useActionHandler("OpenFile", openSongFile);
     useActionHandler("SaveFile", saveSongFile);
@@ -729,26 +675,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const handleEnableMidiDevice = (device: MidiDevice) => {
         setDisabledMidiDeviceIds((prev) => prev.filter((id) => id !== device.id));
     };
-
-    const currentAbsRow = song.rowsPerPattern * editorState.activeSongPosition + editorState.patternEditRow;
-    const cursorPositionSeconds = calculateSongPositionInSeconds({
-        songTempo: song.tempo,
-        songSpeed: song.speed,
-        rowIndex: currentAbsRow,
-    });
-
-    const currentAbsPlayheadRow = song.rowsPerPattern * (somaticTransportState.currentSomaticSongPosition || 0) + (somaticTransportState.currentSomaticRowIndex || 0);
-    const playheadPositionSeconds = calculateSongPositionInSeconds({
-        songTempo: song.tempo,
-        songSpeed: song.speed,
-        rowIndex: currentAbsPlayheadRow,
-    });
-
-    const totalSongSeconds = calculateSongPositionInSeconds({
-        songTempo: song.tempo,
-        songSpeed: song.speed,
-        rowIndex: song.songOrder.length * song.rowsPerPattern,
-    });
 
     return (
         <div className="app">
@@ -830,7 +756,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         onSelect={toggleEditingEnabled}
                                         shortcut={mgr.getActionBindingLabel("ToggleEditMode")}
                                     >
-                                        Editing Mode Enabled
+                                        Enable pattern editing
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Divider />
                                     <DesktopMenu.Item
@@ -846,40 +772,57 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <DesktopMenu.Trigger caret={false}>View</DesktopMenu.Trigger>
                                 <DesktopMenu.Content>
                                     <DesktopMenu.Item
+                                        checked={songSettingsPanelOpen}
+                                        onSelect={() => setSongSettingsPanelOpen(open => !open)}
+                                        shortcut={mgr.getActionBindingLabel("ToggleSongSettingsPanel")}
+                                    >
+                                        Song Settings
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
                                         checked={patternEditorOpen}
                                         onSelect={() => setPatternEditorOpen(open => !open)}
                                         shortcut={mgr.getActionBindingLabel("TogglePatternEditor")}
                                     >
-                                        Show Pattern Editor
-                                    </DesktopMenu.Item>
-                                    <DesktopMenu.Item
-                                        checked={waveformEditorPanelOpen}
-                                        onSelect={() => setWaveformEditorPanelOpen(open => !open)}
-                                        shortcut={mgr.getActionBindingLabel("ToggleWaveformEditor")}
-                                    >
-                                        Show Waveform Editor
-                                    </DesktopMenu.Item>
-                                    <DesktopMenu.Item
-                                        checked={instrumentPanelOpen}
-                                        onSelect={() => setInstrumentPanelOpen(open => !open)}
-                                        shortcut={mgr.getActionBindingLabel("ToggleInstrumentPanel")}
-                                    >
-                                        Show Instrument Panel
-                                    </DesktopMenu.Item>
-                                    <DesktopMenu.Item
-                                        checked={showingOnScreenKeyboard}
-                                        onSelect={() => setShowingOnScreenKeyboard(open => !open)}
-                                        shortcut={mgr.getActionBindingLabel("ToggleOnScreenKeyboard")}
-                                    >
-                                        Show On-Screen Keyboard
+                                        Pattern Editor
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={advancedEditPanelOpen}
                                         onSelect={() => setAdvancedEditPanelOpen(open => !open)}
                                         shortcut={mgr.getActionBindingLabel("ToggleAdvancedEditPanel")}
                                     >
-                                        Show Advanced Edit Panel
+                                        Advanced Edit Panel
                                     </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={waveformEditorPanelOpen}
+                                        onSelect={() => setWaveformEditorPanelOpen(open => !open)}
+                                        shortcut={mgr.getActionBindingLabel("ToggleWaveformEditor")}
+                                    >
+                                        Waveform Editor
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={instrumentPanelOpen}
+                                        onSelect={() => setInstrumentPanelOpen(open => !open)}
+                                        shortcut={mgr.getActionBindingLabel("ToggleInstrumentPanel")}
+                                    >
+                                        Instrument Panel
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Divider />
+                                    <DesktopMenu.Item
+                                        checked={showingOnScreenKeyboard}
+                                        onSelect={() => setShowingOnScreenKeyboard(open => !open)}
+                                        shortcut={mgr.getActionBindingLabel("ToggleOnScreenKeyboard")}
+                                    >
+                                        On-Screen Keyboard
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={songStatsPanelOpen}
+                                        onSelect={() => setSongStatsPanelOpen(open => !open)}
+                                        shortcut={mgr.getActionBindingLabel("ToggleCartStatsPanel")}
+                                    >
+                                        Export cartridge info
+                                    </DesktopMenu.Item>
+                                    {debugMode && <DesktopMenu.Divider />
+                                    }
                                     {debugMode && <DesktopMenu.Item
                                         checked={themePanelOpen}
                                         onSelect={() => setThemePanelOpen((open) => !open)}
@@ -947,116 +890,52 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             </DesktopMenu.Root>
                         </DesktopMenu.Bar>
                     </nav>
-                    <div className={`menu-transport ${bridgeReady ? 'menu-transport--ready' : 'menu-transport--not-ready'}`}>
-                        <Tooltip title={mgr.getActionBindingLabel("Panic")}>
-                            <button className={undefined/*'active'*/} onClick={onPanic}>
-                                <span className="icon">⏹</span>
-                                <span className="caption">Stop</span>
-                            </button>
-                        </Tooltip>
-                        <Tooltip title={mgr.getActionBindingLabel("PlaySong")}>
-                            <button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll} title={mgr.getActionBindingLabel("PlaySong")}><span className="icon" aria-hidden="true">
-                                {CharMap.RightTriangle}
-                            </span>
-                                Song
-                            </button>
-                        </Tooltip>
-                        <Tooltip title={mgr.getActionBindingLabel("PlayPattern")}>
-                            <button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern} title={mgr.getActionBindingLabel("PlayPattern")}><span className="icon" aria-hidden="true">
-                                {CharMap.RightTriangleOutlined}
-                            </span>Pat</button>
-                        </Tooltip>
-                        <Tooltip title={mgr.getActionBindingLabel("PlayFromPosition")}>
-                            <button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition} title={mgr.getActionBindingLabel("PlayFromPosition")}><span className="icon" aria-hidden="true">
-                                {CharMap.RightTriangleOutlined}
-                            </span>Pos</button>
-                        </Tooltip>
-                        <Tooltip title={(<div>
-                            <div>Current position of {somaticTransportState.isPlaying ? "playhead" : "cursor"}.</div>
-                            <div>Total song length: <TransportTime positionSeconds={totalSongSeconds} /></div>
-                            <div>TIC-80 frames (i think something's borked in the calc): {Math.floor((somaticTransportState.isPlaying ? playheadPositionSeconds : cursorPositionSeconds) * Tic80Caps.frameRate)}</div>
-                        </div>)}
-                        >
-                            <div>
-                                <TransportTime className="main-transport-time" positionSeconds={somaticTransportState.isPlaying ? playheadPositionSeconds : cursorPositionSeconds} />
-                            </div>
-                        </Tooltip>
 
-                        <div className="loop-controls">
-                            <Tooltip title={`Toggle loop mode (${mgr.getActionBindingLabel("ToggleLoopModeOff")})`}>
-                                <button
-                                    type="button"
-                                    className={editorState.loopMode !== "off" ? "button-toggle button-toggle--on" : "button-toggle button-toggle--off"}
-                                    onClick={handleToggleLoop}
-                                >
-                                    {CharMap.Refresh}
-                                </button>
-                            </Tooltip>
-                            <select
-                                className={`loop-mode-select ${editorState.loopMode !== "off" ? "loop-mode-select--on" : "loop-mode-select--off"}`}
-                                value={editorState.loopMode == "off" ? editorState.lastNonOffLoopMode : editorState.loopMode}
-                                onChange={handleLoopModeChange}
-                            >
-                                {LOOP_MODE_OPTIONS.filter(opt => opt.value !== "off").map((opt) => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                            </select>
+
+                    <TransportControls
+                        song={song}
+                        bridgeReady={bridgeReady}
+                        onPanic={onPanic}
+                        onPlayAll={onPlayAll}
+                        onPlayPattern={onPlayPattern}
+                        onPlayFromPosition={onPlayFromPosition}
+                        editorState={editorState}
+                        updateEditorState={updateEditorState}
+                        setLoopState={setLoopState}
+                        somaticTransportState={somaticTransportState}
+                    />
+
+                    <Tooltip title={`Click to edit song settings${mgr.getActionBindingLabelAsTooltipSuffix("ToggleSongSettingsPanel")}`}>
+                        <div className='raw-button header-song-title' onClick={() => setSongSettingsPanelOpen(x => !x)}>
+                            {song.name}
                         </div>
+                    </Tooltip>
 
-                    </div>
                     {appPresence.otherInstanceActive && <div className="app-presence-contention-warning">
                         ⚠️You have multiple tabs open; that can cause conflicts
                     </div>}
-                    <div className="right-controls">
-                        <Tooltip title={`Toggle editing (${mgr.getActionBindingLabel("ToggleEditMode")})`}>
-                            <button
-                                className={`edit-toggle ${editorState.editingEnabled ? 'edit-toggle--on' : 'edit-toggle--off'}`}
-                                onClick={toggleEditingEnabled}
-                                aria-pressed={editorState.editingEnabled}
-                                aria-label={editorState.editingEnabled ? 'Disable editing in pattern editor' : 'Enable editing in pattern editor'}
-                            >
-                                <span className="edit-toggle__dot" aria-hidden="true" />
-                                <span className={`edit-toggle__label`}>Edit</span>
-                            </button>
-                        </Tooltip>
-                        <MidiStatusIndicator
-                            midiStatus={midiStatus}
-                            midiDevices={midiDevices}
-                            midiEnabled={midiEnabled}
-                            disabledMidiDeviceIds={disabledMidiDeviceIds}
-                            onToggleMidiEnabled={toggleMidiEnabled}
-                            shortcutLabel={mgr.getActionBindingLabel("ToggleMidiNoteInput")}
-                        />
-                        <Tooltip title={`${keyboardIndicatorTitle} (${mgr.getActionBindingLabel("ToggleKeyboardNoteInput")})`}>
-                            <button
-                                className={`midi-indicator midi-indicator--${keyboardIndicatorState}`}
-                                title={keyboardIndicatorTitle}
-                                aria-label={keyboardIndicatorTitle}
-                                onClick={toggleKeyboardEnabled}
-                            >
-                                <span className="midi-indicator__dot" aria-hidden="true" />
-                                <span className="midi-indicator__label">{keyboardIndicatorLabel}</span>
-                            </button>
-                        </Tooltip>
-                        <Tooltip title="Sync status with TIC-80 (auto-save)">
-                            <span className="autoSaveIndicator__label">sync:{autoSave.state.status}</span>
-                        </Tooltip>
-                        <SongStats
-                            data={songStatsData}
-                            onTogglePanel={() => setSongStatsPanelOpen(open => !open)}
-                        />
-                        <MusicStateDisplay bridgeReady={bridgeReady} audio={audio} musicState={somaticTransportState} song={song} />
-
-                    </div>
                 </div>
 
+                <div className="app-header-row">
+                    <EditorStateControls
+                        song={song}
+                        audio={audio}
+                        editorState={editorState}
+                        onSongChange={updateSong}
+                        onEditorStateChange={updateEditorState}
+                    />
+
+                </div>
+
+                {/* 
                 <SongEditor
                     song={song}
                     audio={audio}
                     editorState={editorState}
                     onSongChange={updateSong}
                     onEditorStateChange={updateEditorState}
-                />
+                /> 
+                */}
             </div>
             <div className="main-editor-area  appRow">
                 <div className='leftAsideStack'>
@@ -1095,6 +974,16 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         advancedEditPanelOpen={advancedEditPanelOpen}
                         onSetAdvancedEditPanelOpen={open => setAdvancedEditPanelOpen(open)}
                     />)}
+                {songSettingsPanelOpen && (
+                    <SongSettingsPanel
+                        song={song}
+                        audio={audio}
+                        editorState={editorState}
+                        onSongChange={updateSong}
+                        onEditorStateChange={updateEditorState}
+                        onClose={() => setSongSettingsPanelOpen(false)}
+                    />
+                )}
                 {waveformEditorPanelOpen && (
                     <WaveformEditorPanel
                         song={song}
@@ -1143,12 +1032,34 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     onNoteOn={handleNoteOn}
                     onNoteOff={handleNoteOff}
                 />}
+
                 <AppStatusBar
                     song={song}
                     editorState={editorState}
                     currentColumnType={editorState.patternEditColumnType}
                     onSongChange={updateSong}
                     onEditorStateChange={updateEditorState}
+                    rightContent={
+                        <StatusChips
+                            song={song}
+                            bridgeReady={bridgeReady}
+                            editorState={editorState}
+                            toggleEditingEnabled={() => updateEditorState(s => s.setEditingEnabled(!s.editingEnabled))}
+                            toggleSongStatsPanel={() => setSongStatsPanelOpen(open => !open)}
+                            keyboardEnabled={keyboardEnabled}
+                            toggleKeyboardEnabled={() => setKeyboardEnabled(enabled => !enabled)}
+                            somaticTransportState={somaticTransportState}
+                            songStatsData={songStatsData}
+                            midiStatus={midiStatus}
+                            midiDevices={midiDevices}
+                            midiEnabled={midiEnabled}
+                            disabledMidiDeviceIds={disabledMidiDeviceIds}
+                            toggleMidiEnabled={() => setMidiEnabled(enabled => !enabled)}
+                            audio={audio}
+                            autoSave={autoSave}
+                        />
+
+                    }
                 />
             </div>
             <AboutSomaticDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />

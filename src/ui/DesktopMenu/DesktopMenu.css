@@ -1,7 +1,7 @@
 .desktop-menu-bar {
     display: inline-flex;
     align-items: stretch;
-    gap: 4px;
+    gap: 8px;
     flex-shrink: 0;
 }
 
@@ -15,7 +15,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 2px 4px;
+    padding: 4px;
     border: 1px solid transparent;
     background: transparent;
     color: var(--text);
