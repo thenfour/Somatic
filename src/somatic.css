@@ -977,3 +977,14 @@ option {
 .song-title-input {
     width: 250px;
 }
+
+fieldset {
+    border: 2px solid var(--muted);
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 12px;
+}
+
+legend {
+    padding: 0 6px;
+}

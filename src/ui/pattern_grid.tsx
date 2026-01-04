@@ -380,6 +380,151 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
         }, [onSongChange, pushToast, resolveScopeTargets]);
 
+        const clearPatternFieldInScope = useCallback((
+            scope: ScopeValue,
+            description: string,
+            clearCell: (cell: PatternCell) => PatternCell,
+            noOpMessage: string,
+        ) => {
+            const targets = resolveScopeTargets(scope);
+            if (!targets) return;
+            const { patternIndices, channels, rowRange } = targets;
+            if (patternIndices.length === 0 || channels.length === 0) {
+                pushToast({ message: 'Nothing to edit in that scope.', variant: 'error' });
+                return;
+            }
+
+            let mutated = false;
+            onSongChange({
+                description,
+                undoable: true,
+                mutator: (nextSong) => {
+                    const maxRow = Math.max(0, nextSong.rowsPerPattern - 1);
+                    const rowStart = clamp(rowRange.start, 0, maxRow);
+                    const rowEnd = clamp(rowRange.end, 0, maxRow);
+
+                    for (const patternIndex of patternIndices) {
+                        const pat = nextSong.patterns[patternIndex];
+                        if (!pat) continue;
+
+                        for (const ch of channels) {
+                            if (ch < 0 || ch >= Tic80Caps.song.audioChannels) continue;
+                            const channelIndex = ToTic80ChannelIndex(ch);
+
+                            for (let row = rowStart; row <= rowEnd; row++) {
+                                const oldCell = pat.getCell(channelIndex, row);
+                                const nextCell = clearCell(oldCell);
+                                if (nextCell !== oldCell) {
+                                    pat.setCell(channelIndex, row, nextCell);
+                                    mutated = true;
+                                }
+                            }
+                        }
+                    }
+                },
+            });
+
+            if (!mutated) {
+                pushToast({ message: noOpMessage, variant: 'info' });
+            }
+        }, [onSongChange, pushToast, resolveScopeTargets]);
+
+        const handleClearNotes = useCallback((scope: ScopeValue) => {
+            clearPatternFieldInScope(
+                scope,
+                'Clear notes',
+                (cell) => {
+                    if (cell.midiNote === undefined) return cell;
+                    return { ...cell, midiNote: undefined };
+                },
+                'No notes were found to clear in that scope.',
+            );
+        }, [clearPatternFieldInScope]);
+
+        const handleClearInstrument = useCallback((scope: ScopeValue) => {
+            clearPatternFieldInScope(
+                scope,
+                'Clear instruments',
+                (cell) => {
+                    if (cell.instrumentIndex === undefined) return cell;
+                    return { ...cell, instrumentIndex: undefined };
+                },
+                'No instruments were found to clear in that scope.',
+            );
+        }, [clearPatternFieldInScope]);
+
+        const handleClearEffect = useCallback((scope: ScopeValue) => {
+            clearPatternFieldInScope(
+                scope,
+                'Clear effects',
+                (cell) => {
+                    if (cell.effect === undefined) return cell;
+                    return { ...cell, effect: undefined };
+                },
+                'No effects were found to clear in that scope.',
+            );
+        }, [clearPatternFieldInScope]);
+
+        const handleClearParamX = useCallback((scope: ScopeValue) => {
+            clearPatternFieldInScope(
+                scope,
+                'Clear effect param X',
+                (cell) => {
+                    if (cell.effectX === undefined) return cell;
+                    return { ...cell, effectX: undefined };
+                },
+                'No effect param X values were found to clear in that scope.',
+            );
+        }, [clearPatternFieldInScope]);
+
+        const handleClearParamY = useCallback((scope: ScopeValue) => {
+            clearPatternFieldInScope(
+                scope,
+                'Clear effect param Y',
+                (cell) => {
+                    if (cell.effectY === undefined) return cell;
+                    return { ...cell, effectY: undefined };
+                },
+                'No effect param Y values were found to clear in that scope.',
+            );
+        }, [clearPatternFieldInScope]);
+
+        const handleClearParamXY = useCallback((scope: ScopeValue) => {
+            clearPatternFieldInScope(
+                scope,
+                'Clear effect params',
+                (cell) => {
+                    if (cell.effectX === undefined && cell.effectY === undefined) return cell;
+                    return { ...cell, effectX: undefined, effectY: undefined };
+                },
+                'No effect params were found to clear in that scope.',
+            );
+        }, [clearPatternFieldInScope]);
+
+        const handleClearSomaticEffect = useCallback((scope: ScopeValue) => {
+            clearPatternFieldInScope(
+                scope,
+                'Clear Somatic effects',
+                (cell) => {
+                    if (cell.somaticEffect === undefined) return cell;
+                    return { ...cell, somaticEffect: undefined };
+                },
+                'No Somatic effects were found to clear in that scope.',
+            );
+        }, [clearPatternFieldInScope]);
+
+        const handleClearSomaticParam = useCallback((scope: ScopeValue) => {
+            clearPatternFieldInScope(
+                scope,
+                'Clear Somatic params',
+                (cell) => {
+                    if (cell.somaticParam === undefined) return cell;
+                    return { ...cell, somaticParam: undefined };
+                },
+                'No Somatic params were found to clear in that scope.',
+            );
+        }, [clearPatternFieldInScope]);
+
         const createClipboardPayload = (): PatternClipboardPayload | null => {
             const bounds = editorState.patternSelection;
             if (!bounds) return null;
@@ -1264,6 +1409,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         onChangeInstrument={handleChangeInstrument}
                         onNudgeInstrument={nudgeInstrumentInSelection}
                         onInterpolate={handleInterpolate}
+                        onClearNotes={handleClearNotes}
+                        onClearInstrument={handleClearInstrument}
+                        onClearEffect={handleClearEffect}
+                        onClearParamX={handleClearParamX}
+                        onClearParamY={handleClearParamY}
+                        onClearParamXY={handleClearParamXY}
+                        onClearSomaticEffect={handleClearSomaticEffect}
+                        onClearSomaticParam={handleClearSomaticParam}
                         onClose={() => onSetAdvancedEditPanelOpen(false)}
                     />
                 )}
