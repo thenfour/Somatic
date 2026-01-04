@@ -306,7 +306,11 @@ export function encodeSomaticExtraSongDataPayload(input: SomaticExtraSongDataInp
    const out = new Uint8Array(totalBytes ?? measuredBytes);
    out.fill(0);
 
-   const region = new MemoryRegion("somatic_extra_song_data", 0, out.length);
+   const region = new MemoryRegion({
+      name: "somatic_extra_song_data",
+      address: 0,
+      size: out.length,
+   });
 
    // Encode with the codec (it already knows the layout from the schema)
    encodeWithOffsets(PayloadCodec, payloadData, out, region);

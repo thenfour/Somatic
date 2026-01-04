@@ -9,6 +9,7 @@ import { IconButton } from "./Buttons/IconButton";
 import { mdiClipboard, mdiNetwork, mdiSettingsHelper, mdiTree } from "@mdi/js";
 import { CheckboxButton } from "./Buttons/CheckboxButton";
 import { MemoryMapVis } from "./MemoryMapVis";
+import { MemoryRegion } from "../utils/bitpack/MemoryRegion";
 
 export const ComponentTester: React.FC = () => {
     const [knobValue, setKnobValue] = React.useState(0.5);
@@ -122,31 +123,31 @@ export const ComponentTester: React.FC = () => {
             <div>
                 <h4>Memory map & color bars</h4>
                 <MemoryMapVis
-                    root={{
-                        startAddress: 100,
-                        length: 500,
-                        label: "Example memory region",
+                    root={new MemoryRegion({
+                        address: 100,
+                        size: 500,
+                        name: "Example memory region",
                         hashKey: "root",
-                    }}
+                    })}
                     regions={[
-                        {
-                            startAddress: 100,
-                            length: 79,
-                            label: "Region 1",
+                        new MemoryRegion({
+                            address: 100,
+                            size: 79,
+                            name: "Region 1",
                             hashKey: "region1",
-                        },
-                        {
-                            startAddress: 200,
-                            length: 150,
-                            label: "Region 2",
+                        }),
+                        new MemoryRegion({
+                            address: 200,
+                            size: 150,
+                            name: "Region 2",
                             hashKey: "region2",
-                        },
-                        {
-                            startAddress: 350,
-                            length: 150,
-                            label: "Region 3",
+                        }),
+                        new MemoryRegion({
+                            address: 350,
+                            size: 150,
+                            name: "Region 3",
                             hashKey: "region3",
-                        },
+                        }),
                     ]}
                 />
             </div>

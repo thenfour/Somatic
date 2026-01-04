@@ -1,7 +1,7 @@
 import playroutineTemplateTxt from "../../bridge/playroutine.lua";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
-import {ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument, WaveEngineId} from "../models/instruments";
-import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
+import {ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument, ToWaveEngineId, WaveEngineId} from "../models/instruments";
+//import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
 import type {Song} from "../models/song";
 import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
 import {BakedSong, BakeSong} from "../utils/bakeSong";
@@ -16,6 +16,7 @@ import {encodePatternChannelDirect} from "./pattern_encoding";
 import {PreparedSong, prepareSongColumns} from "./prepared_song";
 import {SomaticMemoryLayout, Tic80MemoryMap} from "../../bridge/memory_layout";
 import {OptimizationRuleOptions, processLua} from "../utils/lua/lua_processor";
+import {MemoryRegion} from "../utils/bitpack/MemoryRegion";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -29,17 +30,43 @@ const CHUNK = {
 
 const SFX_BYTES_PER_SAMPLE = 66;
 
-function ToWaveEngineId(engine: SomaticInstrumentWaveEngine): WaveEngineId {
-   switch (engine) {
-      case "morph":
-         return WaveEngineIdConst.morph;
-      case "native":
-         return WaveEngineIdConst.native;
-      case "pwm":
-         return WaveEngineIdConst.pwm;
-   }
-   throw new Error(`Unknown wave engine: ${engine}`);
-};
+
+const releaseOptions: OptimizationRuleOptions = {
+   stripComments: true,
+   stripDebugBlocks: true,
+   maxIndentLevel: 1,
+   lineBehavior: "tight",
+   maxLineLength: 180,
+   aliasRepeatedExpressions: true,
+   renameLocalVariables: true,
+   aliasLiterals: true,
+   packLocalDeclarations: true,
+   simplifyExpressions: true,
+   removeUnusedLocals: true,
+   removeUnusedFunctions: false,
+   functionNamesToKeep: [],
+   renameTableFields: true,
+   tableEntryKeysToRename: [...MorphEntryFieldNamesToRename],
+} as const;
+
+const debugOptions: OptimizationRuleOptions = {
+   stripComments: false,
+   stripDebugBlocks: false,
+   maxIndentLevel: 50,
+   lineBehavior: "pretty",
+   maxLineLength: 120,
+   aliasRepeatedExpressions: false,
+   renameLocalVariables: false,
+   aliasLiterals: false,
+   packLocalDeclarations: false,
+   simplifyExpressions: false,
+   removeUnusedLocals: false,
+   removeUnusedFunctions: false,
+   functionNamesToKeep: [],
+   renameTableFields: false,
+   tableEntryKeysToRename: [],
+} as const;
+
 
 //type MorphEffectKind = SomaticEffectKind;
 
@@ -660,58 +687,147 @@ function stripUnusedFeatureBlocks(template: string, usage: PlaybackFeatureUsage)
    return out;
 }
 
-function getCode(song: Song, variant: "debug"|"release", featureUsage?: PlaybackFeatureUsage): {
-   code: string,                //
-   generatedCode: string,       //
-   patternChunks: Uint8Array[], // raw, uncompressed patterns for debugging/inspection
-   patternRamData: Uint8Array,  // packed compressed columns to seed into TIC-80 pattern memory
-} {
+export function GetRuntimeReservedRegionsInPatternMemory(): MemoryRegion[] {
+   return [
+      SomaticMemoryLayout.patternBufferA,
+      SomaticMemoryLayout.patternBufferB,
+      SomaticMemoryLayout.tempBufferA,
+      SomaticMemoryLayout.tempBufferB,
+   ];
+}
+
+export function GetMemoryRegionForCompressedPatternData(): MemoryRegion {
+   // patterns are stuffed into TIC-80 pattern memory starting at the beginning of the region.
+   // We also use that region for other things, so we need to calculate the available space based on
+   // our other uses.
+   // - pattern buffer A & B
+   // - temp buffer A & B
+   // so basically, find the lowest address that's not touched by those buffers, and use that as the limit.
+   const reservedRegionsInPatternMem = GetRuntimeReservedRegionsInPatternMemory();
+   const minAddress = Math.min(...reservedRegionsInPatternMem.map((r) => r.address));
+   return new MemoryRegion({
+      name: "CompressedPatternDataCapacity",
+      address: Tic80MemoryMap.MusicPatterns.address,
+      size: minAddress - Tic80MemoryMap.MusicPatterns.address,
+   });
+};
+
+// patterns are stuffed into TIC-80 pattern memory, which is limited in size.
+// this function will decide how to serialize everything.
+interface PatternMemoryPlan {
+   // raw, uncompressed patterns for debugging/inspection -- the actual payload that TIC-80 understands.
+   patternChunks: Uint8Array[];
+
+   compressedPatterns: Uint8Array[]; // all patterns, compressed, for debugging/inspection
+   compressedPatternsInRam: {payload: Uint8Array;
+                             memoryRegion: MemoryRegion;}[]; // individual info for each pattern that fits in RAM
+   patternRamData: Uint8Array;                               // concatenated compressed patterns that fit in RAM
+   patternLengths: number[];     // size of the base85-decoded (still compressed) pattern data
+   patternCodeEntries: string[]; // Lua code entries for each pattern column
+}
+
+export function planPatternMemorySerialization(prepared: PreparedSong): PatternMemoryPlan{
+   // const capacity = Math.max(0, minAddress - Tic80MemoryMap.MusicPatterns.address);
+   // const patternMemoryCapacity = Math.max(0, minAddress - Tic80MemoryMap.MusicPatterns.address);
+   // const patternRamBuffer = new Uint8Array(patternMemoryCapacity);
+   // let patternRamCursor = 0; // relative to pattern memory start
+
+
+
+   // const patternChunks: Uint8Array[] = [];
+   // const patternLengths: number[] = []; // size of the base85-decoded (still compressed) pattern data
+
+   // const patternMemoryCapacity = Math.max(0, Tic80Caps.pattern.memory.limit - Tic80Caps.pattern.memory.start);
+   // const patternRamBuffer = new Uint8Array(patternMemoryCapacity);
+   // let patternRamCursor = 0; // relative to pattern memory start
+
+   // const patternEntries = preparedSong.patternColumns.map((col) => {
+   //    const encodedPattern = encodePatternChannelDirect(col.channel);
+   //    patternChunks.push(encodedPattern);
+
+   //    const compressed = lzCompress(encodedPattern, gSomaticLZDefaultConfig);
+   //    patternLengths.push(compressed.length);
+
+   //    const fitsInPatternRam = (patternRamCursor + compressed.length) <= patternMemoryCapacity;
+   //    if (fitsInPatternRam) {
+   //       patternRamBuffer.set(compressed, patternRamCursor);
+   //       const absAddr = /*Tic80Caps.pattern.memory.start + */ patternRamCursor;
+   //       patternRamCursor += compressed.length;
+   //       //return `0x${absAddr.toString(16)}`; // numeric Lua literal for memory-backed column
+   //       return `${absAddr.toString()}`; // numeric Lua literal for memory-backed column
+   //    }
+
+   //    // Spill to base85 string when RAM is full.
+   //    const patternStr = base85Encode(compressed);
+   //    return toLuaStringLiteral(patternStr);
+   // });
+
+   // const patternRamData = patternRamBuffer.subarray(0, patternRamCursor);
+   // const patternArray = patternEntries.join(",");
+};
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+function getCode(
+   song: Song,                                  //
+   preparedSong: PreparedSong,                  //
+   variant: "debug"|"release",                  //
+   patternSerializationPlan: PatternMemoryPlan, //
+   features: PlaybackFeatureUsage               //
+   ):                                           //
+   {
+      code: string,          //
+      generatedCode: string, //
+
+      // patternChunks: Uint8Array[], // raw, uncompressed patterns for debugging/inspection
+      // patternRamData: Uint8Array,  // packed compressed columns to seed into TIC-80 pattern memory
+   } {
    // Generate the SOMATIC_MUSIC_DATA section
-   const features = featureUsage ?? analyzePlaybackFeatures(song);
-   const preparedSong = prepareSongColumns(song);
    const songOrder =
       preparedSong.songOrder.map((entry) => `{${entry.patternColumnIndices.map((v) => v.toString()).join(",")}}`)
          .join(",");
    const extraSongDataLua = makeExtraSongDataLua(song, preparedSong);
 
-   const patternChunks: Uint8Array[] = [];
-   const patternLengths: number[] = []; // size of the base85-decoded (still compressed) pattern data
+   //const patternSerializationPlan = planPatternMemorySerialization(preparedSong);
 
-   const patternMemoryCapacity = Math.max(0, Tic80Caps.pattern.memory.limit - Tic80Caps.pattern.memory.start);
-   const patternRamBuffer = new Uint8Array(patternMemoryCapacity);
-   let patternRamCursor = 0; // relative to pattern memory start
+   // const patternChunks: Uint8Array[] = [];
+   // const patternLengths: number[] = []; // size of the base85-decoded (still compressed) pattern data
 
-   const patternEntries = preparedSong.patternColumns.map((col) => {
-      const encodedPattern = encodePatternChannelDirect(col.channel);
-      patternChunks.push(encodedPattern);
+   // const patternMemoryCapacity = Math.max(0, Tic80Caps.pattern.memory.limit - Tic80Caps.pattern.memory.start);
+   // const patternRamBuffer = new Uint8Array(patternMemoryCapacity);
+   // let patternRamCursor = 0; // relative to pattern memory start
 
-      const compressed = lzCompress(encodedPattern, gSomaticLZDefaultConfig);
-      patternLengths.push(compressed.length);
+   // const patternEntries = preparedSong.patternColumns.map((col) => {
+   //    const encodedPattern = encodePatternChannelDirect(col.channel);
+   //    patternChunks.push(encodedPattern);
 
-      const fitsInPatternRam = (patternRamCursor + compressed.length) <= patternMemoryCapacity;
-      if (fitsInPatternRam) {
-         patternRamBuffer.set(compressed, patternRamCursor);
-         const absAddr = /*Tic80Caps.pattern.memory.start + */ patternRamCursor;
-         patternRamCursor += compressed.length;
-         //return `0x${absAddr.toString(16)}`; // numeric Lua literal for memory-backed column
-         return `${absAddr.toString()}`; // numeric Lua literal for memory-backed column
-      }
+   //    const compressed = lzCompress(encodedPattern, gSomaticLZDefaultConfig);
+   //    patternLengths.push(compressed.length);
 
-      // Spill to base85 string when RAM is full.
-      const patternStr = base85Encode(compressed);
-      return toLuaStringLiteral(patternStr);
-   });
+   //    const fitsInPatternRam = (patternRamCursor + compressed.length) <= patternMemoryCapacity;
+   //    if (fitsInPatternRam) {
+   //       patternRamBuffer.set(compressed, patternRamCursor);
+   //       const absAddr = /*Tic80Caps.pattern.memory.start + */ patternRamCursor;
+   //       patternRamCursor += compressed.length;
+   //       //return `0x${absAddr.toString(16)}`; // numeric Lua literal for memory-backed column
+   //       return `${absAddr.toString()}`; // numeric Lua literal for memory-backed column
+   //    }
 
-   const patternRamData = patternRamBuffer.subarray(0, patternRamCursor);
-   const patternArray = patternEntries.join(",");
+   //    // Spill to base85 string when RAM is full.
+   //    const patternStr = base85Encode(compressed);
+   //    return toLuaStringLiteral(patternStr);
+   // });
+
+   // const patternRamData = patternRamBuffer.subarray(0, patternRamCursor);
+   // const patternArray = patternEntries.join(",");
 
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
 local SOMATIC_MUSIC_DATA = {
  songOrder = { ${songOrder} },
  extraSongData = ${extraSongDataLua},
- patternLengths = { ${patternLengths.join(",")} },
+ patternLengths = { ${patternSerializationPlan.patternLengths.join(",")} },
  patterns = {
-  ${patternArray}
+  ${patternSerializationPlan.patternCodeEntries.join(",")}
  },
 }
 -- END_SOMATIC_MUSIC_DATA`;
@@ -780,43 +896,6 @@ ${emitLuaDecoder(WaveformMorphGradientCodec, {
              .replace(/__AUTOGEN_BUF_PTR_A/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_A.toString(16)}`)
              .replace(/__AUTOGEN_BUF_PTR_B/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_B.toString(16)}`);
 
-   const releaseOptions: OptimizationRuleOptions = {
-      stripComments: true,
-      stripDebugBlocks: true,
-      maxIndentLevel: 1,
-      lineBehavior: "tight",
-      maxLineLength: 180,
-      aliasRepeatedExpressions: true,
-      renameLocalVariables: true,
-      aliasLiterals: true,
-      packLocalDeclarations: true,
-      simplifyExpressions: true,
-      removeUnusedLocals: true,
-      removeUnusedFunctions: false,
-      functionNamesToKeep: [],
-      renameTableFields: true,
-      tableEntryKeysToRename: [...MorphEntryFieldNamesToRename],
-   } as const;
-
-   const debugOptions: OptimizationRuleOptions = {
-      stripComments: false,
-      stripDebugBlocks: false,
-      maxIndentLevel: 50,
-      lineBehavior: "pretty",
-      maxLineLength: 120,
-      aliasRepeatedExpressions: false,
-      renameLocalVariables: false,
-      aliasLiterals: false,
-      packLocalDeclarations: false,
-      simplifyExpressions: false,
-      removeUnusedLocals: false,
-      removeUnusedFunctions: false,
-      functionNamesToKeep: [],
-      renameTableFields: false,
-      tableEntryKeysToRename: [],
-   } as const;
-
-
    // optimize code
    const optimizationRuleOptions: OptimizationRuleOptions = variant === "release" ? releaseOptions : debugOptions;
    code = processLua(code, optimizationRuleOptions);
@@ -824,19 +903,19 @@ ${emitLuaDecoder(WaveformMorphGradientCodec, {
    return {
       code,
       generatedCode: musicDataSection,
-      patternChunks,
-      patternRamData,
    };
 }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export type SongCartDetails = {
    elapsedMillis: number;     //
    waveformChunk: Uint8Array; //
    sfxChunk: Uint8Array;      //
-   patternChunk: Uint8Array;  //
-   trackChunk: Uint8Array;    //
+   //patternChunk: Uint8Array;  //
+   trackChunk: Uint8Array; //
 
-   realPatternChunks: Uint8Array[]; // before turning into literals
+   //realPatternChunks: Uint8Array[]; // before turning into literals
+   patternSerializationPlan: PatternMemoryPlan;
 
    // how much of the code chunk is generated code.
    wholePlayroutineCode: string;
@@ -846,6 +925,15 @@ export type SongCartDetails = {
    optimizeResult: OptimizeResult;
 
    cartridge: Uint8Array;
+
+   // detailed memory usage / placement
+   memoryRegions: {
+      waveforms: MemoryRegion;         // Used waveforms region
+      sfx: MemoryRegion;               // Used SFX region
+      patterns: MemoryRegion[];        // Used patterns region (compressed data)
+      patternsRuntime: MemoryRegion[]; // Runtime pattern buffers (A, B, tempA, tempB)
+      bridgeMap: MemoryRegion[];       // Bridge-only runtime regions in Map memory
+   };
 }
 
 export function serializeSongToCartDetailed(
@@ -857,6 +945,24 @@ export function serializeSongToCartDetailed(
    SongCartDetails //
 {
    const startTime = performance.now();
+
+   // sanity: check that patternmem regions are actually contained in pattern mem and don't have any overlaps.
+   const reservedRegionsInPatternMem = GetRuntimeReservedRegionsInPatternMemory();
+   {
+      for (const r of reservedRegionsInPatternMem) {
+         assert(
+            Tic80MemoryMap.MusicPatterns.containsRegion(r),
+            `Reserved region ${r.name} is not contained in MusicPatterns`);
+         for (const other of reservedRegionsInPatternMem) {
+            if (r !== other) {
+               assert(
+                  !r.containsRegion(other) && !other.containsRegion(r),
+                  `Reserved regions ${r.name} and ${other.name} overlap`);
+            }
+         }
+      }
+   }
+
    let optimizeResult: OptimizeResult = MakeOptimizeResultEmpty(song);
    if (optimize) {
       const result = OptimizeSong(song);
@@ -895,12 +1001,32 @@ export function serializeSongToCartDetailed(
    // byte 0: bank (3 bits) + chunk type (5 bits)
    // byte 1-2: payload length (u16 little-endian)
    // byte 3: reserved (0)
+   const preparedSong = prepareSongColumns(song);
+   const patternSerializationPlan = planPatternMemorySerialization(preparedSong);
 
-   const {code, generatedCode, patternChunks, patternRamData} = getCode(song, variant, optimizeResult.featureUsage);
-   const waveformChunk = createChunk(CHUNK.WAVEFORMS, encodeWaveforms(song, getMaxWaveformUsedIndex(song) + 1), true);
-   const sfxChunk = createChunk(CHUNK.SFX, encodeSfx(song, getMaxSfxUsedIndex(song) + 1), true);
-   const patternChunkPayload = patternRamData.length > 0 ? patternRamData : new Uint8Array(1); // all zeros when unused
-   const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, patternChunkPayload, true);
+   const {code, generatedCode} =
+      getCode(song, preparedSong, variant, patternSerializationPlan, optimizeResult.featureUsage);
+
+   // waveforms
+   const waveformCount = getMaxWaveformUsedIndex(song) + 1;
+   let waveformPayload = encodeWaveforms(song, waveformCount);
+   waveformPayload = removeTrailingZerosFn(waveformPayload);
+   const waveformMemoryRegion = new MemoryRegion(
+      {name: `${waveformCount} waveforms`, address: Tic80MemoryMap.Waveforms.address, size: waveformPayload.length});
+   const waveformChunk = createChunk(CHUNK.WAVEFORMS, waveformPayload, false);
+
+   // sfx
+   const sfxCount = getMaxSfxUsedIndex(song) + 1;
+   let sfxPayload = encodeSfx(song, sfxCount);
+   sfxPayload = removeTrailingZerosFn(sfxPayload);
+   const sfxMemoryRegion =
+      new MemoryRegion({name: `${sfxCount} SFX`, address: Tic80MemoryMap.Sfx.address, size: sfxPayload.length});
+   const sfxChunk = createChunk(CHUNK.SFX, sfxPayload, false);
+
+   // patterns
+   // const patternChunkPayload = patternRamData.length > 0 ? patternRamData : new Uint8Array(1); // all zeros when unused
+   const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, patternSerializationPlan.patternRamData, true);
+
    const trackChunk = createChunk(CHUNK.MUSIC_TRACKS, encodeTrack(song), true);
    const codePayload = stringToAsciiPayload(code);
    const codeChunk = createChunk(CHUNK.CODE, codePayload, false, 0);
@@ -923,11 +1049,47 @@ export function serializeSongToCartDetailed(
 
    const elapsedMillis = performance.now() - startTime;
 
+   // Create memory regions for accurate memory layout tracking
+   //const usedWaveformCount = optimizeResult.usedWaveformCount;
+   //const usedSfxCount = optimizeResult.usedSfxCount;
+   //const patternPayloadSize = patternChunkPayload.length;
+
+   const memoryRegions = {
+      waveforms: waveformMemoryRegion,
+      sfx: sfxMemoryRegion,
+      patterns: patternSerializationPlan.compressedPatternsInRam.map(x => x.memoryRegion),
+      patternsRuntime: reservedRegionsInPatternMem,
+      bridgeMap: [],
+
+      // patterns: new MemoryRegion("MusicPatterns", Tic80MemoryMap.MusicPatterns.address, patternPayloadSize),
+      // patternBuffers: [
+      //    new MemoryRegion(
+      //       "Pattern Buffer A", SomaticMemoryLayout.patternBufferA.address, SomaticMemoryLayout.patternBufferA.size),
+      //    new MemoryRegion(
+      //       "Pattern Buffer B", SomaticMemoryLayout.patternBufferB.address, SomaticMemoryLayout.patternBufferB.size),
+      //    new MemoryRegion(
+      //       "Temp Buffer A", SomaticMemoryLayout.tempBufferA.address, SomaticMemoryLayout.tempBufferA.size),
+      //    new MemoryRegion(
+      //       "Temp Buffer B", SomaticMemoryLayout.tempBufferB.address, SomaticMemoryLayout.tempBufferB.size),
+      // ],
+      // bridgeRegions: [
+      //    new MemoryRegion("Marker", SomaticMemoryLayout.marker.address, SomaticMemoryLayout.marker.size),
+      //    new MemoryRegion("Registers", SomaticMemoryLayout.registers.address, SomaticMemoryLayout.registers.size),
+      //    new MemoryRegion("Inbox", SomaticMemoryLayout.inbox.address, SomaticMemoryLayout.inbox.size),
+      //    new MemoryRegion(
+      //       "Outbox Header", SomaticMemoryLayout.outboxHeader.address, SomaticMemoryLayout.outboxHeader.size),
+      //    new MemoryRegion("Outbox Log", SomaticMemoryLayout.outboxLog.address, SomaticMemoryLayout.outboxLog.size),
+      //    new MemoryRegion(
+      //       "Somatic SFX Config",
+      //       SomaticMemoryLayout.somaticSfxConfig.address,
+      //       SomaticMemoryLayout.somaticSfxConfig.size),
+      // ],
+   };
+
    return {
       waveformChunk,
       sfxChunk,
-      patternChunk,
-      realPatternChunks: patternChunks,
+      patternSerializationPlan,
       trackChunk,
       codeChunk,
       wholePlayroutineCode: code,
@@ -935,6 +1097,7 @@ export function serializeSongToCartDetailed(
       optimizeResult,
       cartridge,
       elapsedMillis,
+      memoryRegions,
    };
 }
 

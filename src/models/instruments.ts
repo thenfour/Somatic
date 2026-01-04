@@ -3,8 +3,6 @@ import {clamp, CoalesceBoolean} from "../utils/utils";
 import {Tic80Caps} from "./tic80Capabilities";
 import {WaveformBaseDto} from "./waveform";
 
-export type SomaticInstrumentWaveEngine = "morph"|"native"|"pwm";
-
 export type ModSource = "envelope"|"lfo";
 
 export interface WaveformMorphGradientNodeDto extends WaveformBaseDto {
@@ -136,6 +134,8 @@ export const WaveEngineId = {
 
 export type WaveEngineId = (typeof WaveEngineId)[keyof typeof WaveEngineId];
 
+export type SomaticInstrumentWaveEngine = "morph"|"native"|"pwm";
+
 function coerceWaveEngine(v: any): SomaticInstrumentWaveEngine {
    if (v === "morph" || v === "native" || v === "pwm")
       return v;
@@ -147,6 +147,20 @@ function coerceWaveEngine(v: any): SomaticInstrumentWaveEngine {
       return "pwm";
    return "native";
 }
+
+export function ToWaveEngineId(engine: SomaticInstrumentWaveEngine): WaveEngineId {
+   switch (engine) {
+      case "morph":
+         return WaveEngineId.morph;
+      case "native":
+         return WaveEngineId.native;
+      case "pwm":
+         return WaveEngineId.pwm;
+   }
+   throw new Error(`Unknown wave engine: ${engine}`);
+};
+
+
 
 function coerceModSource(v: any): ModSource {
    if (v === "lfo" || v === 1 || v === true)

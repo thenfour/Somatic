@@ -9,11 +9,15 @@ import { Song } from "../models/song";
 import { gAllChannelsAudible, SomaticCaps } from "../models/tic80Capabilities";
 import { analyzePatternColumns, OptimizeSong, PatternColumnAnalysisResult } from "../utils/SongOptimizer";
 import { compareBuffers, formatBytes } from "../utils/utils";
+//import { generateAllMemoryMaps } from "../utils/memoryMapStats";
 import { AppPanelShell } from "./AppPanelShell";
 import { BarValue, SizeValue } from "./basic/BarValue";
 import { KeyValueTable } from "./basic/KeyValueTable";
 import { Tooltip } from "./basic/tooltip";
 import { Button } from "./Buttons/PushButton";
+import { MemoryMapVis } from "./MemoryMapVis";
+import { Tic80MemoryMap } from "../../bridge/memory_layout";
+import { MemoryRegion } from "../utils/bitpack/MemoryRegion";
 
 type ChunkInfo = {
     name: string; //
@@ -131,8 +135,8 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
 
         const result: ChunkInfo[] = [];
         result.push({ name: 'Code (playroutine only)', size: input.cartridge.codeChunk.length - input.cartridge.generatedCode.length, color: 'var(--tic-1)' });
-        result.push({ name: 'Code (generated songdata)', size: input.cartridge.generatedCode.length, color: 'var(--tic-2)' });
-        result.push({ name: 'Code (whole playroutine)', size: input.cartridge.wholePlayroutineCode.length, color: 'var(--tic-2)' });
+        //result.push({ name: 'Code (generated songdata)', size: input.cartridge.generatedCode.length, color: 'var(--tic-2)' });
+        //result.push({ name: 'Code (whole playroutine)', size: input.cartridge.wholePlayroutineCode.length, color: 'var(--tic-2)' });
         result.push({ name: 'Waveforms', size: input.cartridge.waveformChunk.length, color: 'var(--tic-3)' });
         result.push({ name: 'SFX', size: input.cartridge.sfxChunk.length, color: 'var(--tic-4)' });
         result.push({ name: 'Patterns', size: input.cartridge.patternChunk.length, color: 'var(--tic-5)' });
@@ -198,6 +202,26 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
     const handleCopyGeneratedCode = async () => {
         await clipboard.copyTextToClipboard(input?.cartridge.wholePlayroutineCode || "");
     };
+
+    const waveformRoot = useMemo(() => {
+        const waveformsRegion = new MemoryRegion(Tic80MemoryMap.Waveforms);
+        return waveformsRegion;
+    }, []);
+
+    const sfxRoot = useMemo(() => {
+        const sfxRegion = new MemoryRegion(Tic80MemoryMap.Sfx);
+        return sfxRegion;
+    }, []);
+
+    const mapRoot = useMemo(() => {
+        const mapRegion = new MemoryRegion(Tic80MemoryMap.Map);
+        return mapRegion;
+    }, []);
+
+    const patternRoot = useMemo(() => {
+        const patternRegion = new MemoryRegion(Tic80MemoryMap.MusicPatterns);
+        return patternRegion;
+    }, []);
 
     const body = !input ? (
         <div>No data yet.</div>
@@ -304,23 +328,56 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                             'Pattern compression ratio': `${(patternCompressionRatio * 100).toFixed(1)}%`,
                             Status: breakdown.roundTripStatus,
                         },
-                        Bridge: {
-                            Waveforms: <BarValue value={input.bridge.waveformData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedWaveformCount} (${input.bridge.waveformData.length} bytes)`} />,
-                            SFX: <BarValue value={input.bridge.sfxData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedSfxCount} (${input.bridge.sfxData.length} bytes)`} />,
-                            Patterns: <BarValue value={input.bridge.patternData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedPatternColumnCount} (${input.bridge.patternData.length} bytes)`} />,
-                            Tracks: <BarValue value={input.bridge.trackData.length} max={bridgeMax} label={`${input.bridge.trackData.length} bytes`} />,
-                            'Song order': <BarValue value={input.bridge.songOrderData.length} max={bridgeMax} label={`${input.bridge.songOrderData.length} bytes`} />,
-                        },
-                        "MORPH_ENTRY_BYTES": MORPH_ENTRY_BYTES,
+                        // Bridge: {
+                        //     Waveforms: <BarValue value={input.bridge.waveformData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedWaveformCount} (${input.bridge.waveformData.length} bytes)`} />,
+                        //     SFX: <BarValue value={input.bridge.sfxData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedSfxCount} (${input.bridge.sfxData.length} bytes)`} />,
+                        //     Patterns: <BarValue value={input.bridge.patternData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedPatternColumnCount} (${input.bridge.patternData.length} bytes)`} />,
+                        //     Tracks: <BarValue value={input.bridge.trackData.length} max={bridgeMax} label={`${input.bridge.trackData.length} bytes`} />,
+                        //     'Song order': <BarValue value={input.bridge.songOrderData.length} max={bridgeMax} label={`${input.bridge.songOrderData.length} bytes`} />,
+                        // },
+                        "bytes per morph entry": MORPH_ENTRY_BYTES,
                     };
 
                     return (
-                        <KeyValueTable
-                            value={kv}
-                            maxDepth={4}
-                            sortKeys={false}
-                            maxStringLength={200}
-                        />
+                        <>
+                            <div style={{ marginTop: 24, marginBottom: 12 }}>
+                                <div style={{ fontWeight: 600, marginBottom: 12 }}>TIC-80 Memory Layout</div>
+                                {(() => {
+                                    //const memoryMaps = generateAllMemoryMaps(input.cartridge);
+                                    return (
+                                        <>
+                                            <div style={{ marginBottom: 16 }}>
+                                                <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Waveforms</div>
+                                                <MemoryMapVis root={waveformRoot} regions={[input.cartridge.memoryRegions.waveforms]} />
+                                            </div>
+                                            <div style={{ marginBottom: 16 }}>
+                                                <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>SFX</div>
+                                                <MemoryMapVis root={sfxRoot} regions={[input.cartridge.memoryRegions.sfx]} />
+                                            </div>
+                                            <div style={{ marginBottom: 16 }}>
+                                                <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Map (Bridge Runtime)</div>
+                                                <MemoryMapVis root={mapRoot} regions={[]} />
+                                            </div>
+                                            <div style={{ marginBottom: 16 }}>
+                                                <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Music Patterns (Cartridge)</div>
+                                                <MemoryMapVis root={patternRoot} regions={[]} />
+                                            </div>
+                                            <div style={{ marginBottom: 16 }}>
+                                                <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Music Patterns (Runtime)</div>
+                                                <MemoryMapVis root={patternRoot} regions={[]} />
+                                            </div>
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                            <KeyValueTable
+                                value={kv}
+                                maxDepth={4}
+                                sortKeys={false}
+                                maxStringLength={200}
+                            />
+
+                        </>
                     );
                 })()}
             </div>

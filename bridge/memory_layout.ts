@@ -4,26 +4,26 @@ import {MemoryRegion} from "../src/utils/bitpack/bitpack";
 
 // https://github.com/nesbox/TIC-80/wiki/RAM
 export const Tic80MemoryMap = {
-   VRam: new MemoryRegion("VRam", 0x00000, 0x4000),
-   Tiles: new MemoryRegion("Tiles", 0x04000, 0x2000),
-   Sprites: new MemoryRegion("Sprites", 0x06000, 0x2000),
-   Map: new MemoryRegion("Map", 0x08000, 0x7FF0),
-   Gamepads: new MemoryRegion("Gamepads", 0x0FF80, 0x04),
-   Mouse: new MemoryRegion("Mouse", 0x0FF84, 0x04),
-   Keyboard: new MemoryRegion("Keyboard", 0x0FF88, 0x04),
-   SfxState: new MemoryRegion("SfxState", 0x0FF8C, 0x10),
-   SoundRegisters: new MemoryRegion("SoundRegisters", 0x0FF9C, 0x48),
-   Waveforms: new MemoryRegion("Waveforms", 0x0FFE4, 0x100),
-   Sfx: new MemoryRegion("Sfx", 0x100E4, 0x1080),
-   MusicPatterns: new MemoryRegion("MusicPatterns", 0x11164, 0x2D00),
-   MusicTracks: new MemoryRegion("MusicTracks", 0x13E64, 0x198),
-   SoundState: new MemoryRegion("SoundState", 0x13FFC, 0x04),
-   StereoVolume: new MemoryRegion("StereoVolume", 0x14000, 0x04),
-   PersistentMemory: new MemoryRegion("PersistentMemory", 0x14004, 0x400),
-   SpriteFlags: new MemoryRegion("SpriteFlags", 0x14404, 0x200),
-   SystemFont: new MemoryRegion("SystemFont", 0x14604, 0x800),
-   GamepadMapping: new MemoryRegion("GamepadMapping", 0x14E04, 0x20),
-   Reserved: new MemoryRegion("Reserved", 0x14E36, 0x3204),
+   VRam: new MemoryRegion({name: "VRam", address: 0x00000, size: 0x4000}),
+   Tiles: new MemoryRegion({name: "Tiles", address: 0x04000, size: 0x2000}),
+   Sprites: new MemoryRegion({name: "Sprites", address: 0x06000, size: 0x2000}),
+   Map: new MemoryRegion({name: "Map", address: 0x08000, size: 0x7FF0}),
+   Gamepads: new MemoryRegion({name: "Gamepads", address: 0x0FF80, size: 0x04}),
+   Mouse: new MemoryRegion({name: "Mouse", address: 0x0FF84, size: 0x04}),
+   Keyboard: new MemoryRegion({name: "Keyboard", address: 0x0FF88, size: 0x04}),
+   SfxState: new MemoryRegion({name: "SfxState", address: 0x0FF8C, size: 0x10}),
+   SoundRegisters: new MemoryRegion({name: "SoundRegisters", address: 0x0FF9C, size: 0x48}),
+   Waveforms: new MemoryRegion({name: "Waveforms", address: 0x0FFE4, size: 0x100}),
+   Sfx: new MemoryRegion({name: "Sfx", address: 0x100E4, size: 0x1080}),
+   MusicPatterns: new MemoryRegion({name: "MusicPatterns", address: 0x11164, size: 0x2D00}),
+   MusicTracks: new MemoryRegion({name: "MusicTracks", address: 0x13E64, size: 0x198}),
+   SoundState: new MemoryRegion({name: "SoundState", address: 0x13FFC, size: 0x04}),
+   StereoVolume: new MemoryRegion({name: "StereoVolume", address: 0x14000, size: 0x04}),
+   PersistentMemory: new MemoryRegion({name: "PersistentMemory", address: 0x14004, size: 0x400}),
+   SpriteFlags: new MemoryRegion({name: "SpriteFlags", address: 0x14404, size: 0x200}),
+   SystemFont: new MemoryRegion({name: "SystemFont", address: 0x14604, size: 0x800}),
+   GamepadMapping: new MemoryRegion({name: "GamepadMapping", address: 0x14E04, size: 0x20}),
+   Reserved: new MemoryRegion({name: "Reserved", address: 0x14E36, size: 0x3204}),
 };
 
 const Tic80Constants = {
@@ -78,15 +78,16 @@ const tempBufferAAddr = 0x13A64;    // Hard-coded to match original
 const tempBufferBAddr = 0x13C64;    // Hard-coded to match original
 
 // Create regions based on these hard-coded addresses
-const patternBufferA = new MemoryRegion("PatternBufferA", patternBufferAAddr, PATTERN_BUFFER_SIZE);
-const patternBufferB = new MemoryRegion("PatternBufferB", patternBufferBAddr, PATTERN_BUFFER_SIZE);
-const tempBufferA = new MemoryRegion("TempBufferA", tempBufferAAddr, TEMP_BUFFER_SIZE);
-const tempBufferB = new MemoryRegion("TempBufferB", tempBufferBAddr, TEMP_BUFFER_SIZE);
+const patternBufferA =
+   new MemoryRegion({name: "PatternBufferA", address: patternBufferAAddr, size: PATTERN_BUFFER_SIZE});
+const patternBufferB =
+   new MemoryRegion({name: "PatternBufferB", address: patternBufferBAddr, size: PATTERN_BUFFER_SIZE});
+const tempBufferA = new MemoryRegion({name: "TempBufferA", address: tempBufferAAddr, size: TEMP_BUFFER_SIZE});
+const tempBufferB = new MemoryRegion({name: "TempBufferB", address: tempBufferBAddr, size: TEMP_BUFFER_SIZE});
 
 // Available space for compressed patterns (everything before pattern buffer A)
-const compressedPatternsRegion =
-   new MemoryRegion("CompressedPatterns", patternMem.address, patternBufferAAddr - patternMem.address);
-
+const compressedPatternsRegion = new MemoryRegion(
+   {name: "CompressedPatterns", address: patternMem.address, size: patternBufferAAddr - patternMem.address});
 // Calculate which TIC-80 pattern indices these buffers correspond to
 const patternBufferAIndex =
    1 + Math.floor((patternBufferA.address - patternMem.address) / Tic80Constants.BYTES_PER_MUSIC_PATTERN);
@@ -104,32 +105,35 @@ const mapMem = Tic80MemoryMap.Map;
 let currentTop = mapMem.endAddress();
 
 // Outbox log ring buffer (240 bytes)
-const outboxLogRegion = new MemoryRegion("OutboxLog", currentTop - LOG_BUFFER_SIZE, LOG_BUFFER_SIZE);
+const outboxLogRegion =
+   new MemoryRegion({name: "OutboxLog", address: currentTop - LOG_BUFFER_SIZE, size: LOG_BUFFER_SIZE});
 currentTop = outboxLogRegion.address;
 
 // Outbox header (16 bytes: magic, version, heartbeat, state, etc.)
 const OUTBOX_HEADER_SIZE = 16;
-const outboxHeaderRegion = new MemoryRegion("OutboxHeader", currentTop - OUTBOX_HEADER_SIZE, OUTBOX_HEADER_SIZE);
+const outboxHeaderRegion =
+   new MemoryRegion({name: "OutboxHeader", address: currentTop - OUTBOX_HEADER_SIZE, size: OUTBOX_HEADER_SIZE});
 currentTop = outboxHeaderRegion.address;
 
 // Inbox mailbox (64 bytes: command, params, mutex, seq, token)
 const INBOX_SIZE = 64;
-const inboxRegion = new MemoryRegion("Inbox", currentTop - INBOX_SIZE, INBOX_SIZE);
+const inboxRegion = new MemoryRegion({name: "Inbox", address: currentTop - INBOX_SIZE, size: INBOX_SIZE});
 currentTop = inboxRegion.address;
 
 // Registers region (32 bytes: song position, FPS, etc.)
 const REGISTERS_SIZE = 32;
-const registersRegion = new MemoryRegion("Registers", currentTop - REGISTERS_SIZE, REGISTERS_SIZE);
+const registersRegion =
+   new MemoryRegion({name: "Registers", address: currentTop - REGISTERS_SIZE, size: REGISTERS_SIZE});
 currentTop = registersRegion.address;
 
 // Marker region (32 bytes: identification string)
 const MARKER_SIZE = 32;
-const markerRegion = new MemoryRegion("Marker", currentTop - MARKER_SIZE, MARKER_SIZE);
+const markerRegion = new MemoryRegion({name: "Marker", address: currentTop - MARKER_SIZE, size: MARKER_SIZE});
 currentTop = markerRegion.address;
 
 // SFX config (1KB for instrument morph configurations)
-const somaticSfxConfigRegion =
-   new MemoryRegion("SomaticSfxConfig", currentTop - SOMATIC_SFX_CONFIG_SIZE, SOMATIC_SFX_CONFIG_SIZE);
+const somaticSfxConfigRegion = new MemoryRegion(
+   {name: "SomaticSfxConfig", address: currentTop - SOMATIC_SFX_CONFIG_SIZE, size: SOMATIC_SFX_CONFIG_SIZE});
 
 
 export const SomaticMemoryLayout = {

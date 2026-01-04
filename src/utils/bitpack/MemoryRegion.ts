@@ -1,14 +1,29 @@
+export interface MemoryRegionDto {
+   name: string;
+   address: number;
+   size: number;
+   hashKey?: string;
+   type?: "used"|"free";
+}
+;
+
 export class MemoryRegion {
    name: string;
    address: number;
    size: number;
-   constructor(name: string, address: number, size: number) {
-      if (size < 0) {
-         throw new Error(`MemoryRegion ${name} cannot have negative size (${size})`);
+
+   hashKey?: string;
+   type?: "used"|"free";
+
+   constructor(data: MemoryRegionDto) {
+      if (data.size < 0) {
+         throw new Error(`MemoryRegion ${data.name} cannot have negative size (${data.size})`);
       }
-      this.name = name;
-      this.address = address;
-      this.size = size;
+      this.name = data.name;
+      this.address = data.address;
+      this.size = data.size;
+      this.hashKey = data.hashKey ?? `${data.address.toString(16)}_${data.size.toString(16)}`;
+      this.type = data.type;
    }
    endAddress() {
       return this.address + this.size;
@@ -16,8 +31,11 @@ export class MemoryRegion {
    beginAddress() {
       return this.address;
    }
-   contains(addr: number) {
+   containsAddress(addr: number) {
       return addr >= this.address && addr < this.endAddress();
+   }
+   containsRegion(other: MemoryRegion) {
+      return this.address <= other.address && this.endAddress() >= other.endAddress();
    }
    getName() {
       return this.name;
@@ -29,24 +47,31 @@ export class MemoryRegion {
       const newSize = this.size + delta;
       if (newSize < 0)
          throw new Error(`MemoryRegion ${this.name} cannot have negative size (${newSize})`);
-      return new MemoryRegion(this.name, this.address, newSize);
+      return new MemoryRegion({
+         name: this.name,       //
+         address: this.address, //
+         size: newSize,
+         type: this.type
+      });
    }
    withBeginAddress(newAddress: number) {
       const delta = this.address - newAddress;
       const newSize = this.size + delta;
       if (newSize < 0)
          throw new Error(`MemoryRegion ${this.name} cannot have negative size (${newSize})`);
-      return new MemoryRegion(this.name, newAddress, newSize);
+      return new MemoryRegion({name: this.name, address: newAddress, size: newSize, type: this.type});
    }
    toString() {
       return `${this.name} [0x${this.address.toString(16)}..0x${this.endAddress().toString(16)}] (${this.size} bytes)`;
    }
    getCell(cellSize: number, cellIndex: number) {
       const cellAddr = this.address + cellSize * cellIndex;
-      if (!this.contains(cellAddr) || !this.contains(cellAddr + cellSize - 1)) {
+      const ret =
+         new MemoryRegion({name: `${this.name}_cell${cellIndex}`, address: cellAddr, size: cellSize, type: this.type});
+      if (!this.containsRegion(ret)) {
          throw new Error(`MemoryRegion ${this.name} cannot provide cell index ${cellIndex} (out of range)`);
       }
-      return new MemoryRegion(`${this.name}_cell${cellIndex}`, cellAddr, cellSize);
+      return ret;
    }
    // Allocate a region from the top (end) of this region, moving downward
    allocFromTop(size: number, name?: string): MemoryRegion {
@@ -54,14 +79,14 @@ export class MemoryRegion {
       if (newAddr < this.address) {
          throw new Error(`Cannot allocate ${size} bytes from top of ${this.name} (would underflow)`);
       }
-      return new MemoryRegion(name || `${this.name}_top`, newAddr, size);
+      return new MemoryRegion({name: name || `${this.name}_top`, address: newAddr, size, type: this.type});
    }
    // Allocate a region from the bottom (start) of this region, moving upward
    allocFromBottom(size: number, name?: string): MemoryRegion {
       if (size > this.size) {
          throw new Error(`Cannot allocate ${size} bytes from bottom of ${this.name} (exceeds size)`);
       }
-      return new MemoryRegion(name || `${this.name}_bottom`, this.address, size);
+      return new MemoryRegion({name: name || `${this.name}_bottom`, address: this.address, size, type: this.type});
    }
    // Get the address as a hex string suitable for Lua or config
    toHexString(): string {
@@ -72,8 +97,12 @@ export class MemoryRegion {
       if (allocatedFromBottom > this.size) {
          throw new Error(`Allocated ${allocatedFromBottom} exceeds size ${this.size} of ${this.name}`);
       }
-      return new MemoryRegion(
-         `${this.name}_remaining`, this.address + allocatedFromBottom, this.size - allocatedFromBottom);
+      return new MemoryRegion({
+         name: `${this.name}_remaining`,
+         address: this.address + allocatedFromBottom,
+         size: this.size - allocatedFromBottom,
+         type: this.type
+      });
    }
 }
 

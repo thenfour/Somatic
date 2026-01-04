@@ -653,7 +653,7 @@ const C = {
 export function measureCodecOffsets<T>(codec: Codec<T>, data: T): ComputeContext {
    // Create a large temporary buffer for measurement
    const measureBuf = new Uint8Array(256 * 1024);
-   const measureRegion = new MemoryRegion("measure", 0, measureBuf.length);
+   const measureRegion = new MemoryRegion({name: "measure", address: 0, size: measureBuf.length});
    const measureWriter = new BitWriter(measureBuf, measureRegion);
 
    const offsets = new Map<string, number>();

@@ -3,23 +3,23 @@ import React, { useMemo } from 'react';
 import { assignEvenHues } from '../utils/utils';
 import './MemoryMapVis.css';
 import { Tooltip } from './basic/tooltip';
+import { MemoryRegion } from '../utils/bitpack/MemoryRegion';
 
-interface MemoryMapVisRegion {
-    startAddress: number;
-    length: number;
-    label?: string;
-    hashKey?: string;
-    type?: "used" | "free";
-}
+// export interface MemoryMapVisRegion {
+//     startAddress: number;
+//     length: number;
+//     label?: string;
+//     hashKey?: string;
+//     type?: "used" | "free";
+// }
 
-interface MemoryMapVisProps {
-    root: MemoryMapVisRegion; // represents the full memory range
-    regions: MemoryMapVisRegion[]; // regions to display within the root; assumed to be non-overlapping and within root
+export interface MemoryMapVisProps {
+    root: MemoryRegion; // represents the full memory range
+    regions: MemoryRegion[]; // regions to display within the root; assumed to be non-overlapping and within root
 };
 
-const UNUSED_KEY = "4d4f4731-8890-463d-895e-4aa2bbb2764b"; // uuid
 
-const getHashKeySafe = (region: MemoryMapVisRegion, index: number): string => {
+const getHashKeySafe = (region: MemoryRegion, index: number): string => {
     return region.hashKey ?? `region-${index}`;
 };
 
@@ -32,45 +32,52 @@ export const MemoryMapVis: React.FC<MemoryMapVisProps> = (props) => {
     const rootStats = useMemo(() => {
         let usedBytes = 0;
         for (const region of props.regions) {
-            usedBytes += region.length;
+            usedBytes += region.size;
         }
-        return { usedBytes, freeBytes: props.root.length - usedBytes };
+        return { usedBytes, freeBytes: props.root.size - usedBytes };
     }, [props.root, props.regions]);
 
     const gapRegions = useMemo(() => {
-        const gaps: MemoryMapVisRegion[] = [];
-        const sortedRegions = props.regions.slice().sort((a, b) => a.startAddress - b.startAddress);
-        let currentAddress = props.root.startAddress;
+        const gaps: MemoryRegion[] = [];
+        const sortedRegions = props.regions.slice().sort((a, b) => a.address - b.address);
+        let currentAddress = props.root.address;
         for (const region of sortedRegions) {
-            if (region.startAddress > currentAddress) {
-                gaps.push({
-                    startAddress: currentAddress,
-                    length: region.startAddress - currentAddress,
-                    label: 'Unused',
-                    hashKey: UNUSED_KEY,
-                    type: "free",
-                });
+            if (region.address > currentAddress) {
+                gaps.push(new MemoryRegion({
+                    // address: currentAddress,
+                    // size: region.address - currentAddress,
+                    // name: 'Unused',
+                    // hashKey: UNUSED_KEY,
+                    // type: "free",
+                    address: currentAddress,
+                    size: region.address - currentAddress,
+                    name: 'Unused',
+                    hashKey: `unused_${currentAddress}`,
+                    type: "free"
+                }));
             }
-            currentAddress = region.startAddress + region.length;
+            currentAddress = region.address + region.size;
         }
         // final gap to end of root
-        if (currentAddress < props.root.startAddress + props.root.length) {
-            gaps.push({
-                startAddress: currentAddress,
-                length: (props.root.startAddress + props.root.length) - currentAddress,
-                label: 'Unused',
-                hashKey: UNUSED_KEY,
+        if (currentAddress < props.root.address + props.root.size) {
+            gaps.push(new MemoryRegion({
+                address: currentAddress,
+                size: (props.root.address + props.root.size) - currentAddress,
+                name: 'Unused',
+                hashKey: `unused_${currentAddress}`,
                 type: "free",
-            });
+            }));
         }
         return gaps;
     }, [props.root, props.regions]);
 
     const globalSummaryTooltip = <div style={{ marginTop: '8px', borderTop: '1px solid var(--border-strong)', paddingTop: '4px' }}>
-        <div><strong>{props.root.label ?? "Memory Map Summary"}</strong></div>
-        <div>Total Size: {props.root.length} bytes</div>
-        <div>Used regions: {props.regions.length} ({rootStats.usedBytes} bytes)</div>
-        <div>Free regions: {gapRegions.length} ({rootStats.freeBytes} bytes)</div>
+        <div><strong>{props.root.name ?? "Memory Map Summary"}</strong></div>
+        <div>First byte @ {props.root.address} (0x{props.root.address.toString(16)})</div>
+        <div>Last byte @ {props.root.address + props.root.size - 1} (0x{(props.root.address + props.root.size - 1).toString(16)})</div>
+        <div>Total Size: {props.root.size} (0x{props.root.size.toString(16)}) bytes</div>
+        <div>Used regions: {props.regions.length} ({rootStats.usedBytes} (0x{rootStats.usedBytes.toString(16)}) bytes)</div>
+        <div>Free regions: {gapRegions.length} ({rootStats.freeBytes} (0x{rootStats.freeBytes.toString(16)}) bytes)</div>
     </div>;
 
     return (
@@ -78,16 +85,17 @@ export const MemoryMapVis: React.FC<MemoryMapVisProps> = (props) => {
             {[...props.regions, ...gapRegions].map((region, index) => {
                 // calc position & width in percent of parent.
                 // they will land in CSS vars.
-                const percentageStart = ((region.startAddress - props.root.startAddress) / props.root.length) * 100;
-                const percentageWidth = (region.length / props.root.length) * 100;
+                const percentageStart = ((region.address - props.root.address) / props.root.size) * 100;
+                const percentageWidth = (region.size / props.root.size) * 100;
                 // calculated a hsl color based on hashKey.
                 const colorHue = hues[getHashKeySafe(region, index)];
 
                 const tooltip = <div>
-                    <div><strong>{region.label}</strong></div>
-                    <div>Start: {region.startAddress}</div>
-                    <div>Length: {region.length} bytes</div>
-                    <div>% of total: {((region.length / props.root.length) * 100).toFixed(2)}%</div>
+                    <div><strong>{region.name}</strong></div>
+                    <div>Start: {region.address} (0x{region.address.toString(16)})</div>
+                    <div>LastByte @ {region.address + region.size - 1} (0x{(region.address + region.size - 1).toString(16)})</div>
+                    <div>Length: {region.size} ({region.size.toString(16)}) bytes</div>
+                    <div>% of total: {((region.size / props.root.size) * 100).toFixed(2)}%</div>
                     {/* <div>Type: {region.type === "free" ? "Free/Unused" : "Used"}</div> */}
                     {globalSummaryTooltip}
                 </div>;
