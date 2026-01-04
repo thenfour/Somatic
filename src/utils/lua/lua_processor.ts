@@ -73,6 +73,10 @@ export type OptimizationRuleOptions = {
    //   local b = doSomething() -- 'a' is used in doSomething()
    // so we skip packing in that case.
    packLocalDeclarations: boolean;
+
+   // NOTE: so much lua code is `local`, `function`, `end`, and it's very tempting to attempt to
+   // inline function calls. but it's way too difficult / complex to do in a minifier; basically anything other than the most
+   // simple tiny case has side-effects we can't guarantee won't break.
 };
 
 // Precedence tables, low → high

@@ -40,14 +40,14 @@ const formatMidiNote = (midiNote: number | undefined | null) => {
 
 const formatInstrumentLabel = (val: number | undefined | null): string => {
     if (val === null || val === undefined) return '--';
-    return val.toString(16).toUpperCase();
+    return (val & 0xFF).toString(16).toUpperCase().padStart(2, '0');
 };
 
 const formatInstrumentTooltip = (instId: number | undefined | null, song: Song): string | null => {
     if (instId === null || instId === undefined) return null;
     const inst = song.getInstrument(instId);
     if (!inst) return null;
-    return `${instId.toString(16).toUpperCase()}: ${inst.name}`;
+    return `${(instId & 0xFF).toString(16).toUpperCase().padStart(2, '0')}: ${inst.name}`;
 };
 
 const formatInstrument = (val: number | undefined | null, song: Song): [string, string | null] => {
@@ -146,6 +146,22 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const editingEnabled = editorState.editingEnabled !== false;
         const clipboard = useClipboard();
         const { pushToast } = useToasts();
+
+        const pendingInstrumentEntryRef = useRef<{
+            rowIndex: number;
+            channelIndex: Tic80ChannelIndex;
+            hiNibble: number;
+        } | null>(null);
+
+        const clearPendingInstrumentEntry = useCallback(() => {
+            pendingInstrumentEntryRef.current = null;
+        }, []);
+
+        useEffect(() => {
+            if (!editingEnabled) {
+                clearPendingInstrumentEntry();
+            }
+        }, [editingEnabled, clearPendingInstrumentEntry]);
 
         const selection2d = useRectSelection2D({
             selection: editorState.patternSelection,
@@ -528,6 +544,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         useActionHandler("ClearCell", () => {
             if (!editingEnabled) return;
+            clearPendingInstrumentEntry();
             const rowIndex = editorState.patternEditRow;
             const channelIndex = editorState.patternEditChannel;
             onSongChange({
@@ -550,6 +567,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         useActionHandler("ClearField", () => {
             if (!editingEnabled) return;
+            clearPendingInstrumentEntry();
             const rowIndex = editorState.patternEditRow;
             const channelIndex = editorState.patternEditChannel;
             const columnIndex = currentColumnIndex;
@@ -613,9 +631,25 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             // InsertNoteCut is now handled via useActionHandler
         };
 
-        const handleInstrumentKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
-            const idx = instrumentKeyMap.indexOf(key);
-            if (idx === -1) return false;
+        const handleInstrumentKey = (
+            channelIndex: Tic80ChannelIndex,
+            rowIndex: number,
+            key: string,
+        ): false | 'pending' | 'committed' => {
+            const nibble = instrumentKeyMap.indexOf(key);
+            if (nibble === -1) return false;
+
+            const pending = pendingInstrumentEntryRef.current;
+            const isSecondNibble = pending && pending.rowIndex === rowIndex && pending.channelIndex === channelIndex;
+
+            if (!isSecondNibble) {
+                pendingInstrumentEntryRef.current = { rowIndex, channelIndex, hiNibble: nibble };
+                return 'pending';
+            }
+
+            const instValue = ((pending.hiNibble << 4) | nibble) & 0xFF;
+            pendingInstrumentEntryRef.current = null;
+
             onSongChange({
                 description: 'Set instrument from key',
                 undoable: true,
@@ -625,12 +659,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     const oldCell = pat.getCell(channelIndex, rowIndex);
                     pat.setCell(channelIndex, rowIndex, {
                         ...oldCell,
-                        instrumentIndex: idx,
+                        instrumentIndex: normalizeInstrumentValue(instValue),
                     });
                 },
             });
             playRow(rowIndex);
-            return true;
+            return 'committed';
         };
 
         const handleCommandKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
@@ -1033,6 +1067,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const currentRowForNav = editorState.patternEditRow ?? rowIndex;
             const navTarget = handleArrowNav(currentRowForNav, columnIndex, e.key, e.ctrlKey);
             if (navTarget) {
+                clearPendingInstrumentEntry();
                 const [targetRow, targetCol] = navTarget;
                 const targetChannel = ToTic80ChannelIndex(Math.floor(targetCol / CELLS_PER_CHANNEL));
                 onEditorStateChange((state) => state.setPatternEditTarget({ rowIndex: targetRow, channelIndex: targetChannel }));
@@ -1046,9 +1081,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             if (cellType === 'note' && !e.repeat) {
                 handleNoteKey(channelIndex, rowIndex, e);
             } else if (cellType === 'instrument' && instrumentKeyMap.includes(e.key) && !e.repeat) {
-                const handled = handleInstrumentKey(channelIndex, rowIndex, e.key);
-                if (handled) {
-                    advanceAfterCellEdit(rowIndex, columnIndex);
+                const result = handleInstrumentKey(channelIndex, rowIndex, e.key);
+                if (result) {
+                    if (result === 'committed') {
+                        advanceAfterCellEdit(rowIndex, columnIndex);
+                    }
                     e.preventDefault();
                 }
             } else if (cellType === 'command' && commandKeyMap.includes(e.key) && !e.repeat) {
@@ -1103,6 +1140,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         };
 
         const onCellFocus = (rowIndex: number, channelIndex: Tic80ChannelIndex, col: number) => {
+            const pending = pendingInstrumentEntryRef.current;
+            if (pending && (pending.rowIndex !== rowIndex || pending.channelIndex !== channelIndex)) {
+                pendingInstrumentEntryRef.current = null;
+            }
             updateEditTarget({ rowIndex, channelIndex });
             setCurrentColumnIndex(col);
 

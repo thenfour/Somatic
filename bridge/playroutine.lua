@@ -73,13 +73,17 @@ do
 	local ROW_BYTES = 3
 
 	local function clamp(x, minVal, maxVal)
-		if x < minVal then
-			return minVal
-		elseif x > maxVal then
-			return maxVal
-		end
-		return x
+		return math.min(math.max(x, minVal), maxVal)
 	end
+
+	-- local function clamp(x, minVal, maxVal)
+	-- 	if x < minVal then
+	-- 		return minVal
+	-- 	elseif x > maxVal then
+	-- 		return maxVal
+	-- 	end
+	-- 	return x
+	-- end
 
 	local function clamp01(x)
 		return clamp(x, 0, 1)
