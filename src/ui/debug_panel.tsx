@@ -10,6 +10,7 @@ import { ComponentTester } from './ComponentTester';
 import { ButtonGroup } from './Buttons/ButtonGroup';
 import { Button } from './Buttons/PushButton';
 import { CheckboxButton } from './Buttons/CheckboxButton';
+import { IntegerUpDown } from './basic/NumericUpDown';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const clipboard = useClipboard();
@@ -172,18 +173,23 @@ end
                     <div className="debug-panel-option-group">
                         <label>
                             Max Indent Level:
-                            <input
-                                type="number"
-                                min="0"
-                                max="20"
+                            <IntegerUpDown
+                                min={0}
+                                max={20}
                                 value={options.maxIndentLevel}
-                                onChange={(e) =>
-                                    setOptions((prev) => ({
+                                onChange={val => {
+                                    setOptions(prev => ({
                                         ...prev,
-                                        maxIndentLevel: parseInt(e.target.value, 10) || 0,
-                                    }))
-                                }
-                                style={{ width: '60px', marginLeft: '0.5rem' }}
+                                        maxIndentLevel: val,
+                                    }));
+                                }}
+                            // onChange={(e) =>
+                            //     setOptions((prev) => ({
+                            //         ...prev,
+                            //         maxIndentLevel: parseInt(e.target.value, 10) || 0,
+                            //     }))
+                            // }
+                            // style={{ width: '60px', marginLeft: '0.5rem' }}
                             />
                         </label>
                     </div>

@@ -79,7 +79,10 @@ export const Tic80Caps = {
    song: {
       audioChannels: 4,
       maxSongLength: 16, // MUSIC_TRACKS
-      songSpeedMax: 7,
+      songSpeedMin: 1,   // todo: verify
+      songSpeedMax: 7,   // todo: verify
+      minTempo: 32,      // todo: verify
+      maxTempo: 254,     // todo: verify
    },
 
    // "track data"
@@ -90,7 +93,8 @@ export const Tic80Caps = {
 
    // pattern
    pattern: {
-      count: 60,   // MUSIC_PATTERNS
+      count: 60, // MUSIC_PATTERNS
+      minRows: 1,
       maxRows: 64, // MUSIC_PATTERN_ROWS
       octaveCount: 8,
       memory: {

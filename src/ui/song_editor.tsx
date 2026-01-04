@@ -4,16 +4,10 @@ import { AudioController } from '../audio/controller';
 import { EditorState } from '../models/editor_state';
 import { Song } from '../models/song';
 //import { PositionList } from './position_list';
-import { GlobalActionId } from '../keyb/ActionIds';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
 import { calculateBpm, SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
-import { TryParseInt } from '../utils/utils';
+import { IntegerUpDown } from './basic/NumericUpDown';
 import { Tooltip } from './basic/tooltip';
-import { Dropdown } from './basic/Dropdown';
-import { InstrumentChip } from './InstrumentChip';
-import { Button } from './Buttons/PushButton';
-import { IconButton } from './Buttons/IconButton';
-import { mdiMenuLeft, mdiMenuRight } from '@mdi/js';
 
 type SongEditorProps = {
     song: Song;
@@ -28,82 +22,22 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
     //const pattern = song.patterns[patternId]!;
     const mgr = useShortcutManager();
 
-    const onSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = TryParseInt(e.target.value);
-        if (val === null) return;
+    const onSpeedChange = (val: number) => {
         onSongChange({ description: 'Set song speed', undoable: true, mutator: (s) => s.setSpeed(val) });
     };
 
-    const onTempoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = TryParseInt(e.target.value);
-        if (val === null) return;
+    const onTempoChange = (val: number) => {
         onSongChange({ description: 'Set song tempo', undoable: true, mutator: (s) => s.setTempo(val) });
     };
 
-    const onRowsPerPatternChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = TryParseInt(e.target.value);
-        if (val === null) return;
+    const onRowsPerPatternChange = (val: number) => {
         onSongChange({ description: 'Set rows per pattern', undoable: true, mutator: (s) => s.setRowsPerPattern(val) });
-    };
-
-    const onOctaveChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = TryParseInt(e.target.value);
-        if (val === null) return;
-        onEditorStateChange((state) => state.setOctave(val));
-    };
-
-    // const onCurrentInstrumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    //     const val = TryParseInt(e.target.value);
-    //     if (val === null) return;
-    //     onEditorStateChange((state) => state.setCurrentInstrument(val));
-    // };
-
-    const onHighlightRowCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = TryParseInt(e.target.value);
-        if (val === null) return;
-        onSongChange({ description: 'Set highlight row count', undoable: true, mutator: (s) => s.setHighlightRowCount(val) });
-    };
-
-    const onEditStepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = TryParseInt(e.target.value);
-        if (val === null) return;
-        onSongChange({ description: 'Set edit step', undoable: true, mutator: (s) => s.setPatternEditStep(val) });
-    };
-
-    const getActionBindingLabel = (actionId: GlobalActionId) => {
-        return mgr.getActionBindingLabel(actionId) || "Unbound";
     };
 
     const bpm = calculateBpm({ songTempo: song.tempo, songSpeed: song.speed, rowsPerBeat: 4 });
 
-    const instrumentOptions = React.useMemo(() => {
-        return Array.from({ length: Tic80Caps.sfx.count }, (_, i) => ({
-            value: i,
-            label: <InstrumentChip instrumentIndex={i} instrument={song.instruments[i]} showTooltip={false} width={300} />,
-        }));
-    }, [song.instruments]);
-
     return (
         <div className="section song-editor-root">
-            <Tooltip title={`Song tempo (${bpm} BPM); ${getActionBindingLabel("IncreaseTempo")} / ${getActionBindingLabel("DecreaseTempo")} to adjust.`}>
-                <div className="field-row">
-                    <label htmlFor="song-tempo">Tempo</label>
-                    <input id="song-tempo" type="number" min={1} max={255} value={song.tempo} onChange={onTempoChange} />
-                </div>
-            </Tooltip>
-            <Tooltip title={`Song speed (${bpm} BPM) (ticks per row). ${getActionBindingLabel("IncreaseSpeed")} / ${getActionBindingLabel("DecreaseSpeed")} to adjust.`}>
-                <div className="field-row">
-                    <label htmlFor="song-speed">Speed</label>
-                    <input id="song-speed" type="number" min={1} max={31} value={song.speed} onChange={onSpeedChange} />
-                </div>
-            </Tooltip>
-            <Tooltip title={`Number of rows in each pattern. Affects all patterns in the song.`}>
-                <div className="field-row">
-
-                    <label htmlFor="song-rows-per-pattern">Pattern Len</label>
-                    <input id="song-rows-per-pattern" type="number" min={1} max={Tic80Caps.pattern.maxRows} value={song.rowsPerPattern} onChange={onRowsPerPatternChange} />
-                </div>
-            </Tooltip>
             <label>
                 Song title
                 <input
@@ -120,6 +54,40 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     })}
                 />
             </label>
+            <Tooltip title={`Song tempo (${bpm} BPM); ${mgr.getActionBindingLabelAlways("IncreaseTempo")} / ${mgr.getActionBindingLabelAlways("DecreaseTempo")} to adjust.`}>
+                <div className="field-row">
+                    <label htmlFor="song-tempo">Tempo</label>
+                    <IntegerUpDown
+                        min={Tic80Caps.song.minTempo}
+                        max={Tic80Caps.song.maxTempo}
+                        value={song.tempo}
+                        onChange={onTempoChange}
+                    />
+                </div>
+            </Tooltip>
+            <Tooltip title={`Song speed (${bpm} BPM) (ticks per row). ${mgr.getActionBindingLabelAlways("IncreaseSpeed")} / ${mgr.getActionBindingLabelAlways("DecreaseSpeed")} to adjust.`}>
+                <div className="field-row">
+                    <label htmlFor="song-speed">Speed</label>
+                    <IntegerUpDown
+                        min={Tic80Caps.song.songSpeedMin}
+                        max={Tic80Caps.song.songSpeedMax}
+                        value={song.speed}
+                        onChange={onSpeedChange}
+                    />
+                </div>
+            </Tooltip>
+            <Tooltip title={`Number of rows in each pattern. Affects all patterns in the song.`}>
+                <div className="field-row">
+
+                    <label htmlFor="song-rows-per-pattern">Pattern Len</label>
+                    <IntegerUpDown
+                        min={Tic80Caps.pattern.minRows}
+                        max={Tic80Caps.pattern.maxRows}
+                        value={song.rowsPerPattern}
+                        onChange={onRowsPerPatternChange}
+                    />
+                </div>
+            </Tooltip>
         </div>
     );
 };
