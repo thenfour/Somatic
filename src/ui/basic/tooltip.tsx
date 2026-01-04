@@ -1,249 +1,190 @@
-import React from 'react';
-import { createPortal } from 'react-dom';
-import { useAppStatusBar } from '../../hooks/useAppStatusBar';
+import React from "react";
+import { createPortal } from "react-dom";
+import { useAppStatusBar } from "../../hooks/useAppStatusBar";
+import { computeFloatingPlacement } from "./floatingPlacement";
+import { clamp } from "../../utils/utils";
+
+type Side = "top" | "bottom" | "left" | "right";
+type Rect = { left: number; top: number; width: number; height: number };
+
+function toRect(dom: DOMRect): Rect {
+    return { left: dom.left, top: dom.top, width: dom.width, height: dom.height };
+}
+
+function clampRectIntoBoundary(rect: Rect, boundary: Rect, padding: number): Rect {
+    const minX = boundary.left + padding;
+    const minY = boundary.top + padding;
+    const maxX = boundary.left + boundary.width - padding - rect.width;
+    const maxY = boundary.top + boundary.height - padding - rect.height;
+    return {
+        ...rect,
+        left: clamp(rect.left, minX, maxX),
+        top: clamp(rect.top, minY, maxY),
+    };
+}
+
+function rectContainsPoint(rect: Rect, x: number, y: number, pad: number): boolean {
+    return (
+        x >= rect.left - pad &&
+        x <= rect.left + rect.width + pad &&
+        y >= rect.top - pad &&
+        y <= rect.top + rect.height + pad
+    );
+}
+
+// Convert engine "top-left rect" back into "anchor coords"
+function rectToLegacyCoords(rect: Rect, side: Side): { top: number; left: number } {
+    switch (side) {
+        case "bottom":
+            return { left: rect.left + rect.width / 2, top: rect.top };
+        case "top":
+            return { left: rect.left + rect.width / 2, top: rect.top + rect.height };
+        case "right":
+            return { left: rect.left, top: rect.top + rect.height / 2 };
+        case "left":
+            return { left: rect.left + rect.width, top: rect.top + rect.height / 2 };
+    }
+}
+
 
 type TooltipProps = {
     title: React.ReactNode;
     children: React.ReactElement;
-    /** Placement of the tooltip relative to the trigger. Default: 'bottom' */
-    placement?: 'top' | 'bottom' | 'left' | 'right';
-    /** Optional className for the tooltip content */
+    placement?: Side;
     className?: string;
-    /** Disable the tooltip */
     disabled?: boolean;
 };
 
 export const Tooltip: React.FC<TooltipProps> = ({
     title,
     children,
-    placement = 'bottom',
+    placement = "bottom",
     className,
     disabled = false,
 }) => {
     const triggerRef = React.useRef<HTMLElement | null>(null);
     const tooltipRef = React.useRef<HTMLSpanElement | null>(null);
+
+    const [ready, setReady] = React.useState(false); // used to know when to set opacity to 1
     const [open, setOpen] = React.useState(false);
+
+    // unchanged outward shape
     const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null);
     const [cursorPos, setCursorPos] = React.useState<{ x: number; y: number } | null>(null);
+
+    // actual side chosen by engine (may flip)
+    const [effectivePlacement, setEffectivePlacement] = React.useState<typeof placement>(placement);
+
     const { setMessage, clearMessage } = useAppStatusBar();
 
-    // Update status bar when tooltip opens/closes with string content
     React.useEffect(() => {
-        if (open && typeof title === 'string' && title.trim()) {
-            setMessage(title, 10); // Priority 10 for tooltips
+        if (open && typeof title === "string" && title.trim()) {
+            setMessage(title, 10);
         } else {
             clearMessage();
         }
-
-        return () => {
-            clearMessage();
-        };
+        return () => clearMessage();
     }, [open, title, setMessage, clearMessage]);
+
+    React.useEffect(() => {
+        // any time open state changes, we begin not-ready (opacity 0)
+        setReady(false);
+    }, [open]);
+
+    // Keep effectivePlacement in sync when prop changes (but allow engine to override while open)
+    React.useEffect(() => {
+        if (!open) setEffectivePlacement(placement);
+    }, [placement, open]);
 
     const updatePosition = React.useCallback(() => {
         const el = triggerRef.current;
         const tooltip = tooltipRef.current;
         if (!el) return;
 
-        const rect = el.getBoundingClientRect();
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
+        const anchorRect = toRect(el.getBoundingClientRect());
+        const boundary = { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
 
-        // Estimate tooltip dimensions (will be refined after first render)
-        const tooltipWidth = tooltip?.offsetWidth || 320; // max-width from CSS
-        const tooltipHeight = tooltip?.offsetHeight || 100; // estimated
+        const tooltipWidth = tooltip?.offsetWidth || 320;
+        const tooltipHeight = tooltip?.offsetHeight || 100;
 
-        const margin = 8; // margin from viewport edge
-        const cursorAvoidPadding = 8; // minimal distance from cursor to tooltip content
+        const margin = 8;
+        const offset = 6;
+        const cursorAvoidPadding = 8;
 
-        let top = 0;
-        let left = 0;
+        // compute a top-left rect + chosen placement (side may flip)
+        const result = computeFloatingPlacement({
+            anchor: anchorRect,
+            floatingSize: { width: tooltipWidth, height: tooltipHeight },
+            boundary,
+            preferred: { side: placement, align: "center" },
+            offset,
+            padding: margin,
+            allowShift: true,
+            allowOverlapAnchor: false,
+            candidateStrategy: "smart",
+        });
 
-        switch (placement) {
-            case 'top':
-                top = rect.top - 6;
-                left = rect.left + rect.width / 2;
-                break;
-            case 'bottom':
-                top = rect.bottom + 6;
-                left = rect.left + rect.width / 2;
-                break;
-            case 'left':
-                top = rect.top + rect.height / 2;
-                left = rect.left - 6;
-                break;
-            case 'right':
-                top = rect.top + rect.height / 2;
-                left = rect.right + 6;
-                break;
-        }
+        let rect: { left: number; top: number; width: number; height: number } = result.rect;
+        const side = result.placement.side as typeof placement;
 
-        // Adjust horizontal position to stay within viewport
-        if (placement === 'bottom' || placement === 'top') {
-            // Centered horizontally, check both edges
-            const halfWidth = tooltipWidth / 2;
-            if (left - halfWidth < margin) {
-                left = halfWidth + margin;
-            } else if (left + halfWidth > viewportWidth - margin) {
-                left = viewportWidth - halfWidth - margin;
-            }
-        } else if (placement === 'right') {
-            // Right-aligned, check right edge
-            if (left + tooltipWidth > viewportWidth - margin) {
-                left = viewportWidth - tooltipWidth - margin;
-            }
-        } else if (placement === 'left') {
-            // Left-aligned, check left edge
-            if (left - tooltipWidth < margin) {
-                left = tooltipWidth + margin;
-            }
-        }
-
-        // Adjust vertical position to stay within viewport
-        if (placement === 'left' || placement === 'right') {
-            // Centered vertically, check both edges
-            const halfHeight = tooltipHeight / 2;
-            if (top - halfHeight < margin) {
-                top = halfHeight + margin;
-            } else if (top + halfHeight > viewportHeight - margin) {
-                top = viewportHeight - halfHeight - margin;
-            }
-        } else if (placement === 'bottom') {
-            // Below element, check bottom edge
-            if (top + tooltipHeight > viewportHeight - margin) {
-                top = viewportHeight - tooltipHeight - margin;
-            }
-        } else if (placement === 'top') {
-            // Above element, check top edge
-            if (top - tooltipHeight < margin) {
-                top = margin + tooltipHeight;
-            }
-        }
-
-        // Avoid overlapping the cursor point with the tooltip content when possible.
+        // Cursor avoidance
         if (cursorPos && tooltipWidth > 0 && tooltipHeight > 0) {
-            const cursorX = cursorPos.x;
-            const cursorY = cursorPos.y;
+            const overlaps = rectContainsPoint(rect, cursorPos.x, cursorPos.y, cursorAvoidPadding);
 
-            let boxLeft = left;
-            let boxRight = left;
-            let boxTop = top;
-            let boxBottom = top;
+            if (overlaps) {
+                // Nudge along the chosen side's main axis away from cursor
+                if (side === "bottom") rect = { ...rect, top: cursorPos.y + cursorAvoidPadding };
+                else if (side === "top") rect = { ...rect, top: cursorPos.y - cursorAvoidPadding - rect.height };
+                else if (side === "right") rect = { ...rect, left: cursorPos.x + cursorAvoidPadding };
+                else if (side === "left") rect = { ...rect, left: cursorPos.x - cursorAvoidPadding - rect.width };
 
-            if (placement === 'bottom') {
-                boxLeft = left - tooltipWidth / 2;
-                boxRight = left + tooltipWidth / 2;
-                boxTop = top;
-                boxBottom = top + tooltipHeight;
-            } else if (placement === 'top') {
-                boxLeft = left - tooltipWidth / 2;
-                boxRight = left + tooltipWidth / 2;
-                boxTop = top - tooltipHeight;
-                boxBottom = top;
-            } else if (placement === 'left') {
-                boxLeft = left - tooltipWidth;
-                boxRight = left;
-                boxTop = top - tooltipHeight / 2;
-                boxBottom = top + tooltipHeight / 2;
-            } else if (placement === 'right') {
-                boxLeft = left;
-                boxRight = left + tooltipWidth;
-                boxTop = top - tooltipHeight / 2;
-                boxBottom = top + tooltipHeight / 2;
-            }
-
-            const overlapsCursor =
-                cursorX >= boxLeft - cursorAvoidPadding &&
-                cursorX <= boxRight + cursorAvoidPadding &&
-                cursorY >= boxTop - cursorAvoidPadding &&
-                cursorY <= boxBottom + cursorAvoidPadding;
-
-            if (overlapsCursor) {
-                // Nudge tooltip away from the cursor along the primary axis.
-                if (placement === 'bottom') {
-                    top = cursorY + cursorAvoidPadding;
-                } else if (placement === 'top') {
-                    top = cursorY - cursorAvoidPadding - tooltipHeight;
-                } else if (placement === 'right') {
-                    left = cursorX + cursorAvoidPadding;
-                } else if (placement === 'left') {
-                    left = cursorX - cursorAvoidPadding - tooltipWidth;
-                }
-
-                // Clamp again to viewport after nudging.
-                if (placement === 'bottom' || placement === 'top') {
-                    const halfWidth = tooltipWidth / 2;
-                    if (left - halfWidth < margin) {
-                        left = halfWidth + margin;
-                    } else if (left + halfWidth > viewportWidth - margin) {
-                        left = viewportWidth - halfWidth - margin;
-                    }
-                } else {
-                    if (left + tooltipWidth > viewportWidth - margin) {
-                        left = viewportWidth - tooltipWidth - margin;
-                    }
-                    if (left < margin) {
-                        left = margin;
-                    }
-                }
-
-                if (placement === 'left' || placement === 'right') {
-                    const halfHeight = tooltipHeight / 2;
-                    if (top - halfHeight < margin) {
-                        top = halfHeight + margin;
-                    } else if (top + halfHeight > viewportHeight - margin) {
-                        top = viewportHeight - halfHeight - margin;
-                    }
-                } else {
-                    if (top + tooltipHeight > viewportHeight - margin) {
-                        top = viewportHeight - tooltipHeight - margin;
-                    }
-                    if (top - tooltipHeight < margin) {
-                        top = margin + tooltipHeight;
-                    }
-                }
+                // Clamp fully back into viewport after nudging
+                rect = clampRectIntoBoundary(rect, boundary, margin);
             }
         }
 
-        setCoords({ top, left });
+        // Convert rect back to `{top,left}` anchor convention
+        setEffectivePlacement(side);
+        setCoords(rectToLegacyCoords(rect, side));
     }, [placement, cursorPos]);
 
     React.useEffect(() => {
         if (!open) return;
         updatePosition();
         const handleScroll = () => updatePosition();
-        window.addEventListener('scroll', handleScroll, true);
-        window.addEventListener('resize', handleScroll);
+        window.addEventListener("scroll", handleScroll, true);
+        window.addEventListener("resize", handleScroll);
         return () => {
-            window.removeEventListener('scroll', handleScroll, true);
-            window.removeEventListener('resize', handleScroll);
+            window.removeEventListener("scroll", handleScroll, true);
+            window.removeEventListener("resize", handleScroll);
         };
     }, [open, updatePosition]);
 
-    // Update position after tooltip renders to get accurate dimensions
     React.useEffect(() => {
-        if (open && tooltipRef.current) {
-            // Small delay to ensure tooltip is rendered with content
+        if (!open) return;
+        if (!tooltipRef.current) return;
+
+        // Two rAFs is a common trick:
+        // - first ensures mount/layout
+        // - second ensures we measure after styles/layout settle
+        requestAnimationFrame(() => {
+            updatePosition();
             requestAnimationFrame(() => {
                 updatePosition();
+                setReady(true);
             });
-        }
+        });
     }, [open, title, updatePosition]);
 
-    // Clone the child element and attach event handlers
+
     const childElement = React.Children.only(children);
 
     const clonedChild = React.cloneElement(childElement, {
         ref: (node: HTMLElement | null) => {
             triggerRef.current = node;
-
-            // Preserve any existing ref on the child
             const { ref } = childElement as any;
-            if (typeof ref === 'function') {
-                ref(node);
-            } else if (ref) {
-                ref.current = node;
-            }
+            if (typeof ref === "function") ref(node);
+            else if (ref) ref.current = node;
         },
         onMouseEnter: (e: React.MouseEvent) => {
             if (!disabled) {
@@ -260,9 +201,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
             childElement.props.onMouseLeave?.(e);
         },
         onMouseMove: (e: React.MouseEvent) => {
-            if (!disabled) {
-                setCursorPos({ x: e.clientX, y: e.clientY });
-            }
+            if (!disabled) setCursorPos({ x: e.clientX, y: e.clientY });
             childElement.props.onMouseMove?.(e);
         },
         onFocus: (e: React.FocusEvent) => {
@@ -277,19 +216,29 @@ export const Tooltip: React.FC<TooltipProps> = ({
 
     const shouldShow = open && !disabled && title;
 
+    const style: React.CSSProperties = {
+        top: coords?.top,
+        left: coords?.left,
+        opacity: ready ? 1 : 0,
+        pointerEvents: ready ? "auto" : "none",
+        //transition: "opacity 80ms linear",
+    }
+
     return (
         <>
             {clonedChild}
-            {shouldShow && coords && createPortal(
-                <span
-                    ref={tooltipRef}
-                    className={`generic-tooltip generic-tooltip--${placement} ${className || ''}`}
-                    style={{ top: coords.top, left: coords.left }}
-                >
-                    {title}
-                </span>,
-                document.body,
-            )}
+            {shouldShow &&
+                coords &&
+                createPortal(
+                    <span
+                        ref={tooltipRef}
+                        className={`generic-tooltip generic-tooltip--${effectivePlacement} ${className || ""}`}
+                        style={style}
+                    >
+                        {title}
+                    </span>,
+                    document.body
+                )}
         </>
     );
 };
