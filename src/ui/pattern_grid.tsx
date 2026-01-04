@@ -644,6 +644,21 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
             if (!isSecondNibble) {
                 pendingInstrumentEntryRef.current = { rowIndex, channelIndex, hiNibble: nibble };
+
+                onSongChange({
+                    description: 'Set instrument from key',
+                    undoable: true,
+                    mutator: (s) => {
+                        const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                        const pat = s.patterns[patIndex];
+                        const oldCell = pat.getCell(channelIndex, rowIndex);
+                        pat.setCell(channelIndex, rowIndex, {
+                            ...oldCell,
+                            instrumentIndex: normalizeInstrumentValue(nibble),
+                        });
+                    },
+                });
+                playRow(rowIndex);
                 return 'pending';
             }
 
