@@ -8,6 +8,7 @@ import { Divider } from "./basic/Divider";
 import { IconButton } from "./Buttons/IconButton";
 import { mdiClipboard, mdiNetwork, mdiSettingsHelper, mdiTree } from "@mdi/js";
 import { CheckboxButton } from "./Buttons/CheckboxButton";
+import { MemoryMapVis } from "./MemoryMapVis";
 
 export const ComponentTester: React.FC = () => {
     const [knobValue, setKnobValue] = React.useState(0.5);
@@ -116,6 +117,38 @@ export const ComponentTester: React.FC = () => {
                         Checkbox 3
                     </CheckboxButton>
                 </ButtonGroup>
+            </div>
+            {/* todo: dropdowns, integer updown, desktop menu */}
+            <div>
+                <h4>Memory map & color bars</h4>
+                <MemoryMapVis
+                    root={{
+                        startAddress: 100,
+                        length: 500,
+                        label: "Example memory region",
+                        hashKey: "root",
+                    }}
+                    regions={[
+                        {
+                            startAddress: 100,
+                            length: 79,
+                            label: "Region 1",
+                            hashKey: "region1",
+                        },
+                        {
+                            startAddress: 200,
+                            length: 150,
+                            label: "Region 2",
+                            hashKey: "region2",
+                        },
+                        {
+                            startAddress: 350,
+                            length: 150,
+                            label: "Region 3",
+                            hashKey: "region3",
+                        },
+                    ]}
+                />
             </div>
         </div>
     );

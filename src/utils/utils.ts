@@ -476,3 +476,53 @@ export function curveT(t: number, k: number, s: number = 4): number {
 export function escapeRegExp(s: string): string {
    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+/* FNV-1a 32-bit hash of a JS string (UTF-16 code units). Deterministic, fast. */
+export function hash32Fnv1a(str: string): number {
+   let h = 0x811c9dc5; // offset basis
+   for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      // h *= 16777619 (FNV prime) expressed via shifts to stay 32-bit
+      h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) >>> 0;
+   }
+   return h >>> 0;
+}
+
+/* 32-bit avalanche mixer
+scrambles bits so that small input changes produce large, unpredictable output changes.
+ */
+function mix32(x: number): number {
+   x ^= x >>> 16;
+   x = Math.imul(x, 0x7feb352d) >>> 0;
+   x ^= x >>> 15;
+   x = Math.imul(x, 0x846ca68b) >>> 0;
+   x ^= x >>> 16;
+   return x >>> 0;
+}
+
+// Generate a consistent HSL hue string from an input string.
+export function getHashCSSHue(str: string): string {
+   const base = hash32Fnv1a(str);
+
+   const h1 = mix32(base);
+
+   const hue = h1 % 360;
+   return `${hue}`;
+}
+
+export type HueAssignment = Record<string, number>;
+
+/* Assign hues evenly across [0,360) for the given keys. */
+export function assignEvenHues(keys: readonly string[]): HueAssignment {
+   const items = keys.map((k) => ({k, h: hash32Fnv1a(k)}));
+   items.sort((a, b) => a.h - b.h);
+
+   const n = Math.max(1, items.length);
+   const out: HueAssignment = {};
+   for (let i = 0; i < items.length; i++) {
+      // +0.5 puts hues in the middle of their "slice"
+      const hue = ((i + 0.5) / n) * 360;
+      out[items[i].k] = hue;
+   }
+   return out;
+}
