@@ -134,9 +134,9 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
         };
 
         const result: ChunkInfo[] = [];
-        result.push({ name: 'Code (playroutine only)', size: input.cartridge.codeChunk.length - input.cartridge.generatedCode.length, color: 'var(--tic-1)' });
+        //result.push({ name: 'Code (playroutine only)', size: input.cartridge.codeChunk.length - input.cartridge.generatedCode.length, color: 'var(--tic-1)' });
         //result.push({ name: 'Code (generated songdata)', size: input.cartridge.generatedCode.length, color: 'var(--tic-2)' });
-        //result.push({ name: 'Code (whole playroutine)', size: input.cartridge.wholePlayroutineCode.length, color: 'var(--tic-2)' });
+        result.push({ name: 'Code (whole playroutine)', size: input.cartridge.wholePlayroutineCode.length, color: 'var(--tic-2)' });
         result.push({ name: 'Waveforms', size: input.cartridge.waveformChunk.length, color: 'var(--tic-3)' });
         result.push({ name: 'SFX', size: input.cartridge.sfxChunk.length, color: 'var(--tic-4)' });
         result.push({ name: 'Patterns', size: input.cartridge.patternSerializationPlan.patternRamData.length, color: 'var(--tic-5)' });
@@ -302,6 +302,12 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                         input.bridge.songOrderData.length,
                     );
 
+                    const extraSongDataMax = Math.max(
+                        input.cartridge.extraSongDataDetails.binaryPayload.length,
+                        input.cartridge.extraSongDataDetails.compressedPayload.length,
+                        input.cartridge.extraSongDataDetails.base85Payload.length,
+                    );
+
                     const kv = {
                         Cart: {
                             'Serialization took': `${input.cartridge.elapsedMillis} ms`,
@@ -319,14 +325,17 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                             LFO: input.cartridge.optimizeResult.featureUsage.lfo,
                         },
                         'Pattern Payload Sizes': {
-                            //'RAW (pattern-based)': <BarValue value={breakdown.patternPayload.rawBytes} max={rawMax} label={formatBytes(breakdown.patternPayload.rawBytes)} />,
                             'RAW': <BarValue value={breakdown.patternColumnStats.columnPayload.rawBytes} max={rawMax} label={<SizeValue value={breakdown.patternColumnStats.columnPayload.rawBytes} />} />,
-                            //'LZ (pattern-based)': <BarValue value={breakdown.patternPayload.compressedBytes} max={rawMax} label={formatBytes(breakdown.patternPayload.compressedBytes)} />,
                             'LZ': <BarValue value={breakdown.patternColumnStats.columnPayload.compressedBytes} max={rawMax} label={<SizeValue value={breakdown.patternColumnStats.columnPayload.compressedBytes} />} />,
-                            //'Lua (pattern data)': <BarValue value={breakdown.patternPayload.luaStringBytes} max={rawMax} label={formatBytes(breakdown.patternPayload.luaStringBytes)} />,
                             'Lua': <BarValue value={breakdown.patternColumnStats.columnPayload.luaStringBytes} max={rawMax} label={<SizeValue value={breakdown.patternColumnStats.columnPayload.luaStringBytes} />} />,
                             'Pattern compression ratio': `${(patternCompressionRatio * 100).toFixed(1)}%`,
                             Status: breakdown.roundTripStatus,
+                        },
+                        "Somatic-specific song data": {
+                            "k-rate instruments": input.cartridge.extraSongDataDetails.krateInstruments.length,
+                            'Extra song data size': <BarValue value={input.cartridge.extraSongDataDetails.binaryPayload.length} max={extraSongDataMax} label={<SizeValue value={input.cartridge.extraSongDataDetails.binaryPayload.length} />} />,
+                            '(compressed)': <BarValue value={input.cartridge.extraSongDataDetails.compressedPayload.length} max={extraSongDataMax} label={<SizeValue value={input.cartridge.extraSongDataDetails.compressedPayload.length} />} />,
+                            '(base85 encoded)': <BarValue value={input.cartridge.extraSongDataDetails.base85Payload.length} max={extraSongDataMax} label={<SizeValue value={input.cartridge.extraSongDataDetails.base85Payload.length} />} />,
                         },
                         // Bridge: {
                         //     Waveforms: <BarValue value={input.bridge.waveformData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedWaveformCount} (${input.bridge.waveformData.length} bytes)`} />,
@@ -346,7 +355,6 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                             <div style={{ marginTop: 24, marginBottom: 12 }}>
                                 <div style={{ fontWeight: 600, marginBottom: 12 }}>TIC-80 Memory Layout</div>
                                 {(() => {
-                                    //const memoryMaps = generateAllMemoryMaps(input.cartridge);
                                     return (
                                         <>
                                             <div style={{ marginBottom: 16 }}>

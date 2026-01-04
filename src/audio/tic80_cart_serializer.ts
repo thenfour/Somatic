@@ -230,14 +230,31 @@ function encodeExtraSongDataForBridge(song: Song, prepared: PreparedSong): Uint8
    return encodeSomaticExtraSongDataPayload({instruments, patterns}, totalBytes);
 }
 
-function makeExtraSongDataLua(song: Song, prepared: PreparedSong): string {
+export interface ExtraSongDataDetails {
+   binaryPayload: Uint8Array;
+   compressedPayload: Uint8Array;
+   base85Payload: string;
+   luaTableLiteral: string;
+   krateInstruments: MorphEntryInput[];
+}
+;
+
+function makeExtraSongDataDetails(song: Song, prepared: PreparedSong): ExtraSongDataDetails {
    const instruments = getMorphMap(song);
    const patterns = getSomaticPatternExtraEntries(prepared);
    const packed = encodeSomaticExtraSongDataPayload({instruments, patterns});
    const compressed = lzCompress(packed, gSomaticLZDefaultConfig);
    const b85 = base85Encode(compressed);
 
-   return `{ payloadB85=${toLuaStringLiteral(b85)}, payloadCLen=${compressed.length} }`;
+   const luaTableLiteral = `{ payloadB85=${toLuaStringLiteral(b85)}, payloadCLen=${compressed.length} }`;
+
+   return {
+      binaryPayload: packed,
+      compressedPayload: compressed,
+      base85Payload: b85,
+      luaTableLiteral,
+      krateInstruments: instruments,
+   };
 }
 
 
@@ -497,7 +514,7 @@ export function planPatternMemorySerialization(prepared: PreparedSong): PatternM
    const patternLengths: number[] = [];
    const patternCodeEntries: string[] = [];
 
-   const capacityRegion = GetMemoryRegionForCompressedPatternData();
+   const capacityRegion = GetMemoryRegionForCompressedPatternData(); // .allocFromBottom(500);
    const patternRamBuffer = new Uint8Array(capacityRegion.size);
    let patternRamCursor = 0; // relative to PATTERNS_BASE
    let patternsInLuaCount = 0;
@@ -563,8 +580,9 @@ function getCode(
    preparedSong: PreparedSong,                  //
    variant: "debug"|"release",                  //
    patternSerializationPlan: PatternMemoryPlan, //
-   features: PlaybackFeatureUsage               //
-   ):                                           //
+   features: PlaybackFeatureUsage,              //
+   extraSongDataDetails: ExtraSongDataDetails,
+   ): //
    {
       code: string,          //
       generatedCode: string, //
@@ -576,12 +594,11 @@ function getCode(
    const songOrder =
       preparedSong.songOrder.map((entry) => `{${entry.patternColumnIndices.map((v) => v.toString()).join(",")}}`)
          .join(",");
-   const extraSongDataLua = makeExtraSongDataLua(song, preparedSong);
 
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
 local SOMATIC_MUSIC_DATA = {
  songOrder = { ${songOrder} },
- extraSongData = ${extraSongDataLua},
+ extraSongData = ${extraSongDataDetails.luaTableLiteral},
  patternLengths = { ${patternSerializationPlan.patternLengths.join(",")} },
  patterns = {
   ${patternSerializationPlan.patternCodeEntries.join(",")}
@@ -673,6 +690,7 @@ export type SongCartDetails = {
 
    //realPatternChunks: Uint8Array[]; // before turning into literals
    patternSerializationPlan: PatternMemoryPlan;
+   extraSongDataDetails: ExtraSongDataDetails;
 
    // how much of the code chunk is generated code.
    wholePlayroutineCode: string;
@@ -760,9 +778,10 @@ export function serializeSongToCartDetailed(
    // byte 3: reserved (0)
    const preparedSong = prepareSongColumns(song);
    const patternSerializationPlan = planPatternMemorySerialization(preparedSong);
+   const extraSongDataDetails = makeExtraSongDataDetails(song, preparedSong);
 
    const {code, generatedCode} =
-      getCode(song, preparedSong, variant, patternSerializationPlan, optimizeResult.featureUsage);
+      getCode(song, preparedSong, variant, patternSerializationPlan, optimizeResult.featureUsage, extraSongDataDetails);
 
    // waveforms
    const waveformCount = getMaxWaveformUsedIndex(song) + 1;
@@ -837,6 +856,7 @@ export function serializeSongToCartDetailed(
       cartridge,
       elapsedMillis,
       memoryRegions,
+      extraSongDataDetails,
    };
 }
 

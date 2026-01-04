@@ -5,19 +5,10 @@ import './MemoryMapVis.css';
 import { Tooltip } from './basic/tooltip';
 import { MemoryRegion } from '../utils/bitpack/MemoryRegion';
 
-// export interface MemoryMapVisRegion {
-//     startAddress: number;
-//     length: number;
-//     label?: string;
-//     hashKey?: string;
-//     type?: "used" | "free";
-// }
-
 export interface MemoryMapVisProps {
     root: MemoryRegion; // represents the full memory range
     regions: MemoryRegion[]; // regions to display within the root; assumed to be non-overlapping and within root
 };
-
 
 const getHashKeySafe = (region: MemoryRegion, index: number): string => {
     return region.hashKey ?? `region-${index}`;
@@ -90,7 +81,7 @@ export const MemoryMapVis: React.FC<MemoryMapVisProps> = (props) => {
                 // calculated a hsl color based on hashKey.
                 const colorHue = hues[getHashKeySafe(region, index)];
 
-                const tooltip = <div>
+                const tooltip = <div style={{ minWidth: '200px' }}>
                     <div><strong>{region.name}</strong></div>
                     <div>Start: {region.address} (0x{region.address.toString(16)})</div>
                     <div>LastByte @ {region.address + region.size - 1} (0x{(region.address + region.size - 1).toString(16)})</div>
