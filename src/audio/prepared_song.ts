@@ -1,6 +1,6 @@
 import {PatternChannel} from "../models/pattern";
 import {Song} from "../models/song";
-import {Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
+import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {clamp} from "../utils/utils";
 
 export type PreparedPatternColumn = {
@@ -34,6 +34,12 @@ export function prepareSongColumns(song: Song): PreparedSong {
       const existing = signatureToIndex.get(signature);
       if (existing !== undefined) {
          return existing;
+      }
+      if (patternColumns.length >= SomaticCaps.maxPatternCount) {
+         throw new Error(
+            `prepareSongColumns: exceeded SomaticCaps.maxPatternCount=${SomaticCaps.maxPatternCount}. ` +
+            `Song requires >${
+               SomaticCaps.maxPatternCount} unique pattern columns, which cannot be addressed by 8-bit indices.`);
       }
       const idx = patternColumns.length;
       signatureToIndex.set(signature, idx);

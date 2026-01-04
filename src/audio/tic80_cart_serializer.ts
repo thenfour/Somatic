@@ -211,7 +211,10 @@ function getSomaticPatternExtraEntries(prepared: PreparedSong): SomaticPatternEn
          cells[row] = {effectId, paramU8};
       }
 
-      entries.push({patternIndex: patternIndex0b & 0xff, cells});
+      assert(
+         patternIndex0b >= 0 && patternIndex0b < SomaticCaps.maxPatternCount,
+         `getSomaticPatternExtraEntries: patternIndex0b out of range: ${patternIndex0b}`);
+      entries.push({patternIndex: patternIndex0b, cells});
    }
 
    return entries;
@@ -322,6 +325,10 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
    // first, bake loop info into the song.
    const bakedSong = BakeSong(args);
    const preparedSong = prepareSongColumns(bakedSong.bakedSong);
+   assert(
+      preparedSong.patternColumns.length <= SomaticCaps.maxPatternCount,
+      `serializeSongForTic80Bridge: patternColumns=${preparedSong.patternColumns.length} exceeds maxPatternCount=${
+         SomaticCaps.maxPatternCount}`);
 
    // NB: do not optimize waveforms / instruments.
    // it changes indices that the editor is using. so for example we optimize out an instrument that's not used in the song,
@@ -341,10 +348,14 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
    for (let i = 0; i < preparedSong.songOrder.length; i++) {
       const entry = preparedSong.songOrder[i];
       const base = 1 + i * Tic80Caps.song.audioChannels;
-      songOrderData[base + 0] = entry.patternColumnIndices[0] & 0xff;
-      songOrderData[base + 1] = entry.patternColumnIndices[1] & 0xff;
-      songOrderData[base + 2] = entry.patternColumnIndices[2] & 0xff;
-      songOrderData[base + 3] = entry.patternColumnIndices[3] & 0xff;
+      for (let ch = 0; ch < Tic80Caps.song.audioChannels; ch++) {
+         const idx = entry.patternColumnIndices[ch] | 0;
+         assert(idx >= 0 && idx < SomaticCaps.maxPatternCount, `songOrderData: column index out of range: ${idx}`);
+         assert(
+            idx < preparedSong.patternColumns.length,
+            `songOrderData: column index ${idx} >= patternColumns.length ${preparedSong.patternColumns.length}`);
+         songOrderData[base + ch] = idx;
+      }
    }
 
    const preparedPatternData = encodePreparedPatternColumns(preparedSong); // separate pattern data for playback use
@@ -473,6 +484,7 @@ interface PatternMemoryPlan {
    compressedPatterns: Uint8Array[]; // all patterns, compressed, for debugging/inspection
    compressedPatternsInRam: {payload: Uint8Array;
                              memoryRegion: MemoryRegion;}[]; // individual info for each pattern that fits in RAM
+   patternsInLuaCount: number;                               // how many patterns were serialized into Lua code vs RAM
    patternRamData: Uint8Array;                               // concatenated compressed patterns that fit in RAM
    patternLengths: number[];     // size of the base85-decoded (still compressed) pattern data
    patternCodeEntries: string[]; // Lua code entries for each pattern column
@@ -488,6 +500,7 @@ export function planPatternMemorySerialization(prepared: PreparedSong): PatternM
    const capacityRegion = GetMemoryRegionForCompressedPatternData();
    const patternRamBuffer = new Uint8Array(capacityRegion.size);
    let patternRamCursor = 0; // relative to PATTERNS_BASE
+   let patternsInLuaCount = 0;
 
    for (let columnIndex0b = 0; columnIndex0b < prepared.patternColumns.length; columnIndex0b++) {
       const col = prepared.patternColumns[columnIndex0b];
@@ -522,6 +535,7 @@ export function planPatternMemorySerialization(prepared: PreparedSong): PatternM
          // Spill to base85 string when RAM is full.
          const patternStr = base85Encode(compressed);
          patternCodeEntries.push(toLuaStringLiteral(patternStr));
+         patternsInLuaCount++;
       }
    }
 
@@ -538,6 +552,7 @@ export function planPatternMemorySerialization(prepared: PreparedSong): PatternM
       patternRamData,
       patternLengths,
       patternCodeEntries,
+      patternsInLuaCount,
    };
 };
 

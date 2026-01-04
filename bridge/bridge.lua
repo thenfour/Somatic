@@ -161,7 +161,7 @@ local function log_write_ascii(s)
 end
 
 -- Also show some recent logs on-screen for sanity
-local LOG_LINES = 6
+local LOG_LINES = 10
 local log_lines = {}
 local log_serial = 0
 local function log_screen(s)
@@ -1086,7 +1086,7 @@ local function draw_status()
 
 	-- Recent logs
 	for i = #log_lines, 1, -1 do
-		print(log_lines[i], 2, 90 + (i - 1) * 8, 6)
+		print(log_lines[i], 2, 70 + (i - 1) * 8, 6)
 	end
 end
 
@@ -1256,10 +1256,17 @@ local function blitPattern(patternIndex0b, destPointer)
 	-- log(" size " .. tostring(patternSize))
 	-- print_buffer_fingerprint(readPos, patternSize)
 
-	-- log("UNCOMPRESSED")
-	-- -- log size compressed & decompressed
-	-- log(" size " .. tostring(decompressedSize))
-	-- print_buffer_fingerprint(destPointer, decompressedSize)
+	--log("UNCOMPRESSED")
+	-- log size compressed & decompressed
+	--log(" size " .. tostring(decompressedSize))
+	--print_buffer_fingerprint(destPointer, decompressedSize)
+end
+
+local function addressToPattern(addr)
+	local offset = addr - 0x11164
+	local patIndex = offset // PATTERN_BYTES_PER_PATTERN
+	local remainder = offset % PATTERN_BYTES_PER_PATTERN
+	return patIndex, remainder
 end
 
 local function swapInPlayorder(songPosition, destPointer)
@@ -1267,6 +1274,19 @@ local function swapInPlayorder(songPosition, destPointer)
 	for ch = 0, 3 do
 		local columnIndex0b = peek(base + ch)
 		local dst = destPointer + ch * PATTERN_BYTES_PER_PATTERN
+
+		local patIndex, remainder = addressToPattern(dst)
+		-- log(
+		-- 	"blit ci:"
+		-- 		.. tostring(columnIndex0b)
+		-- 		.. "->"
+		-- 		.. string.format("0x%X", dst)
+		-- 		.. " pat:"
+		-- 		.. tostring(patIndex)
+		-- 		.. " rem:"
+		-- 		.. tostring(remainder)
+		-- )
+
 		blitPattern(columnIndex0b, dst)
 	end
 end

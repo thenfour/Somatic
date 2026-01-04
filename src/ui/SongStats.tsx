@@ -338,6 +338,9 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                         "bytes per morph entry": MORPH_ENTRY_BYTES,
                     };
 
+                    const ramPatternCount = input.cartridge.patternSerializationPlan.compressedPatternsInRam.length;
+                    const luaPatternCount = input.cartridge.patternSerializationPlan.patternsInLuaCount;
+
                     return (
                         <>
                             <div style={{ marginTop: 24, marginBottom: 12 }}>
@@ -371,19 +374,18 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                                                 <MemoryMapVis root={new MemoryRegion({
                                                     name: 'Music Patterns (compound)',
                                                     address: 0,
-                                                    size: input.cartridge.patternSerializationPlan.patternRamData.length +
-                                                        input.cartridge.patternSerializationPlan.patternCodeEntries.reduce((sum, entry) => sum + entry.length, 0)
+                                                    size: ramPatternCount + luaPatternCount,
                                                 })} regions={
                                                     [
                                                         new MemoryRegion({
                                                             name: 'Pattern RAM Data',
                                                             address: 0,
-                                                            size: input.cartridge.patternSerializationPlan.patternRamData.length,
+                                                            size: ramPatternCount,
                                                         }),
                                                         new MemoryRegion({
                                                             name: 'Pattern Code',
-                                                            address: input.cartridge.patternSerializationPlan.patternRamData.length,
-                                                            size: input.cartridge.patternSerializationPlan.patternCodeEntries.reduce((sum, entry) => sum + entry.length, 0),
+                                                            address: ramPatternCount,
+                                                            size: luaPatternCount,
                                                         }),
                                                     ]} />
                                             </div>

@@ -10,11 +10,18 @@ type BridgeWatchOptions = {
 
 export class BridgeWatchPlugin {
    private bridgeDir: string;
+   private extraWatchDirs: string[];
    private lastBuildTime: number;
    private debounceMs: number;
 
    constructor(options: BridgeWatchOptions = {}) {
       this.bridgeDir = options.bridgeDir || path.resolve(__dirname, "../bridge");
+      // build-bridge.ts pulls in logic from these paths; if they change we must
+      // rebuild the generated Lua/cart so constants (e.g. pattern buffer addrs) stay in sync.
+      this.extraWatchDirs = [
+         path.resolve(__dirname, "../src/utils/bitpack"),
+         path.resolve(__dirname, "./"), // scripts/
+      ];
       this.lastBuildTime = 0;
       this.debounceMs = options.debounceMs || 300;
    }
@@ -34,11 +41,17 @@ export class BridgeWatchPlugin {
          const removedFiles = comp.removedFiles || new Set();
          const allChanges = new Set([...changedFiles, ...removedFiles]);
 
-         const bridgeChanged =
-            [...allChanges].some((f: unknown) => typeof f === "string" && f.startsWith(this.bridgeDir));
+         const bridgeChanged = [...allChanges].some((f: unknown) => {
+            if (typeof f !== "string")
+               return false;
+            const full = path.resolve(String(f));
+            if (full.startsWith(this.bridgeDir))
+               return true;
+            return this.extraWatchDirs.some((dir) => full.startsWith(dir));
+         });
 
          if (bridgeChanged || this.lastBuildTime === 0) {
-            this.rebuild(bridgeChanged ? "bridge.lua changed" : "initial watch build");
+            this.rebuild(bridgeChanged ? "bridge-related source changed" : "initial watch build");
          }
 
          callback();
