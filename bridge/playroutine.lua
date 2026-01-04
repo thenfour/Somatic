@@ -745,16 +745,16 @@ do
 		local entry = SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1]
 		local patternLengthBytes = SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1]
 		local srcPtr = __AUTOGEN_TEMP_PTR_A
-		local decodedLen
+		local compressedLen
 		if type(entry) == "number" then
 			srcPtr = entry + PATTERNS_BASE
-			decodedLen = patternLengthBytes
+			compressedLen = patternLengthBytes
 		else
-			decodedLen = b85d(entry, patternLengthBytes, srcPtr)
+			compressedLen = b85d(entry, patternLengthBytes, srcPtr)
 		end
 
 		-- and decompress.
-		lzdm(srcPtr, decodedLen, destPointer)
+		lzdm(srcPtr, compressedLen, destPointer)
 	end
 
 	local function swapInPlayorder(songPosition0b, destPointer)

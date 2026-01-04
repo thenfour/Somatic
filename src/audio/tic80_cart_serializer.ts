@@ -14,9 +14,10 @@ import {LoopMode} from "./backend";
 import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
 import {encodePatternChannelDirect} from "./pattern_encoding";
 import {PreparedSong, prepareSongColumns} from "./prepared_song";
-import {SomaticMemoryLayout, Tic80MemoryMap} from "../../bridge/memory_layout";
+import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../../bridge/memory_layout";
 import {OptimizationRuleOptions, processLua} from "../utils/lua/lua_processor";
 import {MemoryRegion} from "../utils/bitpack/MemoryRegion";
+import {createChunk, encodeSfx, encodeTempo, encodeTrackSpeed, encodeWaveforms, packTrackFrame, packWaveformSamplesToBytes16, removeTrailingZerosFn, stringToAsciiPayload} from "./tic80_serialization";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 // see also: tic.h / sound.c (TIC80_SOURCE)
@@ -27,8 +28,6 @@ const CHUNK = {
    MUSIC_TRACKS: 14,
    MUSIC_PATTERNS: 15,
 } as const;
-
-const SFX_BYTES_PER_SAMPLE = 66;
 
 
 const releaseOptions: OptimizationRuleOptions = {
@@ -67,43 +66,6 @@ const debugOptions: OptimizationRuleOptions = {
    tableEntryKeysToRename: [],
 } as const;
 
-
-//type MorphEffectKind = SomaticEffectKind;
-
-// type Tic80MorphInstrumentConfig = {
-//    waveEngine: SomaticInstrumentWaveEngine; //
-//    waveEngineId: WaveEngineId;
-//    sourceWaveformIndex: number; // 0-15
-//    renderWaveformSlot: number;  // 0-15 also for PWM!
-
-//    pwmDuty5: number;  // 0-31
-//    pwmDepth5: number; // 0-31
-
-//    lowpassEnabled: boolean;
-//    lowpassDurationTicks12: number; // 0-4095
-//    lowpassCurveS6: number;         // signed 6-bit
-//    lowpassModSource: number;       // 0=envelope,1=lfo
-
-//    effectKind: SomaticEffectKind;
-//    effectAmtU8: number;           // 0-255 (wavefold amount or hardSync strength)
-//    effectDurationTicks12: number; // 0-4095
-//    effectCurveS6: number;         // signed 6-bit
-//    effectModSource: number;       // 0=envelope,1=lfo
-
-//    lfoCycleTicks12: number; // 0-4095
-// };
-
-function packWaveformSamplesToBytes16(samples32: ArrayLike<number>): number[] {
-   // TIC-80 packs 2x 4-bit samples per byte.
-   // We store sample 0 in the low nibble, sample 1 in the high nibble.
-   const out: number[] = new Array(16);
-   for (let i = 0; i < 16; i++) {
-      const a = clamp((samples32[i * 2] ?? 0) | 0, 0, 15);
-      const b = clamp((samples32[i * 2 + 1] ?? 0) | 0, 0, 15);
-      out[i] = (a & 0x0f) | ((b & 0x0f) << 4);
-   }
-   return out;
-}
 
 function durationSecondsToTicks10(seconds: number): number {
    const s = Math.max(0, seconds ?? 0);
@@ -219,6 +181,7 @@ function getMorphMap(song: Song): MorphEntryInput[] {
    return entries;
 }
 
+// extract the somatic pattern EXTRA data from the prepared song
 function getSomaticPatternExtraEntries(prepared: PreparedSong): SomaticPatternEntryPacked[] {
    const entries: SomaticPatternEntryPacked[] = [];
 
@@ -283,86 +246,11 @@ function encodePreparedPatternColumns(prepared: PreparedSong): Uint8Array[] {
    });
 }
 
-// function encodeNullPatterns(): Uint8Array {
-//    const patterns = new Uint8Array(Tic80Caps.pattern.count * Tic80Caps.pattern.maxRows * 3);
-//    return patterns;
-// }
-
-// Decode raw byte S from the CHUNK_MUSIC track into "display speed" (1..31)
-export function decodeTrackSpeed(rawSpeedByte: number): number {
-   // rawSpeedByte: 0..255
-   const speed = (rawSpeedByte + 6) % 255;
-   // Spec says valid range is 1..31; clamp just in case
-   return clamp(speed, 1, 31);
-}
-
-// Encode desired display speed (1..31) into raw S byte for CHUNK_MUSIC
-export function encodeTrackSpeed(displaySpeed: number): number {
-   // ensure integer & clamp to legal range
-   let speed = clamp(displaySpeed, 1, 31);
-
-   // Use the canonical mapping consistent with (S + 6) % 255
-   if (speed === 6)
-      return 0; // default speed
-   if (speed >= 7)
-      return speed - 6; // 7..31 -> 1..25
-   // speed in 1..5
-   return speed + 249; // 1..5 -> 250..254
-}
-
-// Tempo: decode is T + 150; we do not track tempo, so default 150 -> store 0
-function encodeTempo(displayTempo: number): number {
-   const tSigned = displayTempo - 150; // -118 .. +105 for 32..255
-   return (tSigned + 256) & 0xFF;      // back to 0..255 byte
-}
-// for completeness
-export function decodeTempo(byte: number): number {
-   // byte is 0..255 from the cart
-   const tSigned = byte >= 128 ? byte - 256 : byte; // convert to -128..127
-   return tSigned + 150;                            // UI tempo
-}
-
-function packTrackFrame(channelPatterns: [number, number, number, number]): [number, number, number] {
-   const patF = channelPatterns[0] & 0x3f;
-   const patS = channelPatterns[1] & 0x3f;
-   const patT = channelPatterns[2] & 0x3f;
-   const patQ = channelPatterns[3] & 0x3f;
-   const packed = patF | (patS << 6) | (patT << 12) | (patQ << 18);
-   const byte0 = packed & 0xff;
-   const byte1 = (packed >> 8) & 0xff;
-   const byte2 = (packed >> 16) & 0xff;
-   return [byte0, byte1, byte2];
-};
 
 function encodeTrack(song: Song): Uint8Array {
-   /*
-    This represents the music track data. This is copied to RAM at 0x13E64...0x13FFB.
-
-    This chunk contains the various music tracks, as composed of 51 bytes where trailing zeros are removed, the structure is as follows
-
-    1-48 	FFFFFFSSSSSSTTTTTTQQQQQQ 	The bytes here are arranged in triplets where
-    F is the number of the pattern on the first channel
-    S is the number of the pattern on the second channel
-    T is the number of the pattern on the third channel
-    Q is the number of the pattern on the fourth channel
-    49 	SSSSSSSS 	S is the speed of the track
-    50 	RRRRRRRR 	R is the number of rows in each pattern
-    51 	TTTTTTTT 	T is the tempo of the track
-
-    Although the individual notes are stored as 6 bits in the editor the maximum number that can be used is 60 (may be possible to insert illegal pattern in music tracks?)
-    To get the correct speed of the track do: (S + 6) % 255
-    To get the correct number of rows of the track do: 64 - R
-    To get the correct tempo of the track do: T + 150.
-
-    - tempo is a signed byte. it's stored as the delta from the default tempo of 150 bpm.
-    so to get the actual tempo, you do: T + 150
-
-   */
-
    // fill tracks with our double-buffering strategy.
    // we will fill all 16 steps, intended to alternate between front and back "buffer"s of pattern data.
    // in order to keep swaps single-op, each pattern "buffer" is 4 patterns long (one per channel).
-
    const buf = new Uint8Array(3 * Tic80Caps.song.maxSongLength + 3); // 48 bytes positions + speed/rows/tempo
    const frontBase = Tic80Caps.pattern.buffers.front.index as number;
    const backBase = Tic80Caps.pattern.buffers.back.index as number;
@@ -378,112 +266,12 @@ function encodeTrack(song: Song): Uint8Array {
       buf[base + 2] = b2;
    }
 
-   // Speed: decode is (S + 6) % 255; clamp to 0..254
-   //const speedByte = (song.speed - 6 + 255) % 255;
-   // peek(81556)
    buf[50] = encodeTrackSpeed(song.speed); //speedByte & 0xff;
 
    // Rows: decode is 64 - R (so encode is the same op)
    // peek(81557)
    buf[49] = 64 - song.rowsPerPattern;
-
-   // peek(81558)
    buf[48] = encodeTempo(song.tempo);
-
-   //return writeChunk(CHUNK.MUSIC_TRACKS, buf);
-   return buf;
-}
-
-function encodeWaveforms(song: Song, count: number): Uint8Array {
-   // refer to https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#waveforms
-   // for a text description of the format.
-
-   // This represents the sound wave-table data. This is copied to RAM at0x0FFE4...0x100E3.
-
-   // This chunk stores the various waveforms used by sound effects. Due to the fact that waveforms heights go from 0 to 15 is is possible to store 2 height in 1 byte, this is why waveforms are 16 bytes but in the editor there are 32 points you can edit.
-   const bytesPerWave = Tic80Caps.waveform.pointCount / 2; // 32 samples, 4 bits each, packed 2 per byte
-   const buf = new Uint8Array(Tic80Caps.waveform.count * bytesPerWave);
-
-   //const usedWaveformCount = getMaxWaveformUsedIndex(song) + 1;
-
-   for (let w = 0; w < count; w++) {
-      const waveform = song.waveforms[w];
-      // serialize 32 samples (4 bits each, packed 2 per byte)
-      for (let i = 0; i < 16; i++) {
-         const sampleA = clamp(waveform.amplitudes[i * 2] ?? 0, 0, 15);
-         const sampleB = clamp(waveform.amplitudes[i * 2 + 1] ?? 0, 0, 15);
-         buf[w * bytesPerWave + i] = (sampleB << 4) | sampleA;
-      }
-   }
-   return buf;
-   //return writeChunk(CHUNK.WAVEFORMS, buf);
-}
-
-function encodeSfx(song: Song, count: number): Uint8Array {
-   const packLoop = (start: number, length: number): number => {
-      const loopStart = clamp(start, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
-      const loopSize = clamp(
-         length,
-         0,
-         Tic80Caps.sfx.envelopeFrameCount - 1); // don't care about logical correctness; just that we don't overflow
-      return (loopSize << 4) | loopStart;
-   };
-
-   const encodeInstrumentSpeed = (speed: number): number => {
-      // speed is an 3-bit value; in the editor it's 0..7
-      // but stored differently:
-      // "The sample speed bytes should added to 4 and then you should preform the modulus operation with 8 on it ((S + 4) % 8)"
-      // so effectively minus 4 with wrapping.
-      let val = speed - 4;
-      if (val < 0) {
-         val += 8;
-      }
-      return val & 0x07;
-   };
-
-   const encodeInstrument = (inst: Tic80Instrument): Uint8Array => {
-      const out = new Uint8Array(SFX_BYTES_PER_SAMPLE);
-
-      for (let tick = 0; tick < Tic80Caps.sfx.envelopeFrameCount; tick++) {
-         const vol = Tic80Caps.sfx.volumeMax - clamp(inst.volumeFrames[tick], 0, Tic80Caps.sfx.volumeMax);
-         const wave = clamp(inst.waveFrames[tick], 0, 15);
-         const chord = clamp(inst.arpeggioFrames[tick], 0, 15);
-         const pitch = clamp(
-            inst.pitchFrames[tick] + Tic80Caps.sfx.pitchMin,
-            Tic80Caps.sfx.pitchMin,
-            Tic80Caps.sfx.pitchMax); // incoming is 0-15; map to -8..+7
-
-         out[tick * 2 + 0] = ((wave & 0x0f) << 4) | (vol & 0x0f);
-         out[tick * 2 + 1] = ((pitch & 0x0f) << 4) | (chord & 0x0f);
-      }
-
-      const reverse = inst.arpeggioDown ? 1 : 0;
-      const speedBits = encodeInstrumentSpeed(inst.speed);
-      const octave = clamp(inst.octave ?? 0, 0, 7);
-      const pitch16x = inst.pitch16x ? 1 : 0;
-      out[60] = (octave & 0x07) | (pitch16x << 3) | (speedBits << 4) | (reverse ? 0x80 : 0);
-
-      const baseNote = clamp(inst.baseNote ?? 0, 0, 11);
-      const stereoLeft = inst.stereoLeft ? 0 : 1;
-      const stereoRight = inst.stereoRight ? 0 : 1;
-      out[61] = (baseNote & 0x0f) | (stereoLeft << 4) | (stereoRight << 5);
-
-      out[62] = packLoop(inst.waveLoopStart, inst.waveLoopLength);
-      out[63] = packLoop(inst.volumeLoopStart, inst.volumeLoopLength);
-      out[64] = packLoop(inst.arpeggioLoopStart, inst.arpeggioLoopLength);
-      out[65] = packLoop(inst.pitchLoopStart, inst.pitchLoopLength);
-
-      return out;
-   };
-
-   // 66 bytes per SFX (up to 64 entries in RAM). We only fill instruments (1..INSTRUMENT_COUNT).
-   //const sfxCount = getMaxSfxUsedIndex(song);
-   const buf = new Uint8Array(count * SFX_BYTES_PER_SAMPLE);
-
-   for (let i = 1; i < count; i++) {
-      const encoded = encodeInstrument(song.instruments?.[i]);
-      buf.set(encoded, i * SFX_BYTES_PER_SAMPLE);
-   }
 
    return buf;
 }
@@ -563,7 +351,6 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
    return {
       bakedSong,
       preparedSong,
-      //requireSongLoop: bakedSong.wantSongLoop,
       optimizeResult: {
          ...MakeOptimizeResultEmpty(bakedSong.bakedSong),
          usedPatternColumnCount: preparedSong.patternColumns.length,
@@ -628,41 +415,6 @@ function ch_serializePatterns(patterns: Uint8Array[]): Uint8Array {
    return output;
 }
 
-function removeTrailingZerosFn(data: Uint8Array): Uint8Array {
-   if (data.length === 0) {
-      return data;
-   }
-   let endIndex = data.length;
-   while (endIndex > 0 && data[endIndex - 1] === 0) {
-      endIndex--;
-   }
-   // ensure at least 1 byte remains; i don't know what happens if we send a zero-length chunk.
-   return data.slice(0, Math.max(1, endIndex));
-}
-
-function createChunk(type: number, payload: Uint8Array, removeTrailingZeros: boolean, bank = 0): Uint8Array {
-   // most chunks can have trailing zeros removed to save space.
-   if (removeTrailingZeros) {
-      payload = removeTrailingZerosFn(payload);
-   }
-
-   const chunk = new Uint8Array(4 + payload.length);
-   chunk[0] = ((bank & 0x07) << 5) | (type & 0x1f);
-   chunk[1] = payload.length & 0xff;
-   chunk[2] = (payload.length >> 8) & 0xff;
-   chunk[3] = 0; // reserved
-   chunk.set(payload, 4);
-   return chunk;
-};
-
-function stringToAsciiPayload(str: string): Uint8Array {
-   const codeBytes = new Uint8Array(str.length);
-   for (let i = 0; i < str.length; i++) {
-      codeBytes[i] = str.charCodeAt(i) & 0x7F; // ensure ASCII
-   }
-   return codeBytes;
-};
-
 function stripUnusedFeatureBlocks(template: string, usage: PlaybackFeatureUsage): string {
    const featureTags: Record<keyof PlaybackFeatureUsage, string> = {
       waveMorph: "FEATURE_WAVEMORPH",
@@ -726,44 +478,67 @@ interface PatternMemoryPlan {
    patternCodeEntries: string[]; // Lua code entries for each pattern column
 }
 
-export function planPatternMemorySerialization(prepared: PreparedSong): PatternMemoryPlan{
-   // const capacity = Math.max(0, minAddress - Tic80MemoryMap.MusicPatterns.address);
-   // const patternMemoryCapacity = Math.max(0, minAddress - Tic80MemoryMap.MusicPatterns.address);
-   // const patternRamBuffer = new Uint8Array(patternMemoryCapacity);
-   // let patternRamCursor = 0; // relative to pattern memory start
+export function planPatternMemorySerialization(prepared: PreparedSong): PatternMemoryPlan {
+   const patternChunks: Uint8Array[] = [];
+   const compressedPatterns: Uint8Array[] = [];
+   const compressedPatternsInRam: {payload: Uint8Array; memoryRegion: MemoryRegion;}[] = [];
+   const patternLengths: number[] = [];
+   const patternCodeEntries: string[] = [];
 
+   const capacityRegion = GetMemoryRegionForCompressedPatternData();
+   const patternRamBuffer = new Uint8Array(capacityRegion.size);
+   let patternRamCursor = 0; // relative to PATTERNS_BASE
 
+   for (let columnIndex0b = 0; columnIndex0b < prepared.patternColumns.length; columnIndex0b++) {
+      const col = prepared.patternColumns[columnIndex0b];
+      const encodedPattern = encodePatternChannelDirect(col.channel);
+      patternChunks.push(encodedPattern);
 
-   // const patternChunks: Uint8Array[] = [];
-   // const patternLengths: number[] = []; // size of the base85-decoded (still compressed) pattern data
+      assert(encodedPattern.length === Tic80Constants.BYTES_PER_MUSIC_PATTERN);
 
-   // const patternMemoryCapacity = Math.max(0, Tic80Caps.pattern.memory.limit - Tic80Caps.pattern.memory.start);
-   // const patternRamBuffer = new Uint8Array(patternMemoryCapacity);
-   // let patternRamCursor = 0; // relative to pattern memory start
+      const compressed = lzCompress(encodedPattern, gSomaticLZDefaultConfig);
+      compressedPatterns.push(compressed);
+      patternLengths.push(compressed.length);
 
-   // const patternEntries = preparedSong.patternColumns.map((col) => {
-   //    const encodedPattern = encodePatternChannelDirect(col.channel);
-   //    patternChunks.push(encodedPattern);
+      const fitsInPatternRam = (patternRamCursor + compressed.length) <= patternRamBuffer.length;
+      if (fitsInPatternRam) {
+         patternRamBuffer.set(compressed, patternRamCursor);
 
-   //    const compressed = lzCompress(encodedPattern, gSomaticLZDefaultConfig);
-   //    patternLengths.push(compressed.length);
+         const offset = patternRamCursor;
+         const absAddr = (capacityRegion.address + offset);
+         compressedPatternsInRam.push({
+            payload: compressed,
+            memoryRegion: new MemoryRegion({
+               name: `PatternCol${columnIndex0b} (${compressed.length} bytes)`,
+               address: absAddr,
+               size: compressed.length,
+            })
+         });
 
-   //    const fitsInPatternRam = (patternRamCursor + compressed.length) <= patternMemoryCapacity;
-   //    if (fitsInPatternRam) {
-   //       patternRamBuffer.set(compressed, patternRamCursor);
-   //       const absAddr = /*Tic80Caps.pattern.memory.start + */ patternRamCursor;
-   //       patternRamCursor += compressed.length;
-   //       //return `0x${absAddr.toString(16)}`; // numeric Lua literal for memory-backed column
-   //       return `${absAddr.toString()}`; // numeric Lua literal for memory-backed column
-   //    }
+         patternRamCursor += compressed.length;
+         // Lua expects an offset relative to PATTERNS_BASE.
+         patternCodeEntries.push(`${offset}`);
+      } else {
+         // Spill to base85 string when RAM is full.
+         const patternStr = base85Encode(compressed);
+         patternCodeEntries.push(toLuaStringLiteral(patternStr));
+      }
+   }
 
-   //    // Spill to base85 string when RAM is full.
-   //    const patternStr = base85Encode(compressed);
-   //    return toLuaStringLiteral(patternStr);
-   // });
+   let patternRamData = patternRamBuffer.subarray(0, patternRamCursor);
+   // Avoid producing a zero-length chunk when we have capacity but nothing fit.
+   if (patternRamData.length === 0 && patternRamBuffer.length > 0) {
+      patternRamData = new Uint8Array(1);
+   }
 
-   // const patternRamData = patternRamBuffer.subarray(0, patternRamCursor);
-   // const patternArray = patternEntries.join(",");
+   return {
+      patternChunks,
+      compressedPatterns,
+      compressedPatternsInRam,
+      patternRamData,
+      patternLengths,
+      patternCodeEntries,
+   };
 };
 
 
@@ -787,39 +562,6 @@ function getCode(
       preparedSong.songOrder.map((entry) => `{${entry.patternColumnIndices.map((v) => v.toString()).join(",")}}`)
          .join(",");
    const extraSongDataLua = makeExtraSongDataLua(song, preparedSong);
-
-   //const patternSerializationPlan = planPatternMemorySerialization(preparedSong);
-
-   // const patternChunks: Uint8Array[] = [];
-   // const patternLengths: number[] = []; // size of the base85-decoded (still compressed) pattern data
-
-   // const patternMemoryCapacity = Math.max(0, Tic80Caps.pattern.memory.limit - Tic80Caps.pattern.memory.start);
-   // const patternRamBuffer = new Uint8Array(patternMemoryCapacity);
-   // let patternRamCursor = 0; // relative to pattern memory start
-
-   // const patternEntries = preparedSong.patternColumns.map((col) => {
-   //    const encodedPattern = encodePatternChannelDirect(col.channel);
-   //    patternChunks.push(encodedPattern);
-
-   //    const compressed = lzCompress(encodedPattern, gSomaticLZDefaultConfig);
-   //    patternLengths.push(compressed.length);
-
-   //    const fitsInPatternRam = (patternRamCursor + compressed.length) <= patternMemoryCapacity;
-   //    if (fitsInPatternRam) {
-   //       patternRamBuffer.set(compressed, patternRamCursor);
-   //       const absAddr = /*Tic80Caps.pattern.memory.start + */ patternRamCursor;
-   //       patternRamCursor += compressed.length;
-   //       //return `0x${absAddr.toString(16)}`; // numeric Lua literal for memory-backed column
-   //       return `${absAddr.toString()}`; // numeric Lua literal for memory-backed column
-   //    }
-
-   //    // Spill to base85 string when RAM is full.
-   //    const patternStr = base85Encode(compressed);
-   //    return toLuaStringLiteral(patternStr);
-   // });
-
-   // const patternRamData = patternRamBuffer.subarray(0, patternRamCursor);
-   // const patternArray = patternEntries.join(",");
 
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
 local SOMATIC_MUSIC_DATA = {
@@ -1049,41 +791,23 @@ export function serializeSongToCartDetailed(
 
    const elapsedMillis = performance.now() - startTime;
 
-   // Create memory regions for accurate memory layout tracking
-   //const usedWaveformCount = optimizeResult.usedWaveformCount;
-   //const usedSfxCount = optimizeResult.usedSfxCount;
-   //const patternPayloadSize = patternChunkPayload.length;
-
    const memoryRegions = {
       waveforms: waveformMemoryRegion,
       sfx: sfxMemoryRegion,
-      patterns: patternSerializationPlan.compressedPatternsInRam.map(x => x.memoryRegion),
+      patterns: [new MemoryRegion({
+         name: `Compressed Patterns`,
+         address: Tic80MemoryMap.MusicPatterns.address,
+         size: patternSerializationPlan.patternRamData.length,
+      })],
       patternsRuntime: reservedRegionsInPatternMem,
-      bridgeMap: [],
-
-      // patterns: new MemoryRegion("MusicPatterns", Tic80MemoryMap.MusicPatterns.address, patternPayloadSize),
-      // patternBuffers: [
-      //    new MemoryRegion(
-      //       "Pattern Buffer A", SomaticMemoryLayout.patternBufferA.address, SomaticMemoryLayout.patternBufferA.size),
-      //    new MemoryRegion(
-      //       "Pattern Buffer B", SomaticMemoryLayout.patternBufferB.address, SomaticMemoryLayout.patternBufferB.size),
-      //    new MemoryRegion(
-      //       "Temp Buffer A", SomaticMemoryLayout.tempBufferA.address, SomaticMemoryLayout.tempBufferA.size),
-      //    new MemoryRegion(
-      //       "Temp Buffer B", SomaticMemoryLayout.tempBufferB.address, SomaticMemoryLayout.tempBufferB.size),
-      // ],
-      // bridgeRegions: [
-      //    new MemoryRegion("Marker", SomaticMemoryLayout.marker.address, SomaticMemoryLayout.marker.size),
-      //    new MemoryRegion("Registers", SomaticMemoryLayout.registers.address, SomaticMemoryLayout.registers.size),
-      //    new MemoryRegion("Inbox", SomaticMemoryLayout.inbox.address, SomaticMemoryLayout.inbox.size),
-      //    new MemoryRegion(
-      //       "Outbox Header", SomaticMemoryLayout.outboxHeader.address, SomaticMemoryLayout.outboxHeader.size),
-      //    new MemoryRegion("Outbox Log", SomaticMemoryLayout.outboxLog.address, SomaticMemoryLayout.outboxLog.size),
-      //    new MemoryRegion(
-      //       "Somatic SFX Config",
-      //       SomaticMemoryLayout.somaticSfxConfig.address,
-      //       SomaticMemoryLayout.somaticSfxConfig.size),
-      // ],
+      bridgeMap: [
+         SomaticMemoryLayout.somaticSfxConfig,
+         SomaticMemoryLayout.marker,
+         SomaticMemoryLayout.registers,
+         SomaticMemoryLayout.inbox,
+         SomaticMemoryLayout.outboxHeader,
+         SomaticMemoryLayout.outboxLog,
+      ],
    };
 
    return {

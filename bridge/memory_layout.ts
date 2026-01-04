@@ -26,13 +26,13 @@ export const Tic80MemoryMap = {
    Reserved: new MemoryRegion({name: "Reserved", address: 0x14E36, size: 0x3204}),
 };
 
-const Tic80Constants = {
+export const Tic80Constants = {
    // Q: is it ALWAYS 192? (even when rows per pattern is fewer than 64?)
    BYTES_PER_MUSIC_PATTERN: 192,
    BYTES_PER_SFX: 66,
    BYTES_PER_WAVEFORM: 16,
    MUSIC_CHANNELS: 4,
-};
+} as const;
 
 // tic80 helpers
 export function RegionForMusicPattern(patternIndex: number) {
@@ -50,16 +50,9 @@ export function RegionForWaveform(waveformIndex: number) {
 
 // Somatic Requirements
 
-// Temp buffers for decompression/decoding operations
-// We need 2 buffers to support operations like:
-// - Buffer A: decompress base85 -> compressed data
-// - Buffer B: decompress LZ -> final data
-const TEMP_BUFFER_SIZE = 0x400; // 1KB per buffer (needed for SFX config decompression - up to 32 instruments)
-const TEMP_BUFFER_COUNT = 2;
-
 // Pattern playback buffers
 const PATTERN_BUFFER_SIZE = Tic80Constants.BYTES_PER_MUSIC_PATTERN * Tic80Constants.MUSIC_CHANNELS; // 768 bytes
-const PATTERN_BUFFER_COUNT = 2; // Front and back buffers
+//const PATTERN_BUFFER_COUNT = 2; // Front and back buffers
 
 const LOG_BUFFER_SIZE = 240; // Log buffer for cart→host messages
 
@@ -68,27 +61,62 @@ const LOG_BUFFER_SIZE = 240; // Log buffer for cart→host messages
 // Round up to 1KB for safety and future expansion
 const SOMATIC_SFX_CONFIG_SIZE = 0x400; // 1KB
 
-/////////////////////////////////////////////////////////////////////////////////
 const patternMem = Tic80MemoryMap.MusicPatterns;
 
+// Temp buffers for decompression/decoding operations
+// We need 2 buffers to support operations like:
+// - Buffer A: decompress base85 -> compressed data
+// - Buffer B: decompress LZ -> final data
+const TEMP_BUFFER_SIZE = 0x400; // 1KB per buffer (needed for SFX config decompression - up to 32 instruments)
+//const TEMP_BUFFER_COUNT = 2;
 
-const patternBufferAAddr = 0x13324; // Pattern 45 (hard-coded to match original)
-const patternBufferBAddr = 0x13624; // Pattern 49 (hard-coded to match original)
-const tempBufferAAddr = 0x13A64;    // Hard-coded to match original
-const tempBufferBAddr = 0x13C64;    // Hard-coded to match original
+const tempBufferB = patternMem.getTopAlignedCellFromTop(TEMP_BUFFER_SIZE, 0).withName("TempBufferB");
+const tempBufferA = patternMem.getTopAlignedCellFromTop(TEMP_BUFFER_SIZE, 1).withName("TempBufferA");
+// pattern playback buffers are the last whole PATTERN_BUFFER_SIZE-sized, pattern-aligned regions before the temp buffers
+const maxPossiblePatternBufferAddr = Math.min(tempBufferA.address, tempBufferB.address) - PATTERN_BUFFER_SIZE;
+
+const patternBufferB =
+   patternMem.getCellBeforeAddress(Tic80Constants.BYTES_PER_MUSIC_PATTERN, maxPossiblePatternBufferAddr)
+      .withSize(PATTERN_BUFFER_SIZE)
+      .withName("PatternBufferA");
+
+const patternBufferA =
+   patternMem
+      .getCellBeforeAddress(
+         Tic80Constants.BYTES_PER_MUSIC_PATTERN,
+         maxPossiblePatternBufferAddr,
+         -Tic80Constants
+             .MUSIC_CHANNELS // because each pattern buffer is 4 patterns (one per channel) and we are walking in cells of 1 pattern
+         )
+      .withSize(PATTERN_BUFFER_SIZE)
+      .withName("PatternBufferB");
+
+const reservedPatternMemRuntimeRegions = [patternBufferA, patternBufferB, tempBufferA, tempBufferB];
+const firstPatternMemReservedAddress = reservedPatternMemRuntimeRegions.reduce(
+   (minAddr, region) => Math.min(minAddr, region.address), Number.MAX_SAFE_INTEGER);
+
+const compressedPatternsRegion = patternMem.getRegionFromBottomUntilExclusiveAddress(firstPatternMemReservedAddress);
+
+// const patternBufferAAddr = 0x13324; // Pattern 45 (hard-coded to match original)
+// const patternBufferBAddr = 0x13624; // Pattern 49 (hard-coded to match original)
+// const tempBufferAAddr = 0x13A64;    // Hard-coded to match original
+// const tempBufferBAddr = 0x13C64;    // Hard-coded to match original
 
 // Create regions based on these hard-coded addresses
-const patternBufferA =
-   new MemoryRegion({name: "PatternBufferA", address: patternBufferAAddr, size: PATTERN_BUFFER_SIZE});
-const patternBufferB =
-   new MemoryRegion({name: "PatternBufferB", address: patternBufferBAddr, size: PATTERN_BUFFER_SIZE});
-const tempBufferA = new MemoryRegion({name: "TempBufferA", address: tempBufferAAddr, size: TEMP_BUFFER_SIZE});
-const tempBufferB = new MemoryRegion({name: "TempBufferB", address: tempBufferBAddr, size: TEMP_BUFFER_SIZE});
+// const patternBufferA =
+//    new MemoryRegion({name: "PatternBufferA", address: patternBufferAAddr, size: PATTERN_BUFFER_SIZE});
+// const patternBufferB =
+//    new MemoryRegion({name: "PatternBufferB", address: patternBufferBAddr, size: PATTERN_BUFFER_SIZE});
+// const tempBufferA = new MemoryRegion({name: "TempBufferA", address: tempBufferAAddr, size: TEMP_BUFFER_SIZE});
+// const tempBufferB = new MemoryRegion({name: "TempBufferB", address: tempBufferBAddr, size: TEMP_BUFFER_SIZE});
 
 // Available space for compressed patterns (everything before pattern buffer A)
-const compressedPatternsRegion = new MemoryRegion(
-   {name: "CompressedPatterns", address: patternMem.address, size: patternBufferAAddr - patternMem.address});
+// const compressedPatternsRegion = new MemoryRegion(
+//    {name: "CompressedPatterns", address: patternMem.address, size: patternBufferAAddr - patternMem.address});
+
+
 // Calculate which TIC-80 pattern indices these buffers correspond to
+// 1+ because TIC-80 pattern indices are 1-based (0 = no pattern)
 const patternBufferAIndex =
    1 + Math.floor((patternBufferA.address - patternMem.address) / Tic80Constants.BYTES_PER_MUSIC_PATTERN);
 const patternBufferBIndex =
@@ -131,7 +159,7 @@ const MARKER_SIZE = 32;
 const markerRegion = new MemoryRegion({name: "Marker", address: currentTop - MARKER_SIZE, size: MARKER_SIZE});
 currentTop = markerRegion.address;
 
-// SFX config (1KB for instrument morph configurations)
+// SFX config (krate stuff) (1KB for instrument morph configurations)
 const somaticSfxConfigRegion = new MemoryRegion(
    {name: "SomaticSfxConfig", address: currentTop - SOMATIC_SFX_CONFIG_SIZE, size: SOMATIC_SFX_CONFIG_SIZE});
 
@@ -175,22 +203,3 @@ export const SomaticMemoryLayout = {
       SOMATIC_SFX_CONFIG_SIZE,
    },
 };
-
-export function printMemoryLayout(): string {
-   const lines: string[] = [];
-   lines.push("Pattern Memory:");
-   lines.push(`  Compressed Patterns: ${compressedPatternsRegion.toString()}`);
-   lines.push(`  Pattern Buffer A:    ${patternBufferA.toString()} (TIC-80 pattern #${patternBufferAIndex})`);
-   lines.push(`  Pattern Buffer B:    ${patternBufferB.toString()} (TIC-80 pattern #${patternBufferBIndex})`);
-   lines.push(`  Temp Buffer A:       ${tempBufferA.toString()}`);
-   lines.push(`  Temp Buffer B:       ${tempBufferB.toString()}`);
-   lines.push("");
-   lines.push("Map Memory (Bridge State):");
-   lines.push(`  SFX Config:          ${somaticSfxConfigRegion.toString()}`);
-   lines.push(`  Marker:              ${markerRegion.toString()}`);
-   lines.push(`  Registers:           ${registersRegion.toString()}`);
-   lines.push(`  Inbox:               ${inboxRegion.toString()}`);
-   lines.push(`  Outbox Header:       ${outboxHeaderRegion.toString()}`);
-   lines.push(`  Outbox Log:          ${outboxLogRegion.toString()}`);
-   return lines.join("\n");
-}

@@ -1296,7 +1296,7 @@ tf_music_reset_state = function()
 	loopSongForever = false
 	ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
 	pattern_extra_cache = {}
-	log("tf_music_reset_state: Music state reset.")
+	log("reset_state: Music state reset.")
 	ch_set_playroutine_regs(0xFF)
 end
 
@@ -1313,7 +1313,7 @@ tf_music_init = function(songPosition, startRow)
 	lastPlayingFrame = -1 -- this means tick() will immediately seed the back buffer.
 	stopPlayingOnNextFrame = false
 
-	log("tf_music_init: Starting playback from position " .. tostring(songPosition) .. " row " .. tostring(startRow))
+	log("music_init: Starting playback from position " .. tostring(songPosition) .. " row " .. tostring(startRow))
 
 	swapInPlayorder(currentSongOrder, bufferALocation)
 
@@ -1340,10 +1340,10 @@ function tf_music_tick()
 	end
 
 	-- log current & last playing frame
-	log("tf_music_tick: currentFrame=" .. tostring(currentFrame) .. " lastPlayingFrame=" .. tostring(lastPlayingFrame))
+	log("tick: currentFrame=" .. tostring(currentFrame) .. " lastPlayingFrame=" .. tostring(lastPlayingFrame))
 
 	if stopPlayingOnNextFrame then
-		log("tf_music_tick: Stopping playback; next music frame reached.")
+		log("tick: Stopping playback; next music frame reached.")
 		-- log the current & last playing frame
 		music() -- stops playback.
 		tf_music_reset_state()
@@ -1358,7 +1358,7 @@ function tf_music_tick()
 	local destPointer = getBufferPointer()
 	local orderCount = getSongOrderCount()
 
-	log("tf_music_tick: Advancing to song order " .. tostring(currentSongOrder))
+	log("tick: Advancing to song order " .. tostring(currentSongOrder))
 	log("             : Song order count is " .. tostring(orderCount))
 
 	if orderCount == 0 then
@@ -1369,7 +1369,7 @@ function tf_music_tick()
 
 	if currentSongOrder >= orderCount then
 		if loopSongForever then
-			log("tf_music_tick: Looping back to start of order list.")
+			log("tick: Looping back to start of order list.")
 			currentSongOrder = 0
 		else
 			clearPatternBuffer(destPointer)

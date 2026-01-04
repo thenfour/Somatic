@@ -139,7 +139,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
         //result.push({ name: 'Code (whole playroutine)', size: input.cartridge.wholePlayroutineCode.length, color: 'var(--tic-2)' });
         result.push({ name: 'Waveforms', size: input.cartridge.waveformChunk.length, color: 'var(--tic-3)' });
         result.push({ name: 'SFX', size: input.cartridge.sfxChunk.length, color: 'var(--tic-4)' });
-        result.push({ name: 'Patterns', size: input.cartridge.patternChunk.length, color: 'var(--tic-5)' });
+        result.push({ name: 'Patterns', size: input.cartridge.patternSerializationPlan.patternRamData.length, color: 'var(--tic-5)' });
         result.push({ name: 'Tracks', size: input.cartridge.trackChunk.length, color: 'var(--tic-6)' });
 
         let rawBytes = 0;
@@ -147,7 +147,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
         let luaStringBytes = 0;
         let status = "ok";
         try {
-            for (const patternData of input.cartridge.realPatternChunks) {
+            for (const patternData of input.cartridge.patternSerializationPlan.patternChunks) {
                 const patternCompressed = lzCompress(patternData, {
                     minMatchLength,
                     maxMatchLength,
@@ -218,9 +218,9 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
         return mapRegion;
     }, []);
 
-    const patternRoot = useMemo(() => {
-        const patternRegion = new MemoryRegion(Tic80MemoryMap.MusicPatterns);
-        return patternRegion;
+    const musicPatternsRoot = useMemo(() => {
+        const patternsRegion = new MemoryRegion(Tic80MemoryMap.MusicPatterns);
+        return patternsRegion;
     }, []);
 
     const body = !input ? (
@@ -356,15 +356,36 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                                             </div>
                                             <div style={{ marginBottom: 16 }}>
                                                 <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Map (Bridge Runtime)</div>
-                                                <MemoryMapVis root={mapRoot} regions={[]} />
+                                                <MemoryMapVis root={mapRoot} regions={input.cartridge.memoryRegions.bridgeMap} />
                                             </div>
                                             <div style={{ marginBottom: 16 }}>
                                                 <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Music Patterns (Cartridge)</div>
-                                                <MemoryMapVis root={patternRoot} regions={[]} />
+                                                <MemoryMapVis root={musicPatternsRoot} regions={input.cartridge.memoryRegions.patterns} />
                                             </div>
                                             <div style={{ marginBottom: 16 }}>
                                                 <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Music Patterns (Runtime)</div>
-                                                <MemoryMapVis root={patternRoot} regions={[]} />
+                                                <MemoryMapVis root={musicPatternsRoot} regions={[...input.cartridge.memoryRegions.patterns, ...input.cartridge.memoryRegions.patternsRuntime]} />
+                                            </div>
+                                            <div style={{ marginBottom: 16 }}>
+                                                <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Music Patterns (compound)</div>
+                                                <MemoryMapVis root={new MemoryRegion({
+                                                    name: 'Music Patterns (compound)',
+                                                    address: 0,
+                                                    size: input.cartridge.patternSerializationPlan.patternRamData.length +
+                                                        input.cartridge.patternSerializationPlan.patternCodeEntries.reduce((sum, entry) => sum + entry.length, 0)
+                                                })} regions={
+                                                    [
+                                                        new MemoryRegion({
+                                                            name: 'Pattern RAM Data',
+                                                            address: 0,
+                                                            size: input.cartridge.patternSerializationPlan.patternRamData.length,
+                                                        }),
+                                                        new MemoryRegion({
+                                                            name: 'Pattern Code',
+                                                            address: input.cartridge.patternSerializationPlan.patternRamData.length,
+                                                            size: input.cartridge.patternSerializationPlan.patternCodeEntries.reduce((sum, entry) => sum + entry.length, 0),
+                                                        }),
+                                                    ]} />
                                             </div>
                                         </>
                                     );

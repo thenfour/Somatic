@@ -15,10 +15,27 @@ export class MemoryRegion {
    hashKey?: string;
    type?: "used"|"free";
 
-   constructor(data: MemoryRegionDto) {
+   constructor(data: MemoryRegionDto);
+   constructor(name: string, address: number, size: number, extras?: Pick<MemoryRegionDto, "hashKey"|"type">);
+   constructor(
+      dataOrName: MemoryRegionDto|string,
+      address?: number,
+      size?: number,
+      extras?: Pick<MemoryRegionDto, "hashKey"|"type">,
+   ) {
+      const data: MemoryRegionDto =
+         typeof dataOrName === "string" ? {name: dataOrName, address: address!, size: size!, ...extras} : dataOrName;
+
+      if (!Number.isFinite(data.address)) {
+         throw new Error(`MemoryRegion ${data.name} address must be a number (${data.address})`);
+      }
+      if (!Number.isFinite(data.size)) {
+         throw new Error(`MemoryRegion ${data.name} size must be a number (${data.size})`);
+      }
       if (data.size < 0) {
          throw new Error(`MemoryRegion ${data.name} cannot have negative size (${data.size})`);
       }
+
       this.name = data.name;
       this.address = data.address;
       this.size = data.size;
@@ -40,8 +57,26 @@ export class MemoryRegion {
    getName() {
       return this.name;
    }
+   withName(newName: string) {
+      return new MemoryRegion({
+         name: newName,         //
+         address: this.address, //
+         size: this.size,
+         type: this.type
+      });
+   }
    getSize() {
       return this.size;
+   }
+   withSize(newSize: number) {
+      if (newSize < 0)
+         throw new Error(`MemoryRegion ${this.name} cannot have negative size (${newSize})`);
+      return new MemoryRegion({
+         name: this.name,       //
+         address: this.address, //
+         size: newSize,
+         type: this.type
+      });
    }
    withSizeDelta(delta: number) {
       const newSize = this.size + delta;
@@ -73,6 +108,63 @@ export class MemoryRegion {
       }
       return ret;
    }
+
+   // note: cells are indexed from the top (end) of the region, therefore they are
+   // *aligned* to the end of the region.
+   getTopAlignedCellFromTop(cellSize: number, cellIndex: number) {
+      const cellAddr = this.endAddress() - cellSize * (cellIndex + 1);
+      const ret = new MemoryRegion(
+         {name: `${this.name}_cellTop${cellIndex}`, address: cellAddr, size: cellSize, type: this.type});
+      if (!this.containsRegion(ret)) {
+         throw new Error(`MemoryRegion ${this.name} cannot provide top cell index ${cellIndex} (out of range)`);
+      }
+      return ret;
+   }
+
+   // given a cell size (think pattern size),
+   // and an arbitrary address (assumed to be in this region),
+   // return the highest-addressed cell that ends before the given address.
+   // beforeAddress is exclusive and will not be included in the returned cell.
+   // note that cells are aligned from the bottom (start) of the region.
+   getCellBeforeAddress(cellSize: number, beforeAddress: number, cellIndex?: number) {
+      if (!Number.isFinite(cellSize) || cellSize <= 0) {
+         throw new Error(`cellSize must be > 0 (got ${cellSize})`);
+      }
+
+      const relativeAddr = beforeAddress - this.address;
+
+      // If beforeAddress is at or before the region start, there can't be any full cell ending before it.
+      if (relativeAddr <= 0) {
+         throw new Error(
+            `MemoryRegion ${this.name} cannot provide cell before address 0x${beforeAddress.toString(16)} ` +
+            `(before start of region 0x${this.address.toString(16)})`);
+      }
+
+      // Highest cell whose end (exclusive) is <= beforeAddress.
+      // end(i) = (i + 1) * cellSize <= relativeAddr  =>  i <= (relativeAddr / cellSize) - 1
+      let finalCellIndex = Math.floor(relativeAddr / cellSize) - 1;
+      finalCellIndex += cellIndex ?? 0;
+
+      if (finalCellIndex < 0) {
+         throw new Error(
+            `MemoryRegion ${this.name} cannot provide cell before address 0x${beforeAddress.toString(16)} ` +
+            `(no complete cell ends before it for cellSize=${cellSize})`);
+      }
+
+      return this.getCell(cellSize, finalCellIndex);
+   }
+
+   getRegionFromBottomUntilExclusiveAddress(exclusiveAddress: number) {
+      if (exclusiveAddress <= this.address || exclusiveAddress > this.endAddress()) {
+         throw new Error(
+            `MemoryRegion ${this.name} cannot provide region until address 0x${exclusiveAddress.toString(16)} ` +
+            `(out of range)`);
+      }
+      const newSize = exclusiveAddress - this.address;
+      return new MemoryRegion(
+         {name: `${this.name}_to_0x${exclusiveAddress.toString(16)}`, address: this.address, size: newSize});
+   }
+
    // Allocate a region from the top (end) of this region, moving downward
    allocFromTop(size: number, name?: string): MemoryRegion {
       const newAddr = this.endAddress() - size;

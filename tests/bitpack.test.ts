@@ -19,6 +19,62 @@ function decodeFromBytes<T>(codec: Codec<T>, bytes: Uint8Array): T {
    return codec.decode(r);
 }
 
+// memory region basic tests
+describe("MemoryRegion", () => {
+   it("creates regions and computes addresses correctly", () => {
+      const region = new MemoryRegion({name: "TestRegion", address: 0x1000, size: 0x200});
+      assert.equal(region.address, 0x1000);
+      assert.equal(region.size, 0x200);
+      assert.equal(region.endAddress(), 0x1200);
+   });
+
+   it("checks address containment correctly", () => {
+      const region = new MemoryRegion({name: "TestRegion", address: 0x1000, size: 0x200});
+      assert.equal(region.containsAddress(0x0FFF), false);
+      assert.equal(region.containsAddress(0x1000), true);
+      assert.equal(region.containsAddress(0x11FF), true);
+      assert.equal(region.containsAddress(0x1200), false);
+   });
+   it("checks region containment correctly", () => {
+      const region = new MemoryRegion({name: "TestRegion", address: 0x1000, size: 0x200});
+      const inside = new MemoryRegion({name: "Inside", address: 0x1100, size: 0x50});
+      const outside = new MemoryRegion({name: "Outside", address: 0x0F00, size: 0x200});
+      assert.equal(region.containsRegion(inside), true);
+      assert.equal(region.containsRegion(outside), false);
+   });
+   it("gets cells correctly", () => {
+      const region = new MemoryRegion({name: "TestRegion", address: 0x1000, size: 0x200});
+      const cell = region.getCell(0x40, 2);
+      assert.equal(cell.address, 0x1000 + 0x40 * 2);
+      assert.equal(cell.size, 0x40);
+   });
+   it("gets top cells correctly", () => {
+      const region = new MemoryRegion(
+         {name: "TestRegion", address: 100, size: 50}); // last byte is 149. so a cell of 3 has bytes [147,148,149]
+      const cell = region.getTopAlignedCellFromTop(3, 0);
+      assert.equal(cell.address, 147);
+      assert.equal(cell.size, 3);
+      const cell1 = region.getTopAlignedCellFromTop(3, 1); // next cell of 3 has bytes [144,145,146]
+      assert.equal(cell1.address, 144);
+      assert.equal(cell1.size, 3);
+   });
+   it("gets cells before address correctly", () => {
+      const region = new MemoryRegion({name: "TestRegion", address: 100, size: 100}); // last byte is 199
+      // let's say you reserved 2 bytes at the top [198, 199], and you want the cell of size 30 before that.
+      // cells are aligned from the bottom of the region, so available cells are:
+      // [100..129], [130..159], [160..189].
+      const cell = region.getCellBeforeAddress(30, 198);
+      assert.equal(cell.address, 160);
+      assert.equal(cell.size, 30);
+      const cell1 = region.getCellBeforeAddress(30, 160); // 160 should be exclusive.
+      assert.equal(cell1.address, 130);
+      assert.equal(cell1.size, 30);
+      const cell2 = region.getCellBeforeAddress(30, 160, -1); // next cell down
+      assert.equal(cell2.address, 100);
+      assert.equal(cell2.size, 30);
+   });
+});
+
 describe("bitpack", () => {
    it("packs unsigned bitfields LSB-first", () => {
       const Codec = C.struct("Packed", [
