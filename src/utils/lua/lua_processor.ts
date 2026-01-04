@@ -7,6 +7,7 @@ import {aliasRepeatedExpressionsInAST} from "./lua_alias_expressions";
 import {packLocalDeclarationsInAST} from "./lua_pack_locals";
 import {simplifyExpressionsInAST} from "./lua_simplify";
 import {removeUnusedLocalsInAST} from "./lua_remove_unused_locals";
+import {removeUnusedFunctionsInAST} from "./lua_remove_unused_functions";
 import {renameTableFieldsInAST} from "./lua_rename_table_fields";
 import {renameAllowedTableKeysInAST} from "./lua_rename_allowed_table_keys";
 
@@ -34,6 +35,14 @@ export type OptimizationRuleOptions = {
 
    // Remove local declarations that are never referenced (and whose initializers are side-effect free).
    removeUnusedLocals: boolean;
+
+   // Remove unused function declarations (global and local) when safe.
+   // Uses a conservative approach and always preserves functions in functionNamesToKeep.
+   removeUnusedFunctions: boolean;
+
+   // Names of functions that must not be removed.
+   // Intended for entrypoints and externally-referenced API surfaces.
+   functionNamesToKeep: string[];
 
    // Rename table literal field names when safe (non-escaping locals, string/identifier keys only).
    renameTableFields: boolean;
@@ -1194,6 +1203,12 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
 
    if (ruleOptions.removeUnusedLocals) {
       ast = removeUnusedLocalsInAST(ast);
+   }
+
+   if (ruleOptions.removeUnusedFunctions) {
+      ast = removeUnusedFunctionsInAST(ast, {
+         functionNamesToKeep: ruleOptions.functionNamesToKeep,
+      });
    }
 
    if (ruleOptions.aliasLiterals) {

@@ -13,6 +13,8 @@ const baseOpts: OptimizationRuleOptions = {
    aliasLiterals: false,
    simplifyExpressions: false,
    removeUnusedLocals: false,
+   removeUnusedFunctions: false,
+   functionNamesToKeep: [],
    renameTableFields: false,
    tableEntryKeysToRename: [],
    packLocalDeclarations: false,
@@ -809,6 +811,122 @@ function TIC()
   x = x + 1
 end
 local b=2
+`;
+
+         assert.equal(output.trim(), expected.trim());
+      });
+   });
+
+   describe("Unused Function Removal", () => {
+      it("removes unused global functions", () => {
+         const input = `
+function foo()
+ return 1
+end
+local a=2
+`;
+
+         const output = runLua(input, {removeUnusedFunctions: true});
+         const expected = `
+local a=2
+`;
+         assert.equal(output.trim(), expected.trim());
+      });
+
+      it("removes unused local functions", () => {
+         const input = `
+do
+ local function foo()
+  return 1
+ end
+ local a=2
+end
+`;
+
+         const output = runLua(input, {removeUnusedFunctions: true});
+         const expected = `
+do
+ local a=2
+end
+`;
+         assert.equal(output.trim(), expected.trim());
+      });
+
+      it("keeps dependencies of used functions", () => {
+         const input = `
+local function helper()
+ return 123
+end
+local function used()
+ return helper()
+end
+used()
+`;
+
+         const output = runLua(input, {removeUnusedFunctions: true});
+         const expected = `
+local function helper()
+ return 123
+end
+local function used()
+ return helper()
+end
+used()
+`;
+         assert.equal(output.trim(), expected.trim());
+      });
+
+      it("respects explicit keep list", () => {
+         const input = `
+local function api()
+ return 1
+end
+`;
+
+         const output = runLua(input, {
+            removeUnusedFunctions: true,
+            functionNamesToKeep: ["api"],
+         });
+
+         const expected = `
+local function api()
+ return 1
+end
+`;
+         assert.equal(output.trim(), expected.trim());
+      });
+
+      it("keeps TIC-80 entrypoints by default", () => {
+         const input = `
+function TIC()
+end
+`;
+
+         const output = runLua(input, {removeUnusedFunctions: true});
+         const expected = `
+function TIC()
+end
+`;
+         assert.equal(output.trim(), expected.trim());
+      });
+
+      it("is conservative in the presence of shadowing", () => {
+         const input = `
+do
+ local function foo()
+ end
+ local function bar(foo)
+  return foo
+ end
+end
+`;
+
+         const output = runLua(input, {removeUnusedFunctions: true});
+         const expected = `
+do
+ local function foo()
+ end
+end
 `;
 
          assert.equal(output.trim(), expected.trim());

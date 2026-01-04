@@ -13,6 +13,7 @@ import { CheckboxButton } from './Buttons/CheckboxButton';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const clipboard = useClipboard();
+    const [functionNamesToKeeps, setFunctionNamesToKeep] = useState<string[]>([]);
     const [allowedTableKeyRenames, setAllowedTableKeyRenames] = useState<string>("");
     const [inputLua, setInputLua] = useState<string>(`-- Test repeated expressions and literals
 local x = math.cos(1) + math.cos(2) + math.cos(3)
@@ -39,6 +40,8 @@ end
         packLocalDeclarations: false,
         simplifyExpressions: false,
         removeUnusedLocals: false,
+        removeUnusedFunctions: false,
+        functionNamesToKeep: [...functionNamesToKeeps],
         renameTableFields: false,
         tableEntryKeysToRename: [],
     });
@@ -125,9 +128,45 @@ end
                     </div>
                     <div className="debug-panel-option-group">
                         <CheckboxButton
+                            checked={options.removeUnusedFunctions}
+                            onChange={() => handleOptionChange('removeUnusedFunctions')}
+                        >Remove Unused Functions</CheckboxButton>
+                    </div>
+                    <div className="debug-panel-option-group">
+                        <label>
+                            Function Names to Keep (comma-separated):
+                            <input
+                                type="text"
+                                value={functionNamesToKeeps.join(", ")}
+                                onChange={(e) => {
+                                    const names = e.target.value.split(',').map(n => n.trim()).filter(n => n.length > 0);
+                                    setFunctionNamesToKeep(names);
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        functionNamesToKeep: names,
+                                    }));
+                                }}
+                                style={{ width: '100%', marginTop: '0.25rem' }}
+                            />
+                        </label>
+                    </div>
+                    <div className="debug-panel-option-group">
+                        <CheckboxButton
                             checked={options.renameTableFields}
                             onChange={() => handleOptionChange('renameTableFields')}
                         >Rename Table Fields</CheckboxButton>
+                    </div>
+                    <div className="debug-panel-option-group">
+                        <button onClick={() => setAllowedTableKeyRenames(MorphEntryFieldNamesToRename.join(", "))}>Morph entries</button>
+                        <label>
+                            Allowed Table Key Renames (comma-separated):
+                            <input
+                                type="text"
+                                value={allowedTableKeyRenames}
+                                onChange={(e) => setAllowedTableKeyRenames(e.target.value)}
+                                style={{ width: '100%', marginTop: '0.25rem' }}
+                            />
+                        </label>
                     </div>
 
                     <div className="debug-panel-option-group">
@@ -199,18 +238,6 @@ end
                             </ButtonGroup>
                             <span>Current: {options.maxLineLength}</span>
                         </div>
-                    </div>
-                    <div className="debug-panel-option-group">
-                        <button onClick={() => setAllowedTableKeyRenames(MorphEntryFieldNamesToRename.join(", "))}>Morph entries</button>
-                        <label>
-                            Allowed Table Key Renames (comma-separated):
-                            <input
-                                type="text"
-                                value={allowedTableKeyRenames}
-                                onChange={(e) => setAllowedTableKeyRenames(e.target.value)}
-                                style={{ width: '100%', marginTop: '0.25rem' }}
-                            />
-                        </label>
                     </div>
                 </div>
 

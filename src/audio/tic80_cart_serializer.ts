@@ -792,6 +792,8 @@ ${emitLuaDecoder(WaveformMorphGradientCodec, {
       packLocalDeclarations: true,
       simplifyExpressions: true,
       removeUnusedLocals: true,
+      removeUnusedFunctions: false,
+      functionNamesToKeep: [],
       renameTableFields: true,
       tableEntryKeysToRename: [...MorphEntryFieldNamesToRename],
    } as const;
@@ -808,6 +810,8 @@ ${emitLuaDecoder(WaveformMorphGradientCodec, {
       packLocalDeclarations: false,
       simplifyExpressions: false,
       removeUnusedLocals: false,
+      removeUnusedFunctions: false,
+      functionNamesToKeep: [],
       renameTableFields: false,
       tableEntryKeysToRename: [],
    } as const;
