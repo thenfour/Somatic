@@ -141,10 +141,6 @@ do
 		end
 		return n
 	end
-	-- s = (1-char hint) .. base85 payload
-	-- hint encodes miss = 0..3 as char(33+miss)
-	--local function base85Plus1Decode(s, d)
-	--end
 
 	-- Read unsigned LEB128 varint from memory.
 	-- base:   start address of encoded stream
