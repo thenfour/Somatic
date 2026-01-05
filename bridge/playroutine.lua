@@ -188,6 +188,14 @@ do
 		return di
 	end
 
+	-- decodes a b85+1 string, then LZ-decompresses it into dst.
+	-- uses __AUTOGEN_TEMP_PTR_B as temp storage, because it should be AFTER buffer A,
+	-- and if youre decompressing to buffer A, this theoretically allows more space.
+	-- returns number of bytes written to dst.
+	local function b85Plus1LZDecodeToMem(s, dst)
+		return lzdm(__AUTOGEN_TEMP_PTR_B, base85Plus1Decode(s, __AUTOGEN_TEMP_PTR_B), dst)
+	end
+
 	local function apply_curveN11(t, curveS6)
 		if t <= 0 then
 			return 0
@@ -679,8 +687,7 @@ do
 		morph_nodes_cache = {}
 
 		-- let's use a part of pattern mem for temp storage
-		local decodedLen = base85Plus1Decode(m, __AUTOGEN_TEMP_PTR_A)
-		lzdm(__AUTOGEN_TEMP_PTR_A, decodedLen, __AUTOGEN_TEMP_PTR_B)
+		b85Plus1LZDecodeToMem(m, __AUTOGEN_TEMP_PTR_B)
 		local instrumentCount = peek(__AUTOGEN_TEMP_PTR_B)
 		local patternCount = peek(__AUTOGEN_TEMP_PTR_B + 1)
 		local off = __AUTOGEN_TEMP_PTR_B + SOMATIC_EXTRA_SONG_HEADER_BYTES
@@ -744,22 +751,30 @@ do
 		return #SOMATIC_MUSIC_DATA.songOrder
 	end
 
+	-- on boot, decode ram pattern pointers.
+	local len = b85Plus1LZDecodeToMem(SOMATIC_MUSIC_DATA.rp, __AUTOGEN_TEMP_PTR_A) / 2 -- number of u16 values
+	local out, v = {}, 0
+	for i = 0, len - 1 do
+		v = peek(__AUTOGEN_TEMP_PTR_A + i * 2) + peek(__AUTOGEN_TEMP_PTR_A + i * 2 + 1) * 256
+		out[i + 1] = v
+	end
+	SOMATIC_MUSIC_DATA.rpd = out
+
 	local function blit_pattern_column(columnIndex0b, destPointer)
-		local rp = SOMATIC_MUSIC_DATA.rp
-		local ramPatternCount = #ramPatterns / 2 -- each pattern uses 2 entries (ptroffset + length)
+		local rp = SOMATIC_MUSIC_DATA.rpd
+		local ramPatternCount = #rp / 2 -- each pattern uses 2 entries (ptroffset + length)
 		if columnIndex0b < ramPatternCount then
 			-- pattern in RAM.
 			lzdm(
-				PATTERNS_BASE + ramPatterns[columnIndex0b * 2 + 1], -- src ptr
-				ramPatterns[columnIndex0b * 2 + 2], -- src len
+				PATTERNS_BASE + rp[columnIndex0b * 2 + 1], -- src ptr
+				rp[columnIndex0b * 2 + 2], -- src len
 				destPointer
 			)
 			return
 		end
 		-- pattern in string literal
 		local entry = SOMATIC_MUSIC_DATA.cp[columnIndex0b + 1 - ramPatternCount]
-		local compressedLen = base85Plus1Decode(entry, __AUTOGEN_TEMP_PTR_A)
-		lzdm(__AUTOGEN_TEMP_PTR_A, compressedLen, destPointer)
+		b85Plus1LZDecodeToMem(entry, destPointer)
 	end
 
 	local function swapInPlayorder(songPosition0b, destPointer)

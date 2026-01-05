@@ -552,7 +552,8 @@ interface PatternMemoryPlan {
    //patternCodeEntries: string[]; // Lua code entries for each pattern column
 
    // Lua code entries for patterns in RAM (in pairs: offset, length) -- where offset is relative to PATTERNS_BASE
-   ramPatternEntries: string[];
+   //ramPatternEntries: string[];
+   ramPatternLuaString: string;
    codePatternStrings: string[]; // Lua code entries for patterns in code (base85 strings)
 }
 
@@ -562,7 +563,7 @@ export function planPatternMemorySerialization(prepared: PreparedSong): PatternM
    const compressedPatternsInRam: {payload: Uint8Array; memoryRegion: MemoryRegion;}[] = [];
    //const patternLengths: number[] = [];
    //const patternCodeEntries: string[] = [];
-   const ramPatternEntries: string[] = [];
+   const ramPatternEntries: number[] = []; // this payload is a stream of u16 pairs: offset, length
    const codePatternStrings: string[] = [];
 
    const capacityRegion = GetMemoryRegionForCompressedPatternData(); //.allocFromBottom(90);
@@ -600,7 +601,9 @@ export function planPatternMemorySerialization(prepared: PreparedSong): PatternM
          patternRamCursor += compressed.length;
          // Lua expects an offset relative to PATTERNS_BASE.
          //patternCodeEntries.push(`${offset}`);
-         ramPatternEntries.push(`${offset}, ${compressed.length}`);
+         //ramPatternEntries.push(`${offset}, ${compressed.length}`);
+         ramPatternEntries.push(offset);
+         ramPatternEntries.push(compressed.length);
       } else {
          // Spill to base85 string when RAM is full.
          const patternStr = base85Plus1Encode(compressed);
@@ -616,12 +619,23 @@ export function planPatternMemorySerialization(prepared: PreparedSong): PatternM
       patternRamData = new Uint8Array(1);
    }
 
+   // serialize the ram pattern entries as a U8 buffer (u16 pairs)
+   const ramPatternEntriesBuffer = new Uint8Array(ramPatternEntries.length * 2);
+   for (let i = 0; i < ramPatternEntries.length; i++) {
+      const v = ramPatternEntries[i] & 0xffff;
+      ramPatternEntriesBuffer[i * 2 + 0] = v & 0xff;
+      ramPatternEntriesBuffer[i * 2 + 1] = (v >> 8) & 0xff;
+   }
+   const ramPatternEntryCompressed = lzCompress(ramPatternEntriesBuffer, gSomaticLZDefaultConfig);
+   const ramPatternLuaString = toLuaStringLiteral(base85Plus1Encode(ramPatternEntryCompressed));
+
    return {
       patternChunks,
       compressedPatterns,
       compressedPatternsInRam,
       patternRamData,
-      ramPatternEntries,
+      //ramPatternEntries,
+      ramPatternLuaString,
       codePatternStrings,
       patternsInLuaCount,
    };
@@ -654,7 +668,7 @@ local SOMATIC_MUSIC_DATA = {
  songOrder = { ${songOrder} },
  extraSongData = ${extraSongDataDetails.luaStringLiteral},
  -- patterns in RAM
- rp = { ${patternSerializationPlan.ramPatternEntries.join(",")} },
+ rp = ${patternSerializationPlan.ramPatternLuaString},
  -- patterns in code
  cp = { ${patternSerializationPlan.codePatternStrings.join(",")} },
 }

@@ -5,7 +5,7 @@ import { useClipboard } from "../hooks/useClipboard";
 import { Button } from "./Buttons/PushButton";
 import { ButtonGroup } from "./Buttons/ButtonGroup";
 import { RadioButton } from "./Buttons/RadioButton";
-import { base85Decode, base85Encode, gSomaticLZDefaultConfig, lzCompress, lzDecompress } from "../audio/encoding";
+import { base85Plus1Decode, base85Plus1Encode, gSomaticLZDefaultConfig, lzCompress, lzDecompress } from "../audio/encoding";
 import { CharMap, err, getBufferFingerprint, ok, Result, toLuaStringLiteral } from "../utils/utils";
 import { decodeRawString } from "../utils/lua/lua_utils";
 import { KeyValueTable } from "./basic/KeyValueTable";
@@ -19,11 +19,11 @@ Output:
 
 */
 
-type SnipFormat = "numberList" | "hexString" | "lzBase85";
+//type SnipFormat = "numberList" | "hexString" | "lzBase85";
 
 const NUMBER_LIST_FORMATS = ["u8", "s8", "u16", "s16", "u32", "s32"] as const;
 type NumberListFormat = typeof NUMBER_LIST_FORMATS[number];
-type SnipFormat2 = NumberListFormat | "hexString" | "lzBase85";
+type SnipFormat2 = NumberListFormat | "hexString" | "lzBase85Plus1" | "base85Plus1";
 
 function isNumberListFormat(fmt: SnipFormat2): fmt is NumberListFormat {
     return (NUMBER_LIST_FORMATS as readonly string[]).includes(fmt);
@@ -136,11 +136,11 @@ function parseHexStringToBytes(src: string): Result<Uint8Array> {
 // decoding base85 requires knowing the expected decoded length.
 type B85LZPayload = {
     lua: string;
-    decodedLength: number;
+    //decodedLength: number;
 };
 
 // decodes a lua string literal containing base85-encoded, LZ-compressed data, returns raw bytes.
-function decodeLzBase85ToBytes(src: B85LZPayload): Result<Uint8Array> {
+function decodeLzBase85Plus1ToBytes(src: B85LZPayload): Result<Uint8Array> {
     try {
         const str = decodeRawString(src.lua);
         if (str === null) {
@@ -148,14 +148,28 @@ function decodeLzBase85ToBytes(src: B85LZPayload): Result<Uint8Array> {
         }
         // if the passed-in length is not sane, deduce it based on input length.
         // base85 encodes 4 bytes into 5 chars, so decoded length is approx (input length * 4) / 5
-        const expected = str.length * 4 / 5;
-        const expectedMin = expected - 6;
-        const expectedMax = expected + 6;
-        if (src.decodedLength <= 0 || src.decodedLength < expectedMin || src.decodedLength > expectedMax) {
-            src.decodedLength = Math.round(expected);
-        }
-        const compressed = base85Decode(str, src.decodedLength);
+        //const expected = str.length * 4 / 5;
+        //const expectedMin = expected - 6;
+        //const expectedMax = expected + 6;
+        // if (src.decodedLength <= 0 || src.decodedLength < expectedMin || src.decodedLength > expectedMax) {
+        //     src.decodedLength = Math.round(expected);
+        // }
+        const compressed = base85Plus1Decode(str);
         const raw = lzDecompress(compressed);
+        return ok(raw);
+    } catch (e) {
+        return err(`Decode failed: ${(e as Error).message ?? String(e)}`);
+    }
+}
+
+// decodes a lua string literal containing base85-encoded, LZ-compressed data, returns raw bytes.
+function decodeBase85Plus1ToBytes(src: B85LZPayload): Result<Uint8Array> {
+    try {
+        const str = decodeRawString(src.lua);
+        if (str === null) {
+            return err("Could not parse Lua string literal.");
+        }
+        const raw = base85Plus1Decode(str);
         return ok(raw);
     } catch (e) {
         return err(`Decode failed: ${(e as Error).message ?? String(e)}`);
@@ -174,7 +188,7 @@ function detectInputFormat(src: string): SnipFormat2 {
     if (/^[\s0-9a-fA-F"'x]+$/.test(s) && /[0-9a-fA-F]/.test(s)) {
         return "hexString";
     }
-    return "lzBase85";
+    return "lzBase85Plus1";
 }
 
 function bytesToNumberListLua(bytes: Uint8Array, fmt: NumberListFormat): Result<string> {
@@ -214,10 +228,10 @@ function bytesToHexStringLua(bytes: Uint8Array): string {
     return `"${hex}"`;
 }
 
-function bytesToLzBase85Lua(bytes: Uint8Array): B85LZPayload {
+function bytesToLzBase85Plus1Lua(bytes: Uint8Array): B85LZPayload {
     const compressed = lzCompress(bytes, gSomaticLZDefaultConfig);
-    const b85 = base85Encode(compressed);
-    return { lua: toLuaStringLiteral(b85), decodedLength: compressed.length };
+    const b85 = base85Plus1Encode(compressed);
+    return { lua: toLuaStringLiteral(b85) };
 }
 
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
@@ -252,11 +266,11 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
     //
     // output should be a Lua value.; e.g., "1a2b3c4d" or "{26,43,60,77}".
     const [inputFormat, setInputFormat] = useState<SnipFormat2 | "auto">("auto");
-    const [inputDecodedLength, setInputDecodedLength] = useState(0);
+    //const [inputDecodedLength, setInputDecodedLength] = useState(0);
     const [detectedFormat, setDetectedFormat] = useState<SnipFormat2 | "error">("error");
     const [outputText, setOutputText] = useState("");
-    const [outputDecodedLength, setOutputDecodedLength] = useState("");
-    const [outputFormat, setOutputFormat] = useState<SnipFormat2>("lzBase85");
+    //const [outputDecodedLength, setOutputDecodedLength] = useState("");
+    const [outputFormat, setOutputFormat] = useState<SnipFormat2>("lzBase85Plus1");
     const clipboard = useClipboard();
 
     const decodedBytes = useMemo((): Result<Uint8Array> => {
@@ -266,8 +280,11 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
 
         if (isNumberListFormat(fmt)) return parseNumberListToBytes(inputText, fmt);
         if (fmt === "hexString") return parseHexStringToBytes(inputText);
-        return decodeLzBase85ToBytes({ lua: inputText, decodedLength: inputDecodedLength });
-    }, [inputText, inputFormat, inputDecodedLength]);
+        if (fmt === "base85Plus1") {
+            return decodeBase85Plus1ToBytes({ lua: inputText });
+        }
+        return decodeLzBase85Plus1ToBytes({ lua: inputText });
+    }, [inputText, inputFormat]);
 
     const payloadByteSize = useMemo(() => {
         if (!decodedBytes.ok) return 0;
@@ -290,16 +307,19 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
             setOutputText(lua.ok ? lua.value : `-- ERROR\n${lua.error}`);
         } else if (outputFormat === "hexString") {
             setOutputText(bytesToHexStringLua(bytes));
+        } else if (outputFormat === "base85Plus1") {
+            const b85payload = base85Plus1Encode(bytes);
+            setOutputText(toLuaStringLiteral(b85payload));
         } else {
             //setOutputText(bytesToLzBase85Lua(bytes));
-            const b85payload = bytesToLzBase85Lua(bytes);
+            const b85payload = bytesToLzBase85Plus1Lua(bytes);
             setOutputText(b85payload.lua);
-            setOutputDecodedLength(b85payload.decodedLength.toString());
+            //setOutputDecodedLength("");
         }
     }, [decodedBytes, outputFormat]);
 
     const inputByteCount = decodedBytes.ok ? decodedBytes.value.length : 0;
-    const outputByteCount = outputFormat === "lzBase85" && decodedBytes.ok
+    const outputByteCount = outputFormat === "lzBase85Plus1" && decodedBytes.ok
         ? lzCompress(decodedBytes.value, gSomaticLZDefaultConfig).length
         : inputByteCount;
 
@@ -321,8 +341,8 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
             if (!parsed.ok) return err(`Output parse failed: ${parsed.error}`);
             outBytes = parsed.value;
         } else {
-            const decodedLen = Number.parseInt(outputDecodedLength, 10) | 0;
-            const parsed = decodeLzBase85ToBytes({ lua: outputText, decodedLength: decodedLen });
+            //const decodedLen = Number.parseInt(outputDecodedLength, 10) | 0;
+            const parsed = decodeLzBase85Plus1ToBytes({ lua: outputText });
             if (!parsed.ok) return err(`Output decode failed: ${parsed.error}`);
             outBytes = parsed.value;
         }
@@ -333,7 +353,7 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
             outputBytes: outBytes,
             mismatch: same ? null : findFirstByteMismatch(inputBytes, outBytes),
         });
-    }, [decodedBytes, outputFormat, outputText, outputDecodedLength]);
+    }, [decodedBytes, outputFormat, outputText]);
 
     const outputFingerprint = useMemo(() => {
         if (!outputRoundtrip.ok) return null;
@@ -354,16 +374,12 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
                 <RadioButton selected={inputFormat === "u32"} onClick={() => setInputFormat("u32")}>U32</RadioButton>
                 <RadioButton selected={inputFormat === "s32"} onClick={() => setInputFormat("s32")}>S32</RadioButton>
                 <RadioButton selected={inputFormat === "hexString"} onClick={() => setInputFormat("hexString")} >Hex string</RadioButton>
-                <RadioButton selected={inputFormat === "lzBase85"} onClick={() => setInputFormat("lzBase85")}>LZ Base85</RadioButton>
+                <RadioButton selected={inputFormat === "base85Plus1"} onClick={() => setInputFormat("base85Plus1")}>Base85+1</RadioButton>
+                <RadioButton selected={inputFormat === "lzBase85Plus1"} onClick={() => setInputFormat("lzBase85Plus1")}>LZ Base85+1</RadioButton>
                 <RadioButton selected={inputFormat === "auto"} onClick={() => setInputFormat("auto")}>Auto</RadioButton>
 
                 <div style={{ display: "flex", alignItems: "center" }}>{CharMap.RightTriangle}{detectedFormat}</div>
             </ButtonGroup>
-            <div>
-                <label>For LZ Base85 input, specify expected decoded byte length:
-                    <input type="number" value={inputDecodedLength} onChange={e => setInputDecodedLength(Number(e.target.value))}></input>
-                </label>
-            </div>
             <textarea className="debug-panel-textarea" value={inputText} onChange={e => setInputText(e.target.value)} />
 
             <div className="debug-panel-output">
@@ -375,7 +391,8 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
                     <RadioButton selected={outputFormat === "u32"} onClick={() => setOutputFormat("u32")}>U32</RadioButton>
                     <RadioButton selected={outputFormat === "s32"} onClick={() => setOutputFormat("s32")}>S32</RadioButton>
                     <RadioButton selected={outputFormat === "hexString"} onClick={() => setOutputFormat("hexString")} >Hex string</RadioButton>
-                    <RadioButton selected={outputFormat === "lzBase85"} onClick={() => setOutputFormat("lzBase85")}>LZ Base85</RadioButton>
+                    <RadioButton selected={outputFormat === "base85Plus1"} onClick={() => setOutputFormat("base85Plus1")}>Base85+1</RadioButton>
+                    <RadioButton selected={outputFormat === "lzBase85Plus1"} onClick={() => setOutputFormat("lzBase85Plus1")}>LZ Base85+1</RadioButton>
                 </ButtonGroup>
                 <div className="debug-panel-output-label">Processed Output</div>
                 <div style={{
@@ -413,11 +430,6 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
                     </ButtonGroup>
                 </div>
                 <div className="debug-panel-output-content">{outputText}</div>
-                {
-                    outputFormat === "lzBase85" && (
-                        <div className="debug-panel-output-label">LZ Base85 decoded length: {outputDecodedLength}</div>
-                    )
-                }
             </div>
         </div>
     </AppPanelShell>;
