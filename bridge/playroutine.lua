@@ -121,7 +121,7 @@ do
 	-- -> (600 - 30) / 0.75 = 760 bytes
 	-- So for patterns larger than that, ascii85 is more size-efficient.
 
-	local function b85d(s, n, d)
+	local function base85Decode(s, n, d)
 		local i = 1
 		for o = 0, n - 1, 4 do
 			local v = 0
@@ -144,7 +144,7 @@ do
 	-- si:     current offset (0-based) into the stream
 	-- srcLen: total length of the encoded stream (in bytes)
 	-- Returns: value, next_si
-	local function vi(base, si, srcLen)
+	local function varint(base, si, srcLen)
 		local x, f = 0, 1
 		while true do
 			local b = peek(base + si)
@@ -157,7 +157,7 @@ do
 		end
 	end
 
-	-- Decompress from [src .. src+srcLen-1] into [dst ..).
+	-- LZ-Decompress from [src .. src+srcLen-1] into [dst ..).
 	-- Returns number of decompressed bytes written.
 	local function lzdm(src, srcLen, dst)
 		local si, di = 0, 0
@@ -166,7 +166,7 @@ do
 			si = si + 1
 			if t == 0 then
 				local l
-				l, si = vi(src, si, srcLen)
+				l, si = varint(src, si, srcLen)
 				for j = 1, l do
 					poke(dst + di, peek(src + si))
 					si = si + 1
@@ -174,8 +174,8 @@ do
 				end
 			else
 				local l, d
-				l, si = vi(src, si, srcLen)
-				d, si = vi(src, si, srcLen)
+				l, si = varint(src, si, srcLen)
+				d, si = varint(src, si, srcLen)
 				for j = 1, l do
 					poke(dst + di, peek(dst + di - d))
 					di = di + 1
@@ -676,7 +676,7 @@ do
 		morph_nodes_cache = {}
 
 		-- let's use a part of pattern mem for temp storage
-		b85d(m.payloadB85, m.payloadCLen, __AUTOGEN_TEMP_PTR_A)
+		base85Decode(m.payloadB85, m.payloadCLen, __AUTOGEN_TEMP_PTR_A)
 		lzdm(__AUTOGEN_TEMP_PTR_A, m.payloadCLen, __AUTOGEN_TEMP_PTR_B)
 		local instrumentCount = peek(__AUTOGEN_TEMP_PTR_B)
 		local patternCount = peek(__AUTOGEN_TEMP_PTR_B + 1)
@@ -750,7 +750,7 @@ do
 			srcPtr = entry + PATTERNS_BASE
 			compressedLen = patternLengthBytes
 		else
-			compressedLen = b85d(entry, patternLengthBytes, srcPtr)
+			compressedLen = base85Decode(entry, patternLengthBytes, srcPtr)
 		end
 
 		-- and decompress.
