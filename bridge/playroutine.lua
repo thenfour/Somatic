@@ -593,6 +593,10 @@ do
 		return noteNibble, inst
 	end
 
+	local function getColumnIndex(songPosition0b, ch)
+		return SOMATIC_MUSIC_DATA.songOrder[songPosition0b * 4 + ch + 1]
+	end
+
 	local function apply_music_row_to_sfx_state(track, frame, row)
 		if track == last_music_track and frame == last_music_frame and row == last_music_row then
 			return
@@ -603,31 +607,32 @@ do
 
 		-- Apply Somatic per-pattern extra commands (currently: E param => effect strength scale)
 		local playingSongOrder = math.max(0, currentSongOrder - 1)
-		local orderEntry = SOMATIC_MUSIC_DATA.songOrder[playingSongOrder + 1]
+		--local orderEntry = SOMATIC_MUSIC_DATA.songOrder[playingSongOrder + 1]
 
 		local p0, p1, p2, p3 = decode_track_frame_patterns(track, frame)
 		local patterns = { p0, p1, p2, p3 }
 		for ch = 0, SFX_CHANNELS - 1 do
-			if orderEntry then
-				local columnIndex0b = orderEntry[ch + 1]
-				local cells = columnIndex0b ~= nil and patternExtra[columnIndex0b] or nil
-				local cell = cells and cells[row + 1] or nil
-				-- effectId: 0=none; 1='E'; 2='L'
-				if cell and cell.effectId == 1 then
-					-- 'E': Set effect strength scale
-					ch_effect_strength_scale_u8[ch + 1] = cell.paramU8 or 255
-				elseif cell and cell.effectId == 2 then
-					-- 'L': Set LFO phase for the instrument playing on this channel
-					local instId = ch_sfx_id[ch + 1]
-					if instId and instId >= 0 then
-						local cfg = morphMap and morphMap[instId]
-						local cycle = cfg and cfg.lfoCycleTicks12 or 0
-						if cycle > 0 then
-							-- paramU8 0x00..0xFF maps to phase 0..cycle
-							lfo_ticks_by_sfx[instId] = math.floor((cell.paramU8 or 0) / 255 * cycle)
-						end
+			--if orderEntry then
+			--local columnIndex0b = orderEntry[ch + 1]
+			local columnIndex0b = getColumnIndex(playingSongOrder, ch)
+			local cells = columnIndex0b ~= nil and patternExtra[columnIndex0b] or nil
+			local cell = cells and cells[row + 1] or nil
+			-- effectId: 0=none; 1='E'; 2='L'
+			if cell and cell.effectId == 1 then
+				-- 'E': Set effect strength scale
+				ch_effect_strength_scale_u8[ch + 1] = cell.paramU8 or 255
+			elseif cell and cell.effectId == 2 then
+				-- 'L': Set LFO phase for the instrument playing on this channel
+				local instId = ch_sfx_id[ch + 1]
+				if instId and instId >= 0 then
+					local cfg = morphMap and morphMap[instId]
+					local cycle = cfg and cfg.lfoCycleTicks12 or 0
+					if cycle > 0 then
+						-- paramU8 0x00..0xFF maps to phase 0..cycle
+						lfo_ticks_by_sfx[instId] = math.floor((cell.paramU8 or 0) / 255 * cycle)
 					end
 				end
+				--end
 			end
 
 			local patternId1b = patterns[ch + 1]
@@ -748,7 +753,7 @@ do
 	end
 	-- END_DEBUG_ONLY
 	function somatic_get_song_order_count()
-		return #SOMATIC_MUSIC_DATA.songOrder
+		return #SOMATIC_MUSIC_DATA.songOrder / 4
 	end
 
 	-- on boot, decode ram pattern pointers.
@@ -778,9 +783,9 @@ do
 	end
 
 	local function swapInPlayorder(songPosition0b, destPointer)
-		local entry = SOMATIC_MUSIC_DATA.songOrder[songPosition0b + 1]
 		for ch = 0, 3 do
-			local columnIndex0b = entry[ch + 1]
+			local columnIndex0b = getColumnIndex(songPosition0b, ch)
+			--local columnIndex0b = entry[ch + 1]
 			local dst = destPointer + ch * PATTERN_BYTES_PER_PATTERN
 			blit_pattern_column(columnIndex0b, dst)
 		end

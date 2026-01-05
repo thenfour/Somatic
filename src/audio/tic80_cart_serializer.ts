@@ -660,7 +660,7 @@ function getCode(
    } {
    // Generate the SOMATIC_MUSIC_DATA section
    const songOrder =
-      preparedSong.songOrder.map((entry) => `{${entry.patternColumnIndices.map((v) => v.toString()).join(",")}}`)
+      preparedSong.songOrder.map((entry) => `${entry.patternColumnIndices.map((v) => v.toString()).join(",")}`)
          .join(",");
 
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
