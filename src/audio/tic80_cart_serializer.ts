@@ -659,13 +659,24 @@ function getCode(
       // patternRamData: Uint8Array,  // packed compressed columns to seed into TIC-80 pattern memory
    } {
    // Generate the SOMATIC_MUSIC_DATA section
-   const songOrder =
-      preparedSong.songOrder.map((entry) => `${entry.patternColumnIndices.map((v) => v.toString()).join(",")}`)
-         .join(",");
+   // song order is now a Uint8Array -- a stream of pattern column indices.
+   const songOrderPayload = new Uint8Array(preparedSong.songOrder.length * Tic80Caps.song.audioChannels);
+   for (let i = 0; i < preparedSong.songOrder.length; i++) {
+      const entry = preparedSong.songOrder[i];
+      const base = i * Tic80Caps.song.audioChannels;
+      for (let ch = 0; ch < Tic80Caps.song.audioChannels; ch++) {
+         const idx = entry.patternColumnIndices[ch] | 0;
+         songOrderPayload[base + ch] = idx;
+      }
+   }
+   // lz compress & b85+1 encode.
+   const songOrderCompressed = lzCompress(songOrderPayload, gSomaticLZDefaultConfig);
+   const songOrderB85 = base85Plus1Encode(songOrderCompressed);
+   const songOrder = toLuaStringLiteral(songOrderB85);
 
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
 local SOMATIC_MUSIC_DATA = {
- songOrder = { ${songOrder} },
+ so = ${songOrder},
  extraSongData = ${extraSongDataDetails.luaStringLiteral},
  -- patterns in RAM
  rp = ${patternSerializationPlan.ramPatternLuaString},

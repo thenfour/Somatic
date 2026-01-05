@@ -756,14 +756,21 @@ do
 		return #SOMATIC_MUSIC_DATA.songOrder / 4
 	end
 
-	-- on boot, decode ram pattern pointers.
-	local len = b85Plus1LZDecodeToMem(SOMATIC_MUSIC_DATA.rp, __AUTOGEN_TEMP_PTR_A) / 2 -- number of u16 values
-	local out, v = {}, 0
-	for i = 0, len - 1 do
-		v = peek(__AUTOGEN_TEMP_PTR_A + i * 2) + peek(__AUTOGEN_TEMP_PTR_A + i * 2 + 1) * 256
-		out[i + 1] = v
+	-- decode b85+1 LZ-compressed data into a table of integers with 'bits' bits each.
+	local function decodeBits(blob, bits)
+		local n = b85Plus1LZDecodeToMem(blob, __AUTOGEN_TEMP_PTR_A)
+		local r = _bp_make_reader(__AUTOGEN_TEMP_PTR_A)
+		local out = {}
+		local count = (n * 8) // bits
+		for i = 1, count do
+			out[i] = r.u(bits)
+		end
+		return out
 	end
-	SOMATIC_MUSIC_DATA.rpd = out
+
+	-- on boot, decode
+	SOMATIC_MUSIC_DATA.rpd = decodeBits(SOMATIC_MUSIC_DATA.rp, 16)
+	SOMATIC_MUSIC_DATA.songOrder = decodeBits(SOMATIC_MUSIC_DATA.so, 8)
 
 	local function blit_pattern_column(columnIndex0b, destPointer)
 		local rp = SOMATIC_MUSIC_DATA.rpd
