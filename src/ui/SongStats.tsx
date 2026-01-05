@@ -15,7 +15,7 @@ import { BarValue, SizeValue } from "./basic/BarValue";
 import { KeyValueTable } from "./basic/KeyValueTable";
 import { Tooltip } from "./basic/tooltip";
 import { Button } from "./Buttons/PushButton";
-import { MemoryMapVis } from "./MemoryMapVis";
+import { MemoryMapTextSummary, MemoryMapVis } from "./MemoryMapVis";
 import { Tic80MemoryMap } from "../../bridge/memory_layout";
 import { MemoryRegion } from "../utils/bitpack/MemoryRegion";
 
@@ -48,7 +48,6 @@ export type SongStatsData = {
     breakdown: Stats;
     totalSize: number;
     patternCompressionRatio: number;
-    error: boolean;
 };
 
 export const useSongStatsData = (song: Song, variant: "debug" | "release"): SongStatsData => {
@@ -190,9 +189,9 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
     const patternCompressionRatio = breakdown.patternPayload.rawBytes > 0
         ? (breakdown.patternPayload.compressedBytes / breakdown.patternPayload.rawBytes)
         : 1;
-    const error = (input?.bridge.patternData.length || 0) > SomaticCaps.maxPatternLengthToBridge;
+    //const error = (input?.bridge.patternData.length || 0) > SomaticCaps.maxPatternLengthToBridge;
 
-    return { input, breakdown, totalSize, patternCompressionRatio, error };
+    return { input, breakdown, totalSize, patternCompressionRatio };
 };
 
 export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => void; variant: "debug" | "release"; onVariantChange: (variant: "debug" | "release") => void }> = ({ data, onClose, variant, onVariantChange }) => {
@@ -202,26 +201,6 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
     const handleCopyGeneratedCode = async () => {
         await clipboard.copyTextToClipboard(input?.cartridge.wholePlayroutineCode || "");
     };
-
-    const waveformRoot = useMemo(() => {
-        const waveformsRegion = new MemoryRegion(Tic80MemoryMap.Waveforms);
-        return waveformsRegion;
-    }, []);
-
-    const sfxRoot = useMemo(() => {
-        const sfxRegion = new MemoryRegion(Tic80MemoryMap.Sfx);
-        return sfxRegion;
-    }, []);
-
-    const mapRoot = useMemo(() => {
-        const mapRegion = new MemoryRegion(Tic80MemoryMap.Map);
-        return mapRegion;
-    }, []);
-
-    const musicPatternsRoot = useMemo(() => {
-        const patternsRegion = new MemoryRegion(Tic80MemoryMap.MusicPatterns);
-        return patternsRegion;
-    }, []);
 
     const body = !input ? (
         <div>No data yet.</div>
@@ -286,21 +265,6 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                         breakdown.patternPayload.rawBytes,
                         breakdown.patternColumnStats.columnPayload.rawBytes,
                     );
-                    // const lzMax = Math.max(
-                    //     breakdown.patternPayload.compressedBytes,
-                    //     breakdown.patternColumnStats.columnPayload.compressedBytes,
-                    // );
-                    // const luaMax = Math.max(
-                    //     breakdown.patternPayload.luaStringBytes,
-                    //     breakdown.patternColumnStats.columnPayload.luaStringBytes,
-                    // );
-                    const bridgeMax = Math.max(
-                        input.bridge.waveformData.length,
-                        input.bridge.sfxData.length,
-                        input.bridge.patternData.length,
-                        input.bridge.trackData.length,
-                        input.bridge.songOrderData.length,
-                    );
 
                     const extraSongDataMax = Math.max(
                         input.cartridge.extraSongDataDetails.binaryPayload.length,
@@ -337,18 +301,16 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                             '(compressed)': <BarValue value={input.cartridge.extraSongDataDetails.compressedPayload.length} max={extraSongDataMax} label={<SizeValue value={input.cartridge.extraSongDataDetails.compressedPayload.length} />} />,
                             '(base85 encoded)': <BarValue value={input.cartridge.extraSongDataDetails.base85Payload.length} max={extraSongDataMax} label={<SizeValue value={input.cartridge.extraSongDataDetails.base85Payload.length} />} />,
                         },
-                        // Bridge: {
-                        //     Waveforms: <BarValue value={input.bridge.waveformData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedWaveformCount} (${input.bridge.waveformData.length} bytes)`} />,
-                        //     SFX: <BarValue value={input.bridge.sfxData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedSfxCount} (${input.bridge.sfxData.length} bytes)`} />,
-                        //     Patterns: <BarValue value={input.bridge.patternData.length} max={bridgeMax} label={`${input.bridge.optimizeResult.usedPatternColumnCount} (${input.bridge.patternData.length} bytes)`} />,
-                        //     Tracks: <BarValue value={input.bridge.trackData.length} max={bridgeMax} label={`${input.bridge.trackData.length} bytes`} />,
-                        //     'Song order': <BarValue value={input.bridge.songOrderData.length} max={bridgeMax} label={`${input.bridge.songOrderData.length} bytes`} />,
-                        // },
-                        "bytes per morph entry": MORPH_ENTRY_BYTES,
+                        //"bytes per morph entry": MORPH_ENTRY_BYTES,
                     };
 
                     const ramPatternCount = input.cartridge.patternSerializationPlan.compressedPatternsInRam.length;
                     const luaPatternCount = input.cartridge.patternSerializationPlan.patternsInLuaCount;
+
+                    const mapBlocks = [
+                        ...input.cartridge.memoryRegions.bridgeMap,
+                        ...input.bridge.mapBlocksToTransmit.map(r => r.region),
+                    ];
 
                     return (
                         <>
@@ -358,24 +320,34 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                                     return (
                                         <>
                                             <div style={{ marginBottom: 16 }}>
-                                                <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Waveforms</div>
-                                                <MemoryMapVis root={waveformRoot} regions={[input.cartridge.memoryRegions.waveforms]} />
+                                                <Tooltip title={<MemoryMapTextSummary root={Tic80MemoryMap.Waveforms} regions={[input.cartridge.memoryRegions.waveforms]} />}>
+                                                    <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Waveforms</div>
+                                                </Tooltip>
+                                                <MemoryMapVis root={Tic80MemoryMap.Waveforms} regions={[input.cartridge.memoryRegions.waveforms]} />
                                             </div>
                                             <div style={{ marginBottom: 16 }}>
-                                                <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>SFX</div>
-                                                <MemoryMapVis root={sfxRoot} regions={[input.cartridge.memoryRegions.sfx]} />
+                                                <Tooltip title={<MemoryMapTextSummary root={Tic80MemoryMap.Sfx} regions={[input.cartridge.memoryRegions.sfx]} />}>
+                                                    <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>SFX</div>
+                                                </Tooltip>
+                                                <MemoryMapVis root={Tic80MemoryMap.Sfx} regions={[input.cartridge.memoryRegions.sfx]} />
                                             </div>
                                             <div style={{ marginBottom: 16 }}>
-                                                <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Map (Bridge Runtime)</div>
-                                                <MemoryMapVis root={mapRoot} regions={input.cartridge.memoryRegions.bridgeMap} />
+                                                <Tooltip title={<MemoryMapTextSummary root={Tic80MemoryMap.Map} regions={mapBlocks} />}>
+                                                    <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Map (Bridge Runtime)</div>
+                                                </Tooltip>
+                                                <MemoryMapVis root={Tic80MemoryMap.Map} regions={mapBlocks} />
                                             </div>
                                             <div style={{ marginBottom: 16 }}>
-                                                <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Music Patterns (Cartridge)</div>
-                                                <MemoryMapVis root={musicPatternsRoot} regions={input.cartridge.memoryRegions.patterns} />
+                                                <Tooltip title={<MemoryMapTextSummary root={Tic80MemoryMap.MusicPatterns} regions={input.cartridge.memoryRegions.patterns} />}>
+                                                    <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Music Patterns (Cartridge)</div>
+                                                </Tooltip>
+                                                <MemoryMapVis root={Tic80MemoryMap.MusicPatterns} regions={input.cartridge.memoryRegions.patterns} />
                                             </div>
                                             <div style={{ marginBottom: 16 }}>
-                                                <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Music Patterns (Runtime)</div>
-                                                <MemoryMapVis root={musicPatternsRoot} regions={[...input.cartridge.memoryRegions.patterns, ...input.cartridge.memoryRegions.patternsRuntime]} />
+                                                <Tooltip title={<MemoryMapTextSummary root={Tic80MemoryMap.MusicPatterns} regions={[...input.cartridge.memoryRegions.patterns, ...input.cartridge.memoryRegions.patternsRuntime]} />}>
+                                                    <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Music Patterns (Runtime)</div>
+                                                </Tooltip>
+                                                <MemoryMapVis root={Tic80MemoryMap.MusicPatterns} regions={[...input.cartridge.memoryRegions.patterns, ...input.cartridge.memoryRegions.patternsRuntime]} />
                                             </div>
                                             <div style={{ marginBottom: 16 }}>
                                                 <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Music Patterns (compound)</div>
@@ -439,7 +411,7 @@ export const SongStats: React.FC<{ data: SongStatsData; onTogglePanel: () => voi
     return (
         <Tooltip title={`Cartridge size: ${data.totalSize} bytes. Click to show cartridge info`}>
             <Button
-                className={`songStatsPanel ${data.error ? 'error' : ''}`}
+                className={`songStatsPanel`}
                 onClick={onTogglePanel}
             >
                 <div className="cartSize__label" style={{ cursor: 'pointer' }}>

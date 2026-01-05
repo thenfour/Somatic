@@ -103,11 +103,11 @@ const bridgeConfig = {
       LOG_SIZE: SomaticMemoryLayout.computed.LOG_SIZE,
 
       // Tracker-format (Somatic) song data encoded into TIC-80 RAM
-      TILE_BASE: 0x4000,
-      TF_ORDER_LIST: 0x4000,
-      TF_ORDER_LIST_COUNT: 0x4000,
-      TF_ORDER_LIST_ENTRIES: 0x4001,
-      TF_PATTERN_DATA: 0x4101,
+      //TILE_BASE: 0x4000,
+      TF_ORDER_LIST: Tic80MemoryMap.Map.beginAddress(),
+      TF_ORDER_LIST_COUNT: Tic80MemoryMap.Map.addressWithOffset(0),
+      TF_ORDER_LIST_ENTRIES: Tic80MemoryMap.Map.addressWithOffset(1), // room for 256 entries
+      TF_PATTERN_DATA: Tic80MemoryMap.Map.addressWithOffset(0x101),
 
       // Music state snapshot written by TIC-80 runtime
       MUSIC_STATE_TRACK: 0x13ffc,

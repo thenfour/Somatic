@@ -42,3 +42,8 @@
 .memory-map-vis__region:hover {
     opacity: 1;
 }
+
+.memory-map-vis__text-summary {
+    min-width: 350px;
+    ;
+}

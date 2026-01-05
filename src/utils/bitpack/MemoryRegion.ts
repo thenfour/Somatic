@@ -48,6 +48,10 @@ export class MemoryRegion {
    beginAddress() {
       return this.address;
    }
+   addressWithOffset(addr: number) {
+      const retAddr = this.address + addr;
+      return retAddr;
+   }
    containsAddress(addr: number) {
       return addr >= this.address && addr < this.endAddress();
    }

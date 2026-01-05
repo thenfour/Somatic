@@ -167,7 +167,7 @@ export const TicMemoryMap = {
    LOG_SIZE: mem.LOG_SIZE as number,
 
    // NB: IF THIS CHANGES YOU HAVE TO UPDATE maxPatternLengthToBridge IN SomaticCaps
-   TILE_BASE: parseAddress(mem.TILE_BASE),
+   //TILE_BASE: parseAddress(mem.TILE_BASE),
    TF_ORDER_LIST: parseAddress(mem.TF_ORDER_LIST), // TILE_BASE: 1 length byte + 256 entries.
    TF_PATTERN_DATA: parseAddress(
       mem.TF_PATTERN_DATA), // theoretically you can support the whole tile+sprite+map area for pattern data.

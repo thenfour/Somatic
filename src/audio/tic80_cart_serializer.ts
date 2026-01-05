@@ -320,22 +320,29 @@ export interface Tic80SerializeSongArgs {
 //
 // but we also pass a separate pattern data chunk which is used for playback because we
 // copy pattern data ourselves to work around tic80 length limitations.
+interface TransmissionBlock {
+   region: MemoryRegion;
+   payload: Uint8Array;
+}
+;
 export interface Tic80SerializedSong {
    bakedSong: BakedSong;
    optimizeResult: OptimizeResult;
    preparedSong: PreparedSong;
-   waveformData: Uint8Array;
-   sfxData: Uint8Array;
-   trackData: Uint8Array;
+   //waveformData: Uint8Array;
+   //sfxData: Uint8Array;
+   //trackData: Uint8Array;
 
    // Packed Somatic extra song data for the bridge cart (instruments + patterns).
-   extraSongData: Uint8Array;
+   //extraSongData: Uint8Array;
 
    // length + order itself
-   songOrderData: Uint8Array;
+   //songOrderData: Uint8Array;
 
    // column-based payload; each entry is one channel column (192 bytes before compression)
-   patternData: Uint8Array;
+   //patternData: Uint8Array;
+
+   standardBlocksToTransmit: TransmissionBlock[], mapBlocksToTransmit: TransmissionBlock[],
 }
 
 export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80SerializedSong {
@@ -376,6 +383,8 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
    }
 
    const preparedPatternData = encodePreparedPatternColumns(preparedSong); // separate pattern data for playback use
+   const patternData = ch_serializePatterns(preparedPatternData);
+
    return {
       bakedSong,
       preparedSong,
@@ -386,12 +395,48 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
          usedWaveformCount: getMaxWaveformUsedIndex(bakedSong.bakedSong) + 1,
          featureUsage: analyzePlaybackFeatures(bakedSong.bakedSong),
       },
-      waveformData,
-      sfxData,
-      trackData,
-      extraSongData,
-      songOrderData,
-      patternData: ch_serializePatterns(preparedPatternData),
+      standardBlocksToTransmit: [
+         {
+            region: Tic80MemoryMap.Waveforms,
+            payload: waveformData,
+         },
+         {
+            region: Tic80MemoryMap.Sfx,
+            payload: sfxData,
+         },
+         {
+            region: Tic80MemoryMap.MusicTracks,
+            payload: trackData,
+         },
+      ],
+      mapBlocksToTransmit: [
+         {
+            region: new MemoryRegion({
+               name: "songOrderData",
+               address: TicMemoryMap.TF_ORDER_LIST,
+               size: songOrderData.length,
+            }),
+            payload: songOrderData,
+         },
+         // pattern data
+         {
+            region: new MemoryRegion({
+               name: "patternData",
+               address: TicMemoryMap.TF_PATTERN_DATA,
+               size: patternData.length,
+            }),
+            payload: patternData,
+         },
+         // extra song data
+         {
+            region: new MemoryRegion({
+               name: "extraSongData",
+               address: TicMemoryMap.SOMATIC_SFX_CONFIG,
+               size: extraSongData.length,
+            }),
+            payload: extraSongData,
+         },
+      ],
    };
 }
 

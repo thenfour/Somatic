@@ -466,20 +466,27 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
 
         // just does the poking
         async function transmitInternal(opts: { data: Tic80SerializedSong, reason: string }) {
-            pokeBlock(TicMemoryMap.WAVEFORMS_ADDR, opts.data.waveformData);
-            pokeBlock(TicMemoryMap.SFX_ADDR, opts.data.sfxData);
-            pokeBlock(TicMemoryMap.TRACKS_ADDR, opts.data.trackData);
-            pokeBlock(TicMemoryMap.TF_ORDER_LIST, opts.data.songOrderData);
-            pokeBlock(TicMemoryMap.TF_PATTERN_DATA, opts.data.patternData);
 
-            const sfxConfigBytes = TicMemoryMap.MARKER_ADDR - TicMemoryMap.SOMATIC_SFX_CONFIG;
-            gLog.info(`sfxConfigBytes: ${sfxConfigBytes}`);
-            assert(sfxConfigBytes > 0, "Invalid TicMemoryMap: MARKER_ADDR must be > SOMATIC_SFX_CONFIG");
-            assert(
-                opts.data.extraSongData.length === sfxConfigBytes,
-                `extraSongData length mismatch: got ${opts.data.extraSongData.length}, expected ${sfxConfigBytes}`
-            );
-            pokeBlock(TicMemoryMap.SOMATIC_SFX_CONFIG, opts.data.extraSongData);
+            for (const block of [...opts.data.standardBlocksToTransmit, ...opts.data.mapBlocksToTransmit]) {
+                pokeBlock(block.region.address, block.payload);
+            }
+
+
+
+            // pokeBlock(TicMemoryMap.WAVEFORMS_ADDR, opts.data.waveformData);
+            // pokeBlock(TicMemoryMap.SFX_ADDR, opts.data.sfxData);
+            // pokeBlock(TicMemoryMap.TRACKS_ADDR, opts.data.trackData);
+            // pokeBlock(TicMemoryMap.TF_ORDER_LIST, opts.data.songOrderData);
+            // pokeBlock(TicMemoryMap.TF_PATTERN_DATA, opts.data.patternData);
+
+            // const sfxConfigBytes = TicMemoryMap.MARKER_ADDR - TicMemoryMap.SOMATIC_SFX_CONFIG;
+            // gLog.info(`sfxConfigBytes: ${sfxConfigBytes}`);
+            // assert(sfxConfigBytes > 0, "Invalid TicMemoryMap: MARKER_ADDR must be > SOMATIC_SFX_CONFIG");
+            // assert(
+            //     opts.data.extraSongData.length === sfxConfigBytes,
+            //     `extraSongData length mismatch: got ${opts.data.extraSongData.length}, expected ${sfxConfigBytes}`
+            // );
+            // pokeBlock(TicMemoryMap.SOMATIC_SFX_CONFIG, opts.data.extraSongData);
         };
 
         // Transaction API
@@ -591,19 +598,8 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             [ready]
         );
 
-        return (<>
-            <Tic80Iframe
-                ref={iframeRef}
-            />
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                <button onClick={() => {
-                    ping();
-                }}>ping</button>
-                <span style={{ fontSize: 12, opacity: 0.7 }}>
-                    Embed variant: {embedMode === "toplevel" ? "top-level" : "iframe"}
-                </span>
-            </div>
-        </>
-        );
+        return <Tic80Iframe
+            ref={iframeRef}
+        />;
     }
 );

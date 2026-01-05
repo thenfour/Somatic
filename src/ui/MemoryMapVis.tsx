@@ -14,6 +14,32 @@ const getHashKeySafe = (region: MemoryRegion, index: number): string => {
     return region.hashKey ?? `region-${index}`;
 };
 
+export const MemoryMapTextSummary: React.FC<MemoryMapVisProps> = (props) => {
+    // simple text summary of the memory map
+    // for use in tooltips, etc.
+    // lists each region (no gaps)
+    const sortedRegions = useMemo(() => {
+        return props.regions.slice().sort((a, b) => a.address - b.address);
+    }, [props.regions]);
+
+    return <div className="memory-map-vis__text-summary">
+        <div><strong>{props.root.name ?? "Memory Map Summary"}</strong></div>
+        <div>First byte @ {props.root.address} (0x{props.root.address.toString(16)})</div>
+        <div>Last byte @ {props.root.address + props.root.size - 1} (0x{(props.root.address + props.root.size - 1).toString(16)})</div>
+        <div>Total Size: {props.root.size} (0x{props.root.size.toString(16)}) bytes</div>
+        <div>Regions:</div>
+        <ul>
+            {sortedRegions.map((region, index) => (
+                <li key={index}>
+                    <strong>{region.name}</strong>: Start: {region.address} (0x{region.address.toString(16)}), LastByte @ {region.address + region.size - 1} (0x{(region.address + region.size - 1).toString(16)}), Length: {region.size} ({region.size.toString(16)}) bytes, % of total: {((region.size / props.root.size) * 100).toFixed(2)}%
+                    {/* warn if OOB of the root region */}
+                    {(!props.root.containsRegion(region)) && <span style={{ color: 'var(--color-error)' }}> (OUT OF BOUNDS!)</span>}
+                </li>
+            ))}
+        </ul>
+    </div>;
+};
+
 export const MemoryMapVis: React.FC<MemoryMapVisProps> = (props) => {
 
     const hues = useMemo(() => {
