@@ -113,6 +113,17 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       ],
    },
 
+   "ToggleEncodingUtilsPanel": {
+      id: "ToggleEncodingUtilsPanel",
+      title: "toggle encoding utilities panel",
+      description: "open or close the encoding utilities panel.",
+      category: "View",
+      defaultBindings: [
+         // ctrl + shift + |
+         {kind: "character", key: "|", primary: true, shift: true},
+      ],
+   },
+
    "FocusPattern": {
       id: "FocusPattern",
       title: "focus pattern editor",

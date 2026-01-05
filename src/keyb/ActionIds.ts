@@ -21,6 +21,7 @@ export const GlobalActions = {
    TogglePatternEditor: "TogglePatternEditor",
    ToggleCartStatsPanel: "ToggleCartStatsPanel",
    ToggleSongSettingsPanel: "ToggleSongSettingsPanel",
+   ToggleEncodingUtilsPanel: "ToggleEncodingUtilsPanel",
    PlayFromPosition: "PlayFromPosition",
    PlayPattern: "PlayPattern",
    PlaySong: "PlaySong",

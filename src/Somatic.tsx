@@ -47,6 +47,7 @@ import { StatusChips } from './ui/StatusChips';
 import { SongSettingsPanel } from './ui/SongSettingsPanel';
 import { EditorStateControls } from './ui/EditorStateControls';
 import { Tooltip } from './ui/basic/tooltip';
+import { EncodingUtilsPanel } from './ui/EncodingUtilsPanel';
 
 const TIC80_FRAME_SIZES = [
 
@@ -133,6 +134,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [keyboardEnabled, setKeyboardEnabled] = useLocalStorage("somatic-keyboardEnabled", true);
     const [songStatsPanelOpen, setSongStatsPanelOpen] = useLocalStorage("somatic-songStatsPanelOpen", false);
     const [songSettingsPanelOpen, setSongSettingsPanelOpen] = useLocalStorage("somatic-songSettingsPanelOpen", false);
+    const [encodingUtilsPanelOpen, setEncodingUtilsPanelOpen] = useLocalStorage("somatic-encodingUtilsPanelOpen", false);
 
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
@@ -539,6 +541,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("ToggleAdvancedEditPanel", () => setAdvancedEditPanelOpen(open => !open));
     mgr.useActionHandler("TogglePatternEditor", () => {
         setPatternEditorOpen(open => !open);
+    });
+    mgr.useActionHandler("ToggleEncodingUtilsPanel", () => {
+        setEncodingUtilsPanelOpen(open => !open);
     });
     useActionHandler("PlaySong", onPlayAll);
     useActionHandler("PlayFromPosition", onPlayFromPosition);
@@ -1017,6 +1022,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 )}
                 {debugPanelOpen && (
                     <DebugPanel onClose={() => setDebugPanelOpen(false)} />
+                )}
+                {encodingUtilsPanelOpen && (
+                    <EncodingUtilsPanel onClose={() => setEncodingUtilsPanelOpen(false)} />
                 )}
                 {songStatsPanelOpen && (
                     <SongStatsAppPanel
