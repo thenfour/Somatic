@@ -6,7 +6,7 @@ import { Button } from "./Buttons/PushButton";
 import { ButtonGroup } from "./Buttons/ButtonGroup";
 import { RadioButton } from "./Buttons/RadioButton";
 import { base85Decode, base85Encode, gSomaticLZDefaultConfig, lzCompress, lzDecompress } from "../audio/encoding";
-import { CharMap, err, ok, Ok, Result, toLuaStringLiteral } from "../utils/utils";
+import { CharMap, err, getBufferFingerprint, ok, Result, toLuaStringLiteral } from "../utils/utils";
 import { decodeRawString } from "../utils/lua/lua_utils";
 import { KeyValueTable } from "./basic/KeyValueTable";
 
@@ -220,6 +220,25 @@ function bytesToLzBase85Lua(bytes: Uint8Array): B85LZPayload {
     return { lua: toLuaStringLiteral(b85), decodedLength: compressed.length };
 }
 
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
+}
+
+function findFirstByteMismatch(a: Uint8Array, b: Uint8Array): { index: number; a: number; b: number } | null {
+    const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) {
+        if (a[i] !== b[i]) return { index: i, a: a[i], b: b[i] };
+    }
+    if (a.length !== b.length) {
+        return { index: n, a: a[n] ?? -1, b: b[n] ?? -1 };
+    }
+    return null;
+}
+
 
 export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const [inputText, setInputText] = useState("\"1a1c2c5d275db13e53ef7d57ffcd75a7f07038b76425717929366f3b5dc941a6f673eff7f4f4f494b0c2566c86333c57\"");
@@ -255,6 +274,11 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
         return decodedBytes.value.length;
     }, [decodedBytes]);
 
+    const decodedFingerprint = useMemo(() => {
+        if (!decodedBytes.ok) return null;
+        return getBufferFingerprint(decodedBytes.value);
+    }, [decodedBytes]);
+
     useEffect(() => {
         if (!decodedBytes.ok) {
             setOutputText(`-- ERROR\n${decodedBytes.error}`);
@@ -278,6 +302,45 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
     const outputByteCount = outputFormat === "lzBase85" && decodedBytes.ok
         ? lzCompress(decodedBytes.value, gSomaticLZDefaultConfig).length
         : inputByteCount;
+
+    const outputRoundtrip = useMemo((): Result<{
+        ok: boolean;
+        outputBytes?: Uint8Array;
+        mismatch?: { index: number; a: number; b: number } | null;
+    }> => {
+        if (!decodedBytes.ok) return err(decodedBytes.error);
+        const inputBytes = decodedBytes.value;
+
+        let outBytes: Uint8Array;
+        if (isNumberListFormat(outputFormat)) {
+            const parsed = parseNumberListToBytes(outputText, outputFormat);
+            if (!parsed.ok) return err(`Output parse failed: ${parsed.error}`);
+            outBytes = parsed.value;
+        } else if (outputFormat === "hexString") {
+            const parsed = parseHexStringToBytes(outputText);
+            if (!parsed.ok) return err(`Output parse failed: ${parsed.error}`);
+            outBytes = parsed.value;
+        } else {
+            const decodedLen = Number.parseInt(outputDecodedLength, 10) | 0;
+            const parsed = decodeLzBase85ToBytes({ lua: outputText, decodedLength: decodedLen });
+            if (!parsed.ok) return err(`Output decode failed: ${parsed.error}`);
+            outBytes = parsed.value;
+        }
+
+        const same = bytesEqual(inputBytes, outBytes);
+        return ok({
+            ok: same,
+            outputBytes: outBytes,
+            mismatch: same ? null : findFirstByteMismatch(inputBytes, outBytes),
+        });
+    }, [decodedBytes, outputFormat, outputText, outputDecodedLength]);
+
+    const outputFingerprint = useMemo(() => {
+        if (!outputRoundtrip.ok) return null;
+        const bytes = outputRoundtrip.value.outputBytes;
+        if (!bytes) return null;
+        return getBufferFingerprint(bytes);
+    }, [outputRoundtrip]);
 
     const barMax = Math.max(inputText.length, outputText.length, payloadByteSize);
 
@@ -326,8 +389,24 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
                             "Input string": <BarValue value={inputText.length} max={barMax} label={<SizeValue value={inputText.length} />} />,
                             "Byte payload": <BarValue value={payloadByteSize} max={barMax} label={<SizeValue value={payloadByteSize} />} />,
                             "Output string": <BarValue value={outputText.length} max={barMax} label={<SizeValue value={outputText.length} />} />,
+                            "Payload checksum": decodedFingerprint ? `${decodedFingerprint.checksum} (len=${decodedFingerprint.length})` : "-",
+                            "Output sanity": !decodedBytes.ok
+                                ? "-"
+                                : (!outputRoundtrip.ok
+                                    ? `ERROR: ${outputRoundtrip.error}`
+                                    : (outputRoundtrip.value.ok
+                                        ? "OK"
+                                        : `MISMATCH @${outputRoundtrip.value.mismatch?.index ?? "?"}`)),
+                            "Output checksum": outputFingerprint ? `${outputFingerprint.checksum} (len=${outputFingerprint.length})` : "-",
                         }}
                     />
+                    {
+                        outputRoundtrip.ok && !outputRoundtrip.value.ok && outputRoundtrip.value.mismatch && (
+                            <div className="debug-panel-output-label">
+                                First mismatch at {outputRoundtrip.value.mismatch.index}: input={outputRoundtrip.value.mismatch.a}, output={outputRoundtrip.value.mismatch.b}
+                            </div>
+                        )
+                    }
                     <div className="debug-panel-output-label">Decoded bytes: {inputByteCount} (LZ bytes: {outputByteCount})</div>
                     <ButtonGroup>
                         <Button onClick={() => clipboard.copyTextToClipboard(outputText)}>Copy</Button>
