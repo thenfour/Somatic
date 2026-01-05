@@ -20,22 +20,90 @@ Output:
 
 type SnipFormat = "numberList" | "hexString" | "lzBase85";
 
-function parseNumberListToBytes(src: string): Result<Uint8Array> {
-    // Accept: {1,2,3} or 1,2,3 or with whitespace/newlines.
+const NUMBER_LIST_FORMATS = ["u8", "s8", "u16", "s16", "u32", "s32"] as const;
+type NumberListFormat = typeof NUMBER_LIST_FORMATS[number];
+type SnipFormat2 = NumberListFormat | "hexString" | "lzBase85";
+
+function isNumberListFormat(fmt: SnipFormat2): fmt is NumberListFormat {
+    return (NUMBER_LIST_FORMATS as readonly string[]).includes(fmt);
+}
+
+function parseNumberListToNumbers(src: string): Result<number[]> {
     const nums = src.match(/-?\d+/g) ?? [];
     if (nums.length === 0) {
         return err("No numbers found.");
     }
-    const out = new Uint8Array(nums.length);
-    for (let i = 0; i < nums.length; i++) {
-        const n = Number.parseInt(nums[i], 10);
+    const out: number[] = [];
+    for (const tok of nums) {
+        const n = Number.parseInt(tok, 10);
         if (!Number.isFinite(n)) {
-            return err(`Invalid number: ${nums[i]}`);
+            return err(`Invalid number: ${tok}`);
         }
-        if (n < 0 || n > 255) {
-            return err(`Byte out of range (0..255): ${n}`);
+        out.push(n);
+    }
+    return ok(out);
+}
+
+function detectNumberListFormat(values: readonly number[]): NumberListFormat {
+    let min = Infinity;
+    let max = -Infinity;
+    for (const v of values) {
+        if (v < min) min = v;
+        if (v > max) max = v;
+    }
+
+    const hasNeg = min < 0;
+    if (hasNeg) {
+        if (min >= -128 && max <= 127) return "s8";
+        if (min >= -32768 && max <= 32767) return "s16";
+        return "s32";
+    }
+    if (max <= 0xff) return "u8";
+    if (max <= 0xffff) return "u16";
+    return "u32";
+}
+
+function parseNumberListToBytes(src: string, fmt: NumberListFormat): Result<Uint8Array> {
+    const parsed = parseNumberListToNumbers(src);
+    if (!parsed.ok) return parsed;
+    const values = parsed.value;
+
+    const stride = (fmt === "u8" || fmt === "s8") ? 1 : (fmt === "u16" || fmt === "s16") ? 2 : 4;
+    const out = new Uint8Array(values.length * stride);
+    let o = 0;
+    for (let i = 0; i < values.length; i++) {
+        const v = values[i];
+        if (fmt === "u8") {
+            if (v < 0 || v > 0xff) return err(`U8 out of range (0..255): ${v}`);
+            out[o++] = v & 0xff;
+        } else if (fmt === "s8") {
+            if (v < -128 || v > 127) return err(`S8 out of range (-128..127): ${v}`);
+            out[o++] = v & 0xff;
+        } else if (fmt === "u16") {
+            if (v < 0 || v > 0xffff) return err(`U16 out of range (0..65535): ${v}`);
+            out[o++] = v & 0xff;
+            out[o++] = (v >>> 8) & 0xff;
+        } else if (fmt === "s16") {
+            if (v < -32768 || v > 32767) return err(`S16 out of range (-32768..32767): ${v}`);
+            const u = v & 0xffff;
+            out[o++] = u & 0xff;
+            out[o++] = (u >>> 8) & 0xff;
+        } else if (fmt === "u32") {
+            if (v < 0 || v > 0xffffffff) return err(`U32 out of range (0..4294967295): ${v}`);
+            const u = v >>> 0;
+            out[o++] = u & 0xff;
+            out[o++] = (u >>> 8) & 0xff;
+            out[o++] = (u >>> 16) & 0xff;
+            out[o++] = (u >>> 24) & 0xff;
+        } else {
+            // s32
+            if (v < -2147483648 || v > 2147483647) return err(`S32 out of range (-2147483648..2147483647): ${v}`);
+            const u = v >>> 0;
+            out[o++] = u & 0xff;
+            out[o++] = (u >>> 8) & 0xff;
+            out[o++] = (u >>> 16) & 0xff;
+            out[o++] = (u >>> 24) & 0xff;
         }
-        out[i] = n & 0xff;
     }
     return ok(out);
 }
@@ -93,11 +161,13 @@ function decodeLzBase85ToBytes(src: B85LZPayload): Result<Uint8Array> {
     }
 }
 
-function detectInputFormat(src: string): SnipFormat {
+function detectInputFormat(src: string): SnipFormat2 {
     const s = src.trim();
     // number list if it contains only digits, commas, whitespace, braces/brackets/parens, minus.
     if (/^[\s\d,{}\[\]()\-]+$/.test(s) && /\d/.test(s)) {
-        return "numberList";
+        const nums = parseNumberListToNumbers(s);
+        if (nums.ok) return detectNumberListFormat(nums.value);
+        return "u8";
     }
     // hex string if it contains only hex digits, whitespace, quotes, 0x prefix.
     if (/^[\s0-9a-fA-F"'x]+$/.test(s) && /[0-9a-fA-F]/.test(s)) {
@@ -106,8 +176,33 @@ function detectInputFormat(src: string): SnipFormat {
     return "lzBase85";
 }
 
-function bytesToNumberListLua(bytes: Uint8Array): string {
-    return `{${Array.from(bytes).join(",")}}`;
+function bytesToNumberListLua(bytes: Uint8Array, fmt: NumberListFormat): Result<string> {
+    const stride = (fmt === "u8" || fmt === "s8") ? 1 : (fmt === "u16" || fmt === "s16") ? 2 : 4;
+    if (bytes.length % stride !== 0) {
+        return err(`Byte length ${bytes.length} is not a multiple of ${stride} for ${fmt.toUpperCase()}.`);
+    }
+
+    const values: number[] = [];
+    for (let i = 0; i < bytes.length; i += stride) {
+        if (fmt === "u8") {
+            values.push(bytes[i]);
+        } else if (fmt === "s8") {
+            const b = bytes[i];
+            values.push(b >= 0x80 ? b - 0x100 : b);
+        } else if (fmt === "u16") {
+            values.push(bytes[i] | (bytes[i + 1] << 8));
+        } else if (fmt === "s16") {
+            const u = bytes[i] | (bytes[i + 1] << 8);
+            values.push(u >= 0x8000 ? u - 0x10000 : u);
+        } else if (fmt === "u32") {
+            const u = (bytes[i] | (bytes[i + 1] << 8) | (bytes[i + 2] << 16) | (bytes[i + 3] << 24)) >>> 0;
+            values.push(u);
+        } else {
+            const u = (bytes[i] | (bytes[i + 1] << 8) | (bytes[i + 2] << 16) | (bytes[i + 3] << 24)) >>> 0;
+            values.push(u >= 0x80000000 ? u - 0x100000000 : u);
+        }
+    }
+    return ok(`{${values.join(",")}}`);
 }
 
 function bytesToHexStringLua(bytes: Uint8Array): string {
@@ -136,20 +231,20 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
     // hex string may or may not have quotes.
     //
     // output should be a Lua value.; e.g., "1a2b3c4d" or "{26,43,60,77}".
-    const [inputFormat, setInputFormat] = useState<SnipFormat | "auto">("auto");
+    const [inputFormat, setInputFormat] = useState<SnipFormat2 | "auto">("auto");
     const [inputDecodedLength, setInputDecodedLength] = useState(0);
-    const [detectedFormat, setDetectedFormat] = useState<SnipFormat | "error">("error");
+    const [detectedFormat, setDetectedFormat] = useState<SnipFormat2 | "error">("error");
     const [outputText, setOutputText] = useState("");
     const [outputDecodedLength, setOutputDecodedLength] = useState("");
-    const [outputFormat, setOutputFormat] = useState<SnipFormat>("hexString");
+    const [outputFormat, setOutputFormat] = useState<SnipFormat2>("hexString");
     const clipboard = useClipboard();
 
     const decodedBytes = useMemo((): Result<Uint8Array> => {
-        const fmt: SnipFormat = inputFormat === "auto" ? detectInputFormat(inputText) : inputFormat;
+        const fmt: SnipFormat2 = inputFormat === "auto" ? detectInputFormat(inputText) : inputFormat;
 
         setDetectedFormat(fmt);
 
-        if (fmt === "numberList") return parseNumberListToBytes(inputText);
+        if (isNumberListFormat(fmt)) return parseNumberListToBytes(inputText, fmt);
         if (fmt === "hexString") return parseHexStringToBytes(inputText);
         return decodeLzBase85ToBytes({ lua: inputText, decodedLength: inputDecodedLength });
     }, [inputText, inputFormat, inputDecodedLength]);
@@ -160,9 +255,12 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
             return;
         }
         const bytes = decodedBytes.value;
-        if (outputFormat === "numberList") setOutputText(bytesToNumberListLua(bytes));
-        else if (outputFormat === "hexString") setOutputText(bytesToHexStringLua(bytes));
-        else {
+        if (isNumberListFormat(outputFormat)) {
+            const lua = bytesToNumberListLua(bytes, outputFormat);
+            setOutputText(lua.ok ? lua.value : `-- ERROR\n${lua.error}`);
+        } else if (outputFormat === "hexString") {
+            setOutputText(bytesToHexStringLua(bytes));
+        } else {
             //setOutputText(bytesToLzBase85Lua(bytes));
             const b85payload = bytesToLzBase85Lua(bytes);
             setOutputText(b85payload.lua);
@@ -178,7 +276,12 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
     return <AppPanelShell title="Encoding Utilities" className="encoding-utils-panel" onClose={onClose}>
         <div className="encoding-utils-panel__content">
             <ButtonGroup>
-                <RadioButton selected={inputFormat === "numberList"} onClick={() => setInputFormat("numberList")}>Number list</RadioButton>
+                <RadioButton selected={inputFormat === "u8"} onClick={() => setInputFormat("u8")}>U8</RadioButton>
+                <RadioButton selected={inputFormat === "s8"} onClick={() => setInputFormat("s8")}>S8</RadioButton>
+                <RadioButton selected={inputFormat === "u16"} onClick={() => setInputFormat("u16")}>U16</RadioButton>
+                <RadioButton selected={inputFormat === "s16"} onClick={() => setInputFormat("s16")}>S16</RadioButton>
+                <RadioButton selected={inputFormat === "u32"} onClick={() => setInputFormat("u32")}>U32</RadioButton>
+                <RadioButton selected={inputFormat === "s32"} onClick={() => setInputFormat("s32")}>S32</RadioButton>
                 <RadioButton selected={inputFormat === "hexString"} onClick={() => setInputFormat("hexString")} >Hex string</RadioButton>
                 <RadioButton selected={inputFormat === "lzBase85"} onClick={() => setInputFormat("lzBase85")}>LZ Base85</RadioButton>
                 <RadioButton selected={inputFormat === "auto"} onClick={() => setInputFormat("auto")}>Auto</RadioButton>
@@ -194,7 +297,12 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
 
             <div className="debug-panel-output">
                 <ButtonGroup>
-                    <RadioButton selected={outputFormat === "numberList"} onClick={() => setOutputFormat("numberList")}>Number list</RadioButton>
+                    <RadioButton selected={outputFormat === "u8"} onClick={() => setOutputFormat("u8")}>U8</RadioButton>
+                    <RadioButton selected={outputFormat === "s8"} onClick={() => setOutputFormat("s8")}>S8</RadioButton>
+                    <RadioButton selected={outputFormat === "u16"} onClick={() => setOutputFormat("u16")}>U16</RadioButton>
+                    <RadioButton selected={outputFormat === "s16"} onClick={() => setOutputFormat("s16")}>S16</RadioButton>
+                    <RadioButton selected={outputFormat === "u32"} onClick={() => setOutputFormat("u32")}>U32</RadioButton>
+                    <RadioButton selected={outputFormat === "s32"} onClick={() => setOutputFormat("s32")}>S32</RadioButton>
                     <RadioButton selected={outputFormat === "hexString"} onClick={() => setOutputFormat("hexString")} >Hex string</RadioButton>
                     <RadioButton selected={outputFormat === "lzBase85"} onClick={() => setOutputFormat("lzBase85")}>LZ Base85</RadioButton>
                 </ButtonGroup>

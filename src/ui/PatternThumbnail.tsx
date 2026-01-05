@@ -4,6 +4,7 @@ import { clamp } from "../utils/utils";
 
 const MAX_THUMB_SIZE = 32;
 const CHANNEL_WIDTH = 6; // pixels per channel
+const CHANNEL_GAP = 1; // pixels between channels
 const ROWS_PER_PIXEL = 2;
 // Keeps the overall thumbnail height the same; only changes visual banding.
 const THUMBNAIL_ROW_QUANT_PX = 1;
@@ -24,7 +25,7 @@ export const renderThumbnail = (
 ): React.ReactNode => {
     if (prefs.size === "off" || !pattern) return null;
 
-    const width = CHANNEL_WIDTH * Tic80Caps.song.audioChannels;
+    const totalWidth = CHANNEL_WIDTH * Tic80Caps.song.audioChannels + (Tic80Caps.song.audioChannels - 1) * CHANNEL_GAP;
     const heightPx = clamp(Math.ceil(rowsPerPattern / ROWS_PER_PIXEL), 1, MAX_THUMB_SIZE);
     const quantPx = clamp(THUMBNAIL_ROW_QUANT_PX, 1, heightPx);
     const blocks = Math.ceil(heightPx / quantPx);
@@ -53,7 +54,7 @@ export const renderThumbnail = (
                 rects.push(
                     <rect
                         key={`${ch}-${block}-${isHighlighted ? "h" : "f"}`}
-                        x={ch * CHANNEL_WIDTH}
+                        x={ch * CHANNEL_WIDTH + ch * CHANNEL_GAP}
                         y={block * quantPx}
                         width={CHANNEL_WIDTH}
                         height={quantPx}
@@ -67,9 +68,9 @@ export const renderThumbnail = (
     return (
         <svg
             className="arrangement-editor__thumbnail"
-            width={width}
+            width={totalWidth}
             height={heightPx}
-            viewBox={`0 0 ${width} ${heightPx}`}
+            viewBox={`0 0 ${totalWidth} ${heightPx}`}
             aria-label="Pattern thumbnail"
             role="img"
         >
