@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Song } from "../models/song";
+import { autoSelectWindows, buildMorphGradientFromSampleImport, extractSingleChannelPcm, windowDtoToFrames } from "../audio/morph_sample_import";
+import { decodeFloat32PcmFromDto, decodeWavFileToDto } from "../audio/wav_reader";
 import {
     MorphSampleImportAutoWindowParamsDto,
     MorphSampleImportStateDto,
@@ -7,14 +8,16 @@ import {
     Tic80Instrument,
     WaveformMorphGradientNode,
 } from "../models/instruments";
+import { Song } from "../models/song";
 import { SomaticCaps } from "../models/tic80Capabilities";
 import { clamp } from "../utils/utils";
-import { decodeFloat32PcmFromDto, decodeWavFileToDto } from "../audio/wav_reader";
-import { autoSelectWindows, buildMorphGradientFromSampleImport, extractSingleChannelPcm, windowDtoToFrames } from "../audio/morph_sample_import";
 import { ContinuousKnob, ContinuousParamConfig } from "./basic/oldknob";
-import { WaveformVisualizer } from "./WaveformVisualizer";
+import { ButtonGroup } from "./Buttons/ButtonGroup";
+import { CheckboxButton } from "./Buttons/CheckboxButton";
+import { Button } from "./Buttons/PushButton";
 import { MorphSampleFileImportButton } from "./MorphSampleFileImportButton";
 import { MorphSampleWindowItem } from "./MorphSampleWindowItem";
+import { WaveformVisualizer } from "./WaveformVisualizer";
 
 const SourceDuration01Config: ContinuousParamConfig = {
     resolutionSteps: 200,
@@ -320,25 +323,24 @@ export const MorphSampleImportTab: React.FC<{
                         dottedMarkers={dottedMarkers}
                     />
 
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <button
-                            type="button"
-                            style={toggleButtonStyle(showSelectedWindowHighlights)}
+
+                    <ButtonGroup>
+                        <CheckboxButton
+                            highlighted={showSelectedWindowHighlights}
+                            //highlighted={showSelectedWindowHighlights}
+                            // style={toggleButtonStyle(showSelectedWindowHighlights)}
                             onClick={() => setShowSelectedWindowHighlights((v) => !v)}
                         >
                             Windows
-                        </button>
-                        <button
-                            type="button"
-                            style={toggleButtonStyle(showAutoWindowPreviewHighlights)}
+                        </CheckboxButton>
+                        <CheckboxButton
+                            highlighted={showAutoWindowPreviewHighlights}
+                            // style={toggleButtonStyle(showAutoWindowPreviewHighlights)}
                             onClick={() => setShowAutoWindowPreviewHighlights((v) => !v)}
                         >
                             Auto-window preview
-                        </button>
-                        <span style={{ fontSize: 12, opacity: 0.8 }}>
-                            Toggle highlight overlays
-                        </span>
-                    </div>
+                        </CheckboxButton>
+                    </ButtonGroup>
 
                     <div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -377,9 +379,9 @@ export const MorphSampleImportTab: React.FC<{
                                     onChange={(v) => setAutoWindowParams({ placementExponent: Math.max(0.01, v) })}
                                 />
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <button type="button" onClick={handleAutoWindow}>
+                                    <Button onClick={handleAutoWindow}>
                                         Auto-window
-                                    </button>
+                                    </Button>
                                     {autoWindowError && <span style={{ fontSize: 12 }} className="alertPanel">{autoWindowError}</span>}
                                 </div>
                             </div>
