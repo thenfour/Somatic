@@ -5,6 +5,8 @@ import { clamp } from "../utils/utils";
 const MAX_THUMB_SIZE = 32;
 const CHANNEL_WIDTH = 6; // pixels per channel
 const ROWS_PER_PIXEL = 2;
+// Keeps the overall thumbnail height the same; only changes visual banding.
+const THUMBNAIL_ROW_QUANT_PX = 1;
 
 export type ThumbnailSize = "off" | "full";
 export type ThumbnailMode = "notes" | "currentInstrument";
@@ -23,14 +25,16 @@ export const renderThumbnail = (
     if (prefs.size === "off" || !pattern) return null;
 
     const width = CHANNEL_WIDTH * Tic80Caps.song.audioChannels;
-    const height = clamp(Math.ceil(rowsPerPattern / ROWS_PER_PIXEL), 1, MAX_THUMB_SIZE);
+    const heightPx = clamp(Math.ceil(rowsPerPattern / ROWS_PER_PIXEL), 1, MAX_THUMB_SIZE);
+    const quantPx = clamp(THUMBNAIL_ROW_QUANT_PX, 1, heightPx);
+    const blocks = Math.ceil(heightPx / quantPx);
 
     const rects: React.ReactNode[] = [];
 
     for (let ch = 0; ch < 4; ch += 1) {
-        for (let block = 0; block < height; block += 1) {
-            const rowStart = block * ROWS_PER_PIXEL;
-            const rowEnd = Math.min(rowsPerPattern, rowStart + ROWS_PER_PIXEL);
+        for (let block = 0; block < blocks; block += 1) {
+            const rowStart = block * quantPx * ROWS_PER_PIXEL;
+            const rowEnd = Math.min(rowsPerPattern, rowStart + (quantPx * ROWS_PER_PIXEL));
             let hasNote = false;
             let isHighlighted = false;
 
@@ -50,9 +54,9 @@ export const renderThumbnail = (
                     <rect
                         key={`${ch}-${block}-${isHighlighted ? "h" : "f"}`}
                         x={ch * CHANNEL_WIDTH}
-                        y={block}
+                        y={block * quantPx}
                         width={CHANNEL_WIDTH}
-                        height={1}
+                        height={quantPx}
                         data-role={isHighlighted ? "highlight" : "fill"}
                     />
                 );
@@ -64,8 +68,8 @@ export const renderThumbnail = (
         <svg
             className="arrangement-editor__thumbnail"
             width={width}
-            height={height}
-            viewBox={`0 0 ${width} ${height}`}
+            height={heightPx}
+            viewBox={`0 0 ${width} ${heightPx}`}
             aria-label="Pattern thumbnail"
             role="img"
         >
