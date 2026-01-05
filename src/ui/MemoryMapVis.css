@@ -44,6 +44,6 @@
 }
 
 .memory-map-vis__text-summary {
-    min-width: 350px;
-    ;
+    min-width: 550px;
+    font-size: 10px;
 }

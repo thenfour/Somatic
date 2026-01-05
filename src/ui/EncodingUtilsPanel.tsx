@@ -8,6 +8,7 @@ import { RadioButton } from "./Buttons/RadioButton";
 import { base85Decode, base85Encode, gSomaticLZDefaultConfig, lzCompress, lzDecompress } from "../audio/encoding";
 import { CharMap, err, ok, Ok, Result, toLuaStringLiteral } from "../utils/utils";
 import { decodeRawString } from "../utils/lua/lua_utils";
+import { KeyValueTable } from "./basic/KeyValueTable";
 
 /*
 
@@ -236,7 +237,7 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
     const [detectedFormat, setDetectedFormat] = useState<SnipFormat2 | "error">("error");
     const [outputText, setOutputText] = useState("");
     const [outputDecodedLength, setOutputDecodedLength] = useState("");
-    const [outputFormat, setOutputFormat] = useState<SnipFormat2>("hexString");
+    const [outputFormat, setOutputFormat] = useState<SnipFormat2>("lzBase85");
     const clipboard = useClipboard();
 
     const decodedBytes = useMemo((): Result<Uint8Array> => {
@@ -248,6 +249,11 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
         if (fmt === "hexString") return parseHexStringToBytes(inputText);
         return decodeLzBase85ToBytes({ lua: inputText, decodedLength: inputDecodedLength });
     }, [inputText, inputFormat, inputDecodedLength]);
+
+    const payloadByteSize = useMemo(() => {
+        if (!decodedBytes.ok) return 0;
+        return decodedBytes.value.length;
+    }, [decodedBytes]);
 
     useEffect(() => {
         if (!decodedBytes.ok) {
@@ -272,6 +278,8 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
     const outputByteCount = outputFormat === "lzBase85" && decodedBytes.ok
         ? lzCompress(decodedBytes.value, gSomaticLZDefaultConfig).length
         : inputByteCount;
+
+    const barMax = Math.max(inputText.length, outputText.length, payloadByteSize);
 
     return <AppPanelShell title="Encoding Utilities" className="encoding-utils-panel" onClose={onClose}>
         <div className="encoding-utils-panel__content">
@@ -313,8 +321,13 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
                     gap: "0.25rem",
                     maxWidth: "300px",
                 }}>
-                    <BarValue value={inputText.length} max={Math.max(inputText.length, outputText.length)} label={<SizeValue value={inputText.length} />} />
-                    <BarValue value={outputText.length} max={Math.max(inputText.length, outputText.length)} label={<SizeValue value={outputText.length} />} />
+                    <KeyValueTable
+                        value={{
+                            "Input string": <BarValue value={inputText.length} max={barMax} label={<SizeValue value={inputText.length} />} />,
+                            "Byte payload": <BarValue value={payloadByteSize} max={barMax} label={<SizeValue value={payloadByteSize} />} />,
+                            "Output string": <BarValue value={outputText.length} max={barMax} label={<SizeValue value={outputText.length} />} />,
+                        }}
+                    />
                     <div className="debug-panel-output-label">Decoded bytes: {inputByteCount} (LZ bytes: {outputByteCount})</div>
                     <ButtonGroup>
                         <Button onClick={() => clipboard.copyTextToClipboard(outputText)}>Copy</Button>

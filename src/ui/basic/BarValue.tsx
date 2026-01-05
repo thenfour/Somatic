@@ -9,12 +9,13 @@ export const SizeValue: React.FC<{ value: number; }> = ({ value }) => {
     );
 };
 
-export const BarValue: React.FC<{ value: number; max: number; label: React.ReactNode }> = ({ value, max, label }) => {
+export const BarValue: React.FC<{ value: number; max: number; size?: number; label: React.ReactNode }> = ({ value, max, size = 200, label }) => {
     const safeMax = Math.max(1, max);
     const pct = Math.max(0, Math.min(1, value / safeMax));
     return (
         <div className="bar-value" style={{
             "--bar-value-fill-percent": `${(pct * 100).toFixed(1)}%`,
+            width: `${size}px`,
         } as React.CSSProperties}>
             <div
                 className="bar-value--content"
