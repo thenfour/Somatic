@@ -1157,6 +1157,7 @@ export function parseLua(code: string): luaparse.Chunk|null {
       return ast;
    } catch (error) {
       console.error("Error parsing Lua code:", error);
+      console.log("Lua code:\n", code);
    }
 
    return null;

@@ -745,19 +745,21 @@ do
 	end
 
 	local function blit_pattern_column(columnIndex0b, destPointer)
-		local entry = SOMATIC_MUSIC_DATA.patterns[columnIndex0b + 1]
-		local patternLengthBytes = SOMATIC_MUSIC_DATA.patternLengths[columnIndex0b + 1]
-		local srcPtr = __AUTOGEN_TEMP_PTR_A
-		local compressedLen
-		if type(entry) == "number" then
-			srcPtr = entry + PATTERNS_BASE
-			compressedLen = patternLengthBytes
-		else
-			compressedLen = base85Plus1Decode(entry, srcPtr)
+		local rp = SOMATIC_MUSIC_DATA.rp
+		local ramPatternCount = #ramPatterns / 2 -- each pattern uses 2 entries (ptroffset + length)
+		if columnIndex0b < ramPatternCount then
+			-- pattern in RAM.
+			lzdm(
+				PATTERNS_BASE + ramPatterns[columnIndex0b * 2 + 1], -- src ptr
+				ramPatterns[columnIndex0b * 2 + 2], -- src len
+				destPointer
+			)
+			return
 		end
-
-		-- and decompress.
-		lzdm(srcPtr, compressedLen, destPointer)
+		-- pattern in string literal
+		local entry = SOMATIC_MUSIC_DATA.cp[columnIndex0b + 1 - ramPatternCount]
+		local compressedLen = base85Plus1Decode(entry, __AUTOGEN_TEMP_PTR_A)
+		lzdm(__AUTOGEN_TEMP_PTR_A, compressedLen, destPointer)
 	end
 
 	local function swapInPlayorder(songPosition0b, destPointer)

@@ -198,6 +198,7 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
     const clipboard = useClipboard();
 
     const handleCopyGeneratedCode = async () => {
+        console.log(input?.cartridge);
         await clipboard.copyTextToClipboard(input?.cartridge.wholePlayroutineCode || "");
     };
 
