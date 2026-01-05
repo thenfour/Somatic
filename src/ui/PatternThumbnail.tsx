@@ -3,7 +3,7 @@ import { Tic80Caps } from "../models/tic80Capabilities";
 import { clamp } from "../utils/utils";
 
 const MAX_THUMB_SIZE = 32;
-const CHANNEL_WIDTH = 8; // pixels per channel
+const CHANNEL_WIDTH = 6; // pixels per channel
 const ROWS_PER_PIXEL = 2;
 
 export type ThumbnailSize = "off" | "full";

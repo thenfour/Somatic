@@ -261,15 +261,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-left: 6px;
-    margin-right: 6px;
-    min-width: 34px;
+    margin-left: 3px;
+    margin-right: 3px;
+    /* min-width: 34px; */
 }
 
 .arrangement-editor__thumbnail {
     display: block;
-    width: 32px;
-    height: auto;
+    /* width: 32px;
+    height: auto; */
     background: var(--arr-thumb-bg);
     /* border: 1px solid var(--arr-thumb-border); */
     border-bottom: 1px solid var(--arr-thumb-border);
