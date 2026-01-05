@@ -30,7 +30,7 @@ export function isStringLiteral(node: luaparse.Expression|undefined|null): node 
    return !!node && node.type === "StringLiteral";
 }
 
-function decodeRawString(raw: string|undefined): string|null {
+export function decodeRawString(raw: string|undefined): string|null {
    if (!raw || raw.length < 2)
       return null;
    // Handle long bracket strings [[...]] (naive but sufficient for folding literals)
