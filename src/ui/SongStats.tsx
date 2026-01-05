@@ -1,23 +1,22 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { MORPH_ENTRY_BYTES } from "../../bridge/morphSchema";
-import { base85Encode, lzCompress, lzDecompress } from "../audio/encoding";
+import { lzCompress, lzDecompress } from "../audio/encoding";
 import { serializeSongForTic80Bridge, serializeSongToCartDetailed, SongCartDetails, Tic80SerializedSong } from "../audio/tic80_cart_serializer";
 import { useClipboard } from "../hooks/useClipboard";
 import { useRenderAlarm } from "../hooks/useRenderAlarm";
 import { useWriteBehindEffect } from "../hooks/useWriteBehindEffect";
 import { Song } from "../models/song";
-import { gAllChannelsAudible, SomaticCaps } from "../models/tic80Capabilities";
+import { gAllChannelsAudible } from "../models/tic80Capabilities";
 import { analyzePatternColumns, OptimizeSong, PatternColumnAnalysisResult } from "../utils/SongOptimizer";
 import { compareBuffers, formatBytes } from "../utils/utils";
 //import { generateAllMemoryMaps } from "../utils/memoryMapStats";
+import { Tic80MemoryMap } from "../../bridge/memory_layout";
+import { MemoryRegion } from "../utils/bitpack/MemoryRegion";
 import { AppPanelShell } from "./AppPanelShell";
 import { BarValue, SizeValue } from "./basic/BarValue";
 import { KeyValueTable } from "./basic/KeyValueTable";
 import { Tooltip } from "./basic/tooltip";
 import { Button } from "./Buttons/PushButton";
 import { MemoryMapTextSummary, MemoryMapVis } from "./MemoryMapVis";
-import { Tic80MemoryMap } from "../../bridge/memory_layout";
-import { MemoryRegion } from "../utils/bitpack/MemoryRegion";
 
 type ChunkInfo = {
     name: string; //
@@ -28,7 +27,7 @@ type ChunkInfo = {
 type PayloadSizeReport = {
     rawBytes: number;
     compressedBytes: number;
-    luaStringBytes: number;
+    //luaStringBytes: number;
 };
 
 type Stats = {
@@ -118,7 +117,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
             patternPayload: {
                 rawBytes: 0,
                 compressedBytes: 0,
-                luaStringBytes: 0,
+                //luaStringBytes: 0,
             },
             patternColumnStats: {
                 totalColumns: 0,
@@ -126,7 +125,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
                 columnPayload: {
                     rawBytes: 0,
                     compressedBytes: 0,
-                    luaStringBytes: 0,
+                    //luaStringBytes: 0,
                 },
             },
             roundTripStatus: "no data",
@@ -143,7 +142,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
 
         let rawBytes = 0;
         let compressedBytes = 0;
-        let luaStringBytes = 0;
+        //let luaStringBytes = 0;
         let status = "ok";
         try {
             for (const patternData of input.cartridge.patternSerializationPlan.patternChunks) {
@@ -164,7 +163,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
 
                 rawBytes += patternData.length;
                 compressedBytes += patternCompressed.length;
-                luaStringBytes += base85Encode(patternCompressed).length;
+                //luaStringBytes += base85Encode(patternCompressed).length;
             }
         } catch (e) {
             console.error("Error calculating pattern compression stats:", e);
@@ -178,7 +177,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
             patternPayload: {
                 rawBytes,
                 compressedBytes,
-                luaStringBytes,
+                //luaStringBytes,
             },
             patternColumnStats,
             roundTripStatus: status,
@@ -291,7 +290,7 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                         'Pattern Payload Sizes': {
                             'RAW': <BarValue value={breakdown.patternColumnStats.columnPayload.rawBytes} max={rawMax} label={<SizeValue value={breakdown.patternColumnStats.columnPayload.rawBytes} />} />,
                             'LZ': <BarValue value={breakdown.patternColumnStats.columnPayload.compressedBytes} max={rawMax} label={<SizeValue value={breakdown.patternColumnStats.columnPayload.compressedBytes} />} />,
-                            'Lua': <BarValue value={breakdown.patternColumnStats.columnPayload.luaStringBytes} max={rawMax} label={<SizeValue value={breakdown.patternColumnStats.columnPayload.luaStringBytes} />} />,
+                            //'Lua': <BarValue value={breakdown.patternColumnStats.columnPayload.luaStringBytes} max={rawMax} label={<SizeValue value={breakdown.patternColumnStats.columnPayload.luaStringBytes} />} />,
                             'Pattern compression ratio': `${(patternCompressionRatio * 100).toFixed(1)}%`,
                             Status: breakdown.roundTripStatus,
                         },

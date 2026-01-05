@@ -121,7 +121,10 @@ do
 	-- -> (600 - 30) / 0.75 = 760 bytes
 	-- So for patterns larger than that, ascii85 is more size-efficient.
 
-	local function base85Decode(s, n, d)
+	local function base85Plus1Decode(s, d)
+		local miss = s:byte(1) - 33
+		s = s:sub(2)
+		local n = (#s // 5) * 4 - miss
 		local i = 1
 		for o = 0, n - 1, 4 do
 			local v = 0
@@ -138,6 +141,10 @@ do
 		end
 		return n
 	end
+	-- s = (1-char hint) .. base85 payload
+	-- hint encodes miss = 0..3 as char(33+miss)
+	--local function base85Plus1Decode(s, d)
+	--end
 
 	-- Read unsigned LEB128 varint from memory.
 	-- base:   start address of encoded stream
@@ -666,7 +673,7 @@ do
 
 	local function decode_extra_song_data()
 		local m = SOMATIC_MUSIC_DATA.extraSongData
-		if not m or not m.payloadB85 or not m.payloadCLen then
+		if not m then
 			return
 		end
 
@@ -676,8 +683,8 @@ do
 		morph_nodes_cache = {}
 
 		-- let's use a part of pattern mem for temp storage
-		base85Decode(m.payloadB85, m.payloadCLen, __AUTOGEN_TEMP_PTR_A)
-		lzdm(__AUTOGEN_TEMP_PTR_A, m.payloadCLen, __AUTOGEN_TEMP_PTR_B)
+		local decodedLen = base85Plus1Decode(m, __AUTOGEN_TEMP_PTR_A)
+		lzdm(__AUTOGEN_TEMP_PTR_A, decodedLen, __AUTOGEN_TEMP_PTR_B)
 		local instrumentCount = peek(__AUTOGEN_TEMP_PTR_B)
 		local patternCount = peek(__AUTOGEN_TEMP_PTR_B + 1)
 		local off = __AUTOGEN_TEMP_PTR_B + SOMATIC_EXTRA_SONG_HEADER_BYTES
@@ -750,7 +757,7 @@ do
 			srcPtr = entry + PATTERNS_BASE
 			compressedLen = patternLengthBytes
 		else
-			compressedLen = base85Decode(entry, patternLengthBytes, srcPtr)
+			compressedLen = base85Plus1Decode(entry, srcPtr)
 		end
 
 		-- and decompress.

@@ -481,3 +481,36 @@ export function lzCompress(input: Uint8Array, cfg: LZConfig): Uint8Array {
    flushLits();
    return Uint8Array.from(out);
 }
+
+// #143 base85 encoding is annoying because we need to carry around the true length
+// of the decoded data for proper decoding to the precise length. but we can prefix the string
+// with a single char which describes the "bytes to subtract" from the deduced length.
+// b85 string length is always multiple of 5, so decoded length is always multiple of 4.
+// deduced length is therefore possibly a couple bytes too long (0..3).
+//
+// let's make a kind of derived format that prefixes a "bytes to subtract from the end" value.
+
+export function base85Plus1Encode(data: Uint8Array): string {
+   const n = data.length;
+   const miss = (4 - (n & 3)) & 3; // 0..3
+   return String.fromCharCode(BASE85_OFFSET + miss) + base85Encode(data);
+}
+
+export function base85Plus1Decode(str: string): Uint8Array {
+   if (str.length < 1) {
+      throw new Error("base85Decode1: empty input");
+   }
+
+   const miss = str.charCodeAt(0) - BASE85_OFFSET;
+   if (miss < 0 || miss > 3) {
+      throw new Error(`base85Decode1: invalid miss ${miss}`);
+   }
+
+   const body = str.slice(1);
+   if (body.length % 5 !== 0) {
+      throw new Error(`base85Decode1: body length ${body.length} is not a multiple of 5`);
+   }
+
+   const expectedLength = (body.length / 5) * 4 - miss;
+   return base85Decode(body, expectedLength);
+}

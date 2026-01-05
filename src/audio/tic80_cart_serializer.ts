@@ -11,7 +11,7 @@ import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES
 import {emitLuaBitpackPrelude, emitLuaDecoder} from "../utils/bitpack/emitLuaDecoder";
 import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../utils/utils";
 import {LoopMode} from "./backend";
-import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
+import {base85Plus1Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
 import {encodePatternChannelDirect} from "./pattern_encoding";
 import {PreparedSong, prepareSongColumns} from "./prepared_song";
 import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../../bridge/memory_layout";
@@ -234,7 +234,7 @@ export interface ExtraSongDataDetails {
    binaryPayload: Uint8Array;
    compressedPayload: Uint8Array;
    base85Payload: string;
-   luaTableLiteral: string;
+   luaStringLiteral: string;
    krateInstruments: MorphEntryInput[];
 }
 ;
@@ -244,15 +244,15 @@ function makeExtraSongDataDetails(song: Song, prepared: PreparedSong): ExtraSong
    const patterns = getSomaticPatternExtraEntries(prepared);
    const packed = encodeSomaticExtraSongDataPayload({instruments, patterns});
    const compressed = lzCompress(packed, gSomaticLZDefaultConfig);
-   const b85 = base85Encode(compressed);
+   const b85 = base85Plus1Encode(compressed);
 
-   const luaTableLiteral = `{ payloadB85=${toLuaStringLiteral(b85)}, payloadCLen=${compressed.length} }`;
+   //const luaTableLiteral = `{ b85=${toLuaStringLiteral(b85)}, payloadCLen=${compressed.length} }`;
 
    return {
       binaryPayload: packed,
       compressedPayload: compressed,
       base85Payload: b85,
-      luaTableLiteral,
+      luaStringLiteral: toLuaStringLiteral(b85),
       krateInstruments: instruments,
    };
 }
@@ -573,11 +573,11 @@ export function planPatternMemorySerialization(prepared: PreparedSong): PatternM
 
       const compressed = lzCompress(encodedPattern, gSomaticLZDefaultConfig);
       compressedPatterns.push(compressed);
-      patternLengths.push(compressed.length);
 
       const fitsInPatternRam = (patternRamCursor + compressed.length) <= patternRamBuffer.length;
       if (fitsInPatternRam) {
          patternRamBuffer.set(compressed, patternRamCursor);
+         patternLengths.push(compressed.length);
 
          const offset = patternRamCursor;
          const absAddr = (capacityRegion.address + offset);
@@ -595,7 +595,7 @@ export function planPatternMemorySerialization(prepared: PreparedSong): PatternM
          patternCodeEntries.push(`${offset}`);
       } else {
          // Spill to base85 string when RAM is full.
-         const patternStr = base85Encode(compressed);
+         const patternStr = base85Plus1Encode(compressed);
          patternCodeEntries.push(toLuaStringLiteral(patternStr));
          patternsInLuaCount++;
       }
@@ -643,7 +643,7 @@ function getCode(
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
 local SOMATIC_MUSIC_DATA = {
  songOrder = { ${songOrder} },
- extraSongData = ${extraSongDataDetails.luaTableLiteral},
+ extraSongData = ${extraSongDataDetails.luaStringLiteral},
  patternLengths = { ${patternSerializationPlan.patternLengths.join(",")} },
  patterns = {
   ${patternSerializationPlan.patternCodeEntries.join(",")}

@@ -1,11 +1,11 @@
-import {base85Encode, gSomaticLZDefaultConfig, lzCompress} from "../audio/encoding";
+import {gSomaticLZDefaultConfig, lzCompress} from "../audio/encoding";
 import {encodePatternChannelDirect} from "../audio/pattern_encoding";
 import {prepareSongColumns} from "../audio/prepared_song";
 import {SomaticEffectKind, Tic80Instrument} from "../models/instruments";
-import {Pattern, PatternCell} from "../models/pattern";
+import {Pattern} from "../models/pattern";
 import {Song} from "../models/song";
 import {SongOrderItem} from "../models/songOrder";
-import {Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
+import {Tic80Caps} from "../models/tic80Capabilities";
 import {Tic80Waveform} from "../models/waveform";
 import {clamp} from "./utils";
 
@@ -97,7 +97,7 @@ export function getMaxPatternUsedIndex(song: Song): number {
 export interface PatternPayloadEstimate {
    rawBytes: number;
    compressedBytes: number;
-   luaStringBytes: number;
+   //luaStringBytes: number;
 }
 
 export interface PatternColumnAnalysisResult {
@@ -130,13 +130,13 @@ export function analyzePatternColumns(song: Song): PatternColumnAnalysisResult {
 
    let rawBytes = 0;
    let compressedBytes = 0;
-   let luaStringBytes = 0;
+   //let luaStringBytes = 0;
 
    columnDataBySignature.forEach((columnData) => {
       rawBytes += columnData.length;
       const compressed = lzCompress(columnData, gSomaticLZDefaultConfig);
       compressedBytes += compressed.length;
-      luaStringBytes += base85Encode(compressed).length;
+      //luaStringBytes += base85Encode(compressed).length;
    });
 
    return {
@@ -145,7 +145,7 @@ export function analyzePatternColumns(song: Song): PatternColumnAnalysisResult {
       columnPayload: {
          rawBytes,
          compressedBytes,
-         luaStringBytes,
+         //luaStringBytes,
       },
    };
 };
