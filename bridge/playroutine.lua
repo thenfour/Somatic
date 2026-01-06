@@ -215,11 +215,9 @@ do
 	end
 
 	local function wave_read_samples(waveIndex, outSamples)
-		local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
-		local si = 0
-		for i = 0, WAVE_BYTES_PER_WAVE - 1 do
-			local b = peek(base + i)
-			si = wave_unpack_byte_to_samples(b, outSamples, si)
+		local r = _bp_make_reader(WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE)
+		for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+			outSamples[i] = r.u(4)
 		end
 	end
 
@@ -564,19 +562,8 @@ do
 	end
 
 	local function decode_track_frame_patterns(trackIndex, frameIndex)
-		if trackIndex == nil or trackIndex < 0 then
-			return 0, 0, 0, 0
-		end
-		local base = TRACKS_BASE + trackIndex * TRACK_BYTES_PER_TRACK + frameIndex * 3
-		local b0 = peek(base)
-		local b1 = peek(base + 1)
-		local b2 = peek(base + 2)
-		local packed = b0 + b1 * 256 + b2 * 65536
-		local p0 = packed & 0x3f
-		local p1 = (packed >> 6) & 0x3f
-		local p2 = (packed >> 12) & 0x3f
-		local p3 = (packed >> 18) & 0x3f
-		return p0, p1, p2, p3
+		local r = _bp_make_reader(TRACKS_BASE + trackIndex * TRACK_BYTES_PER_TRACK + frameIndex * 3)
+		return r.u(6), r.u(6), r.u(6), r.u(6)
 	end
 
 	local function decode_pattern_row(patternId1b, rowIndex)
