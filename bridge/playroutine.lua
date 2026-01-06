@@ -93,12 +93,6 @@ do
 		return math.floor(clamp(v, 0, 15) + 0.5)
 	end
 
-	local function wave_unpack_byte_to_samples(b, outSamples, si)
-		outSamples[si] = b & 0x0f
-		outSamples[si + 1] = (b >> 4) & 0x0f
-		return si + 2
-	end
-
 	-- base85 decode (ASCII85-style) for TIC-80 Lua
 	-- Decodes 's' into memory starting at 'dst', writing exactly expectedLen bytes.
 	-- Returns the number of bytes written (should equal expectedLen or error).
@@ -379,6 +373,13 @@ do
 	end
 
 	-- BEGIN_FEATURE_WAVEMORPH
+
+	local function wave_unpack_byte_to_samples(b, outSamples, si)
+		outSamples[si] = b & 0x0f
+		outSamples[si + 1] = (b >> 4) & 0x0f
+		return si + 2
+	end
+
 	local function morph_get_nodes(offBytes)
 		if offBytes == nil or offBytes <= 0 then
 			return nil
