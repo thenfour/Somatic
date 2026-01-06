@@ -765,11 +765,34 @@ do
 		local ramPatternCount = #rp / 2 -- each pattern uses 2 entries (ptroffset + length)
 		if columnIndex0b < ramPatternCount then
 			-- pattern in RAM.
+			-- ram pat:#0 src= dst=
+			-- local src = PATTERNS_BASE + rp[columnIndex0b * 2 + 1] -- DEBUG_ONLY
+			-- log( -- DEBUG_ONLY
+			-- 	string.format( -- DEBUG_ONLY
+			-- 		"ram pat:%d src=0x%04X len=%d dst=0x%04X", -- DEBUG_ONLY
+			-- 		columnIndex0b, -- DEBUG_ONLY
+			-- 		src, -- DEBUG_ONLY
+			-- 		rp[columnIndex0b * 2 + 2], -- DEBUG_ONLY
+			-- 		destPointer -- DEBUG_ONLY
+			-- 	) -- DEBUG_ONLY
+			-- ) -- DEBUG_ONLY
 			lzdm(
 				PATTERNS_BASE + rp[columnIndex0b * 2 + 1], -- src ptr
 				rp[columnIndex0b * 2 + 2], -- src len
 				destPointer
 			)
+			-- report the resulting pattern for debugging
+			-- local b0, b1, b2, b3 =
+			-- 	peek(destPointer), peek(destPointer + 1), peek(destPointer + 2), peek(destPointer + 3)
+			-- log( -- DEBUG_ONLY
+			-- 	string.format( -- DEBUG_ONLY
+			-- 		"  -> first row: %02X %02X %02X %02X", -- DEBUG_ONLY
+			-- 		b0, -- DEBUG_ONLY
+			-- 		b1, -- DEBUG_ONLY
+			-- 		b2, -- DEBUG_ONLY
+			-- 		b3 -- DEBUG_ONLY
+			-- 	) -- DEBUG_ONLY
+			-- ) -- DEBUG_ONLY
 			return
 		end
 		-- pattern in string literal
@@ -960,6 +983,15 @@ function TIC()
 			print(log_lines[i], 2, logY, 15)
 		end
 	end
+
+	-- -- Show per-channel SFX/morph state for sanity checking.
+	-- for ch = 0, 3 do
+	-- 	local sid = ch_sfx_id[ch + 1]
+	-- 	local ticks = ch_sfx_ticks[ch + 1]
+	-- 	print(string.format("ch%d sfx:%d t:%d", ch, sid, ticks), 40, y, 12)
+	-- 	y = y + 8
+	-- end
+
 	-- END_DEBUG_ONLY
 end
 -- END_DISABLE_MINIFICATION
