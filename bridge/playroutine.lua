@@ -850,6 +850,8 @@ do
 			lfo_ticks_by_sfx[morphIds[i]] = 0
 		end
 
+		initialized = true
+
 		music(
 			0, -- track
 			0, -- frame
@@ -881,7 +883,6 @@ do
 	function somatic_tick()
 		if not initialized then
 			somatic_init(0, 0)
-			initialized = true
 		end
 		local track, _, currentFrame, row = somatic_get_state()
 		if track == -1 then
