@@ -183,11 +183,16 @@ do
 	end
 
 	-- decodes a b85+1 string, then LZ-decompresses it into dst.
-	-- uses __AUTOGEN_TEMP_PTR_B as temp storage, because it should be AFTER buffer A,
-	-- and if youre decompressing to buffer A, this theoretically allows more space.
+	-- uses __AUTOGEN_TEMP_PTR_A as temp storage
 	-- returns number of bytes written to dst.
 	local function b85Plus1LZDecodeToMem(s, dst)
-		return lzdm(__AUTOGEN_TEMP_PTR_B, base85Plus1Decode(s, __AUTOGEN_TEMP_PTR_B), dst)
+		-- BEGIN_DEBUG_ONLY
+		-- assert that dst is not overlapping
+		if dst >= __AUTOGEN_TEMP_PTR_A and dst < (__AUTOGEN_TEMP_PTR_A + 256) then -- reasonable temp buffer size
+			error("b85Plus1LZDecodeToMem: dst overlaps with temp buffer")
+		end
+		-- END_DEBUG_ONLY
+		return lzdm(__AUTOGEN_TEMP_PTR_A, base85Plus1Decode(s, __AUTOGEN_TEMP_PTR_A), dst)
 	end
 
 	local function apply_curveN11(t, curveS6)
@@ -746,8 +751,8 @@ do
 
 	-- decode b85+1 LZ-compressed data into a table of integers with 'bits' bits each.
 	local function decodeBits(blob, bits)
-		local n = b85Plus1LZDecodeToMem(blob, __AUTOGEN_TEMP_PTR_A)
-		local r = _bp_make_reader(__AUTOGEN_TEMP_PTR_A)
+		local n = b85Plus1LZDecodeToMem(blob, __AUTOGEN_TEMP_PTR_B)
+		local r = _bp_make_reader(__AUTOGEN_TEMP_PTR_B)
 		local out = {}
 		local count = (n * 8) // bits
 		for i = 1, count do
