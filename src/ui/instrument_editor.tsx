@@ -3,7 +3,7 @@ import { AudioController } from '../audio/controller';
 import { Song } from '../models/song';
 import { ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument, Tic80InstrumentDto } from '../models/instruments';
 import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
-import { assert, clamp } from '../utils/utils';
+import { assert, clamp, secondsTo60HzFrames } from '../utils/utils';
 import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
 import { useClipboard } from '../hooks/useClipboard';
 import { WaveformSelect } from './waveformEditor';
@@ -1055,7 +1055,7 @@ show render slot if there are k-rate effects enabled
                                 />
                             </div>
                             <div>
-                                {Math.floor(instrument.effectDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
+                                {Math.floor(secondsTo60HzFrames(instrument.effectDurationSeconds))} ticks @ 60Hz
                             </div>
                             <div className="field-row">
                                 <ContinuousKnob
@@ -1103,7 +1103,7 @@ show render slot if there are k-rate effects enabled
                                 />
                             </div>
                             <div>
-                                {Math.floor(instrument.lowpassDurationSeconds * 1000 / (1000 / 60))} ticks @ 60Hz
+                                {Math.floor(secondsTo60HzFrames(instrument.lowpassDurationSeconds))} ticks @ 60Hz
                             </div>
                             <div className="field-row">
                                 <ContinuousKnob

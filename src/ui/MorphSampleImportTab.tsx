@@ -11,7 +11,7 @@ import {
 import { Song } from "../models/song";
 import { SomaticCaps } from "../models/tic80Capabilities";
 import { clamp } from "../utils/utils";
-import { ContinuousKnob, ContinuousParamConfig } from "./basic/oldknob";
+import { ContinuousKnob, ContinuousParamConfig, DurationKnob } from "./basic/oldknob";
 import { ButtonGroup } from "./Buttons/ButtonGroup";
 import { CheckboxButton } from "./Buttons/CheckboxButton";
 import { Button } from "./Buttons/PushButton";
@@ -352,11 +352,22 @@ export const MorphSampleImportTab: React.FC<{
                                     config={SourceDuration01Config}
                                     onChange={(v) => setAutoWindowParams({ sourceDuration01: clamp(v, 0, 1) })}
                                 />
-                                <ContinuousKnob
+                                <DurationKnob
                                     label="Target duration"
                                     value={state.autoWindowParams.targetDurationSeconds}
-                                    config={TargetDurationSecondsConfig}
                                     onChange={(v) => setAutoWindowParams({ targetDurationSeconds: clamp(v, 0, SomaticCaps.maxMorphGradientTotalDurationSeconds) })}
+                                    defaultValue={1}
+                                    centerValue={0.01}
+                                    min={0.01}
+                                    max={SomaticCaps.maxMorphGradientTotalDurationSeconds}
+                                //config={TargetDurationSecondsConfig}
+                                //                                     resolutionSteps: SomaticCaps.maxMorphGradientTotalDurationSeconds * 20,
+                                // default: 4,
+                                // convertTo01: (v) => clamp(v / SomaticCaps.maxMorphGradientTotalDurationSeconds, 0, 1),
+                                // convertFrom01: (v01) => clamp(v01, 0, 1) * SomaticCaps.maxMorphGradientTotalDurationSeconds,
+                                // format: (v) => `${v.toFixed(2)} s`,
+
+                                //
                                 />
                                 <ContinuousKnob
                                     label="# windows"

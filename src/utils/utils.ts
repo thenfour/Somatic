@@ -551,3 +551,20 @@ export function assignEvenHues(keys: readonly string[]): HueAssignment {
    }
    return out;
 }
+
+//
+export function secondsToTicks(seconds: number, tickRateHz: number): number {
+   return Math.round(seconds * tickRateHz);
+}
+
+export function ticksToSeconds(ticks: number, tickRateHz: number): number {
+   return ticks / tickRateHz;
+}
+
+export function secondsTo60HzFrames(seconds: number): number {
+   return secondsToTicks(seconds, 60);
+}
+
+export function frames60HzToSeconds(frames: number): number {
+   return ticksToSeconds(frames, 60);
+}

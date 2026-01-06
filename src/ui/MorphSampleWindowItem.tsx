@@ -53,7 +53,7 @@ const Begin01Config: ContinuousParamConfig = {
     default: 0,
     convertTo01: (v) => clamp(v, 0, 1),
     convertFrom01: (v01) => clamp(v01, 0, 1),
-    format: (v) => `${Math.round(v * 100)}%`,
+    format: (v) => `${(v * 100).toFixed(3)}%`,
 };
 
 const LengthWaveformsConfig: ContinuousParamConfig = {

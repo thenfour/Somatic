@@ -116,7 +116,7 @@ export const DurationKnob: React.FC<DurationKnobProps> = ({ label, value, onChan
         if (seconds < 1) {
             return `${Math.round(seconds * 1000)} ms`;
         } else {
-            return `${seconds.toFixed(2)} s`;
+            return `${seconds.toFixed(3)} s`;
         }
     };
 
