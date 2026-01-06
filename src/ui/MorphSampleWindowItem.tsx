@@ -50,7 +50,6 @@ function findZeroCrossingIndex(args: {
 }
 
 const Begin01Config: ContinuousParamConfig = {
-    resolutionSteps: 1000,
     default: 0,
     convertTo01: (v) => clamp(v, 0, 1),
     convertFrom01: (v01) => clamp(v01, 0, 1),
@@ -58,7 +57,6 @@ const Begin01Config: ContinuousParamConfig = {
 };
 
 const LengthWaveformsConfig: ContinuousParamConfig = {
-    resolutionSteps: 400,
     default: 2,
     convertTo01: (v) => clamp((v - 1) / 63, 0, 1),
     convertFrom01: (v01) => 1 + v01 * 63,

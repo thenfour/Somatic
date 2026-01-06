@@ -10,25 +10,55 @@ import { mdiClipboard, mdiNetwork, mdiSettingsHelper, mdiTree } from "@mdi/js";
 import { CheckboxButton } from "./Buttons/CheckboxButton";
 import { MemoryMapVis } from "./MemoryMapVis";
 import { MemoryRegion } from "../utils/bitpack/MemoryRegion";
+import { DurationKnob } from "./basic/oldknob";
 
 export const ComponentTester: React.FC = () => {
     const [knobValue, setKnobValue] = React.useState(0.5);
     const [radio1Selected, setRadio1Selected] = React.useState(true);
     const [radio2Selected, setRadio2Selected] = React.useState(true);
     const [radio3Selected, setRadio3Selected] = React.useState(true);
+
+    const [secondsValue, setSecondsValue] = React.useState(1.0);
+    const [intKnobValue, setIntKnobValue] = React.useState(10);
+    const [boolKnobValue, setBoolKnobValue] = React.useState(true);
+
     const toasts = useToasts();
 
     return (
         <div style={{ padding: 10 }}>
             <h3>Component Tester</h3>
             <div style={{ marginBottom: 20 }}>
-                <Knob
-                    value={knobValue}
-                    label="Knob test"
-                    onChange={(v) => {
-                        setKnobValue(v);
-                    }}
-                />
+                <ButtonGroup>
+                    <Knob
+                        value={knobValue}
+                        label="Knob test"
+                        onChange={(v) => {
+                            setKnobValue(v);
+                        }}
+                    />
+                    <DurationKnob
+                        value={secondsValue}
+                        label="Duration(weird)"
+                        onChange={(v) => {
+                            setSecondsValue(v);
+                        }}
+                        max={10}
+                        min={5}
+                        centerValue={8}
+                        defaultValue={6}
+                    />
+                    <DurationKnob
+                        value={secondsValue}
+                        label="Duration(common)"
+                        onChange={(v) => {
+                            setSecondsValue(v);
+                        }}
+                        max={10}
+                        min={0}
+                        centerValue={5}
+                        defaultValue={5}
+                    />
+                </ButtonGroup>
             </div>
             <div>
                 <label>RadioButton Test:</label>

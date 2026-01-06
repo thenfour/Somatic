@@ -19,6 +19,11 @@ export const SomaticCaps = {
    maxImportedWavBytes: 5 * 1024 * 1024,
    // UI limit for the sample->morph conversion target duration.
    maxMorphGradientTotalDurationSeconds: 15,
+   waveMorph: {
+      minDurationSeconds: 0.01,
+      maxDurationSeconds: 16.0, // 1024 frames
+      defaultDurationSeconds: 0.5,
+   }
 } as const;
 
 export enum SomaticEffectCommand {

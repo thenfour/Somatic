@@ -103,6 +103,7 @@ const THEME_VARS = {
         '--knob-track',
         '--knob-highlight',
         '--knob-thumb',
+        '--knob-thumb-error',
     ],
     "Button": [
         '--button-background-enabled',

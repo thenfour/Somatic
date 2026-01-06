@@ -43,6 +43,10 @@
     fill: var(--knob-thumb);
 }
 
+.somatic-knob-thumb--error {
+    fill: var(--knob-thumb-error);
+}
+
 /* Disabled State */
 
 .somatic-knob:has(svg[aria-disabled="true"]) {

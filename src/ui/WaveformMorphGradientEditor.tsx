@@ -9,16 +9,16 @@ import { Tic80Waveform } from "../models/waveform";
 import { Tic80WaveformDto } from "../models/waveform";
 import { WaveformSwatch } from "./waveformSwatch";
 import { WaveformCanvas } from "./waveform_canvas";
-import { ContinuousKnob, ContinuousParamConfig } from "./basic/oldknob";
+import { ContinuousKnob, ContinuousParamConfig, DurationKnob } from "./basic/oldknob";
 
 
-const MorphDurationConfig: ContinuousParamConfig = {
-    resolutionSteps: 400,
-    default: 0.032,
-    convertTo01: (v) => v / 4,
-    convertFrom01: (v01) => v01 * 4,
-    format: (v) => `${Math.round(v * 1000)} ms`,
-};
+// const MorphDurationConfig: ContinuousParamConfig = {
+//     resolutionSteps: 400,
+//     default: 0.032,
+//     convertTo01: (v) => v / 4,
+//     convertFrom01: (v01) => v01 * 4,
+//     format: (v) => `${Math.round(v * 1000)} ms`,
+// };
 
 const MorphCurveConfig: ContinuousParamConfig = {
     resolutionSteps: 200,
@@ -212,10 +212,14 @@ export const WaveformMorphGradientEditor: React.FC<{
                                 />
 
                                 <div className="field-row">
-                                    <ContinuousKnob
+                                    <DurationKnob
                                         label='Duration'
                                         value={node.durationSeconds}
-                                        config={MorphDurationConfig}
+                                        defaultValue={SomaticCaps.waveMorph.defaultDurationSeconds}
+                                        centerValue={SomaticCaps.waveMorph.defaultDurationSeconds}
+                                        min={SomaticCaps.waveMorph.minDurationSeconds}
+                                        max={SomaticCaps.waveMorph.maxDurationSeconds}
+                                        //config={MorphDurationConfig}
                                         onChange={(v) => setNodeDuration(idx, v)}
                                     />
                                     <ContinuousKnob

@@ -69,7 +69,8 @@ export interface KnobProps {
 
     /** Format the value for display. */
     formatValue?: (value: number) => string;
-    /** Parse a typed value (future: double-click to edit). */
+    // Parse a typed value (future: double-click to edit).
+    // converts to external domain
     parseValue?: (text: string) => number | null;
 
     /**
@@ -99,6 +100,7 @@ export interface KnobProps {
 
     /** Additional class name for outer container. */
     className?: string;
+    style?: React.CSSProperties;
 }
 
 /**
@@ -155,6 +157,7 @@ export const Knob: React.FC<KnobProps> = ({
     //theme,
     disabled = false,
     className,
+    style,
 }) => {
     const [isDragging, setIsDragging] = useState(false);
 
@@ -184,12 +187,12 @@ export const Knob: React.FC<KnobProps> = ({
         return (minMaxFixed.min + minMaxFixed.max) / 2;
     }, [centerValue, minMaxFixed]);
 
-    const unitFromExternal = useCallback(
+    const unitFromExternalUnclamped = useCallback(
         (external: number): number => {
             let unit = toUnit
                 ? toUnit(external)
                 : (external - minMaxFixed.min) / (minMaxFixed.max - minMaxFixed.min);
-            return clamp01(unit);
+            return (unit);
         },
         [toUnit, minMaxFixed]
     );
@@ -212,17 +215,24 @@ export const Knob: React.FC<KnobProps> = ({
         [fromUnit, minMaxFixed, step]
     );
 
-    const unitValue = useMemo(() => unitFromExternal(value), [value, unitFromExternal]);
+    const { unitValueClamped, unitValueUnclamped, oob } = useMemo(() => {
+        const unitValueUnclamped = unitFromExternalUnclamped(value);
+        const unitValueClamped = clamp01(unitValueUnclamped);
+        const oob = unitValueUnclamped < 0 || unitValueUnclamped > 1;
+        return { unitValueClamped, unitValueUnclamped, oob };
+    }
+        , [value, unitFromExternalUnclamped]);
+
     const unitCenter = useMemo(
-        () => unitFromExternal(centerValExternal),
-        [centerValExternal, unitFromExternal]
+        () => unitFromExternalUnclamped(centerValExternal),
+        [centerValExternal, unitFromExternalUnclamped]
     );
 
     // External-domain value corresponding to the current knob position.
     // This ensures the displayed label reflects min/max/step (and fromUnit) rather than 0–1.
     const valueExternalForDisplay = useMemo(
-        () => externalFromUnit(unitValue),
-        [externalFromUnit, unitValue]
+        () => externalFromUnit(unitValueUnclamped),
+        [externalFromUnit, unitValueUnclamped]
     );
 
     // Angles for track & highlight.
@@ -230,9 +240,8 @@ export const Knob: React.FC<KnobProps> = ({
     const startAngle = 180 + deadAngle / 2; // left-bottom edge of dead zone
     const endAngle = startAngle + sweepAngle; // clockwise sweep around top to right-bottom edge
 
-    const valueAngle = startAngle + unitValue * sweepAngle;
+    const valueAngle = startAngle + unitValueClamped * sweepAngle;
     const centerAngle = startAngle + unitCenter * sweepAngle;
-
 
     const trackOuterRadius = 25;
     const trackWidth = 10; // i.e. track's inner radius is trackOuterRadius - trackWidth
@@ -268,12 +277,12 @@ export const Knob: React.FC<KnobProps> = ({
 
             dragStateRef.current = {
                 startY: e.clientY,
-                startUnit: unitValue,
+                startUnit: unitValueClamped,
                 lastShiftKey: e.shiftKey,
             };
             setIsDragging(true);
         },
-        [disabled, defaultVal, onChange, unitValue]
+        [disabled, defaultVal, onChange, unitValueClamped]
     );
 
     const handlePointerMove = useCallback(
@@ -312,7 +321,7 @@ export const Knob: React.FC<KnobProps> = ({
             dragSensitivity,
             fineTuneScale,
             normalDeltaScale,
-            unitValue,
+            unitValueClamped,
             externalFromUnit,
             onChange,
         ]
@@ -355,6 +364,8 @@ export const Knob: React.FC<KnobProps> = ({
         [endDrag, isDragging]
     );
 
+    //console.log(`Knob ${label} valueAngle=${valueAngle} unitValue=${unitValue}`);
+
     const thumbPos = useMemo(
         () => polarToCartesian(centerX, centerY, trackRadius, valueAngle),
         [centerX, centerY, trackRadius, valueAngle]
@@ -378,7 +389,7 @@ export const Knob: React.FC<KnobProps> = ({
     const ariaLabel = label ?? "Knob";
 
     return (
-        <div className={`somatic-knob ${className || ""}`}>
+        <div className={`somatic-knob ${className || ""}`} style={style}>
             {/* Label */}
             {label && (
                 <div className="somatic-knob-label">
@@ -430,7 +441,7 @@ export const Knob: React.FC<KnobProps> = ({
                     cx={thumbPos.x}
                     cy={thumbPos.y}
                     r={thumbRadius}
-                    className="somatic-knob-thumb"
+                    className={`somatic-knob-thumb ${oob ? "somatic-knob-thumb--error" : ""}`}
                     stroke="none"
                 />
             </svg>

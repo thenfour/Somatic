@@ -145,6 +145,7 @@
     --knob-track: #94b0c2;
     --knob-highlight: #73eff7;
     --knob-thumb: #ef7d57;
+    --knob-thumb-error: #b13e53;
     --button-background-enabled: #94b0c2;
     --button-foreground-enabled: #1a1c2c;
     --button-background-hovered: #38b764;
@@ -234,6 +235,7 @@
     --knob-track: #257179;
     --knob-highlight: #73eff7;
     --knob-thumb: #ffcd75;
+    --knob-thumb-error: #b13e53;
     --button-background-enabled: #3b5dc9;
     --button-foreground-enabled: #f4f4f4;
     --button-background-hovered: #41a6f6;

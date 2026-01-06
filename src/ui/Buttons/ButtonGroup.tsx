@@ -1,3 +1,6 @@
+// originally for buttons only but it's extremely useful to put other input-like things
+// together like this. Knobs for example.
+
 import React from "react";
 
 
