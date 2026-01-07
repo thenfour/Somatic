@@ -22,22 +22,24 @@ import { WaveformVisualizer } from "./WaveformVisualizer";
 const SourceDuration01Config: ContinuousParamConfig = {
     resolutionSteps: 200,
     default: 1,
+    center: 0,
     convertTo01: (v) => clamp(v, 0, 1),
     convertFrom01: (v01) => clamp(v01, 0, 1),
     format: (v) => `${Math.round(v * 100)}%`,
 };
 
-const TargetDurationSecondsConfig: ContinuousParamConfig = {
-    resolutionSteps: SomaticCaps.maxMorphGradientTotalDurationSeconds * 20,
-    default: 4,
-    convertTo01: (v) => clamp(v / SomaticCaps.maxMorphGradientTotalDurationSeconds, 0, 1),
-    convertFrom01: (v01) => clamp(v01, 0, 1) * SomaticCaps.maxMorphGradientTotalDurationSeconds,
-    format: (v) => `${v.toFixed(2)} s`,
-};
+// const TargetDurationSecondsConfig: ContinuousParamConfig = {
+//     resolutionSteps: SomaticCaps.maxMorphGradientTotalDurationSeconds * 20,
+//     default: 4,
+//     convertTo01: (v) => clamp(v / SomaticCaps.maxMorphGradientTotalDurationSeconds, 0, 1),
+//     convertFrom01: (v01) => clamp(v01, 0, 1) * SomaticCaps.maxMorphGradientTotalDurationSeconds,
+//     format: (v) => `${v.toFixed(2)} s`,
+// };
 
 const AutoWindowCountConfig: ContinuousParamConfig = {
     resolutionSteps: SomaticCaps.maxMorphGradientNodes,
     default: 4,
+    center: 1,
     convertTo01: (v) => (clamp(Math.trunc(v), 1, SomaticCaps.maxMorphGradientNodes) - 1) / (SomaticCaps.maxMorphGradientNodes - 1),
     convertFrom01: (v01) => 1 + Math.round(clamp(v01, 0, 1) * (SomaticCaps.maxMorphGradientNodes - 1)),
     format: (v) => `${Math.trunc(v)}`,
@@ -46,6 +48,7 @@ const AutoWindowCountConfig: ContinuousParamConfig = {
 const PerWindowDurationWaveformsConfig: ContinuousParamConfig = {
     resolutionSteps: 400,
     default: 2,
+    center: 2,
     convertTo01: (v) => clamp((v - 1) / 63, 0, 1),
     convertFrom01: (v01) => 1 + v01 * 63,
     format: (v) => `${v.toFixed(2)}x`,
@@ -54,6 +57,7 @@ const PerWindowDurationWaveformsConfig: ContinuousParamConfig = {
 const PlacementExponentConfig: ContinuousParamConfig = {
     resolutionSteps: 200,
     default: 1,
+    center: 1,
     convertTo01: (v) => clamp((v - 0.25) / (4 - 0.25), 0, 1),
     convertFrom01: (v01) => 0.25 + clamp(v01, 0, 1) * (4 - 0.25),
     format: (v) => v.toFixed(2),
@@ -62,6 +66,7 @@ const PlacementExponentConfig: ContinuousParamConfig = {
 const WindowCountConfig: ContinuousParamConfig = {
     resolutionSteps: SomaticCaps.maxMorphGradientNodes,
     default: 4,
+    center: 1,
     convertTo01: (v) => (clamp(Math.trunc(v), 1, SomaticCaps.maxMorphGradientNodes) - 1) / (SomaticCaps.maxMorphGradientNodes - 1),
     convertFrom01: (v01) => 1 + Math.round(clamp(v01, 0, 1) * (SomaticCaps.maxMorphGradientNodes - 1)),
     format: (v) => `${Math.trunc(v)}`,

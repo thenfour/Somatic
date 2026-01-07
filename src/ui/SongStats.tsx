@@ -34,7 +34,7 @@ type Stats = {
     chunks: ChunkInfo[];
     patternPayload: PayloadSizeReport;
     patternColumnStats: PatternColumnAnalysisResult;
-    roundTripStatus: string;
+    //roundTripStatus: string;
 };
 
 type SongSerialized = {
@@ -128,7 +128,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
                     //luaStringBytes: 0,
                 },
             },
-            roundTripStatus: "no data",
+            //roundTripStatus: "no data",
         };
 
         const result: ChunkInfo[] = [];
@@ -143,7 +143,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
         let rawBytes = 0;
         let compressedBytes = 0;
         //let luaStringBytes = 0;
-        let status = "ok";
+        //let status = "ok";
         try {
             for (const patternData of input.cartridge.patternSerializationPlan.patternChunks) {
                 const patternCompressed = lzCompress(patternData, {
@@ -158,7 +158,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
 
                 if (!compareResult.match) {
                     console.error("Decompressed pattern does not match original!", { patternData, decompressed });
-                    status = `Roundtrip error: ${compareResult.description}`;
+                    //status = `Roundtrip error: ${compareResult.description}`;
                 }
 
                 rawBytes += patternData.length;
@@ -167,7 +167,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
             }
         } catch (e) {
             console.error("Error calculating pattern compression stats:", e);
-            status = `Exception thrown`;
+            //status = `Exception thrown`;
         }
 
         const patternColumnStats = analyzePatternColumns(input.cartridge.optimizeResult.optimizedSong);
@@ -180,7 +180,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
                 //luaStringBytes,
             },
             patternColumnStats,
-            roundTripStatus: status,
+            //roundTripStatus: status,
         };
     }, [input]);
 
@@ -293,7 +293,7 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                             'LZ': <BarValue value={breakdown.patternColumnStats.columnPayload.compressedBytes} max={rawMax} label={<SizeValue value={breakdown.patternColumnStats.columnPayload.compressedBytes} />} />,
                             //'Lua': <BarValue value={breakdown.patternColumnStats.columnPayload.luaStringBytes} max={rawMax} label={<SizeValue value={breakdown.patternColumnStats.columnPayload.luaStringBytes} />} />,
                             'Pattern compression ratio': `${(patternCompressionRatio * 100).toFixed(1)}%`,
-                            Status: breakdown.roundTripStatus,
+                            //Status: breakdown.roundTripStatus,
                         },
                         "Somatic-specific song data": {
                             "k-rate instruments": input.cartridge.extraSongDataDetails.krateInstruments.length,

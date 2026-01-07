@@ -24,10 +24,12 @@ import { Button } from './Buttons/PushButton';
 import { Divider } from './basic/Divider';
 import { IconButton } from './Buttons/IconButton';
 import { mdiArrowDown, mdiArrowLeft, mdiArrowRight, mdiArrowUp, mdiContentCopy, mdiContentPaste } from '@mdi/js';
+import { CheckboxButton } from './Buttons/CheckboxButton';
 
 const PWMDutyConfig: ContinuousParamConfig = {
     resolutionSteps: 32,
     default: 15,
+    center: 15,
     convertTo01: (v) => v / 31,
     convertFrom01: (v01) => v01 * 31,
     format: (v) => v.toFixed(0),
@@ -36,6 +38,7 @@ const PWMDutyConfig: ContinuousParamConfig = {
 const SpeedConfig: ContinuousParamConfig = {
     resolutionSteps: Tic80Caps.sfx.speedMax + 1,
     default: 0,
+    center: 0,
     convertTo01: (v) => v / Tic80Caps.sfx.speedMax,
     convertFrom01: (v01) => v01 * Tic80Caps.sfx.speedMax,
     format: (v) => v.toFixed(0),
@@ -43,7 +46,8 @@ const SpeedConfig: ContinuousParamConfig = {
 
 const PWMDepthConfig: ContinuousParamConfig = {
     resolutionSteps: 32,
-    default: 0,
+    default: 8,
+    center: 0,
     convertTo01: (v) => v / 31,
     convertFrom01: (v01) => v01 * 31,
     format: (v) => v.toFixed(0),
@@ -52,6 +56,7 @@ const PWMDepthConfig: ContinuousParamConfig = {
 const LowpassDurationConfig: ContinuousParamConfig = {
     resolutionSteps: 400,
     default: 0,
+    center: 0,
     convertTo01: (v) => v / 4,
     convertFrom01: (v01) => v01 * 4,
     format: (v) => `${Math.round(v * 1000)} ms`,
@@ -60,6 +65,7 @@ const LowpassDurationConfig: ContinuousParamConfig = {
 const LowpassCurveConfig: ContinuousParamConfig = {
     resolutionSteps: 200,
     default: 0,
+    center: 0,
     convertTo01: (v) => (v + 1) / 2,
     convertFrom01: (v01) => v01 * 2 - 1,
     format: (v) => v.toFixed(2),
@@ -67,7 +73,8 @@ const LowpassCurveConfig: ContinuousParamConfig = {
 
 const WavefoldAmountConfig: ContinuousParamConfig = {
     resolutionSteps: 256,
-    default: 0,
+    default: 127,
+    center: 0,
     convertTo01: (v) => v / 255,
     convertFrom01: (v01) => v01 * 255,
     format: (v) => v.toFixed(0),
@@ -76,6 +83,7 @@ const WavefoldAmountConfig: ContinuousParamConfig = {
 const WavefoldDurationConfig: ContinuousParamConfig = {
     resolutionSteps: 400,
     default: 0,
+    center: 0,
     convertTo01: (v) => v / 4,
     convertFrom01: (v01) => v01 * 4,
     format: (v) => `${Math.round(v * 1000)} ms`,
@@ -84,6 +92,7 @@ const WavefoldDurationConfig: ContinuousParamConfig = {
 const WavefoldCurveConfig: ContinuousParamConfig = {
     resolutionSteps: 200,
     default: 0,
+    center: 0,
     convertTo01: (v) => (v + 1) / 2,
     convertFrom01: (v01) => v01 * 2 - 1,
     format: (v) => v.toFixed(2),
@@ -91,7 +100,8 @@ const WavefoldCurveConfig: ContinuousParamConfig = {
 
 const HardSyncStrengthConfig: ContinuousParamConfig = {
     resolutionSteps: 64,
-    default: 1,
+    default: 4,
+    center: 1,
     convertTo01: (v) => (v - 1) / 7,
     convertFrom01: (v01) => 1 + v01 * 7,
     format: (v) => `${v.toFixed(2)}x`,
@@ -100,6 +110,7 @@ const HardSyncStrengthConfig: ContinuousParamConfig = {
 const HardSyncDecayConfig: ContinuousParamConfig = {
     resolutionSteps: 400,
     default: 0,
+    center: 0,
     convertTo01: (v) => v / 4,
     convertFrom01: (v01) => v01 * 4,
     format: (v) => `${Math.round(v * 1000)} ms`,
@@ -108,6 +119,7 @@ const HardSyncDecayConfig: ContinuousParamConfig = {
 const HardSyncCurveConfig: ContinuousParamConfig = {
     resolutionSteps: 200,
     default: 0,
+    center: 0,
     convertTo01: (v) => (v + 1) / 2,
     convertFrom01: (v01) => v01 * 2 - 1,
     format: (v) => v.toFixed(2),
@@ -116,26 +128,27 @@ const HardSyncCurveConfig: ContinuousParamConfig = {
 const LfoRateConfig: ContinuousParamConfig = {
     resolutionSteps: 240,
     default: 2,
+    center: 0,
     convertTo01: (v) => Math.min(1, Math.max(0, v) / 12),
     convertFrom01: (v01) => v01 * 12,
     format: (v) => `${v.toFixed(2)} Hz`,
 };
 
-const LoopStartConfig: ContinuousParamConfig = {
-    resolutionSteps: Tic80Caps.sfx.envelopeFrameCount,
-    default: 0,
-    convertTo01: (v) => v / (Tic80Caps.sfx.envelopeFrameCount - 1),
-    convertFrom01: (v01) => v01 * (Tic80Caps.sfx.envelopeFrameCount - 1),
-    format: (v) => v.toFixed(0),
-};
+// const LoopStartConfig: ContinuousParamConfig = {
+//     resolutionSteps: Tic80Caps.sfx.envelopeFrameCount,
+//     default: 0,
+//     convertTo01: (v) => v / (Tic80Caps.sfx.envelopeFrameCount - 1),
+//     convertFrom01: (v01) => v01 * (Tic80Caps.sfx.envelopeFrameCount - 1),
+//     format: (v) => v.toFixed(0),
+// };
 
-const LoopLengthConfig: ContinuousParamConfig = {
-    resolutionSteps: Tic80Caps.sfx.envelopeFrameCount,
-    default: 0,
-    convertTo01: (v) => v / (Tic80Caps.sfx.envelopeFrameCount - 1),
-    convertFrom01: (v01) => v01 * (Tic80Caps.sfx.envelopeFrameCount - 1),
-    format: (v) => v.toFixed(0),
-};
+// const LoopLengthConfig: ContinuousParamConfig = {
+//     resolutionSteps: Tic80Caps.sfx.envelopeFrameCount,
+//     default: 0,
+//     convertTo01: (v) => v / (Tic80Caps.sfx.envelopeFrameCount - 1),
+//     convertFrom01: (v01) => v01 * (Tic80Caps.sfx.envelopeFrameCount - 1),
+//     format: (v) => v.toFixed(0),
+// };
 
 /*
 
@@ -182,6 +195,7 @@ export const InstrumentEnvelopeEditor: React.FC<{
     const loopStartConfig: ContinuousParamConfig = useMemo(() => ({
         resolutionSteps: Math.max(1, frameCount),
         default: 0,
+        center: 0,
         convertTo01: (v) => frameCount <= 1 ? 0 : v / (frameCount - 1),
         convertFrom01: (v01) => frameCount <= 1 ? 0 : v01 * (frameCount - 1),
         format: (v) => v.toFixed(0),
@@ -190,6 +204,7 @@ export const InstrumentEnvelopeEditor: React.FC<{
     const loopLengthConfig: ContinuousParamConfig = useMemo(() => ({
         resolutionSteps: Math.max(1, frameCount),
         default: 0,
+        center: 0,
         convertTo01: (v) => frameCount <= 1 ? 0 : v / (frameCount - 1),
         convertFrom01: (v01) => frameCount <= 1 ? 0 : v01 * (frameCount - 1),
         format: (v) => v.toFixed(0),
@@ -356,8 +371,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
-    const handleStereoLeftChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const checked = e.target.checked;
+    const handleStereoLeftChange = (checked: boolean) => {
         onSongChange({
             description: 'Toggle stereo left',
             undoable: true,
@@ -368,8 +382,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
-    const handleStereoRightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const checked = e.target.checked;
+    const handleStereoRightChange = (checked: boolean) => {
         onSongChange({
             description: 'Toggle stereo right',
             undoable: true,
@@ -751,22 +764,17 @@ show render slot if there are k-rate effects enabled
                     <div className="instrument-tab-content">
                         <div className="field-row">
                             <label>Stereo</label>
-                            <label>
-                                <input
-                                    type="checkbox"
+                            <ButtonGroup>
+                                <CheckboxButton
+                                    //type="checkbox"
                                     checked={instrument.stereoLeft}
                                     onChange={handleStereoLeftChange}
-                                />
-                                L
-                            </label>
-                            <label>
-                                <input
-                                    type="checkbox"
+                                >L</CheckboxButton>
+                                <CheckboxButton
                                     checked={instrument.stereoRight}
                                     onChange={handleStereoRightChange}
-                                />
-                                R
-                            </label>
+                                >R</CheckboxButton>
+                            </ButtonGroup>
                         </div>
                         <InstrumentEnvelopeEditor
                             title="Volume"
@@ -1013,8 +1021,8 @@ show render slot if there are k-rate effects enabled
 
                 <Tab thisTabId="effects" summaryTitle="Effects">
                     <div className="instrument-tab-content">
-                        <div style={{ marginTop: 12 }}>
-                            <h4>LFO</h4>
+                        <fieldset>
+                            <legend>LFO</legend>
                             <div className="field-row">
                                 <ContinuousKnob
                                     label='rate'
@@ -1024,9 +1032,9 @@ show render slot if there are k-rate effects enabled
                                 />
                                 <span style={{ marginLeft: 8 }}>Global; not retriggered.</span>
                             </div>
-                        </div>
-                        <div style={{ marginTop: 12 }}>
-                            <h4>Effect (wavefold / hard sync)</h4>
+                        </fieldset>
+                        <fieldset style={{ marginTop: 12 }}>
+                            <legend>Effect (wavefold / hard sync)</legend>
                             <div className="field-row">
                                 <label>Type</label>
                                 <RadioButton selected={instrument.effectKind === SomaticEffectKind.none} onClick={() => setEffectKind(SomaticEffectKind.none)}>None</RadioButton>
@@ -1045,19 +1053,12 @@ show render slot if there are k-rate effects enabled
                                     config={instrument.effectKind === SomaticEffectKind.hardSync ? HardSyncStrengthConfig : WavefoldAmountConfig}
                                     onChange={setEffectAmount}
                                 />
-                            </div>
-                            <div className="field-row">
                                 <ContinuousKnob
                                     label='decay'
                                     value={instrument.effectDurationSeconds}
                                     config={instrument.effectKind === SomaticEffectKind.hardSync ? HardSyncDecayConfig : WavefoldDurationConfig}
                                     onChange={setEffectDuration}
                                 />
-                            </div>
-                            <div>
-                                {Math.floor(secondsTo60HzFrames(instrument.effectDurationSeconds))} ticks @ 60Hz
-                            </div>
-                            <div className="field-row">
                                 <ContinuousKnob
                                     label='curve'
                                     value={instrument.effectCurveN11}
@@ -1065,55 +1066,54 @@ show render slot if there are k-rate effects enabled
                                     onChange={setEffectCurve}
                                 />
                             </div>
-                        </div>
-
-                        <div style={{ marginTop: 12 }}>
-                            <h4>Lowpass</h4>
-                            <div className="field-row">
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        checked={instrument.lowpassEnabled}
-                                        onChange={(e) => {
-                                            const checked = e.target.checked;
-                                            onSongChange({
-                                                description: 'Toggle lowpass',
-                                                undoable: true,
-                                                mutator: (s) => {
-                                                    const inst = s.instruments[instrumentIndex];
-                                                    inst.lowpassEnabled = checked;
-                                                },
-                                            });
-                                        }}
-                                    />
-                                    Enabled
-                                </label>
+                            <div>
+                                {Math.floor(secondsTo60HzFrames(instrument.effectDurationSeconds))} ticks @ 60Hz
                             </div>
+                        </fieldset>
+
+                        <fieldset>
+                            <legend>Lowpass</legend>
                             <div className="field-row">
-                                <label>Mod source</label>
+                                <CheckboxButton
+                                    checked={instrument.lowpassEnabled}
+                                    onChange={(checked) => {
+                                        onSongChange({
+                                            description: 'Toggle lowpass',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                const inst = s.instruments[instrumentIndex];
+                                                inst.lowpassEnabled = checked;
+                                            },
+                                        });
+                                    }}
+                                >
+
+                                    {instrument.lowpassEnabled ? 'Enabled' : 'Disabled'}
+                                </CheckboxButton>
+                            </div>
+                            <label>Mod source</label>
+                            <ButtonGroup>
                                 <RadioButton selected={instrument.lowpassModSource === 'envelope'} onClick={() => setLowpassModSource('envelope')}>Envelope</RadioButton>
                                 <RadioButton selected={instrument.lowpassModSource === 'lfo'} onClick={() => setLowpassModSource('lfo')}>LFO</RadioButton>
-                            </div>
-                            <div className="field-row">
+                            </ButtonGroup>
+                            <ButtonGroup>
                                 <ContinuousKnob
                                     label='decay'
                                     value={instrument.lowpassDurationSeconds}
                                     config={LowpassDurationConfig}
                                     onChange={setLowpassDuration}
                                 />
-                            </div>
-                            <div>
-                                {Math.floor(secondsTo60HzFrames(instrument.lowpassDurationSeconds))} ticks @ 60Hz
-                            </div>
-                            <div className="field-row">
                                 <ContinuousKnob
                                     label='curve'
                                     value={instrument.lowpassCurveN11}
                                     config={LowpassCurveConfig}
                                     onChange={setLowpassCurve}
                                 />
+                            </ButtonGroup>
+                            <div>
+                                {Math.floor(secondsTo60HzFrames(instrument.lowpassDurationSeconds))} ticks @ 60Hz
                             </div>
-                        </div>
+                        </fieldset>
                     </div>
                 </Tab>
 

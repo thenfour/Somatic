@@ -23,6 +23,7 @@ import { ContinuousKnob, ContinuousParamConfig, DurationKnob } from "./basic/old
 const MorphCurveConfig: ContinuousParamConfig = {
     resolutionSteps: 200,
     default: 0,
+    center: 0,
     convertTo01: (v) => (v + 1) / 2,
     convertFrom01: (v01) => v01 * 2 - 1,
     format: (v) => v.toFixed(2),
@@ -216,7 +217,7 @@ export const WaveformMorphGradientEditor: React.FC<{
                                         label='Duration'
                                         value={node.durationSeconds}
                                         defaultValue={SomaticCaps.waveMorph.defaultDurationSeconds}
-                                        centerValue={SomaticCaps.waveMorph.defaultDurationSeconds}
+                                        centerValue={SomaticCaps.waveMorph.minDurationSeconds}
                                         min={SomaticCaps.waveMorph.minDurationSeconds}
                                         max={SomaticCaps.waveMorph.maxDurationSeconds}
                                         //config={MorphDurationConfig}

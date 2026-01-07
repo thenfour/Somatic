@@ -706,7 +706,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         onSelect={saveSongFile}
                                         shortcut={mgr.getActionBindingLabel("SaveFile")}
                                     >
-                                        Save Song
+                                        Save Song...
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Divider />
                                     <DesktopMenu.Item onSelect={() => { void copyNative(); }}>Copy Song JSON</DesktopMenu.Item>

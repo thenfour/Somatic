@@ -5,6 +5,7 @@ import { invLerp, lerp } from "../../utils/utils";
 export interface ContinuousParamConfig {
     resolutionSteps?: number;
     default: number;
+    center: number;
     convertTo01: (value: number) => number;
     convertFrom01: (value01: number) => number;
     format: (value: number) => string;
@@ -18,9 +19,16 @@ interface ContinuousKnobProps {
 }
 
 export const ContinuousKnob: React.FC<ContinuousKnobProps> = ({ label, value, onChange, config }) => {
+    const [defaultValue, centerValue] = React.useMemo(() => {
+        const def = config.convertTo01(config.default);
+        const cent = config.convertTo01(config.center);
+        return [def, cent];
+    }, [config]);
     return <Knob
         min={0}
         max={1}
+        defaultValue={defaultValue}
+        centerValue={centerValue}
         step={config.resolutionSteps ? 1 / (config.resolutionSteps - 1) : undefined}
         label={label}
         onChange={(x) => {

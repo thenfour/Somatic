@@ -4,22 +4,25 @@ import React from 'react';
 
 import { ButtonBase, ButtonBaseProps } from './ButtonBase';
 
-export interface CheckboxButtonProps extends ButtonBaseProps {
+export interface CheckboxButtonProps extends Omit<ButtonBaseProps, "onChange"> {
     checked?: boolean;
+    //onChange?: (event: React.MouseEvent<HTMLButtonElement> & { target: { checked: boolean } }) => void;
+    onChange?: (newValue: boolean) => void;
 }
 
 export const CheckboxButton = React.forwardRef<HTMLButtonElement, CheckboxButtonProps>(
-    ({ children, className, checked, ...props }, ref) => {
+    ({ children, className, checked, onChange, ...props }, ref) => {
         const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
             event.preventDefault();
-            if (props.onChange) {
-                props.onChange({
-                    ...event,
-                    target: {
-                        ...event.target,
-                        checked: !checked,
-                    } as any,
-                });
+            if (onChange) {
+                onChange(!checked);
+                // props.onChange({
+                //     ...event,
+                //     target: {
+                //         ...event.target,
+                //         checked: !checked,
+                //     } as any,
+                // });
             }
         };
 
