@@ -55,7 +55,6 @@ const SplashScreen: React.FC<{ onContinue: () => void }> = ({ onContinue }) => {
             </div>
         </h1>
         <div className='subtitle subtitle1'>A tracker for TIC-80</div>
-        <div className='subtitle subtitle2'>By tenfour</div>
         <button className='clickToContinueButton' style={{ pointerEvents: 'none' }}>Click to Continue</button>
     </div>;
 };
