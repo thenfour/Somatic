@@ -1319,8 +1319,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             onEditorStateChange((s) => s.setPatternEditColumnType(columnType));
         };
 
-        const onInstrumentCellMouseDown = (e: React.MouseEvent<HTMLTableCellElement>, rowIndex: number, channelIndex: Tic80ChannelIndex) => {
-            // if you ctrl+click an instrument cell, select that instrument.
+        const onCellMouseDownSelectingInstrument = (e: React.MouseEvent<HTMLTableCellElement>, rowIndex: number, channelIndex: Tic80ChannelIndex) => {
+            // ctrl+click = select that instrument.
             if (e.ctrlKey || e.metaKey) {
                 const cell = pattern.getCell(channelIndex, rowIndex);
                 if (cell.instrumentIndex != null) {
@@ -1639,7 +1639,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][noteCol] = el)}
                                                         className={noteClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex })}
+                                                        onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, noteCol)}
                                                         data-row-index={rowIndex}
@@ -1657,7 +1657,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][instCol] = el)}
                                                         className={instClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => onInstrumentCellMouseDown(e, rowIndex, channelIndex)}
+                                                        onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, instCol)}
                                                         data-row-index={rowIndex}
@@ -1677,7 +1677,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][cmdCol] = el)}
                                                         className={cmdClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex })}
+                                                        onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, cmdCol)}
                                                         data-row-index={rowIndex}
@@ -1693,7 +1693,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][paramCol] = el)}
                                                         className={paramClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex })}
+                                                        onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, paramCol)}
                                                         data-row-index={rowIndex}
@@ -1709,7 +1709,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][somCmdCol] = el)}
                                                         className={somCmdClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex })}
+                                                        onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, somCmdCol)}
                                                         data-row-index={rowIndex}
@@ -1725,7 +1725,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         ref={(el) => (cellRefs[rowIndex][somParamCol] = el)}
                                                         className={somParamClass}
                                                         onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex })}
+                                                        onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
                                                         onFocus={() => onCellFocus(rowIndex, channelIndex, somParamCol)}
                                                         data-row-index={rowIndex}

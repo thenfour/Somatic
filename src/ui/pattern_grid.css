@@ -356,7 +356,11 @@
 }
 
 .pattern-grid th.channel-header.channel-header--selected {
-    background-color: rgba(255, 255, 255, 0.3);
+    /* do not use transparent backgrounds or the pattern showsn through when scrolling.
+    instead, mix with --bg */
+
+    /* background-color: rgba(255, 255, 255, 0.3); */
+    background-color: color-mix(in srgb, var(--bg) 70%, rgba(255, 255, 255, 0.3) 30%);
     color: var(--text);
 }
 
