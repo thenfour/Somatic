@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { MidiDevice, MidiStatus } from '../midi/midi_manager';
 import { Tooltip } from './basic/tooltip';
+import { Button } from './Buttons/PushButton';
+import { DotIndicator } from './basic/DotIndicator';
 
 interface MidiStatusIndicatorProps {
     midiStatus: MidiStatus;
@@ -49,6 +51,14 @@ export const MidiStatusIndicator: React.FC<MidiStatusIndicatorProps> = ({
         if (listening.length > 0) return `MIDI (${listening.length}/${connected.length})`;
         if (connected.length > 0) return `MIDI ready (${connected.length} available, none listening)`;
         return 'MIDI ready (no devices)';
+    })();
+
+    const dotIndicatorState = (() => {
+        // choose between state: 'active' | 'inactive' | "warning" | "disabled" | "error"
+        if (midiStatus !== 'ready') return 'disabled';
+        if (!midiEnabled) return 'inactive';
+        if (listening.length > 0) return 'active';
+        return 'warning';
     })();
 
     const tooltipContent = (
@@ -106,14 +116,14 @@ export const MidiStatusIndicator: React.FC<MidiStatusIndicatorProps> = ({
 
     return (
         <Tooltip title={tooltipContent}>
-            <button
+            <Button
                 className={`midi-indicator midi-indicator--${midiIndicatorState}`}
                 aria-label={ariaLabel}
                 onClick={onToggleMidiEnabled}
             >
-                <span className="midi-indicator__dot" aria-hidden="true" />
+                <DotIndicator state={dotIndicatorState} />
                 <span className="midi-indicator__label">{midiIndicatorLabel}</span>
-            </button>
+            </Button>
         </Tooltip>
     );
 };

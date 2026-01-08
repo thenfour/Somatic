@@ -115,7 +115,13 @@ const THEME_VARS = {
         '--button-background-highlighted',
         '--button-foreground-highlighted',
     ],
-
+    "Dot Indicator": [
+        '--dot-indicator-active',
+        '--dot-indicator-inactive',
+        '--dot-indicator-warning',
+        '--dot-indicator-disabled',
+        '--dot-indicator-error',
+    ],
 } as const;
 
 type PaletteSwatchProps = {

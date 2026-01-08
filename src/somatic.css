@@ -105,6 +105,13 @@
     --button-foreground-disabled: #1a1c2c;
     --button-background-highlighted: #a7f070;
     --button-foreground-highlighted: #1a1c2c;
+    --dot-indicator-active: #b13e53;
+    --dot-indicator-inactive: #29366f;
+    --dot-indicator-warning: #ef7d57;
+    --dot-indicator-disabled: #566c86;
+    --dot-indicator-error: #ef7d57;
+
+
 }
 
 .theme-dark {
@@ -195,6 +202,11 @@
     --button-foreground-disabled: #566c86;
     --button-background-highlighted: #38b764;
     --button-foreground-highlighted: #fff;
+    --dot-indicator-active: #b13e53;
+    --dot-indicator-inactive: #29366f;
+    --dot-indicator-warning: #ef7d57;
+    --dot-indicator-disabled: #566c86;
+    --dot-indicator-error: #ef7d57;
 }
 
 html,
@@ -338,76 +350,10 @@ option {
     gap: 8px;
 }
 
-.edit-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--panel-strong);
-    color: var(--text);
-    cursor: pointer;
-}
-
-.edit-toggle__dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--muted);
-    box-shadow: 0 0 0 1px var(--border);
-}
-
-.edit-toggle--on .edit-toggle__dot {
-    background: var(--tic-6);
-}
-
-.edit-toggle--off .edit-toggle__dot {
-    background: var(--tic-3);
-}
-
-.edit-toggle--on {
-    background: color-mix(in srgb, var(--tic-6) 25%, var(--panel-strong));
-}
-
-.edit-toggle--off {
-    background: color-mix(in srgb, var(--tic-3) 15%, var(--panel-strong));
-}
-
-.midi-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--panel-strong);
-    color: var(--text);
-}
-
-.midi-indicator__dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--muted);
-    box-shadow: 0 0 0 1px var(--border);
-}
-
-.midi-indicator--ok .midi-indicator__dot {
-    background: var(--tic-6);
-}
-
-.midi-indicator--warn .midi-indicator__dot {
-    background: var(--tic-3);
-}
-
-.midi-indicator--off .midi-indicator__dot {
-    background: var(--muted);
-}
-
+/* 
 .midi-indicator__label {
     line-height: 1;
-}
+} */
 
 /* Preferences – MIDI chips */
 .midi-device-list {

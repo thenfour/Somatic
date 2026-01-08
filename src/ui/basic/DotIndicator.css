@@ -1,0 +1,30 @@
+.dot-indicator {
+    --dot-indicator-selected-color: var(--dot-indicator-disabled);
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    /*50%; */
+    background-color: var(--dot-indicator-selected-color);
+    display: inline-block;
+    margin: 2px 5px;
+}
+
+.dot-indicator--active {
+    --dot-indicator-selected-color: var(--dot-indicator-active);
+}
+
+.dot-indicator--inactive {
+    --dot-indicator-selected-color: var(--dot-indicator-inactive);
+}
+
+.dot-indicator--warning {
+    --dot-indicator-selected-color: var(--dot-indicator-warning);
+}
+
+.dot-indicator--disabled {
+    --dot-indicator-selected-color: var(--dot-indicator-disabled);
+}
+
+.dot-indicator--error {
+    --dot-indicator-selected-color: var(--dot-indicator-error);
+}
