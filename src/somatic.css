@@ -15,56 +15,7 @@
     --ff-size-3x: 32px;
     --ff-size-4x: 40px;
 
-    /* TIC-80 palette */
-    --tic-0: #1a1c2c;
-    --tic-1: #5d275d;
-    --tic-2: #b13e53;
-    --tic-3: #ef7d57;
-    --tic-4: #ffcd75;
-    --tic-5: #a7f070;
-    --tic-6: #38b764;
-    --tic-7: #257179;
-    --tic-8: #29366f;
-    --tic-9: #3b5dc9;
-    --tic-10: #41a6f6;
-    --tic-11: #73eff7;
-    --tic-12: #f4f4f4;
-    --tic-13: #94b0c2;
-    --tic-14: #566c86;
-    --tic-15: #333c57;
-
-    /*
-    
-    domains:
-    - error - success (toasts, indicators)
-        - bg
-        - foreground accent
-        - border
-    - elevation1 - 2 - 3 (surfaces)
-        - bg
-        - foreground text
-    - pattern
-        - row A, row B, active row
-
-    */
-
-    /* Palette contrast helpers (choose a TIC color with good foreground contrast) */
-    --tic-0-contrast: var(--tic-12);
-    --tic-1-contrast: var(--tic-12);
-    --tic-2-contrast: var(--tic-12);
-    --tic-3-contrast: var(--tic-0);
-    --tic-4-contrast: var(--tic-0);
-    --tic-5-contrast: var(--tic-0);
-    --tic-6-contrast: var(--tic-0);
-    --tic-7-contrast: var(--tic-12);
-    --tic-8-contrast: var(--tic-12);
-    --tic-9-contrast: var(--tic-12);
-    --tic-10-contrast: var(--tic-0);
-    --tic-11-contrast: var(--tic-0);
-    --tic-12-contrast: var(--tic-0);
-    --tic-13-contrast: var(--tic-0);
-    --tic-14-contrast: var(--tic-12);
-    --tic-15-contrast: var(--tic-12);
+    /* TIC-80 palette + contrast helpers are applied at runtime from TS (see src/theme/ticPalette.ts) */
 
     /* Theme tokens (light default) */
     --bg: #94b0c2;
@@ -630,6 +581,27 @@ option {
     z-index: 20;
     /* padding-bottom: 4px; */
     /* border-bottom: 2px solid var(--border-strong); */
+}
+
+.version-avatar {
+    /* position: absolute;
+    top: 6px;
+    right: 6px;
+    padding: 0;
+    margin: 0; */
+    /* border: 1px solid var(--border);
+    background: var(--panel); */
+    border: 0;
+    cursor: pointer;
+}
+
+.version-avatar:hover {
+    /* border-color: var(--border-strong); */
+}
+
+.version-avatar__canvas {
+    display: block;
+    image-rendering: pixelated;
 }
 
 .main-editor-area {

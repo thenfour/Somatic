@@ -9,6 +9,12 @@ import { ShortcutManagerProvider } from "./keyb/KeyboardShortcutManager";
 import { ConfirmDialogProvider } from "./ui/basic/confirm_dialog";
 import { Theme } from "./ui/theme_editor_panel";
 import { ToastProvider } from "./ui/toast_provider";
+import { applySweetie16CssVars } from "./theme/ticPalette";
+
+// Apply TIC-80 palette + contrast CSS vars from code, as early as possible
+(() => {
+    applySweetie16CssVars(document.documentElement.style);
+})();
 
 // just a splash which requires user gesture to continue (so the audio context etc are allowed to start)
 const SplashScreen: React.FC<{ onContinue: () => void }> = ({ onContinue }) => {

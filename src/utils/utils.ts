@@ -516,13 +516,26 @@ export function hash32Fnv1a(str: string): number {
 /* 32-bit avalanche mixer
 scrambles bits so that small input changes produce large, unpredictable output changes.
  */
-function mix32(x: number): number {
+export function mix32(x: number): number {
    x ^= x >>> 16;
    x = Math.imul(x, 0x7feb352d) >>> 0;
    x ^= x >>> 15;
    x = Math.imul(x, 0x846ca68b) >>> 0;
    x ^= x >>> 16;
    return x >>> 0;
+}
+
+// Xorshift32 PRNG
+export function xorshift32(seedU32: number): () => number {
+   let x = seedU32 >>> 0;
+   if (x === 0)
+      x = 0x6d2b79f5;
+   return () => {
+      x ^= (x << 13) >>> 0;
+      x ^= (x >>> 17) >>> 0;
+      x ^= (x << 5) >>> 0;
+      return x >>> 0;
+   };
 }
 
 // Generate a consistent HSL hue string from an input string.

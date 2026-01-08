@@ -1,5 +1,6 @@
 import React from 'react';
 import { buildInfo } from '../buildInfo';
+import { getBuildVersionTag } from '../utils/versionString';
 import { DateValue } from './basic/DateValue';
 import { ModalDialog } from './basic/ModalDialog';
 import { Button } from './Buttons/PushButton';
@@ -11,28 +12,7 @@ export interface AboutSomaticDialogProps {
 
 export const AboutSomaticDialog: React.FC<AboutSomaticDialogProps> = ({ open, onClose }) => {
 
-    // version string is like,
-    // v1+2(!)
-    // where v1 is git tag
-    // 2 is number of commits since tag
-    // (!) indicates dirty working tree
-
-    // if no commits since tag, just show v1 or v1(!)
-    const versionString: string = (() => {
-        let str = '';
-        if (buildInfo.gitTag) {
-            str += buildInfo.gitTag;
-            if (buildInfo.commitsSinceTag && buildInfo.commitsSinceTag > 0) {
-                str += `+${buildInfo.commitsSinceTag}`;
-            }
-            if (buildInfo.dirty) {
-                str += '(!)';
-            }
-        } else {
-            str = 'unknown';
-        }
-        return str;
-    })();
+    const versionString = getBuildVersionTag(buildInfo);
 
     const buildDate: Date = new Date(buildInfo.buildDate);
     const lastCommitDate: Date | null = buildInfo.lastCommitDate ? new Date(buildInfo.lastCommitDate) : null;

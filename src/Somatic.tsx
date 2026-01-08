@@ -48,6 +48,7 @@ import { SongSettingsPanel } from './ui/SongSettingsPanel';
 import { EditorStateControls } from './ui/EditorStateControls';
 import { Tooltip } from './ui/basic/tooltip';
 import { EncodingUtilsPanel } from './ui/EncodingUtilsPanel';
+import { VersionAvatar } from './ui/VersionAvatar';
 
 const TIC80_FRAME_SIZES = [
 
@@ -1044,7 +1045,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     currentColumnType={editorState.patternEditColumnType}
                     onSongChange={updateSong}
                     onEditorStateChange={updateEditorState}
-                    rightContent={
+                    rightContent={<>
                         <StatusChips
                             song={song}
                             bridgeReady={bridgeReady}
@@ -1063,7 +1064,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             audio={audio}
                             autoSave={autoSave}
                         />
-
+                        <VersionAvatar
+                            onClick={() => setAboutOpen(true)}
+                            resolution={{ w: 5, h: 5 }}
+                            scale={5}
+                        />
+                    </>
                     }
                 />
             </div>
