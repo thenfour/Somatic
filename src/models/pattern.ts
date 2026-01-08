@@ -216,8 +216,12 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
                const x = cell.effectX ?? 0;
                const y = cell.effectY ?? 0;
                const stateMap = fxCarryByChannel[channelIndex].commandStates;
-               // A command explicitly set to 00 clears its carry state.
-               if (x === 0 && y === 0) {
+               // Carry-over warnings are about *non-nominal* end-of-pattern state.
+               // Most TIC-80 effects are nominal when set to 00 (clears carry state),
+               // but the 'M' effect is nominal at FF.
+               const isNominal = (cmd === SomaticEffectCommand.M) ? (x === 0xF && y === 0xF) : (x === 0 && y === 0);
+
+               if (isNominal) {
                   stateMap.delete(cmd);
                } else {
                   stateMap.set(cmd, {effectX: x, effectY: y});
