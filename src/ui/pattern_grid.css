@@ -367,7 +367,7 @@
 .pattern-grid td.note-cell {
     color: var(--cell-note);
     white-space: nowrap;
-    border-left: 8px solid var(--bg);
+    /* border-left: 8px solid var(--bg); */
 }
 
 .pattern-grid td.note-cell>div {
@@ -511,4 +511,12 @@
 .pattern-grid tfoot .pattern-grid-carry-cell.pattern-grid-carry-cell--warn {
     color: var(--error-accent);
     font-weight: 600;
+}
+
+.pattern-grid .pattern-grid-krate-render-slot-cell {
+    color: var(--accent);
+    font-size: 11px;
+    text-align: center;
+    background-color: var(--bg);
+    width: 13px;
 }

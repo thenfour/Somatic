@@ -24,6 +24,7 @@ type CellType = 'note' | 'instrument' | 'command' | 'param';
 type ExtendedCellType = CellType | 'somaticCommand' | 'somaticParam';
 
 const CELLS_PER_CHANNEL = 6;
+const CELL_STRIDE_PER_CHANNEL = 7; // includes non-interactive cells between chans
 const CTRL_ARROW_JUMP_SIZE = 4;
 
 const instrumentKeyMap = '0123456789abcdef'.split('');
@@ -1507,7 +1508,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                 {gChannelsArray.map((i) => {
                                     const headerClass = `channel-header${editorState.isPatternChannelSelected(i) ? ' channel-header--selected' : ''}`;
                                     return (
-                                        <th key={i} colSpan={CELLS_PER_CHANNEL} className={headerClass}>
+                                        <th key={i} colSpan={CELL_STRIDE_PER_CHANNEL} className={headerClass}>
                                             <div className='channel-header-cell-contents'>
                                                 <div
                                                     className='channel-header-label'
@@ -1567,6 +1568,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const noteCut = isNoteCut(row);
                                             const noteText = noteCut ? "^^^" : formatMidiNote(row.midiNote);
                                             const [instText, instTooltip] = noteCut ? ["", null] : formatInstrument(row.instrumentIndex, song);
+                                            const instrument = row.instrumentIndex != null ? song.getInstrument(row.instrumentIndex) : null;
+                                            const instrumentIsKRate = instrument?.isKRateProcessing() || false;
+                                            const krateRenderSlot = instrumentIsKRate ? instrument!.renderWaveformSlot : null;
                                             const cmdText = formatCommand(row.effect);
                                             const paramText = formatParams(row.effectX, row.effectY);
                                             const somCmdText = formatSomaticCommand(row.somaticEffect);
@@ -1735,6 +1739,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-cell-value={`[${JSON.stringify(row.somaticParam)}]`}
                                                     >
                                                         {somParamText}
+                                                    </td>
+                                                    <td className='pattern-grid-krate-render-slot-cell'>
+                                                        {/* show which k-rate render slot if applicable */}
+                                                        {krateRenderSlot === null ? "" : (
+                                                            <Tooltip title={`K-Rate waveform render slot #${krateRenderSlot}`}>
+                                                                <span>{krateRenderSlot}</span>
+                                                            </Tooltip>
+                                                        )}
                                                     </td>
                                                 </React.Fragment>
                                             );
