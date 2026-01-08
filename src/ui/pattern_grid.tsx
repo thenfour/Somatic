@@ -1398,6 +1398,32 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const advancedEditPanelKeyshortcut = mgr.getActionBindingLabel("ToggleAdvancedEditPanel") || "Unbound";
 
+        const containerRef = useRef<HTMLDivElement | null>(null);
+        const topControlsRef = useRef<HTMLDivElement | null>(null);
+
+        useEffect(() => {
+            const container = containerRef.current;
+            const topControls = topControlsRef.current;
+            if (!container || !topControls) return;
+
+            const updateStickyOffsets = () => {
+                const h = Math.ceil(topControls.getBoundingClientRect().height);
+                container.style.setProperty('--pattern-grid-sticky-top', `${h}px`);
+            };
+
+            updateStickyOffsets();
+
+            const maybeResizeObserver = (globalThis as any).ResizeObserver as (typeof ResizeObserver) | undefined;
+            const ro = maybeResizeObserver ? new maybeResizeObserver(() => updateStickyOffsets()) : null;
+            ro?.observe(topControls);
+            window.addEventListener('resize', updateStickyOffsets);
+
+            return () => {
+                window.removeEventListener('resize', updateStickyOffsets);
+                ro?.disconnect();
+            };
+        }, []);
+
         return (
             <div className={`pattern-grid-shell${advancedEditPanelOpen ? ' pattern-grid-shell--advanced-open' : ''}`}>
                 {advancedEditPanelOpen && (
@@ -1420,51 +1446,56 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         onClose={() => onSetAdvancedEditPanelOpen(false)}
                     />
                 )}
-                <div className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}>
-                    {!advancedEditPanelOpen && (
-                        <Tooltip title={advancedEditPanelOpen ? `Hide advanced edit panel (${advancedEditPanelKeyshortcut})` : `Show advanced edit panel (${advancedEditPanelKeyshortcut})`} >
-                            <button
-                                type="button"
-                                className={`aside-toggle-button pattern-advanced-handle`}
-                                onClick={() => onSetAdvancedEditPanelOpen(!advancedEditPanelOpen)}
-                                aria-expanded={advancedEditPanelOpen}
-                                aria-controls="pattern-advanced-panel"
-                            >
-                                {advancedEditPanelOpen ? CharMap.LeftTriangle : CharMap.RightTriangle}
-                            </button>
-                        </Tooltip>
-                    )}
-                    <div className="pattern-grid-top-controls">
-                        <label>
-                            <span className="label-pattern-name">Pattern{' '}
-                                <span className="label-pattern-index">{formatPatternIndex(safePatternIndex)}</span></span>
-                            <input
-                                type="text"
-                                className="input-pattern-name"
-                                value={pattern.name}
-                                onChange={(e) => {
-                                    const newName = e.target.value;
-                                    onSongChange({
-                                        description: 'Rename pattern',
-                                        undoable: true,
-                                        mutator: (s) => {
-                                            const pat = s.patterns[safePatternIndex];
-                                            pat.name = newName;
-                                        },
-                                    })
-                                }}
-                            //disabled={!editingEnabled} always allow this.
-                            />
-                            {(() => {
-                                const usageCount = song.songOrder.filter(item => item.patternIndex === safePatternIndex).length;
-                                const isMultiple = usageCount > 1;
-                                return (
-                                    <span className={`pattern-usage-indicator ${isMultiple ? 'pattern-usage-indicator--multiple' : ''}`}>
-                                        {`${usageCount} instances in song`}
-                                    </span>
-                                );
-                            })()}
-                        </label>
+                <div
+                    ref={containerRef}
+                    className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}
+                >
+                    <div ref={topControlsRef} className="pattern-grid-top-controls">
+                        {!advancedEditPanelOpen && (
+                            <Tooltip title={advancedEditPanelOpen ? `Hide advanced edit panel (${advancedEditPanelKeyshortcut})` : `Show advanced edit panel (${advancedEditPanelKeyshortcut})`} >
+                                <button
+                                    type="button"
+                                    className={`aside-toggle-button pattern-advanced-handle`}
+                                    onClick={() => onSetAdvancedEditPanelOpen(!advancedEditPanelOpen)}
+                                    aria-expanded={advancedEditPanelOpen}
+                                    aria-controls="pattern-advanced-panel"
+                                >
+                                    {advancedEditPanelOpen ? CharMap.LeftTriangle : CharMap.RightTriangle}
+                                </button>
+                            </Tooltip>
+                        )}
+                        <div>
+                            <label>
+                                <span className="label-pattern-name">Pattern{' '}
+                                    <span className="label-pattern-index">{formatPatternIndex(safePatternIndex)}</span></span>
+                                <input
+                                    type="text"
+                                    className="input-pattern-name"
+                                    value={pattern.name}
+                                    onChange={(e) => {
+                                        const newName = e.target.value;
+                                        onSongChange({
+                                            description: 'Rename pattern',
+                                            undoable: true,
+                                            mutator: (s) => {
+                                                const pat = s.patterns[safePatternIndex];
+                                                pat.name = newName;
+                                            },
+                                        })
+                                    }}
+                                //disabled={!editingEnabled} always allow this.
+                                />
+                                {(() => {
+                                    const usageCount = song.songOrder.filter(item => item.patternIndex === safePatternIndex).length;
+                                    const isMultiple = usageCount > 1;
+                                    return (
+                                        <span className={`pattern-usage-indicator ${isMultiple ? 'pattern-usage-indicator--multiple' : 'pattern-usage-indicator--unique'}`}>
+                                            {!isMultiple ? 'Unique in song' : `${usageCount} instances in song`}
+                                        </span>
+                                    );
+                                })()}
+                            </label>
+                        </div>
                     </div>
                     <table className="pattern-grid">
                         <colgroup>

@@ -1,8 +1,17 @@
 /* Pattern Grid Component Styles */
 
 .pattern-grid-top-controls {
+    margin-top: 0;
+    position: sticky;
+    top: 0;
+    z-index: 150;
+    background: var(--bg);
+    padding-top: 4px;
+    display: flex;
+}
+
+.pattern-grid-top-controls>div {
     /* avoid collision with edit mode border */
-    margin-top: 4px;
     margin-left: 50px;
 }
 
@@ -25,15 +34,18 @@
 
 .pattern-grid-top-controls .pattern-usage-indicator {
     display: block;
-    font-size: 11px;
+    font-size: 12px;
     color: var(--muted);
-    margin-top: 4px;
-    font-style: italic;
+    /* margin-top: 4px;
+    font-style: italic; */
 }
 
 .pattern-grid-top-controls .pattern-usage-indicator--multiple {
-    color: var(--accent-strong);
-    font-weight: bold;
+    color: var(--accent);
+}
+
+.pattern-grid-top-controls .pattern-usage-indicator--unique {
+    color: var(--row-active);
 }
 
 .pattern-grid {
@@ -445,10 +457,26 @@
 }
 
 .pattern-grid-container {
+    --pattern-grid-sticky-top: 0px;
     flex-grow: 1;
     padding-bottom: 50vh;
     position: relative;
     overflow: auto;
+}
+
+/* Keep the advanced panel toggle visible while scrolling the grid */
+.pattern-grid-container .aside-toggle-button {
+    position: sticky;
+    top: 0px;
+    z-index: 200;
+}
+
+/* Make the table header stick below the top controls */
+.pattern-grid thead th {
+    position: sticky;
+    top: var(--pattern-grid-sticky-top);
+    z-index: 100;
+    background-color: var(--bg);
 }
 
 .pattern-grid-container--locked {
