@@ -47,6 +47,7 @@ do
 	-- general playroutine support
 	local musicInitialized = false
 	local currentSongOrder = 0
+	local playingSongOrder0b = 0
 	local lastPlayingFrame = -1
 	local backBufferIsA = false -- A means patterns 0,1,2,3; B = 4,5,6,7
 	local stopPlayingOnNextFrame = false
@@ -562,7 +563,7 @@ do
 		if not cfg_is_k_rate_processing(cfg) then
 			return
 		end
-		local lt = lfo_ticks_by_sfx[instId]
+		local lt = lfo_ticks_by_sfx[instId] or 0
 		local scaleU8 = ch_effect_strength_scale_u8[(ch or 0) + 1] or 255
 		render_tick_cfg(cfg, instId, 0, lt, scaleU8)
 	end
@@ -599,7 +600,7 @@ do
 		last_music_row = row
 
 		-- Apply Somatic per-pattern extra commands (currently: E param => effect strength scale)
-		local playingSongOrder = math.max(0, currentSongOrder - 1)
+		local playingSongOrder = playingSongOrder0b
 		--local orderEntry = SOMATIC_MUSIC_DATA.songOrder[playingSongOrder + 1]
 
 		local p0, p1, p2, p3 = decode_track_frame_patterns(track, frame)
@@ -654,7 +655,7 @@ do
 			ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 			return
 		end
-		local lt = lfo_ticks_by_sfx[instId]
+		local lt = lfo_ticks_by_sfx[instId] or 0
 		local scaleU8 = ch_effect_strength_scale_u8[ch + 1] or 255
 		render_tick_cfg(cfg, instId, ticksPlayed, lt, scaleU8)
 		ch_sfx_ticks[ch + 1] = ticksPlayed + 1
@@ -665,7 +666,7 @@ do
 		-- BEGIN_FEATURE_LFO
 		for i = 1, #morphIds do
 			local id = morphIds[i]
-			lfo_ticks_by_sfx[id] = lfo_ticks_by_sfx[id] + 1
+			lfo_ticks_by_sfx[id] = (lfo_ticks_by_sfx[id] or 0) + 1
 		end
 		-- END_FEATURE_LFO
 		for ch = 0, SFX_CHANNELS - 1 do
@@ -819,6 +820,7 @@ do
 
 	somatic_reset_state = function()
 		currentSongOrder = 0
+		playingSongOrder0b = 0
 		lastPlayingFrame = -1
 		backBufferIsA = false
 		stopPlayingOnNextFrame = false
@@ -839,6 +841,7 @@ do
 
 		-- seed state
 		currentSongOrder = songPosition
+		playingSongOrder0b = songPosition
 		backBufferIsA = true -- act like we came from buffer B so tick() will set it correctly on first pass.
 		lastPlayingFrame = -1 -- this means tick() will immediately seed the back buffer.
 		stopPlayingOnNextFrame = false
@@ -868,10 +871,7 @@ do
 		if track == 255 then
 			track = -1
 		end -- stopped / none
-		-- currentSongOrder is the *next* entry to be queued
-		-- and lastPlayingFrame is not correct for this; it will report incorrect esp. when you seek in the middle of the song.
-		local playingSongOrder = math.max(0, currentSongOrder - 1)
-		return track, playingSongOrder, frame, row
+		return track, playingSongOrder0b, frame, row
 	end
 
 	function somatic_stop()
@@ -889,43 +889,41 @@ do
 			return
 		end
 
-		somatic_sfx_tick(track, currentFrame, row)
-
-		if currentFrame == lastPlayingFrame then
-			return
-		end
-
-		--log(string.format("tick: frm=%d last=%d", currentFrame, lastPlayingFrame)) -- DEBUG_ONLY
-
-		if stopPlayingOnNextFrame then
-			-- We already cleared the upcoming buffer when we hit end-of-song;
-			-- once the music engine advances again, stop cleanly.
-			somatic_stop()
-			return
-		end
-
-		backBufferIsA = not backBufferIsA
-		lastPlayingFrame = currentFrame
-		--ch_set_playroutine_regs(currentSongOrder) -- the queued pattern is now playing; inform host.
-		currentSongOrder = currentSongOrder + 1
-
-		local destPointer = backBufferIsA and bufferALocation or bufferBLocation
-		local orderCount = somatic_get_song_order_count()
-
-		log(string.format("tick: advance to=%d count=%d", currentSongOrder, orderCount)) -- DEBUG_ONLY
-
-		if orderCount == 0 or currentSongOrder >= orderCount then
-			-- No next entry to queue. Don't stop *immediately* (that would kill playback
-			-- when starting on the last order / length==1). Instead, clear the next buffer
-			-- so the next advance is silent, and stop on the following tick.
-			for i = 0, PATTERN_BUFFER_BYTES - 1 do
-				poke(destPointer + i, 0)
+		-- If we've advanced to a new music frame, update our order bookkeeping *first*
+		-- so per-row E/L commands are applied to the correct playing order.
+		if currentFrame ~= lastPlayingFrame then
+			if stopPlayingOnNextFrame then
+				-- We already cleared the upcoming buffer when we hit end-of-song;
+				-- once the music engine advances again, stop cleanly.
+				somatic_stop()
+				return
 			end
-			stopPlayingOnNextFrame = true
-			return
+
+			backBufferIsA = not backBufferIsA
+			lastPlayingFrame = currentFrame
+			playingSongOrder0b = currentSongOrder
+			--ch_set_playroutine_regs(currentSongOrder) -- the queued pattern is now playing; inform host.
+			currentSongOrder = currentSongOrder + 1
+
+			local destPointer = backBufferIsA and bufferALocation or bufferBLocation
+			local orderCount = somatic_get_song_order_count()
+
+			log(string.format("tick: advance to=%d count=%d", currentSongOrder, orderCount)) -- DEBUG_ONLY
+
+			if orderCount == 0 or currentSongOrder >= orderCount then
+				-- No next entry to queue. Don't stop *immediately* (that would kill playback
+				-- when starting on the last order / length==1). Instead, clear the next buffer
+				-- so the next advance is silent, and stop on the following tick.
+				for i = 0, PATTERN_BUFFER_BYTES - 1 do
+					poke(destPointer + i, 0)
+				end
+				stopPlayingOnNextFrame = true
+			else
+				swapInPlayorder(currentSongOrder, destPointer)
+			end
 		end
 
-		swapInPlayorder(currentSongOrder, destPointer)
+		somatic_sfx_tick(track, currentFrame, row)
 	end
 end -- do
 -- BEGIN_DISABLE_MINIFICATION
