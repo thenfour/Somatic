@@ -1516,16 +1516,20 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     {i + 1}
                                                 </div>
                                                 <div className='channel-header-controls-group'>
-                                                    <button
-                                                        type="button"
-                                                        className={`channel-header-control-btn channel-header-control-btn-mute ${editorState.isChannelExplicitlyMuted(i) ? 'channel-header-control-btn--muted' : ''}`}
-                                                        onClick={() => toggleChannelMute(i)}
-                                                    >M</button>
-                                                    <button
-                                                        type="button"
-                                                        className={`channel-header-control-btn channel-header-control-btn-solo ${editorState.isChannelExplicitlySoloed(i) ? 'channel-header-control-btn--soloed' : ''}`}
-                                                        onClick={() => toggleChannelSolo(i)}
-                                                    >S</button>
+                                                    <Tooltip title={`Mute/unmute ${mgr.getActionBindingLabelAsTooltipSuffix(`ToggleMuteChannel${i + 1}` as GlobalActionId)}`}>
+                                                        <button
+                                                            type="button"
+                                                            className={`channel-header-control-btn channel-header-control-btn-mute ${editorState.isChannelExplicitlyMuted(i) ? 'channel-header-control-btn--muted' : ''}`}
+                                                            onClick={() => toggleChannelMute(i)}
+                                                        >M</button>
+                                                    </Tooltip>
+                                                    <Tooltip title={`Solo/unsolo ${mgr.getActionBindingLabelAsTooltipSuffix(`ToggleSoloChannel${i + 1}` as GlobalActionId)}`}>
+                                                        <button
+                                                            type="button"
+                                                            className={`channel-header-control-btn channel-header-control-btn-solo ${editorState.isChannelExplicitlySoloed(i) ? 'channel-header-control-btn--soloed' : ''}`}
+                                                            onClick={() => toggleChannelSolo(i)}
+                                                        >S</button>
+                                                    </Tooltip>
                                                 </div>
                                             </div>
                                         </th>
