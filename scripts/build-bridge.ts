@@ -19,6 +19,7 @@ import bridgeConfig, {BridgeConfig} from "../bridge/bridge_config";
 import {emitLuaBitpackPrelude, emitLuaDecoder} from "../src/utils/bitpack/emitLuaDecoder";
 import {MorphEntryCodec, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec, WaveformMorphGradientCodec,} from "../bridge/morphSchema";
 import {SomaticMemoryLayout, Tic80MemoryMap} from "../bridge/memory_layout";
+import {emitBridgeVersionIconLua} from "./bridgeVersionIcon";
 
 const BRIDGE_LUA_PATH = path.resolve(__dirname, "../bridge/bridge.lua");
 const OUTPUT_GENERATED_BRIDGE_LUA_PATH = path.resolve(__dirname, "../temp/bridge-generated.lua");
@@ -124,6 +125,13 @@ function generateLuaAutogenBlock(config: BridgeConfig): string {
                  includeLayoutComments: false,
               }).trim());
    lines.push("");
+
+   // Version identicon + version string (generated)
+   {
+      const {lua} = emitBridgeVersionIconLua(BUILD_INFO, {resolution: {w: 6, h: 6}});
+      lines.push(lua.trim());
+      lines.push("");
+   }
    return lines.join("\n");
 }
 

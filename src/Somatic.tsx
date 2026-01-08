@@ -1066,7 +1066,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         />
                         <VersionAvatar
                             onClick={() => setAboutOpen(true)}
-                            resolution={{ w: 5, h: 5 }}
+                            resolution={{ w: 6, h: 6 }}
                             scale={5}
                         />
                     </>

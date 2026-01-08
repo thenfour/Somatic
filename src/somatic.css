@@ -593,6 +593,7 @@ option {
     background: var(--panel); */
     border: 0;
     cursor: pointer;
+    background-color: transparent;
 }
 
 .version-avatar:hover {

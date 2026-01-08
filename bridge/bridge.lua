@@ -1067,7 +1067,10 @@ end
 
 local function draw_status()
 	local y = 2
-	print("Somatic", 40, y, 12)
+	local icon_scale = 2
+	local icon_x = 240 - (__somatic_version_icon_w * icon_scale) - 2
+	renderVersionIcon(icon_x, y, icon_scale)
+	print(SOMATIC_VERSION_STRING, 40, y, 12)
 	y = y + 8
 	print("fps:" .. tostring(fps), 40, y, 13)
 	y = y + 8

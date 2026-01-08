@@ -12,14 +12,16 @@ export type VersionAvatarProps = {
 
 export const VersionAvatar: React.FC<VersionAvatarProps> = ({ onClick, resolution, scale }) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    //const [n, setN] = React.useState(0);
 
     const versionString = useMemo(() => getSomaticVersionString(buildInfo, 'Somatic'), []);
+    //console.log('Version string:', versionString);
 
     const draw = useMemo(() => {
         return generateIdenticonDrawList(versionString, resolution.w, resolution.h);
     }, [versionString, resolution.w, resolution.h]);
 
-    console.log(draw)
+    //console.log(draw)
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -56,7 +58,10 @@ export const VersionAvatar: React.FC<VersionAvatarProps> = ({ onClick, resolutio
             <button
                 type="button"
                 className="version-avatar"
-                onClick={onClick}
+                onClick={() => {
+                    //setN(n + 1);
+                    onClick();
+                }}
                 aria-label={versionString}
             >
                 <canvas
