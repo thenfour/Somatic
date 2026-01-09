@@ -73,6 +73,26 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       ],
    },
 
+   "ExportReleaseBuild": {
+      id: "ExportReleaseBuild",
+      title: "export release build",
+      description: "export the project as a release build.",
+      category: "File",
+      defaultBindings: [
+         {kind: "character", key: "r", primary: true, shift: true},
+      ],
+   },
+
+   "ExportDebugBuild": {
+      id: "ExportDebugBuild",
+      title: "export debug build",
+      description: "export the project as a debug build.",
+      category: "File",
+      defaultBindings: [
+         {kind: "character", key: "d", primary: true, shift: true},
+      ],
+   },
+
    "TogglePreferencesPanel": {
       id: "TogglePreferencesPanel",
       title: "toggle preferences panel",
@@ -513,13 +533,6 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       defaultBindings: [
          {kind: "character", key: "5", alt: true},
       ],
-   },
-   "ExportCartRelease": {
-      id: "ExportCartRelease",
-      title: "export cart release",
-      description: "export an optimized TIC-80 cartridge.",
-      category: "Edit",
-      defaultBindings: [],
    },
 
    "TransposeSelectionUpSemitone": {

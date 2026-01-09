@@ -26,29 +26,28 @@ import { AppStatusBar } from './ui/AppStatusBar';
 import { ArrangementEditor } from './ui/ArrangementEditor';
 import { useConfirmDialog } from './ui/basic/confirm_dialog';
 import { DiscordLogo, GithubLogo } from './ui/basic/Socicon';
+import { Tooltip } from './ui/basic/tooltip';
 import { DebugPanel } from './ui/debug_panel';
 import { DesktopMenu } from './ui/DesktopMenu/DesktopMenu';
+import { EditorStateControls } from './ui/EditorStateControls';
+import { EncodingUtilsPanel } from './ui/EncodingUtilsPanel';
 import { InstrumentPanel } from './ui/instrument_editor';
 import { Keyboard } from './ui/keyboard';
 import { PatternGrid, PatternGridHandle } from './ui/pattern_grid';
 import { PreferencesPanel } from './ui/preferences_panel';
-import { SongEditor } from './ui/song_editor';
+import { SongSettingsPanel } from './ui/SongSettingsPanel';
 import { SongStatsAppPanel, useSongStatsData } from './ui/SongStats';
+import { StatusChips } from './ui/StatusChips';
 import { Theme, ThemeEditorPanel } from './ui/theme_editor_panel';
 import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
 import { useToasts } from './ui/toast_provider';
 import { TransportControls } from './ui/TransportControls';
+import { VersionAvatar } from './ui/VersionAvatar';
 import { WaveformEditorPanel } from './ui/waveformEditor';
 import { gLog } from './utils/logger';
 import { OptimizeSong } from './utils/SongOptimizer';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
-import { StatusChips } from './ui/StatusChips';
-import { SongSettingsPanel } from './ui/SongSettingsPanel';
-import { EditorStateControls } from './ui/EditorStateControls';
-import { Tooltip } from './ui/basic/tooltip';
-import { EncodingUtilsPanel } from './ui/EncodingUtilsPanel';
-import { VersionAvatar } from './ui/VersionAvatar';
 
 const TIC80_FRAME_SIZES = [
 
@@ -658,6 +657,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     mgr.useActionHandler("ToggleSongSettingsPanel", () => {
         setSongSettingsPanelOpen(open => !open);
     });
+    mgr.useActionHandler("ExportReleaseBuild", () => {
+        exportCart("release");
+    });
+    mgr.useActionHandler("ExportDebugBuild", () => {
+        exportCart("debug");
+    });
 
     useActionHandler("OpenFile", openSongFile);
     useActionHandler("SaveFile", saveSongFile);
@@ -716,12 +721,15 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     <DesktopMenu.Sub>
                                         <DesktopMenu.SubTrigger>Export Cart</DesktopMenu.SubTrigger>
                                         <DesktopMenu.SubContent>
-                                            <DesktopMenu.Item onSelect={() => exportCart('debug')}>
+                                            <DesktopMenu.Item
+                                                onSelect={() => exportCart('debug')}
+                                                shortcut={mgr.getActionBindingLabel("ExportDebugBuild")}
+                                            >
                                                 Debug Build
                                             </DesktopMenu.Item>
                                             <DesktopMenu.Item
                                                 onSelect={() => exportCart('release')}
-                                                shortcut={mgr.getActionBindingLabel("ExportCartRelease")}
+                                                shortcut={mgr.getActionBindingLabel("ExportReleaseBuild")}
                                             >
                                                 Release Build
                                             </DesktopMenu.Item>

@@ -9,6 +9,8 @@ export const GlobalActions = {
    Panic: "Panic",
    Undo: "Undo",
    Redo: "Redo",
+   ExportReleaseBuild: "ExportReleaseBuild",
+   ExportDebugBuild: "ExportDebugBuild",
    ToggleDebugMode: "ToggleDebugMode",
    TogglePreferencesPanel: "TogglePreferencesPanel",
    ToggleDebugPanel: "ToggleDebugPanel",
@@ -70,8 +72,6 @@ export const GlobalActions = {
    TransposeSelectionDownOctave: "TransposeSelectionDownOctave",
    IncrementInstrumentInSelection: "IncrementInstrumentInSelection",
    DecrementInstrumentInSelection: "DecrementInstrumentInSelection",
-
-   ExportCartRelease: "ExportCartRelease",
 
    Copy: "Copy",
    Paste: "Paste",
