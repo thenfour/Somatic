@@ -1,4 +1,4 @@
-import {clamp, IsNullOrWhitespace, SanitizeFilename} from "../utils/utils";
+import {clamp, CoalesceBoolean, IsNullOrWhitespace, SanitizeFilename} from "../utils/utils";
 
 import {Tic80Instrument, Tic80InstrumentDto} from "./instruments";
 import {Pattern, PatternDto, isNoteCut} from "./pattern";
@@ -128,7 +128,8 @@ export class Song {
       this.name = data.name ?? "New song";
       this.highlightRowCount = data.highlightRowCount ?? 4;
       this.patternEditStep = clamp(data.patternEditStep ?? 1, 0, 32);
-      this.useCustomEntrypointLua = data.useCustomEntrypointLua ?? false;
+      this.useCustomEntrypointLua = CoalesceBoolean(data.useCustomEntrypointLua, false);
+      console.log(`customEntrypointLua: ${data.useCustomEntrypointLua}`);
       this.customEntrypointLua = data.customEntrypointLua || "";
 
       // Default to showing thumbnails (matches previous behavior).

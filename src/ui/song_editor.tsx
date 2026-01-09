@@ -130,13 +130,14 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     Define a custom Lua snippet which includes the TIC() function when exporting the song.
                 </p>
                 <CheckboxButton
-                    //checked={!!song.customEntrypointLua}
-                    highlighted={song.useCustomEntrypointLua}
+                    checked={song.useCustomEntrypointLua}
+                    //highlighted={!!song.useCustomEntrypointLua}
                     onChange={(checked) => {
                         onSongChange({
                             description: checked ? 'Enable custom playroutine' : 'Disable custom playroutine',
                             undoable: true,
                             mutator: (s) => {
+                                console.log(`Setting useCustomEntrypointLua to ${checked}`);
                                 s.useCustomEntrypointLua = checked;
                             },
                         });
