@@ -28,7 +28,11 @@ export type SongDto = {
    // replaces the BEGIN_CUSTOM_ENTRYPOINT block in the exported playroutine.
    useCustomEntrypointLua: boolean;
    customEntrypointLua: string;
+
+   arrangementThumbnailSize: ArrangementThumbnailSize;
 };
+
+export type ArrangementThumbnailSize = "off"|"small"|"normal"|"large";
 
 const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {
    const ret = Array.from({length: Tic80Caps.waveform.count}, (_, i) => {
@@ -111,6 +115,8 @@ export class Song {
    useCustomEntrypointLua: boolean;
    customEntrypointLua: string;
 
+   arrangementThumbnailSize: ArrangementThumbnailSize;
+
    constructor(data: Partial<SongDto> = {}) {
       this.instruments = makeInstrumentList(data.instruments || []);
       this.patterns = makePatternList(data.patterns || []);
@@ -124,6 +130,9 @@ export class Song {
       this.patternEditStep = clamp(data.patternEditStep ?? 1, 0, 32);
       this.useCustomEntrypointLua = data.useCustomEntrypointLua ?? false;
       this.customEntrypointLua = data.customEntrypointLua || "";
+
+      // Default to showing thumbnails (matches previous behavior).
+      this.arrangementThumbnailSize = (data.arrangementThumbnailSize as ArrangementThumbnailSize) ?? "normal";
    }
 
    setTempo(value: number) {
@@ -190,6 +199,8 @@ export class Song {
          patternEditStep: this.patternEditStep,
          useCustomEntrypointLua: this.useCustomEntrypointLua,
          customEntrypointLua: this.customEntrypointLua,
+
+         arrangementThumbnailSize: this.arrangementThumbnailSize,
       };
    }
 

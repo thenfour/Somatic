@@ -9,6 +9,8 @@ import { calculateBpm, SomaticCaps, Tic80Caps } from '../models/tic80Capabilitie
 import { IntegerUpDown } from './basic/NumericUpDown';
 import { Tooltip } from './basic/tooltip';
 import { CheckboxButton } from './Buttons/CheckboxButton';
+import type { ArrangementThumbnailSize } from '../models/song';
+import { ButtonGroup } from './Buttons/ButtonGroup';
 
 type SongEditorProps = {
     song: Song;
@@ -36,6 +38,8 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
     };
 
     const bpm = calculateBpm({ songTempo: song.tempo, songSpeed: song.speed, rowsPerBeat: 4 });
+
+    const thumbnailSize: ArrangementThumbnailSize = song.arrangementThumbnailSize ?? "normal";
 
     return (
         <div className="section song-editor-root">
@@ -89,6 +93,36 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     />
                 </div>
             </Tooltip>
+
+            <fieldset>
+                <legend>Arrangement Pattern Thumbnails</legend>
+                <ButtonGroup>
+                    {([
+                        { value: "off", label: "Off" },
+                        { value: "small", label: "Small" },
+                        { value: "normal", label: "Normal" },
+                        { value: "large", label: "Large" },
+                    ] as const).map((opt) => (
+                        <CheckboxButton
+                            key={opt.value}
+                            highlighted={thumbnailSize === opt.value}
+                            onChange={(checked) => {
+                                if (checked) {
+                                    onSongChange({
+                                        description: "Set arrangement thumbnail size",
+                                        undoable: true,
+                                        mutator: (s) => {
+                                            s.arrangementThumbnailSize = opt.value;
+                                        },
+                                    });
+                                }
+                            }}
+                        >
+                            {opt.label}
+                        </CheckboxButton>
+                    ))}
+                </ButtonGroup>
+            </fieldset>
 
             <fieldset>
                 <legend>Custom Playroutine Entrypoint</legend>

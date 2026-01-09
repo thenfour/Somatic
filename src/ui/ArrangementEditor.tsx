@@ -11,7 +11,7 @@ import { SomaticCaps } from "../models/tic80Capabilities";
 import { CharMap, clamp } from "../utils/utils";
 import { useConfirmDialog } from "./basic/confirm_dialog";
 import { Tooltip } from "./basic/tooltip";
-import { renderThumbnail, ThumbnailPrefs } from "./PatternThumbnail";
+import { renderThumbnail, ThumbnailMode } from "./PatternThumbnail";
 import { SongOrderMarkerControl } from "./SongOrderMarker";
 import Icon from "@mdi/react";
 import { mdiImageMultipleOutline } from "@mdi/js";
@@ -19,8 +19,7 @@ import './ArrangementEditor.css';
 
 const PAGE_SIZE = 4;
 
-const DEFAULT_THUMB_PREFS: ThumbnailPrefs = {
-    size: "full",
+const DEFAULT_THUMB_MODE: { mode: ThumbnailMode } = {
     mode: "currentInstrument",
 };
 
@@ -36,10 +35,15 @@ export const ArrangementEditor: React.FC<{
     const maxPositions = SomaticCaps.maxSongLength;
     const cursorPatternIndex = song.songOrder[editorState.activeSongPosition]?.patternIndex;
 
-    const [thumbnailPrefs, setThumbnailPrefs] = useLocalStorage<ThumbnailPrefs>(
-        "somatic-arrangement-thumbnails",
-        DEFAULT_THUMB_PREFS,
-    );
+    // const [thumbMode, setThumbMode] = useLocalStorage<{ mode: ThumbnailMode }>(
+    //     "somatic-arrangement-thumbnails",
+    //     DEFAULT_THUMB_MODE,
+    // );
+
+    // const thumbnailPrefs: ThumbnailPrefs = {
+    //     size: song.arrangementThumbnailSize ?? "normal",
+    //     mode: thumbMode.mode ?? "currentInstrument",
+    // };
 
     //const [editingPatternNameIndex, setEditingPatternNameIndex] = useState<number | null>(null);
     //const [editingPatternNameValue, setEditingPatternNameValue] = useState("");
@@ -447,12 +451,15 @@ export const ArrangementEditor: React.FC<{
         nudgeSelectionAndFocusAnchor(1);
     };
 
-    const toggleThumbnails = () => {
-        setThumbnailPrefs((prev) => ({
-            ...prev,
-            size: prev.size === "off" ? "full" : "off",
-        }));
-    };
+    // const toggleThumbnails = () => {
+    //     onSongChange({
+    //         description: thumbnailPrefs.size === "off" ? "Enable arrangement thumbnails" : "Disable arrangement thumbnails",
+    //         undoable: true,
+    //         mutator: (s) => {
+    //             s.arrangementThumbnailSize = s.arrangementThumbnailSize === "off" ? "normal" : "off";
+    //         },
+    //     });
+    // };
 
     const patternDisplayName = (patternIndex: number) => {
         const pat = song.patterns[patternIndex]!;
@@ -614,7 +621,7 @@ export const ArrangementEditor: React.FC<{
     const activeSongPosition = musicState.currentSomaticSongPosition ?? -1;
 
     const thumbnailCache = useMemo(() => new Map<string, React.ReactNode>(), []);
-    const thumbnailsEnabled = thumbnailPrefs.size !== "off";
+    const thumbnailsEnabled = song.arrangementThumbnailSize !== "off";
     const thumbnailToggleClass = [
         "arrangement-editor__command",
         thumbnailsEnabled && "arrangement-editor__command--active",
@@ -655,10 +662,10 @@ export const ArrangementEditor: React.FC<{
                     const canDelete = song.songOrder.length > 1;
                     const isMatchingCursorPattern = cursorPatternIndex !== undefined && clampedPattern === cursorPatternIndex;
                     const thumbKey = pattern ? pattern.contentSignature() : `nopat-${clampedPattern}`;
-                    const cacheKey = `${thumbKey}|${thumbnailPrefs.size}|${thumbnailPrefs.mode}|${editorState.currentInstrument}|${song.rowsPerPattern}`;
+                    const cacheKey = `${thumbKey}|${song.arrangementThumbnailSize}|${editorState.currentInstrument}|${song.rowsPerPattern}`;
                     let thumbnail = thumbnailCache.get(cacheKey);
                     if (thumbnail === undefined) {
-                        thumbnail = renderThumbnail(pattern, song.rowsPerPattern, thumbnailPrefs, editorState.currentInstrument);
+                        thumbnail = renderThumbnail(pattern, song.rowsPerPattern, song.arrangementThumbnailSize, editorState.currentInstrument);
                         thumbnailCache.set(cacheKey, thumbnail);
                     }
 
@@ -903,7 +910,7 @@ export const ArrangementEditor: React.FC<{
                             {CharMap.DownArrow}
                         </button>
                     </Tooltip>
-                    <Tooltip title={thumbnailsEnabled ? "Hide thumbnails" : "Show thumbnails"}>
+                    {/* <Tooltip title={thumbnailsEnabled ? "Hide thumbnails" : "Show thumbnails"}>
                         <button
                             type="button"
                             className={thumbnailToggleClass}
@@ -913,7 +920,7 @@ export const ArrangementEditor: React.FC<{
                         >
                             <Icon path={mdiImageMultipleOutline} size={1} />
                         </button>
-                    </Tooltip>
+                    </Tooltip> */}
                 </div>
             </div>
         </div>
