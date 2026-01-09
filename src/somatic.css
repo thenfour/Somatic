@@ -939,3 +939,16 @@ legend {
 .header-song-title {
     font-size: 20px;
 }
+
+.div-row {
+    display: flex;
+    align-items: center;
+}
+
+.div-row .div-row-grow {
+    flex-grow: 1;
+}
+
+.div-row .div-row-shrink {
+    flex-shrink: 0;
+}

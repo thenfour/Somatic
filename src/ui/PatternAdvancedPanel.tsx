@@ -211,19 +211,28 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                 <fieldset>
                     <legend>Instrument</legend>
                     <section className="pattern-advanced-panel__section">
-                        <div className="pattern-advanced-panel__inputRow">
+                        <div className="pattern-advanced-panel__inputRow div-row">
                             <Dropdown
                                 value={setInstrumentValue}
                                 onChange={(inst) => setSetInstrumentValue(inst)}
                                 options={instrumentOptions}
+                                showCaret={false}
+                                triggerClassName="div-row-grow"
+                                renderTriggerLabel={(opt) => {
+                                    return <InstrumentChip
+                                        instrumentIndex={opt?.value ?? 0}
+                                        instrument={song.instruments[opt?.value ?? 0]}
+                                        //showTooltip={false}
+                                        width={120}
+                                    />
+                                }}
                             />
-                        </div>
-                        <div className="pattern-advanced-panel__inputRow">
                             <Button
                                 onClick={() => onSetInstrument(setInstrumentValue, scope)}
                                 disabled={!enabled}
+                                className="div-row-shrink"
                             >
-                                Set instrument
+                                Set
                             </Button>
                         </div>
                         <div className="pattern-advanced-panel__inputRow">
@@ -231,17 +240,31 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                                 value={changeInstrumentFrom}
                                 onChange={(inst) => setChangeInstrumentFrom(inst)}
                                 options={instrumentOptions}
+                                showCaret={false}
+                                renderTriggerLabel={(opt) => {
+                                    return <InstrumentChip
+                                        instrumentIndex={opt?.value ?? 0}
+                                        instrument={song.instruments[opt?.value ?? 0]}
+                                        //showTooltip={false}
+                                        width={40}
+                                    />
+                                }}
                             />
-                        </div>
-                        <div className="pattern-advanced-panel__inputRow">
                             <span className="pattern-advanced-panel__arrow">{CharMap.RightTriangle}</span>
                             <Dropdown
                                 value={changeInstrumentTo}
                                 onChange={(inst) => setChangeInstrumentTo(inst)}
                                 options={instrumentOptions}
+                                showCaret={false}
+                                renderTriggerLabel={(opt) => {
+                                    return <InstrumentChip
+                                        instrumentIndex={opt?.value ?? 0}
+                                        instrument={song.instruments[opt?.value ?? 0]}
+                                        //showTooltip={false}
+                                        width={40}
+                                    />
+                                }}
                             />
-                        </div>
-                        <div className="pattern-advanced-panel__inputRow">
                             <Tooltip
                                 title={`Change instrument from ${changeInstrumentFrom} to ${changeInstrumentTo}`}
                             >
@@ -249,7 +272,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                                     onClick={() => onChangeInstrument(changeInstrumentFrom, changeInstrumentTo, scope)}
                                     disabled={!enabled}
                                 >
-                                    Change Instrument
+                                    Repl.
                                 </Button>
                             </Tooltip>
                         </div>
