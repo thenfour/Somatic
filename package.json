@@ -10,7 +10,7 @@
     "watch": "webpack --watch",
     "start": "webpack serve --open",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/lua_optimizer.test.ts tests/bitpack.test.ts tests/morph_sample_import.test.ts"
+    "test": "node --import tsx --test tests/lua_optimizer.test.ts tests/bitpack.test.ts tests/morph_sample_import.test.ts tests/utils_replaceLuaBlock.test.ts"
   },
   "author": "Matt Westcott",
   "license": "ISC",

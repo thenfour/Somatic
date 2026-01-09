@@ -24,6 +24,10 @@ export type SongDto = {
    waveforms: Tic80WaveformDto[];
    patterns: PatternDto[];
    songOrder: (number|SongOrderDto)[]; // index into patterns
+
+   // replaces the BEGIN_CUSTOM_ENTRYPOINT block in the exported playroutine.
+   useCustomEntrypointLua: boolean;
+   customEntrypointLua: string;
 };
 
 const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {
@@ -104,6 +108,9 @@ export class Song {
    highlightRowCount: number;
    patternEditStep: number;
 
+   useCustomEntrypointLua: boolean;
+   customEntrypointLua: string;
+
    constructor(data: Partial<SongDto> = {}) {
       this.instruments = makeInstrumentList(data.instruments || []);
       this.patterns = makePatternList(data.patterns || []);
@@ -115,6 +122,8 @@ export class Song {
       this.name = data.name ?? "New song";
       this.highlightRowCount = data.highlightRowCount ?? 4;
       this.patternEditStep = clamp(data.patternEditStep ?? 1, 0, 32);
+      this.useCustomEntrypointLua = data.useCustomEntrypointLua ?? false;
+      this.customEntrypointLua = data.customEntrypointLua || "";
    }
 
    setTempo(value: number) {
@@ -179,6 +188,8 @@ export class Song {
          name: this.name,
          highlightRowCount: this.highlightRowCount,
          patternEditStep: this.patternEditStep,
+         useCustomEntrypointLua: this.useCustomEntrypointLua,
+         customEntrypointLua: this.customEntrypointLua,
       };
    }
 

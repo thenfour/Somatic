@@ -8,6 +8,7 @@ import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
 import { calculateBpm, SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { IntegerUpDown } from './basic/NumericUpDown';
 import { Tooltip } from './basic/tooltip';
+import { CheckboxButton } from './Buttons/CheckboxButton';
 
 type SongEditorProps = {
     song: Song;
@@ -88,6 +89,42 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     />
                 </div>
             </Tooltip>
+
+            <fieldset>
+                <legend>Custom Playroutine Entrypoint</legend>
+                <p>
+                    Define a custom Lua snippet which includes the TIC() function when exporting the song.
+                </p>
+                <CheckboxButton
+                    //checked={!!song.customEntrypointLua}
+                    highlighted={song.useCustomEntrypointLua}
+                    onChange={(checked) => {
+                        onSongChange({
+                            description: checked ? 'Enable custom playroutine' : 'Disable custom playroutine',
+                            undoable: true,
+                            mutator: (s) => {
+                                s.useCustomEntrypointLua = checked;
+                            },
+                        });
+                    }}
+                >
+                    Use custom entrypoint?
+                </CheckboxButton>
+                <label>
+                    <textarea
+                        className='debug-panel-textarea'
+                        disabled={!song.useCustomEntrypointLua}
+                        value={song.customEntrypointLua || ""}
+                        onChange={(e) => onSongChange({
+                            description: 'Set custom playroutine entrypoint',
+                            undoable: true,
+                            mutator: (s) => {
+                                s.customEntrypointLua = e.target.value;
+                            },
+                        })}
+                    />
+                </label>
+            </fieldset>
         </div>
     );
 };

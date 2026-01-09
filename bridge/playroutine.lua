@@ -929,6 +929,7 @@ end -- do
 -- BEGIN_DISABLE_MINIFICATION
 -- (end Somatic playroutine)
 
+-- BEGIN_CUSTOM_ENTRYPOINT
 -- example main loop...
 local lastKnownOrder = 0
 local lastKnownRow = 0
@@ -998,4 +999,5 @@ function TIC()
 
 	-- END_DEBUG_ONLY
 end
+-- END_CUSTOM_ENTRYPOINT
 -- END_DISABLE_MINIFICATION

@@ -158,16 +158,20 @@ export function replaceLuaBlock(
    endMarker: string,
    replacement: string,
    ): string {
-   const eol = src.includes("\r\n") ? "\r\n" : "\n";
-   const normalizeEol = (s: string) => s.replace(/\r?\n/g, eol);
-   const replacementNorm = normalizeEol(replacement);
-
    let out = src;
    let searchFrom = 0;
    while (true) {
       const span = findNextLuaBlockSpan(out, beginMarker, endMarker, searchFrom, true);
       if (!span)
          break;
+
+      // Normalize line endings to match the surrounding source.
+      // If the replaced block was followed by more content, ensure the replacement ends with EOL
+      // so the last replacement line doesn't get merged into the following line.
+      let replacementNorm = replacement.replace(/\r?\n/g, span.eol);
+      if (replacementNorm.length > 0 && !replacementNorm.endsWith(span.eol) && span.blockEnd < out.length) {
+         replacementNorm += span.eol;
+      }
 
       out = out.slice(0, span.beginLineStart0) + replacementNorm + out.slice(span.blockEnd);
       searchFrom = span.beginLineStart0 + replacementNorm.length;

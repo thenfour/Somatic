@@ -749,6 +749,10 @@ ${emitLuaDecoder(WaveformMorphGradientCodec, {
              .replace(/__AUTOGEN_BUF_PTR_A/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_A.toString(16)}`)
              .replace(/__AUTOGEN_BUF_PTR_B/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_B.toString(16)}`);
 
+   if (song.useCustomEntrypointLua) {
+      code = replaceLuaBlock(code, "-- BEGIN_CUSTOM_ENTRYPOINT", "-- END_CUSTOM_ENTRYPOINT", song.customEntrypointLua);
+   }
+
    // optimize code
    const optimizationRuleOptions: OptimizationRuleOptions = variant === "release" ? releaseOptions : debugOptions;
    code = processLua(code, optimizationRuleOptions);
