@@ -629,27 +629,27 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("ExportCartRelease", () => exportCart('release'));
     useActionHandler("TransposeSelectionDownSemitone", () => {
         if (!patternGridRef.current) return;
-        patternGridRef.current?.transposeNotes(-1, 'selection');
+        patternGridRef.current?.transposeNotes(-1, { scope: 'selection', instrumentIndex: null });
     });
     useActionHandler("TransposeSelectionUpSemitone", () => {
         if (!patternGridRef.current) return;
-        patternGridRef.current?.transposeNotes(1, 'selection');
+        patternGridRef.current?.transposeNotes(1, { scope: 'selection', instrumentIndex: null });
     });
     useActionHandler("TransposeSelectionDownOctave", () => {
         if (!patternGridRef.current) return;
-        patternGridRef.current?.transposeNotes(-12, 'selection');
+        patternGridRef.current?.transposeNotes(-12, { scope: 'selection', instrumentIndex: null });
     });
     useActionHandler("TransposeSelectionUpOctave", () => {
         if (!patternGridRef.current) return;
-        patternGridRef.current?.transposeNotes(12, 'selection');
+        patternGridRef.current?.transposeNotes(12, { scope: 'selection', instrumentIndex: null });
     });
     useActionHandler("IncrementInstrumentInSelection", () => {
         if (!patternGridRef.current) return;
-        patternGridRef.current?.nudgeInstrumentInSelection(1, 'selection');
+        patternGridRef.current?.nudgeInstrumentInSelection(1, { scope: 'selection', instrumentIndex: null });
     });
     useActionHandler("DecrementInstrumentInSelection", () => {
         if (!patternGridRef.current) return;
-        patternGridRef.current?.nudgeInstrumentInSelection(-1, 'selection');
+        patternGridRef.current?.nudgeInstrumentInSelection(-1, { scope: 'selection', instrumentIndex: null });
     });
     mgr.useActionHandler("ToggleCartStatsPanel", () => {
         setSongStatsPanelOpen(open => !open);

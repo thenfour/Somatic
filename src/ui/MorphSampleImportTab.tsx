@@ -331,17 +331,14 @@ export const MorphSampleImportTab: React.FC<{
 
                     <ButtonGroup>
                         <CheckboxButton
-                            highlighted={showSelectedWindowHighlights}
-                            //highlighted={showSelectedWindowHighlights}
-                            // style={toggleButtonStyle(showSelectedWindowHighlights)}
-                            onClick={() => setShowSelectedWindowHighlights((v) => !v)}
+                            checked={showSelectedWindowHighlights}
+                            onChange={(v) => setShowSelectedWindowHighlights(v)}
                         >
                             Windows
                         </CheckboxButton>
                         <CheckboxButton
-                            highlighted={showAutoWindowPreviewHighlights}
-                            // style={toggleButtonStyle(showAutoWindowPreviewHighlights)}
-                            onClick={() => setShowAutoWindowPreviewHighlights((v) => !v)}
+                            checked={showAutoWindowPreviewHighlights}
+                            onChange={(v) => setShowAutoWindowPreviewHighlights(v)}
                         >
                             Auto-window preview
                         </CheckboxButton>

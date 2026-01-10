@@ -21,6 +21,7 @@ const mutatePatternCells = (
    channels: number[],
    rowRange: RowRange,
    rowsPerPattern: number,
+   instrumentIndex: number|null|undefined,
    mutator: (cell: PatternCell, channelIndex: Tic80ChannelIndex, rowIndex: number) => PatternCell | null,
    ): boolean => {
    const maxRow = clamp(rowsPerPattern - 1, 0, Tic80Caps.pattern.maxRows - 1);
@@ -41,6 +42,13 @@ const mutatePatternCells = (
          const safeChannel = clamp(Math.floor(channel), 0, channelMax);
          const channelIndex = ToTic80ChannelIndex(safeChannel);
          const cell = pattern.getCell(channelIndex, row);
+
+         if (instrumentIndex != null) {
+            if (cell.instrumentIndex === undefined || cell.instrumentIndex !== instrumentIndex) {
+               continue;
+            }
+         }
+
          const updatedCell = mutator(cell, channelIndex, row);
          if (updatedCell) {
             pattern.setCell(channelIndex, row, updatedCell);
@@ -58,7 +66,8 @@ export const transposeCellsInPattern = (
    rowRange: RowRange,
    rowsPerPattern: number,
    amount: number,
-   ): boolean => mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, (cell) => {
+   instrumentIndex?: number|null,
+   ): boolean => mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, instrumentIndex, (cell) => {
    if (cell.midiNote === undefined)
       return null;
    if (isNoteCut(cell))
@@ -77,7 +86,8 @@ export const setInstrumentInPattern = (
    rowRange: RowRange,
    rowsPerPattern: number,
    instrumentValue: number,
-   ): boolean => mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, (cell) => {
+   instrumentIndex?: number|null,
+   ): boolean => mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, instrumentIndex, (cell) => {
    if (cell.instrumentIndex === undefined)
       return null;
    if (cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex)
@@ -94,7 +104,8 @@ export const changeInstrumentInPattern = (
    rowsPerPattern: number,
    fromInstrument: number,
    toInstrument: number,
-   ): boolean => mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, (cell) => {
+   instrumentIndex?: number|null,
+   ): boolean => mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, instrumentIndex, (cell) => {
    if (cell.instrumentIndex === undefined)
       return null;
    if (cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex)
@@ -112,7 +123,8 @@ export const nudgeInstrumentInPattern = (
    rowRange: RowRange,
    rowsPerPattern: number,
    amount: number,
-   ): boolean => mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, (cell) => {
+   instrumentIndex?: number|null,
+   ): boolean => mutatePatternCells(pattern, channels, rowRange, rowsPerPattern, instrumentIndex, (cell) => {
    if (cell.instrumentIndex === undefined)
       return null;
    if (cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex)
@@ -227,6 +239,7 @@ export const interpolatePatternValues = (
    rowRange: RowRange,
    rowsPerPattern: number,
    target: InterpolateTarget,
+   instrumentIndex?: number|null,
    ): InterpolationResult => {
    const accessor = interpolationAccessors[target];
    const maxRow = clamp(rowsPerPattern - 1, 0, Tic80Caps.pattern.maxRows - 1);
@@ -239,6 +252,12 @@ export const interpolatePatternValues = (
    let mutated = false;
    let anchorPairs = 0;
 
+   const matchesInstrument = (cell: PatternCell): boolean => {
+      if (instrumentIndex == null)
+         return true;
+      return cell.instrumentIndex !== undefined && cell.instrumentIndex === instrumentIndex;
+   };
+
    for (const channel of channels) {
       if (!Number.isFinite(channel))
          continue;
@@ -248,7 +267,10 @@ export const interpolatePatternValues = (
       let startRow = -1;
       let startValue: number|null = null;
       for (let row = rowStart; row <= rowEnd; row++) {
-         const value = accessor.read(pattern.getCell(channelIndex, row));
+         const cell = pattern.getCell(channelIndex, row);
+         if (!matchesInstrument(cell))
+            continue;
+         const value = accessor.read(cell);
          if (value === undefined)
             continue;
          startRow = row;
@@ -262,7 +284,10 @@ export const interpolatePatternValues = (
       let endRow = -1;
       let endValue: number|null = null;
       for (let row = rowEnd; row >= rowStart; row--) {
-         const value = accessor.read(pattern.getCell(channelIndex, row));
+         const cell = pattern.getCell(channelIndex, row);
+         if (!matchesInstrument(cell))
+            continue;
+         const value = accessor.read(cell);
          if (value === undefined)
             continue;
          endRow = row;
@@ -282,6 +307,8 @@ export const interpolatePatternValues = (
          const interpolated = lerp(startValue, endValue, t);
          const clampedValue = clamp(Math.round(interpolated), accessor.min, accessor.max);
          const cell = pattern.getCell(channelIndex, row);
+         if (!matchesInstrument(cell))
+            continue;
          const updated = accessor.write(cell, clampedValue);
          if (!updated)
             continue;

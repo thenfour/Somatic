@@ -16,20 +16,20 @@ import { Divider } from './basic/Divider';
 export type PatternAdvancedPanelProps = {
     enabled?: boolean;
     song: Song;
-    onTranspose: (amount: number, scope: ScopeValue) => void;
-    onSetInstrument: (instrument: number, scope: ScopeValue) => void;
-    onChangeInstrument: (fromInstrument: number, toInstrument: number, scope: ScopeValue) => void;
-    onNudgeInstrument: (amount: number, scope: ScopeValue) => void;
-    onInterpolate: (target: InterpolateTarget, scope: ScopeValue) => void;
+    onTranspose: (amount: number, scope: AdvancedEditScope) => void;
+    onSetInstrument: (instrument: number, scope: AdvancedEditScope) => void;
+    onChangeInstrument: (fromInstrument: number, toInstrument: number, scope: AdvancedEditScope) => void;
+    onNudgeInstrument: (amount: number, scope: AdvancedEditScope) => void;
+    onInterpolate: (target: InterpolateTarget, scope: AdvancedEditScope) => void;
 
-    onClearNotes: (scope: ScopeValue) => void;
-    onClearInstrument: (scope: ScopeValue) => void;
-    onClearEffect: (scope: ScopeValue) => void;
-    onClearParamX: (scope: ScopeValue) => void;
-    onClearParamY: (scope: ScopeValue) => void;
-    onClearParamXY: (scope: ScopeValue) => void;
-    onClearSomaticEffect: (scope: ScopeValue) => void;
-    onClearSomaticParam: (scope: ScopeValue) => void;
+    onClearNotes: (scope: AdvancedEditScope) => void;
+    onClearInstrument: (scope: AdvancedEditScope) => void;
+    onClearEffect: (scope: AdvancedEditScope) => void;
+    onClearParamX: (scope: AdvancedEditScope) => void;
+    onClearParamY: (scope: AdvancedEditScope) => void;
+    onClearParamXY: (scope: AdvancedEditScope) => void;
+    onClearSomaticEffect: (scope: AdvancedEditScope) => void;
+    onClearSomaticParam: (scope: AdvancedEditScope) => void;
 
     onClose: () => void;
 };
@@ -43,6 +43,13 @@ const scopeOptions = [
 ] as const;
 
 export type ScopeValue = (typeof scopeOptions)[number]['value'];
+
+// Advanced edit operations can optionally be filtered to a specific instrument.
+// instrumentIndex === null means "all instruments".
+export type AdvancedEditScope = {
+    scope: ScopeValue;
+    instrumentIndex: number | null;
+};
 const interpolateOptions = [
     { value: 'notes', label: 'Notes' },
     { value: 'paramX', label: 'X' },
@@ -73,7 +80,8 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
 }) => {
     const scopeGroupId = useId();
     const keyboardShortcutMgr = useShortcutManager<GlobalActionId>();
-    const [scope, setScope] = useState<ScopeValue>('selection');
+    const [scopeValue, setScopeValue] = useState<ScopeValue>('selection');
+    const [scopeInstrumentIndex, setScopeInstrumentIndex] = useState<number | null>(null);
     const [setInstrumentValue, setSetInstrumentValue] = useState<number>(2);
     const [changeInstrumentFrom, setChangeInstrumentFrom] = useState<number>(2);
     const [changeInstrumentTo, setChangeInstrumentTo] = useState<number>(3);
@@ -93,6 +101,13 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
             />,
         }));
     }, [song.instruments]);
+
+    const scope: AdvancedEditScope = React.useMemo(() => {
+        return {
+            scope: scopeValue,
+            instrumentIndex: scopeInstrumentIndex,
+        };
+    }, [scopeInstrumentIndex, scopeValue]);
 
     const handleInterpolateNotes = () => {
         onInterpolate('notes', scope);
@@ -166,22 +181,41 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                         {scopeOptions.map((option) => (
                             <CheckboxButton
                                 key={option.value}
-                                checked={scope === option.value}
-                                onChange={() => setScope(option.value)}
+                                checked={scopeValue === option.value}
+                                onChange={() => setScopeValue(option.value)}
                             >
                                 {option.label}
                             </CheckboxButton>
-                            // <label key={option.value} className="pattern-advanced-panel__scopeOption">
-                            //     <input
-                            //         type="radio"
-                            //         name={`${scopeGroupId}-scope`}
-                            //         value={option.value}
-                            //         checked={scope === option.value}
-                            //         onChange={() => setScope(option.value)}
-                            //     />
-                            //     <span>{option.label}</span>
-                            // </label>
                         ))}
+                        <Divider />
+                        <CheckboxButton
+                            checked={scopeInstrumentIndex !== null}
+                            onChange={(checked) => {
+                                setScopeInstrumentIndex(checked ? (scopeInstrumentIndex ?? 2) : null);
+                            }}
+                        >
+                            Filter instrument
+                        </CheckboxButton>
+                        <div className="pattern-advanced-panel__inputRow div-row">
+                            <Dropdown
+                                value={scopeInstrumentIndex ?? 2}
+                                disabled={scopeInstrumentIndex === null}
+                                onChange={(inst) => setScopeInstrumentIndex(inst)}
+                                options={instrumentOptions}
+                                showCaret={false}
+                                triggerClassName="div-row-grow"
+                                renderTriggerLabel={(opt) => {
+                                    const instId = opt?.value ?? 0;
+                                    return (
+                                        <InstrumentChip
+                                            instrumentIndex={instId}
+                                            instrument={song.instruments[instId]}
+                                            width={200}
+                                        />
+                                    );
+                                }}
+                            />
+                        </div>
                     </ButtonGroup>
                     {/* </div> */}
                 </fieldset>
@@ -244,7 +278,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                                 Set
                             </Button>
                         </div>
-                        <div className="pattern-advanced-panel__inputRow">
+                        {/* <div className="pattern-advanced-panel__inputRow">
                             <Dropdown
                                 value={changeInstrumentFrom}
                                 onChange={(inst) => setChangeInstrumentFrom(inst)}
@@ -284,7 +318,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                                     Repl.
                                 </Button>
                             </Tooltip>
-                        </div>
+                        </div> */}
                         <ButtonGroup>
                             <Tooltip
                                 title={`Dec instrument (${keyboardShortcutMgr.getActionBindingLabel("DecrementInstrumentInSelection")})`}

@@ -9,7 +9,7 @@ import { analyzePatternPlaybackForGrid, isNoteCut, Pattern, PatternCell } from '
 import { formatPatternIndex, Song } from '../models/song';
 import { gChannelsArray, SomaticCaps, SomaticEffectCommand, SomaticPatternCommand, SOMATIC_PATTERN_COMMAND_KEYS, SOMATIC_PATTERN_COMMAND_LETTERS, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
 import { CharMap, clamp, Coord2D, numericRange } from '../utils/utils';
-import { InterpolateTarget, PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
+import { AdvancedEditScope, InterpolateTarget, PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
 import { useToasts } from './toast_provider';
 import { Tooltip } from './basic/tooltip';
 import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D';
@@ -97,8 +97,8 @@ type PatternGridProps = {
 export type PatternGridHandle = {
     focusPattern: () => void;
     focusCellAdvancedToRow: (rowIndex: number) => void; // after editstep changes, set focus to this row. we will keep the same column as current.
-    transposeNotes: (amount: number, scope: ScopeValue) => void;
-    nudgeInstrumentInSelection: (amount: number, scope: ScopeValue) => void;
+    transposeNotes: (amount: number, scope: AdvancedEditScope) => void;
+    nudgeInstrumentInSelection: (amount: number, scope: AdvancedEditScope) => void;
 };
 
 const PATTERN_CLIPBOARD_TYPE = 'somatic-pattern-block';
@@ -240,11 +240,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
         }, [editorState.patternEditChannel, pushToast, safePatternIndex, editorState.patternSelection, song.patterns.length, song.rowsPerPattern]);
 
-        const handleTranspose = useCallback((amount: number, scope: ScopeValue) => {
+        const handleTranspose = useCallback((amount: number, scope: AdvancedEditScope) => {
             if (!amount) {
                 return;
             }
-            const targets = resolveScopeTargets(scope);
+            const targets = resolveScopeTargets(scope.scope);
             if (!targets) return;
             const { patternIndices, channels, rowRange } = targets;
             if (patternIndices.length === 0 || channels.length === 0) {
@@ -259,7 +259,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     for (const patternIndex of patternIndices) {
                         const targetPattern = nextSong.patterns[patternIndex];
                         if (!targetPattern) continue;
-                        if (transposeCellsInPattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern, amount)) {
+                        if (transposeCellsInPattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern, amount, scope.instrumentIndex)) {
                             mutated = true;
                         }
                     }
@@ -272,11 +272,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const runInstrumentMutationInScope = useCallback(
             (
-                scope: ScopeValue,
-                mutatePattern: (pattern: Pattern, channels: number[], rowRange: RowRange, rowsPerPattern: number) => boolean,
+                scope: AdvancedEditScope,
+                mutatePattern: (pattern: Pattern, channels: number[], rowRange: RowRange, rowsPerPattern: number, instrumentIndex: number | null) => boolean,
                 noMutatedMessage: string,
             ) => {
-                const targets = resolveScopeTargets(scope);
+                const targets = resolveScopeTargets(scope.scope);
                 if (!targets) return;
                 const { patternIndices, channels, rowRange } = targets;
                 if (patternIndices.length === 0 || channels.length === 0) {
@@ -291,7 +291,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         for (const patternIndex of patternIndices) {
                             const targetPattern = nextSong.patterns[patternIndex];
                             if (!targetPattern) continue;
-                            if (mutatePattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern)) {
+                            if (mutatePattern(targetPattern, channels, rowRange, nextSong.rowsPerPattern, scope.instrumentIndex)) {
                                 mutated = true;
                             }
                         }
@@ -304,7 +304,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             [onSongChange, pushToast, resolveScopeTargets],
         );
 
-        const handleSetInstrument = useCallback((rawInstrument: number, scope: ScopeValue) => {
+        const handleSetInstrument = useCallback((rawInstrument: number, scope: AdvancedEditScope) => {
             const instrumentValue = normalizeInstrumentValue(rawInstrument);
             if (instrumentValue === SomaticCaps.noteCutInstrumentIndex) {
                 pushToast({ message: 'Instrument 1 is reserved for note cuts.', variant: 'error' });
@@ -312,13 +312,13 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
             runInstrumentMutationInScope(
                 scope,
-                (pattern, channels, rowRange, rowsPerPattern) =>
-                    setInstrumentInPattern(pattern, channels, rowRange, rowsPerPattern, instrumentValue),
+                (pattern, channels, rowRange, rowsPerPattern, instrumentIndex) =>
+                    setInstrumentInPattern(pattern, channels, rowRange, rowsPerPattern, instrumentValue, instrumentIndex),
                 'No instruments were eligible for update.',
             );
         }, [pushToast, runInstrumentMutationInScope]);
 
-        const handleChangeInstrument = useCallback((rawFrom: number, rawTo: number, scope: ScopeValue) => {
+        const handleChangeInstrument = useCallback((rawFrom: number, rawTo: number, scope: AdvancedEditScope) => {
             const fromInstrument = normalizeInstrumentValue(rawFrom);
             const toInstrument = normalizeInstrumentValue(rawTo);
             if (fromInstrument === SomaticCaps.noteCutInstrumentIndex || toInstrument === SomaticCaps.noteCutInstrumentIndex) {
@@ -331,26 +331,26 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
             runInstrumentMutationInScope(
                 scope,
-                (pattern, channels, rowRange, rowsPerPattern) =>
-                    changeInstrumentInPattern(pattern, channels, rowRange, rowsPerPattern, fromInstrument, toInstrument),
+                (pattern, channels, rowRange, rowsPerPattern, instrumentIndex) =>
+                    changeInstrumentInPattern(pattern, channels, rowRange, rowsPerPattern, fromInstrument, toInstrument, instrumentIndex),
                 'No matching instruments were found to change.',
             );
         }, [pushToast, runInstrumentMutationInScope]);
 
 
-        const nudgeInstrumentInSelection = useCallback((amount: number, scope: ScopeValue) => {
+        const nudgeInstrumentInSelection = useCallback((amount: number, scope: AdvancedEditScope) => {
             if (!amount) return;
             runInstrumentMutationInScope(
                 scope,
-                (pattern, channels, rowRange, rowsPerPattern) =>
-                    nudgeInstrumentInPattern(pattern, channels, rowRange, rowsPerPattern, amount),
+                (pattern, channels, rowRange, rowsPerPattern, instrumentIndex) =>
+                    nudgeInstrumentInPattern(pattern, channels, rowRange, rowsPerPattern, amount, instrumentIndex),
                 'No instruments were eligible for nudge.',
             );
         }, [runInstrumentMutationInScope]);
 
 
-        const handleInterpolate = useCallback((target: InterpolateTarget, scope: ScopeValue) => {
-            const targets = resolveScopeTargets(scope);
+        const handleInterpolate = useCallback((target: InterpolateTarget, scope: AdvancedEditScope) => {
+            const targets = resolveScopeTargets(scope.scope);
             if (!targets) return;
             const { patternIndices, channels, rowRange } = targets;
             if (patternIndices.length === 0 || channels.length === 0) {
@@ -366,7 +366,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     for (const patternIndex of patternIndices) {
                         const targetPattern = nextSong.patterns[patternIndex];
                         if (!targetPattern) continue;
-                        const result = interpolatePatternValues(targetPattern, channels, rowRange, nextSong.rowsPerPattern, target);
+                        const result = interpolatePatternValues(targetPattern, channels, rowRange, nextSong.rowsPerPattern, target, scope.instrumentIndex);
                         if (result.mutated) totalMutated = true;
                         totalAnchorPairs += result.anchorPairs;
                     }
@@ -382,12 +382,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         }, [onSongChange, pushToast, resolveScopeTargets]);
 
         const clearPatternFieldInScope = useCallback((
-            scope: ScopeValue,
+            scope: AdvancedEditScope,
             description: string,
             clearCell: (cell: PatternCell) => PatternCell,
             noOpMessage: string,
         ) => {
-            const targets = resolveScopeTargets(scope);
+            const targets = resolveScopeTargets(scope.scope);
             if (!targets) return;
             const { patternIndices, channels, rowRange } = targets;
             if (patternIndices.length === 0 || channels.length === 0) {
@@ -414,6 +414,13 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
                             for (let row = rowStart; row <= rowEnd; row++) {
                                 const oldCell = pat.getCell(channelIndex, row);
+
+                                if (scope.instrumentIndex != null) {
+                                    if (oldCell.instrumentIndex === undefined || oldCell.instrumentIndex !== scope.instrumentIndex) {
+                                        continue;
+                                    }
+                                }
+
                                 const nextCell = clearCell(oldCell);
                                 if (nextCell !== oldCell) {
                                     pat.setCell(channelIndex, row, nextCell);
@@ -430,7 +437,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
         }, [onSongChange, pushToast, resolveScopeTargets]);
 
-        const handleClearNotes = useCallback((scope: ScopeValue) => {
+        const handleClearNotes = useCallback((scope: AdvancedEditScope) => {
             clearPatternFieldInScope(
                 scope,
                 'Clear notes',
@@ -442,7 +449,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             );
         }, [clearPatternFieldInScope]);
 
-        const handleClearInstrument = useCallback((scope: ScopeValue) => {
+        const handleClearInstrument = useCallback((scope: AdvancedEditScope) => {
             clearPatternFieldInScope(
                 scope,
                 'Clear instruments',
@@ -454,7 +461,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             );
         }, [clearPatternFieldInScope]);
 
-        const handleClearEffect = useCallback((scope: ScopeValue) => {
+        const handleClearEffect = useCallback((scope: AdvancedEditScope) => {
             clearPatternFieldInScope(
                 scope,
                 'Clear effects',
@@ -466,7 +473,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             );
         }, [clearPatternFieldInScope]);
 
-        const handleClearParamX = useCallback((scope: ScopeValue) => {
+        const handleClearParamX = useCallback((scope: AdvancedEditScope) => {
             clearPatternFieldInScope(
                 scope,
                 'Clear effect param X',
@@ -478,7 +485,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             );
         }, [clearPatternFieldInScope]);
 
-        const handleClearParamY = useCallback((scope: ScopeValue) => {
+        const handleClearParamY = useCallback((scope: AdvancedEditScope) => {
             clearPatternFieldInScope(
                 scope,
                 'Clear effect param Y',
@@ -490,7 +497,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             );
         }, [clearPatternFieldInScope]);
 
-        const handleClearParamXY = useCallback((scope: ScopeValue) => {
+        const handleClearParamXY = useCallback((scope: AdvancedEditScope) => {
             clearPatternFieldInScope(
                 scope,
                 'Clear effect params',
@@ -502,7 +509,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             );
         }, [clearPatternFieldInScope]);
 
-        const handleClearSomaticEffect = useCallback((scope: ScopeValue) => {
+        const handleClearSomaticEffect = useCallback((scope: AdvancedEditScope) => {
             clearPatternFieldInScope(
                 scope,
                 'Clear Somatic effects',
@@ -514,7 +521,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             );
         }, [clearPatternFieldInScope]);
 
-        const handleClearSomaticParam = useCallback((scope: ScopeValue) => {
+        const handleClearSomaticParam = useCallback((scope: AdvancedEditScope) => {
             clearPatternFieldInScope(
                 scope,
                 'Clear Somatic params',
