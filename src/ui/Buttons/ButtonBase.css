@@ -140,3 +140,22 @@
     justify-content: center;
     line-height: 0;
 }
+
+.somatic-checkbox-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.somatic-checkbox-button .somatic-checkbox-button__checkmark {
+    display: inline-flex;
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+    border: 1px solid var(--text);
+    border-radius: 2px;
+    box-sizing: border-box;
+}
+
+.somatic-checkbox-button .somatic-checkbox-button__checkmark svg {}

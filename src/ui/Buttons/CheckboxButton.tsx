@@ -3,26 +3,21 @@
 import React from 'react';
 
 import { ButtonBase, ButtonBaseProps } from './ButtonBase';
+import Icon from '@mdi/react';
+import { mdiCheck, mdiCheckBold } from '@mdi/js';
 
-export interface CheckboxButtonProps extends Omit<ButtonBaseProps, "onChange"> {
+export interface CheckboxButtonProps extends Omit<ButtonBaseProps, "onChange" | "highlighted"> {
     checked?: boolean;
-    //onChange?: (event: React.MouseEvent<HTMLButtonElement> & { target: { checked: boolean } }) => void;
+    showCheckmark?: boolean;
     onChange?: (newValue: boolean) => void;
 }
 
 export const CheckboxButton = React.forwardRef<HTMLButtonElement, CheckboxButtonProps>(
-    ({ children, className, checked, onChange, ...props }, ref) => {
+    ({ children, className, checked, onChange, showCheckmark = true, ...props }, ref) => {
         const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
             event.preventDefault();
             if (onChange) {
                 onChange(!checked);
-                // props.onChange({
-                //     ...event,
-                //     target: {
-                //         ...event.target,
-                //         checked: !checked,
-                //     } as any,
-                // });
             }
         };
 
@@ -34,6 +29,8 @@ export const CheckboxButton = React.forwardRef<HTMLButtonElement, CheckboxButton
                 onClick={handleClick}
                 {...props}
             >
+                {showCheckmark && checked && <div className="somatic-checkbox-button__checkmark checkbox-button-checked"><Icon path={mdiCheckBold} /></div>}
+                {showCheckmark && !checked && <div className="somatic-checkbox-button__checkmark checkbox-button-unchecked"></div>}
                 {children}
             </ButtonBase>
         );

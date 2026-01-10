@@ -1,7 +1,7 @@
 .app-status-bar {
     display: flex;
     align-items: center;
-    /* gap: 16px; */
+    gap: 16px;
     padding: 0px 12px;
     background-color: var(--panel);
     color: var(--text);
@@ -29,6 +29,7 @@
 }
 
 .app-status-bar-commands {
+    /* margin-left: 12px; */
     color: var(--cell-command);
 }
 

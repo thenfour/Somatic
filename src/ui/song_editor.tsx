@@ -105,7 +105,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     ] as const).map((opt) => (
                         <CheckboxButton
                             key={opt.value}
-                            highlighted={thumbnailSize === opt.value}
+                            checked={thumbnailSize === opt.value}
                             onChange={(checked) => {
                                 if (checked) {
                                     onSongChange({
