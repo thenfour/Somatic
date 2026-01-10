@@ -199,6 +199,7 @@ function coerceEffectKind(v: any, fallback: SomaticEffectKind): SomaticEffectKin
 
 export interface Tic80InstrumentDto {
    name: string;
+   highlightColor: string|null;
 
    speed: number; // 0-7
 
@@ -264,6 +265,7 @@ export interface Tic80InstrumentDto {
 // aka "SFX" aka "sample" (from tic.h / sound.c)
 export class Tic80Instrument {
    name: string;
+   highlightColor: string|null;
 
    speed: number;    // 0-7
    baseNote: number; // 0-15
@@ -321,6 +323,8 @@ export class Tic80Instrument {
    // editor-only...
    constructor(data: Partial<Tic80InstrumentDto> = {}) {
       this.name = data.name ?? "";
+
+      this.highlightColor = data.highlightColor ?? null;
 
       this.speed = clamp(data.speed ?? 3, 0, Tic80Caps.sfx.speedMax);
 
@@ -454,6 +458,7 @@ export class Tic80Instrument {
    toData(): Tic80InstrumentDto {
       return {
          name: this.name,
+         highlightColor: this.highlightColor,
 
          speed: this.speed,
          baseNote: this.baseNote,

@@ -51,3 +51,17 @@ export function applySweetie16CssVars(style: CSSStyleDeclaration): void {
       style.setProperty(`--tic-${i}-contrast`, `var(--tic-${contrastIdx})`);
    }
 }
+
+export const gTic80Palette = SWEETIE16_HEX.map((cssHex, i) => ({
+                                                  index: i,
+                                                  cssVariableName: `--tic-${i}`,
+                                                  cssExpression: `var(--tic-${i})`,
+                                                  cssColor: cssHex,
+                                                  contrastIndex: SWEETIE16_CONTRAST_INDEX[i],
+                                                  contrastCssVariableName: `--tic-${i}-contrast`,
+                                                  contrastCssExpression: `var(--tic-${SWEETIE16_CONTRAST_INDEX[i]})`,
+                                                  contrastCssColor: SWEETIE16_HEX[SWEETIE16_CONTRAST_INDEX[i]],
+                                               }));
+
+export const PALETTE_KEYS = Array.from({length: 16}, (_, i) => `--tic-${i}`);
+export const PALETTE_CONTRAST_KEYS = PALETTE_KEYS.map((k) => `${k}-contrast`);

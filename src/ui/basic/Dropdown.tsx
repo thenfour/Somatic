@@ -14,7 +14,7 @@ export type DropdownProps<TValue> = {
     onChange: (value: TValue) => void;
     options: DropdownOption<TValue>[];
     placeholder?: React.ReactNode;
-    renderTriggerLabel?: (option: DropdownOption<TValue> | null) => React.ReactNode;
+    renderTriggerLabel?: (option: DropdownOption<TValue> | null, defaultRenderer: () => React.ReactNode) => React.ReactNode;
     triggerClassName?: string;
     contentClassName?: string;
     disabled?: boolean;
@@ -42,12 +42,15 @@ export function Dropdown<TValue>(props: DropdownProps<TValue>): JSX.Element {
     }, [options, value]);
 
     const triggerLabel = React.useMemo(() => {
-        if (renderTriggerLabel) {
-            return renderTriggerLabel(selectedOption);
+        const defaultRenderer = () => {
+            if (selectedOption) return selectedOption.label;
+            if (placeholder !== undefined) return placeholder;
+            return 'Select';
         }
-        if (selectedOption) return selectedOption.label;
-        if (placeholder !== undefined) return placeholder;
-        return 'Select';
+        if (renderTriggerLabel) {
+            return renderTriggerLabel(selectedOption, defaultRenderer);
+        }
+        return defaultRenderer();
     }, [placeholder, renderTriggerLabel, selectedOption]);
 
     return (

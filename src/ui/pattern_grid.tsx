@@ -92,6 +92,7 @@ type PatternGridProps = {
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
     advancedEditPanelOpen: boolean;
     onSetAdvancedEditPanelOpen: (open: boolean) => void;
+    highlightSelectedInstrument: boolean;
 };
 
 export type PatternGridHandle = {
@@ -125,7 +126,7 @@ const normalizeInstrumentValue = (value: number): number => {
 
 
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
-    ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange, advancedEditPanelOpen, onSetAdvancedEditPanelOpen }, ref) => {
+    ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange, advancedEditPanelOpen, onSetAdvancedEditPanelOpen, highlightSelectedInstrument }, ref) => {
         const mgr = useShortcutManager<GlobalActionId>();
         const currentPosition = clamp(editorState.activeSongPosition ?? 0, 0, song.songOrder.length - 1); // Math.max(0, Math.min(song.songOrder.length - 1, editorState.activeSongPosition || 0));
         const currentSongOrderItem = song.songOrder[currentPosition] ?? null;
@@ -1596,9 +1597,16 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const isCellSelected = isRowInSelection && channelSelected;
                                             const isAudible = editorState.isChannelAudible(channelIndex);
 
+                                            const cellStyle: React.CSSProperties = {};
+                                            if (instrument?.highlightColor) {
+                                                (cellStyle as any)['--instrument-highlight-color'] = instrument.highlightColor;
+                                            }
+
                                             const getSelectionClasses = (cellType: ExtendedCellType) => {
                                                 let classes = '';
-                                                if (instrumentIsSelected) classes += ' pattern-cell--selected-instrument';
+                                                if (highlightSelectedInstrument && instrumentIsSelected) classes += ' pattern-cell--selected-instrument';
+                                                if (instrument?.highlightColor) classes += ' pattern-cell--highlighted-instrument';
+
                                                 if (!isCellSelected || !editorState.patternSelection) return classes;
                                                 classes += ' pattern-cell--selected';
                                                 if (rowIndex === editorState.patternSelection.topInclusive()) classes += ' pattern-cell--selection-top';
@@ -1653,6 +1661,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         tabIndex={0}
                                                         ref={(el) => (cellRefs[rowIndex][noteCol] = el)}
                                                         className={noteClass}
+                                                        style={cellStyle}
                                                         onKeyDown={onCellKeyDown}
                                                         onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
@@ -1671,6 +1680,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         tabIndex={0}
                                                         ref={(el) => (cellRefs[rowIndex][instCol] = el)}
                                                         className={instClass}
+                                                        style={cellStyle}
                                                         onKeyDown={onCellKeyDown}
                                                         onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
@@ -1691,6 +1701,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         tabIndex={0}
                                                         ref={(el) => (cellRefs[rowIndex][cmdCol] = el)}
                                                         className={cmdClass}
+                                                        style={cellStyle}
                                                         onKeyDown={onCellKeyDown}
                                                         onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
@@ -1707,6 +1718,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         tabIndex={0}
                                                         ref={(el) => (cellRefs[rowIndex][paramCol] = el)}
                                                         className={paramClass}
+                                                        style={cellStyle}
                                                         onKeyDown={onCellKeyDown}
                                                         onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
@@ -1723,6 +1735,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         tabIndex={0}
                                                         ref={(el) => (cellRefs[rowIndex][somCmdCol] = el)}
                                                         className={somCmdClass}
+                                                        style={cellStyle}
                                                         onKeyDown={onCellKeyDown}
                                                         onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
@@ -1739,6 +1752,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         tabIndex={0}
                                                         ref={(el) => (cellRefs[rowIndex][somParamCol] = el)}
                                                         className={somParamClass}
+                                                        style={cellStyle}
                                                         onKeyDown={onCellKeyDown}
                                                         onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
                                                         onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}

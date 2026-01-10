@@ -4,9 +4,8 @@ import './theme_editor_panel.css';
 import { typedEntries, typedValues } from '../utils/utils';
 import { AppPanelShell } from './AppPanelShell';
 import { Button } from './Buttons/PushButton';
-
-const PALETTE_KEYS = Array.from({ length: 16 }, (_, i) => `--tic-${i}`);
-const PALETTE_CONTRAST_KEYS = PALETTE_KEYS.map((k) => `${k}-contrast`);
+import { PALETTE_CONTRAST_KEYS, PALETTE_KEYS } from '../theme/ticPalette';
+import { PaletteSwatch } from './basic/PaletteSwatch';
 
 export type Theme = 'light' | 'dark';
 const THEME_VARS = {
@@ -124,32 +123,6 @@ const THEME_VARS = {
     ],
 } as const;
 
-type PaletteSwatchProps = {
-    color: string;
-    contrast?: string;
-};
-
-const PaletteSwatch: React.FC<PaletteSwatchProps> = ({ color, contrast }) => {
-    const onDragStart = (ev: React.DragEvent<HTMLDivElement>) => {
-        ev.dataTransfer.effectAllowed = 'copy';
-        ev.dataTransfer.setData('application/x-somatic-color', color);
-        ev.dataTransfer.setData('text/plain', color);
-    };
-
-    return (
-        <div
-            //type="button"
-            className="theme-panel__swatch"
-            draggable
-            onDragStart={onDragStart}
-            style={{ background: color, color: contrast || '#000' }}
-            title={`Drag to apply ${color}`}
-        >
-            {/* {color} */}
-        </div>
-    );
-};
-
 const readCssVar = (style: CSSStyleDeclaration, name: string) => style.getPropertyValue(name).trim();
 
 export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -224,7 +197,9 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
                             key={key}
                             color={values[key]}
                             contrast={values[PALETTE_CONTRAST_KEYS[i]]}
-                        />
+                        >
+                            <span>#{i}</span>
+                        </PaletteSwatch>
                     ))}
                 </div>
             </>

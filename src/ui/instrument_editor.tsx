@@ -25,6 +25,9 @@ import { Divider } from './basic/Divider';
 import { IconButton } from './Buttons/IconButton';
 import { mdiArrowDown, mdiArrowLeft, mdiArrowRight, mdiArrowUp, mdiContentCopy, mdiContentPaste } from '@mdi/js';
 import { CheckboxButton } from './Buttons/CheckboxButton';
+import { Dropdown, DropdownOption } from './basic/Dropdown';
+import { gTic80Palette, PALETTE_KEYS } from '../theme/ticPalette';
+import { PaletteSwatch } from './basic/PaletteSwatch';
 
 const PWMDutyConfig: ContinuousParamConfig = {
     resolutionSteps: 32,
@@ -698,6 +701,23 @@ show render slot if there are k-rate effects enabled
     const showNativeWaveformEnvelope = !instrument.isKRateProcessing();
     const showSourceWaveform = !showNativeWaveformEnvelope && instrument.waveEngine === 'native';
 
+    const highlightOptions: DropdownOption<string | null>[] = useMemo(() => {
+        const options: DropdownOption<string | null>[] = [
+            { value: null, label: 'None' },
+            // use PALETTE_KEYS / PALETTE_CONTRAST_KEYS from ticPalette.ts.
+            ...gTic80Palette.map((paletteEntry, i) => ({
+                value: paletteEntry.cssExpression,
+                label: <PaletteSwatch
+                    key={i}
+                    color={paletteEntry.cssColor}
+                    contrast={paletteEntry.contrastCssExpression}
+                ><span>{paletteEntry.index}</span></PaletteSwatch>,
+            })),
+        ];
+        return options
+    }, [gTic80Palette]);
+
+    console.log(highlightOptions);
 
     return (
         <AppPanelShell
@@ -747,13 +767,36 @@ show render slot if there are k-rate effects enabled
             </div>
 
             <div className="field-row">
-                <ContinuousKnob
-                    label='Speed'
-                    value={instrument.speed}
-                    config={SpeedConfig}
-                    onChange={setSpeed}
+                <ButtonGroup>
+                    <ContinuousKnob
+                        label='Speed'
+                        value={instrument.speed}
+                        config={SpeedConfig}
+                        onChange={setSpeed}
+                    />
+                </ButtonGroup>
+                <Dropdown<string | null>
+                    value={instrument.highlightColor}
+                    renderTriggerLabel={
+                        (option, defaultRender) => {
+                            if (!option || !option.value) {
+                                return <>Highlight: None</>;
+                            }
+                            return <span>Highlight: {option.label}</span>
+                        }}
+                    onChange={(newColor) => {
+                        onSongChange({
+                            description: 'Set instrument highlight color',
+                            undoable: true,
+                            mutator: (s) => {
+                                const inst = s.instruments[instrumentIndex];
+                                console.log('setting highlight color', newColor);
+                                inst.highlightColor = newColor;
+                            }
+                        });
+                    }}
+                    options={highlightOptions}
                 />
-
             </div>
 
             <TabPanel

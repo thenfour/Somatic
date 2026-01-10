@@ -19,6 +19,23 @@
     cursor: grab;
     padding: 0;
     border: 0;
+
+    display: flex;
+    position: relative;
+    /* align top left */
+    /* align-items: flex-start;
+    justify-content: flex-start; */
+    /* align-items: center;
+    justify-content: center; */
+}
+
+/* the contrast color is useful but can be visually distracting */
+.theme-panel__swatch>span {
+    position: absolute;
+    top: 3px;
+    left: 6px;
+    font-size: 12px;
+    opacity: 30%;
 }
 
 .theme-panel__vars {

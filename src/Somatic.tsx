@@ -97,6 +97,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const mgr = useShortcutManager<GlobalActionId>();
     const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
     const [disabledMidiDeviceIds, setDisabledMidiDeviceIds] = useLocalStorage<string[]>("somatic-disabledMidiDeviceIds", []);
+    const [highlightSelectedInstrumentInPatternGrid, setHighlightSelectedInstrumentInPatternGrid] = useLocalStorage("somatic-highlightSelectedInstrumentInPatternGrid", true);
     const midiRef = React.useRef<MidiManager | null>(new MidiManager(disabledMidiDeviceIds));
     const keyboardNoteRef = React.useRef<KeyboardActionNoteInput | null>(null);
     const patternGridRef = React.useRef<PatternGridHandle | null>(null);
@@ -984,6 +985,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         onSongChange={updateSong}
                         advancedEditPanelOpen={advancedEditPanelOpen}
                         onSetAdvancedEditPanelOpen={open => setAdvancedEditPanelOpen(open)}
+                        highlightSelectedInstrument={highlightSelectedInstrumentInPatternGrid}
                     />)}
                 {songSettingsPanelOpen && (
                     <SongSettingsPanel
@@ -1021,6 +1023,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         onClose={() => setPreferencesPanelOpen(false)}
                         onDisconnectMidiDevice={handleDisconnectMidiDevice}
                         onEnableMidiDevice={handleEnableMidiDevice}
+                        highlightSelectedInstrumentInPatternGrid={highlightSelectedInstrumentInPatternGrid}
+                        onSetHighlightSelectedInstrumentInPatternGrid={setHighlightSelectedInstrumentInPatternGrid}
                     />
                 )}
                 {themePanelOpen && (

@@ -274,6 +274,13 @@
     pointer-events: none;
 }
 
+
+.pattern-grid td.pattern-cell {
+    position: relative;
+}
+
+
+
 .pattern-grid td.pattern-cell--selected::before {
     content: "";
     position: absolute;
@@ -374,18 +381,29 @@
     white-space: nowrap;
 }
 
-.pattern-grid td.instrument-cell.pattern-cell--selected-instrument {
-    /* border: 2px solid red; */
-    position: relative;
+.pattern-grid td.instrument-cell.pattern-cell--highlighted-instrument {
+    background-color: var(--instrument-highlight-color);
 }
 
 .pattern-grid td.instrument-cell.pattern-cell--selected-instrument:before {
-    /* add a border */
+    /* position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    --highlight-opacity: 40%;
+    --highlight-border-size: 2px;
+    inset: calc(-1 * var(--highlight-border-size));
+    background-color: color-mix(in srgb, var(--arr-thumb-highlight) var(--highlight-opacity), transparent 0%);
+    pointer-events: none; */
+
     content: "";
     position: absolute;
-    inset: -2px;
+    --highlight-border-size: 2px;
+    inset: calc(-1 * var(--highlight-border-size));
+    border: var(--highlight-border-size) solid var(--arr-thumb-highlight);
     border-radius: 2px;
-    border: 2px solid var(--arr-thumb-highlight);
     pointer-events: none;
 }
 
