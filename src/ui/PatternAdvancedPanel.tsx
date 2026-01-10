@@ -12,10 +12,13 @@ import { Button } from './Buttons/PushButton';
 import { RadioButton } from './Buttons/RadioButton';
 import { CheckboxButton } from './Buttons/CheckboxButton';
 import { Divider } from './basic/Divider';
+import { IconButton } from './Buttons/IconButton';
+import { mdiSync } from '@mdi/js';
 
 export type PatternAdvancedPanelProps = {
     enabled?: boolean;
     song: Song;
+    currentInstrument: number;
     onTranspose: (amount: number, scope: AdvancedEditScope) => void;
     onSetInstrument: (instrument: number, scope: AdvancedEditScope) => void;
     onChangeInstrument: (fromInstrument: number, toInstrument: number, scope: AdvancedEditScope) => void;
@@ -62,6 +65,7 @@ export type InterpolateTarget = (typeof interpolateOptions)[number]['value'];
 
 export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     song,
+    currentInstrument,
     enabled = true,
     onTranspose,
     onSetInstrument,
@@ -197,24 +201,34 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                             Filter instrument
                         </CheckboxButton>
                         <div className="pattern-advanced-panel__inputRow div-row">
-                            <Dropdown
-                                value={scopeInstrumentIndex ?? 2}
-                                disabled={scopeInstrumentIndex === null}
-                                onChange={(inst) => setScopeInstrumentIndex(inst)}
-                                options={instrumentOptions}
-                                showCaret={false}
-                                triggerClassName="div-row-grow"
-                                renderTriggerLabel={(opt) => {
-                                    const instId = opt?.value ?? 0;
-                                    return (
-                                        <InstrumentChip
-                                            instrumentIndex={instId}
-                                            instrument={song.instruments[instId]}
-                                            width={200}
-                                        />
-                                    );
-                                }}
-                            />
+                            <ButtonGroup>
+                                <Dropdown
+                                    value={scopeInstrumentIndex ?? 2}
+                                    disabled={scopeInstrumentIndex === null}
+                                    onChange={(inst) => setScopeInstrumentIndex(inst)}
+                                    options={instrumentOptions}
+                                    showCaret={false}
+                                    triggerClassName="div-row-grow"
+                                    renderTriggerLabel={(opt) => {
+                                        const instId = opt?.value ?? 0;
+                                        return (
+                                            <InstrumentChip
+                                                instrumentIndex={instId}
+                                                instrument={song.instruments[instId]}
+                                                width={170}
+                                            />
+                                        );
+                                    }}
+                                />
+                                <Tooltip title="Set to current instrument">
+                                    <IconButton
+                                        className="div-row-shrink"
+                                        iconPath={mdiSync}
+                                        onClick={() => setScopeInstrumentIndex(currentInstrument)}
+                                        disabled={!enabled}
+                                    />
+                                </Tooltip>
+                            </ButtonGroup>
                         </div>
                     </ButtonGroup>
                     {/* </div> */}
@@ -255,28 +269,38 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                     <legend>Instrument</legend>
                     <section className="pattern-advanced-panel__section">
                         <div className="pattern-advanced-panel__inputRow div-row">
-                            <Dropdown
-                                value={setInstrumentValue}
-                                onChange={(inst) => setSetInstrumentValue(inst)}
-                                options={instrumentOptions}
-                                showCaret={false}
-                                triggerClassName="div-row-grow"
-                                renderTriggerLabel={(opt) => {
-                                    return <InstrumentChip
-                                        instrumentIndex={opt?.value ?? 0}
-                                        instrument={song.instruments[opt?.value ?? 0]}
-                                        //showTooltip={false}
-                                        width={120}
+                            <ButtonGroup>
+                                <Button
+                                    onClick={() => onSetInstrument(setInstrumentValue, scope)}
+                                    disabled={!enabled}
+                                    className="div-row-shrink"
+                                >
+                                    Set {CharMap.RightTriangle}
+                                </Button>
+                                <Dropdown
+                                    value={setInstrumentValue}
+                                    onChange={(inst) => setSetInstrumentValue(inst)}
+                                    options={instrumentOptions}
+                                    showCaret={false}
+                                    triggerClassName="div-row-grow"
+                                    renderTriggerLabel={(opt) => {
+                                        return <InstrumentChip
+                                            instrumentIndex={opt?.value ?? 0}
+                                            instrument={song.instruments[opt?.value ?? 0]}
+                                            //showTooltip={false}
+                                            width={100}
+                                        />
+                                    }}
+                                />
+                                <Tooltip title="Set to current instrument">
+                                    <IconButton
+                                        className="div-row-shrink"
+                                        iconPath={mdiSync}
+                                        onClick={() => setSetInstrumentValue(currentInstrument)}
+                                        disabled={!enabled}
                                     />
-                                }}
-                            />
-                            <Button
-                                onClick={() => onSetInstrument(setInstrumentValue, scope)}
-                                disabled={!enabled}
-                                className="div-row-shrink"
-                            >
-                                Set
-                            </Button>
+                                </Tooltip>
+                            </ButtonGroup>
                         </div>
                         {/* <div className="pattern-advanced-panel__inputRow">
                             <Dropdown
