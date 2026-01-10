@@ -1,3 +1,8 @@
+// flicker is possible when placement is unsolvable.
+// some ideas to consider in the future:
+// - don't arrange on every mous event; solve at initial present only.
+// - calc scores only once and choose best, instead of looping around (not sure if this is what's going on yet)
+
 import React from "react";
 import { createPortal } from "react-dom";
 import { useAppStatusBar } from "../../hooks/useAppStatusBar";

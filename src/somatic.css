@@ -644,7 +644,13 @@ option {
     border: 1px solid var(--border-strong);
     border-radius: 4px;
     pointer-events: none;
-    max-width: 320px;
+    /* making it always fit on the screen makes the placement algo able to solve layout, reducing flicker.*/
+    max-width: calc(min(320px, 100vw - 16px));
+    /* max-width: calc(100vw - 16px); */
+    max-height: calc(100vh - 16px);
+    overflow: auto;
+    overflow-wrap: break-word;
+
     word-wrap: break-word;
 }
 
