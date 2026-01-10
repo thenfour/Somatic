@@ -1,33 +1,30 @@
+import { mdiArrowDown, mdiArrowLeft, mdiArrowRight, mdiArrowUp, mdiContentCopy, mdiContentPaste } from '@mdi/js';
 import React, { useMemo, useState } from 'react';
 import { AudioController } from '../audio/controller';
-import { Song } from '../models/song';
-import { ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument, Tic80InstrumentDto } from '../models/instruments';
-import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
-import { assert, clamp, secondsTo60HzFrames } from '../utils/utils';
-import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
 import { useClipboard } from '../hooks/useClipboard';
+import { ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument, Tic80InstrumentDto } from '../models/instruments';
+import { Song } from '../models/song';
+import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
+import { gTic80Palette } from '../theme/ticPalette';
+import { assert, clamp, secondsTo60HzFrames } from '../utils/utils';
+import { AppPanelShell } from './AppPanelShell';
+import { ButtonGroup } from './Buttons/ButtonGroup';
+import { CheckboxButton } from './Buttons/CheckboxButton';
+import { IconButton } from './Buttons/IconButton';
+import { Button } from './Buttons/PushButton';
+import { RadioButton } from './Buttons/RadioButton';
+import { InstrumentChip } from './InstrumentChip';
+import { MorphSampleImportTab } from './MorphSampleImportTab';
+import { WaveformMorphGradientEditor } from './WaveformMorphGradientEditor';
+import { Dropdown, DropdownOption } from './basic/Dropdown';
+import { PaletteSwatch } from './basic/PaletteSwatch';
+import { Tab, TabPanel } from './basic/Tabs';
+import { ContinuousKnob, ContinuousParamConfig } from './basic/oldknob';
+import { Tooltip } from './basic/tooltip';
+import './instrument_editor.css';
 import { WaveformSelect } from './waveformEditor';
 import { WaveformSwatch } from './waveformSwatch';
-import { Tic80Waveform } from '../models/waveform';
-import { MorphGradientPreview } from './MorphGradientPreview';
-import './instrument_editor.css';
-import { AppPanelShell } from './AppPanelShell';
-import { RadioButton } from './Buttons/RadioButton';
-import { Tooltip } from './basic/tooltip';
-import { ContinuousKnob, ContinuousParamConfig } from './basic/oldknob';
-import { TabPanel, Tab } from './basic/Tabs';
-import { InstrumentChip } from './InstrumentChip';
-import { WaveformMorphGradientEditor } from './WaveformMorphGradientEditor';
-import { MorphSampleImportTab } from './MorphSampleImportTab';
-import { ButtonGroup } from './Buttons/ButtonGroup';
-import { Button } from './Buttons/PushButton';
-import { Divider } from './basic/Divider';
-import { IconButton } from './Buttons/IconButton';
-import { mdiArrowDown, mdiArrowLeft, mdiArrowRight, mdiArrowUp, mdiContentCopy, mdiContentPaste } from '@mdi/js';
-import { CheckboxButton } from './Buttons/CheckboxButton';
-import { Dropdown, DropdownOption } from './basic/Dropdown';
-import { gTic80Palette, PALETTE_KEYS } from '../theme/ticPalette';
-import { PaletteSwatch } from './basic/PaletteSwatch';
+import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
 
 const PWMDutyConfig: ContinuousParamConfig = {
     resolutionSteps: 32,
@@ -468,7 +465,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                 inst.pitchFrames = new Int8Array(frames);
                 inst.pitchLoopStart = loopStart;
                 inst.pitchLoopLength = loopLength;
-                //console.log('pitch envelope changed', frames, loopStart, loopLength);
             },
         });
     };
@@ -717,8 +713,6 @@ show render slot if there are k-rate effects enabled
         return options
     }, [gTic80Palette]);
 
-    console.log(highlightOptions);
-
     return (
         <AppPanelShell
             className="instrument-panel"
@@ -790,7 +784,6 @@ show render slot if there are k-rate effects enabled
                             undoable: true,
                             mutator: (s) => {
                                 const inst = s.instruments[instrumentIndex];
-                                console.log('setting highlight color', newColor);
                                 inst.highlightColor = newColor;
                             }
                         });
