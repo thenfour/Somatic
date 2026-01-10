@@ -161,20 +161,29 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
             <div className="pattern-advanced-panel__body">
                 <fieldset>
                     <legend>Apply to</legend>
-                    <div className="pattern-advanced-panel__scope">
+                    {/* <div className="pattern-advanced-panel__scope"> */}
+                    <ButtonGroup orientation="vertical">
                         {scopeOptions.map((option) => (
-                            <label key={option.value} className="pattern-advanced-panel__scopeOption">
-                                <input
-                                    type="radio"
-                                    name={`${scopeGroupId}-scope`}
-                                    value={option.value}
-                                    checked={scope === option.value}
-                                    onChange={() => setScope(option.value)}
-                                />
-                                <span>{option.label}</span>
-                            </label>
+                            <CheckboxButton
+                                key={option.value}
+                                checked={scope === option.value}
+                                onChange={() => setScope(option.value)}
+                            >
+                                {option.label}
+                            </CheckboxButton>
+                            // <label key={option.value} className="pattern-advanced-panel__scopeOption">
+                            //     <input
+                            //         type="radio"
+                            //         name={`${scopeGroupId}-scope`}
+                            //         value={option.value}
+                            //         checked={scope === option.value}
+                            //         onChange={() => setScope(option.value)}
+                            //     />
+                            //     <span>{option.label}</span>
+                            // </label>
                         ))}
-                    </div>
+                    </ButtonGroup>
+                    {/* </div> */}
                 </fieldset>
 
                 <fieldset>

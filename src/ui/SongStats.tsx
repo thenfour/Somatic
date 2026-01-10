@@ -17,6 +17,8 @@ import { KeyValueTable } from "./basic/KeyValueTable";
 import { Tooltip } from "./basic/tooltip";
 import { Button } from "./Buttons/PushButton";
 import { MemoryMapTextSummary, MemoryMapVis } from "./MemoryMapVis";
+import { ButtonGroup } from "./Buttons/ButtonGroup";
+import { CheckboxButton } from "./Buttons/CheckboxButton";
 
 type ChunkInfo = {
     name: string; //
@@ -206,28 +208,20 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
         <div>No data yet.</div>
     ) : (
         <div style={{ minWidth: 420 }}>
-            <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 16 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                    <input
-                        type="radio"
-                        name="variant"
-                        value="debug"
-                        checked={variant === "debug"}
-                        onChange={() => onVariantChange("debug")}
-                    />
+            <ButtonGroup>
+                <CheckboxButton
+                    checked={variant === "debug"}
+                    onChange={() => onVariantChange(variant === "debug" ? "release" : "debug")}
+                >
                     Debug
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                    <input
-                        type="radio"
-                        name="variant"
-                        value="release"
-                        checked={variant === "release"}
-                        onChange={() => onVariantChange("release")}
-                    />
+                </CheckboxButton>
+                <CheckboxButton
+                    checked={variant === "release"}
+                    onChange={() => onVariantChange("release")}
+                >
                     Release
-                </label>
-            </div>
+                </CheckboxButton>
+            </ButtonGroup>
             <div style={{ marginBottom: 8, fontWeight: 600 }}>
                 Cart size: <SizeValue value={input.cartridge.cartridge.length} />
             </div>
