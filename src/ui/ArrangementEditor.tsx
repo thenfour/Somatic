@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import type { SomaticTransportState } from "../audio/backend";
-import { useLocalStorage } from "../hooks/useLocalStorage";
 import { SelectionRect2D, useRectSelection2D } from "../hooks/useRectSelection2D";
 import { useWheelNavigator } from "../hooks/useWheelNavigator";
 import { EditorState } from "../models/editor_state";
@@ -9,19 +8,17 @@ import { formatPatternIndex, Song } from "../models/song";
 import { SongOrderItem } from "../models/songOrder";
 import { SomaticCaps } from "../models/tic80Capabilities";
 import { CharMap, clamp } from "../utils/utils";
+import './ArrangementEditor.css';
 import { useConfirmDialog } from "./basic/confirm_dialog";
 import { Tooltip } from "./basic/tooltip";
-import { renderThumbnail, ThumbnailMode } from "./PatternThumbnail";
+import { renderThumbnail } from "./PatternThumbnail";
 import { SongOrderMarkerControl } from "./SongOrderMarker";
-import Icon from "@mdi/react";
-import { mdiImageMultipleOutline } from "@mdi/js";
-import './ArrangementEditor.css';
 
 const PAGE_SIZE = 4;
 
-const DEFAULT_THUMB_MODE: { mode: ThumbnailMode } = {
-    mode: "currentInstrument",
-};
+// const DEFAULT_THUMB_MODE: { mode: ThumbnailMode } = {
+//     mode: "currentInstrument",
+// };
 
 export const ArrangementEditor: React.FC<{
     song: Song;

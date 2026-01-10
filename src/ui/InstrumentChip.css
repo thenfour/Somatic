@@ -32,3 +32,10 @@
     width: 10px;
     height: 10px;
 }
+
+.chip .instrument-chip-highlight-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin: 0 4px;
+}

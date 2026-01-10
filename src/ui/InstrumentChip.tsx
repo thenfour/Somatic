@@ -23,6 +23,9 @@ export const InstrumentChip: React.FC<InstrumentChipProps> = ({ className, style
         <>
             <span className="instrument-chip-index">{instrument.getIndexString(instrumentIndex)}</span>
             <span className="instrument-chip-separator">{": "}</span>
+            {instrument.highlightColor && (
+                <span className="instrument-chip-highlight-indicator" style={{ backgroundColor: instrument.highlightColor }}></span>
+            )}
             <span className="instrument-chip-name">{instrument.name}</span>
             {instrument.isKRateProcessing() && (
                 <div className="instrument-chip-krate-badge"></div>
