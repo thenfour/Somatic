@@ -107,21 +107,60 @@ export const ComponentTester: React.FC = () => {
             </div>
             <div>
                 <h4>Button Groups</h4>
-                <ButtonGroup>
-                    <ButtonBase onClick={() => toasts.pushToast("Group Button 1 clicked")}>Group Button 1</ButtonBase>
-                    <ButtonBase onClick={() => toasts.pushToast("Group Button 2 clicked")} disabled>Disabled</ButtonBase>
-                    <ButtonBase onClick={() => toasts.pushToast("Group Button 3 clicked")}>Group Button 3</ButtonBase>
-                </ButtonGroup>
+                <div style={{ marginBottom: 8 }}>
+                    <div style={{ marginBottom: 4 }}>Horizontal (default)</div>
+                    <ButtonGroup>
+                        <ButtonBase onClick={() => toasts.pushToast("Group Button 1 clicked")}>Group Button 1</ButtonBase>
+                        <ButtonBase onClick={() => toasts.pushToast("Group Button 2 clicked")} disabled>Disabled</ButtonBase>
+                        <ButtonBase onClick={() => toasts.pushToast("Group Button 3 clicked")}>Group Button 3</ButtonBase>
+                    </ButtonGroup>
+                </div>
+
+                <div>
+                    <div style={{ marginBottom: 4 }}>Vertical</div>
+                    <ButtonGroup orientation="vertical">
+                        <ButtonBase onClick={() => toasts.pushToast("V Group Button 1 clicked")}>Group Button 1</ButtonBase>
+                        <ButtonBase onClick={() => toasts.pushToast("V Group Button 2 clicked")} disabled>Disabled</ButtonBase>
+                        <ButtonBase onClick={() => toasts.pushToast("V Group Button 3 clicked")}>Group Button 3</ButtonBase>
+                    </ButtonGroup>
+                </div>
             </div>
             {/* button groups with dividers */}
             <div>
                 <h4>Button Groups with Dividers</h4>
-                <ButtonGroup>
-                    <ButtonBase onClick={() => toasts.pushToast("Group Button A clicked")}>Group Button A</ButtonBase>
-                    <ButtonBase onClick={() => toasts.pushToast("Group Button B clicked")} disabled>Disabled</ButtonBase>
-                    <Divider />
-                    <ButtonBase onClick={() => toasts.pushToast("Group Button C clicked")}>Group Button C</ButtonBase>
-                </ButtonGroup>
+                <div style={{ marginBottom: 8 }}>
+                    <div style={{ marginBottom: 4 }}>Horizontal (default)</div>
+                    <ButtonGroup>
+                        <ButtonBase onClick={() => toasts.pushToast("Group Button A clicked")}>Group Button A</ButtonBase>
+                        <ButtonBase onClick={() => toasts.pushToast("Group Button B clicked")} disabled>Disabled</ButtonBase>
+                        <ButtonBase onClick={() => toasts.pushToast("Group Button A clicked")}>Group Button A</ButtonBase>
+                        <Divider />
+                        <ButtonBase onClick={() => toasts.pushToast("Group Button B clicked")} disabled>Disb after divid</ButtonBase>
+                        <ButtonBase onClick={() => toasts.pushToast("Group Button C clicked")}>Group Button C</ButtonBase>
+                        <ButtonBase onClick={() => toasts.pushToast("Group Button B clicked")} disabled>Disb befor divid</ButtonBase>
+                        <Divider />
+                        <ButtonBase onClick={() => toasts.pushToast("Group Button A clicked")}>Group Button A</ButtonBase>
+                        <Divider />
+                        <ButtonBase onClick={() => toasts.pushToast("Group Button A clicked")}>Group Button A</ButtonBase>
+                    </ButtonGroup>
+                </div>
+
+                <div>
+                    <div style={{ marginBottom: 4 }}>Vertical</div>
+                    <ButtonGroup orientation="vertical">
+                        <ButtonBase onClick={() => toasts.pushToast("V Group Button A clicked")}>Group Button A</ButtonBase>
+                        <ButtonBase onClick={() => toasts.pushToast("V Group Button B clicked")} disabled>Disabled</ButtonBase>
+                        <ButtonBase onClick={() => toasts.pushToast("V Group Button A clicked")}>Group Button A</ButtonBase>
+                        <Divider />
+                        <ButtonBase onClick={() => toasts.pushToast("V Group Button B clicked")} disabled>Disabled</ButtonBase>
+                        <ButtonBase onClick={() => toasts.pushToast("V Group Button C clicked")}>Group Button C</ButtonBase>
+                        <ButtonBase onClick={() => toasts.pushToast("V Group Button B clicked")} disabled>Disabled</ButtonBase>
+                        <Divider />
+                        <ButtonBase onClick={() => toasts.pushToast("V Group Button A clicked")}>Group Button A</ButtonBase>
+                        <Divider />
+                        <ButtonBase onClick={() => toasts.pushToast("V Group Button A clicked")}>Group Button A</ButtonBase>
+                    </ButtonGroup>
+                </div>
             </div>
             {/* icon buttons */}
             <div>

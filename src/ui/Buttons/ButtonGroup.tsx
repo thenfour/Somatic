@@ -4,9 +4,19 @@
 import React from "react";
 
 
-export const ButtonGroup: React.FC<{ children: React.ReactNode; className?: string, style?: React.CSSProperties }> = ({ children, className, style }) => {
+export type ButtonGroupOrientation = "horizontal" | "vertical";
+
+export type ButtonGroupProps = {
+    children: React.ReactNode;
+    className?: string;
+    style?: React.CSSProperties;
+    orientation?: ButtonGroupOrientation;
+};
+
+export const ButtonGroup: React.FC<ButtonGroupProps> = ({ children, className, style, orientation = "horizontal" }) => {
+    const orientationClass = orientation === "vertical" ? "somatic-button-group--vertical" : "somatic-button-group--horizontal";
     return (
-        <div className={`somatic-button-group ${className || ""}`} style={style}    >
+        <div className={`somatic-button-group ${orientationClass} ${className || ""}`} style={style}    >
             {children}
         </div>
     );

@@ -33,6 +33,7 @@
     background-color: var(--button-background-disabled);
     color: var(--button-foreground-disabled);
     cursor: not-allowed;
+    border-color: transparent;
 }
 
 .somatic-button-base:hover:not(.somatic-button-base--disabled) {
@@ -49,7 +50,15 @@
 
 .somatic-button-group {
     display: inline-flex;
+    --button-group-gap: 6px;
+}
 
+.somatic-button-group.somatic-button-group--horizontal {
+    flex-direction: row;
+}
+
+.somatic-button-group.somatic-button-group--vertical {
+    flex-direction: column;
 }
 
 /* butt buttons next to each other */
@@ -62,6 +71,12 @@
 /* no border between consecutive buttons under .somatic-button-group */
 .somatic-button-group .somatic-button-base+.somatic-button-base {
     border-left: none;
+}
+
+/* when stacking vertically, don't remove the left border between buttons */
+.somatic-button-group.somatic-button-group--vertical .somatic-button-base+.somatic-button-base {
+    border-left: initial;
+    border-top: none;
 }
 
 
@@ -85,8 +100,16 @@
 .somatic-button-group .somatic-divider {
     width: 1px;
     /* background: var(--border); */
-    margin-left: 6px;
-    margin-right: 6px;
+    margin-left: var(--button-group-gap);
+    margin-right: var(--button-group-gap);
+}
+
+.somatic-button-group--vertical .somatic-divider {
+    height: 1px;
+    width: auto;
+    margin: 0;
+    margin-top: var(--button-group-gap);
+    margin-bottom: var(--button-group-gap);
 }
 
 /* icon buttons */
