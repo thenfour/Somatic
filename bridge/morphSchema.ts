@@ -116,9 +116,19 @@ export const SomaticPatternEntryCodec = C.struct("SomaticPatternEntry", [
 
 // Derive everything else from the codec
 const MORPH_ENTRY_FIELDS = extractFieldInfo(MorphEntryCodec);
+const WAVEFORM_MORPH_GRADIENT_NODE_FIELDS = extractFieldInfo(WaveformMorphGradientNodeCodec);
 
-// Auto-generate the field names list for Lua minification
-export const MorphEntryFieldNamesToRename = MORPH_ENTRY_FIELDS.map(f => f.name) as readonly string[];
+// Auto-generate (mostly) the field names list for Lua minification
+export const MorphEntryFieldNamesToRename = [
+   ...MORPH_ENTRY_FIELDS.map(f => f.name),
+   ...WAVEFORM_MORPH_GRADIENT_NODE_FIELDS.map(f => f.name),
+   ...extractFieldInfo(SomaticPatternEntryCodec).map(f => f.name),
+   ...extractFieldInfo(SomaticPatternCellCodec).map(f => f.name),
+   "extraSongData",
+   "samples",
+   "morphGradientNodes",
+   "songOrder",
+] as readonly string[];
 
 // Auto-generate the normalizer
 const normalizeMorphEntry = makeNormalizer<MorphEntryPacked>(MORPH_ENTRY_FIELDS);

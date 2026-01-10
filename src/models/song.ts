@@ -129,7 +129,6 @@ export class Song {
       this.highlightRowCount = data.highlightRowCount ?? 4;
       this.patternEditStep = clamp(data.patternEditStep ?? 1, 0, 32);
       this.useCustomEntrypointLua = CoalesceBoolean(data.useCustomEntrypointLua, false);
-      console.log(`customEntrypointLua: ${data.useCustomEntrypointLua}`);
       this.customEntrypointLua = data.customEntrypointLua || "";
 
       // Default to showing thumbnails (matches previous behavior).
