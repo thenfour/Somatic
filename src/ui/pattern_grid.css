@@ -374,6 +374,21 @@
     white-space: nowrap;
 }
 
+.pattern-grid td.instrument-cell.pattern-cell--selected-instrument {
+    /* border: 2px solid red; */
+    position: relative;
+}
+
+.pattern-grid td.instrument-cell.pattern-cell--selected-instrument:before {
+    /* add a border */
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: 2px;
+    border: 2px solid var(--arr-thumb-highlight);
+    pointer-events: none;
+}
+
 .pattern-grid td.instrument-cell {
     color: var(--cell-instrument);
     white-space: nowrap;

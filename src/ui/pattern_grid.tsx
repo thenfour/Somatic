@@ -1577,6 +1577,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const noteText = noteCut ? "^^^" : formatMidiNote(row.midiNote);
                                             const [instText, instTooltip] = noteCut ? ["", null] : formatInstrument(row.instrumentIndex, song);
                                             const instrument = row.instrumentIndex != null ? song.getInstrument(row.instrumentIndex) : null;
+                                            const instrumentIsSelected = editorState.currentInstrument != null && row.instrumentIndex === editorState.currentInstrument;
                                             const instrumentIsKRate = instrument?.isKRateProcessing() || false;
                                             const krateRenderSlot = instrumentIsKRate ? instrument!.renderWaveformSlot : null;
                                             const cmdText = formatCommand(row.effect);
@@ -1596,8 +1597,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const isAudible = editorState.isChannelAudible(channelIndex);
 
                                             const getSelectionClasses = (cellType: ExtendedCellType) => {
-                                                if (!isCellSelected || !editorState.patternSelection) return '';
-                                                let classes = ' pattern-cell--selected';
+                                                let classes = '';
+                                                if (instrumentIsSelected) classes += ' pattern-cell--selected-instrument';
+                                                if (!isCellSelected || !editorState.patternSelection) return classes;
+                                                classes += ' pattern-cell--selected';
                                                 if (rowIndex === editorState.patternSelection.topInclusive()) classes += ' pattern-cell--selection-top';
                                                 if (rowIndex === editorState.patternSelection.bottomInclusive()) classes += ' pattern-cell--selection-bottom';
                                                 if (channelIndex === editorState.patternSelection.leftInclusive() && cellType === 'note') classes += ' pattern-cell--selection-left';
