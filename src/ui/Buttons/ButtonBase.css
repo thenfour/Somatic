@@ -33,6 +33,9 @@
     background-color: var(--button-background-disabled);
     color: var(--button-foreground-disabled);
     cursor: not-allowed;
+    /* Keep a visible border for disabled buttons so disabled+disabled and edge cases render logically.
+       Enabled borders will take priority inside ButtonGroup via z-index overlap rules. */
+    /* border-color: color-mix(in srgb, var(--border) 55%, transparent); */
     border-color: transparent;
 }
 
@@ -66,17 +69,33 @@
     border-radius: 0;
     margin: 0;
     /* border-right: 1px solid transparent; */
+    position: relative;
 }
 
-/* no border between consecutive buttons under .somatic-button-group */
-.somatic-button-group .somatic-button-base+.somatic-button-base {
-    border-left: none;
+.somatic-button-group .somatic-button-base {
+    z-index: 1;
 }
 
-/* when stacking vertically, don't remove the left border between buttons */
+.somatic-button-group .somatic-button-base.somatic-button-base--disabled {
+    z-index: 0;
+}
+
+.somatic-button-group .somatic-button-base:focus-visible {
+    z-index: 3;
+}
+
+.somatic-button-group .somatic-button-base:hover:not(.somatic-button-base--disabled) {
+    z-index: 2;
+}
+
+.somatic-button-group.somatic-button-group--horizontal .somatic-button-base+.somatic-button-base {
+    /* use z-index + overlapping borders to let enabled button borders to take priority over disabled */
+    margin-left: -1px;
+}
+
 .somatic-button-group.somatic-button-group--vertical .somatic-button-base+.somatic-button-base {
-    border-left: initial;
-    border-top: none;
+    /* use z-index + overlapping borders to let enabled button borders to take priority over disabled */
+    margin-top: -1px;
 }
 
 
