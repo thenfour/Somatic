@@ -50,6 +50,7 @@ const WaveEngineIdCodec = C.enum<WaveEngineId>("WaveEngineId", 2, {
    morph: WaveEngineId.morph,
 });
 
+
 // =========================
 // Waveform morph gradients (per-instrument, embedded waveforms)
 
@@ -83,14 +84,17 @@ export const MorphEntryCodec = C.struct("MorphEntry", [
    C.field("pwmDepth5", C.u(5)),
    C.field("lfoCycleTicks12", C.u(12)),
    C.field("lowpassEnabled", C.bool()),
+   C.field("lowpassFreqU8", C.u8()),
    C.field("lowpassDurationTicks12", C.u(12)),
    C.field("lowpassCurveS6", C.i(6)),
-   C.field("lowpassModSource", C.bool()),
+   // 0=envelope, 1=lfo, 2=none
+   C.field("lowpassModSource", C.u(2)),
    C.field("effectKind", MorphEffectKindCodec),
    C.field("effectAmtU8", C.u8()),
    C.field("effectDurationTicks12", C.u(12)),
    C.field("effectCurveS6", C.i(6)),
-   C.field("effectModSource", C.bool()),
+   // 0=envelope, 1=lfo, 2=none
+   C.field("effectModSource", C.u(2)),
 ]);
 
 // =========================
@@ -143,9 +147,10 @@ export type MorphEntryInput = {
       waveEngineId: WaveEngineId; //
       sourceWaveformIndex: number;
       renderWaveformSlot: number;
-      pwmDuty5: number;               //
-      pwmDepth5: number;              //
-      lowpassEnabled: boolean;        //
+      pwmDuty5: number;        //
+      pwmDepth5: number;       //
+      lowpassEnabled: boolean; //
+      lowpassFreqU8: number;
       lowpassDurationTicks12: number; //
       lowpassCurveS6: number;         //
       lowpassModSource: number;       //
@@ -173,14 +178,15 @@ function flattenEntry(entry: MorphEntryInput): MorphEntryPacked {
       pwmDepth5: cfg.pwmDepth5,
       lfoCycleTicks12: cfg.lfoCycleTicks12,
       lowpassEnabled: cfg.lowpassEnabled ? 1 : 0,
+      lowpassFreqU8: cfg.lowpassFreqU8,
       lowpassDurationTicks12: cfg.lowpassDurationTicks12,
       lowpassCurveS6: cfg.lowpassCurveS6,
-      lowpassModSource: cfg.lowpassModSource ? 1 : 0,
+      lowpassModSource: cfg.lowpassModSource,
       effectKind: cfg.effectKind,
       effectAmtU8: cfg.effectAmtU8,
       effectDurationTicks12: cfg.effectDurationTicks12,
       effectCurveS6: cfg.effectCurveS6,
-      effectModSource: cfg.effectModSource ? 1 : 0,
+      effectModSource: cfg.effectModSource,
    };
 }
 

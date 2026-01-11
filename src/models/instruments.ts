@@ -3,7 +3,26 @@ import {clamp, CoalesceBoolean} from "../utils/utils";
 import {Tic80Caps} from "./tic80Capabilities";
 import {WaveformBaseDto} from "./waveform";
 
-export type ModSource = "envelope"|"lfo";
+export type ModSource = "envelope"|"lfo"|"none";
+
+
+function coerceModSource(v: any): ModSource {
+   if (v === "none" || v === 2)
+      return "none";
+   if (v === "lfo" || v === 1 || v === true)
+      return "lfo";
+   return "envelope";
+}
+
+function modSourceToU8(src: ModSource|undefined|null): number {
+   if (src === "lfo")
+      return 1;
+   if (src === "none")
+      return 2;
+   return 0;
+}
+
+
 
 export interface WaveformMorphGradientNodeDto extends WaveformBaseDto {
    durationSeconds: number;
@@ -161,13 +180,6 @@ export function ToWaveEngineId(engine: SomaticInstrumentWaveEngine): WaveEngineI
 };
 
 
-
-function coerceModSource(v: any): ModSource {
-   if (v === "lfo" || v === 1 || v === true)
-      return "lfo";
-   return "envelope";
-}
-
 export const SomaticEffectKind = {
    none: 0,
    wavefold: 1,
@@ -249,6 +261,8 @@ export interface Tic80InstrumentDto {
    pwmDepth: number; // 0-31
 
    lowpassEnabled: boolean;
+   // 0..255; 0=min cutoff (most filtering), 255=bypass (no filtering)
+   lowpassFreqU8: number;
    lowpassDurationSeconds: number;
    lowpassCurveN11: number;
 
@@ -307,6 +321,8 @@ export class Tic80Instrument {
    pwmDepth: number; // 0-31
 
    lowpassEnabled: boolean;
+   // 0..255; 0=min cutoff (most filtering), 255=bypass (no filtering)
+   lowpassFreqU8: number;
    lowpassDurationSeconds: number;
    lowpassCurveN11: number;
 
@@ -405,6 +421,7 @@ export class Tic80Instrument {
       this.pwmDepth = clamp(data.pwmDepth ?? 10, 0, 31);
 
       this.lowpassEnabled = CoalesceBoolean(data.lowpassEnabled, false);
+      this.lowpassFreqU8 = clamp((data as any).lowpassFreqU8 ?? 0, 0, 0xff);
       this.lowpassDurationSeconds = Math.max(0, data.lowpassDurationSeconds ?? 0.5);
       this.lowpassCurveN11 = clamp(data.lowpassCurveN11 ?? 0, -1, 1);
 
@@ -491,6 +508,7 @@ export class Tic80Instrument {
          pwmDuty: this.pwmDuty,
          pwmDepth: this.pwmDepth,
          lowpassEnabled: this.lowpassEnabled,
+         lowpassFreqU8: this.lowpassFreqU8,
          lowpassDurationSeconds: this.lowpassDurationSeconds,
          lowpassCurveN11: this.lowpassCurveN11,
          effectKind: this.effectKind,

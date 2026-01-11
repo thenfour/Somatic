@@ -71,6 +71,18 @@ const LowpassCurveConfig: ContinuousParamConfig = {
     format: (v) => v.toFixed(2),
 };
 
+const LowpassFrequencyConfig: ContinuousParamConfig = {
+    resolutionSteps: 256,
+    default: 0xff,
+    center: 0xff,
+    convertTo01: (v) => v / 255,
+    convertFrom01: (v01) => v01 * 255,
+    format: (v) => {
+        const u8 = clamp(Math.round(v), 0, 0xff);
+        return u8.toString(16).toUpperCase().padStart(2, '0');
+    },
+};
+
 const WavefoldAmountConfig: ContinuousParamConfig = {
     resolutionSteps: 256,
     default: 127,
@@ -581,6 +593,17 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
+    const setLowpassFreqU8 = (value: number) => {
+        onSongChange({
+            description: 'Set lowpass frequency',
+            undoable: true,
+            mutator: (s) => {
+                const inst = s.instruments[instrumentIndex];
+                inst.lowpassFreqU8 = clamp(Math.round(value), 0, 0xff);
+            },
+        });
+    };
+
     const setLowpassCurve = (value: number) => {
         onSongChange({
             description: 'Set lowpass curve',
@@ -1073,14 +1096,19 @@ show render slot if there are k-rate effects enabled
                             <legend>Effect (wavefold / hard sync)</legend>
                             <div className="field-row">
                                 <label>Type</label>
-                                <RadioButton selected={instrument.effectKind === SomaticEffectKind.none} onClick={() => setEffectKind(SomaticEffectKind.none)}>None</RadioButton>
-                                <RadioButton selected={instrument.effectKind === SomaticEffectKind.wavefold} onClick={() => setEffectKind(SomaticEffectKind.wavefold)}>Wavefold</RadioButton>
-                                <RadioButton selected={instrument.effectKind === SomaticEffectKind.hardSync} onClick={() => setEffectKind(SomaticEffectKind.hardSync)}>Hard Sync</RadioButton>
+                                <ButtonGroup>
+                                    <RadioButton selected={instrument.effectKind === SomaticEffectKind.none} onClick={() => setEffectKind(SomaticEffectKind.none)}>None</RadioButton>
+                                    <RadioButton selected={instrument.effectKind === SomaticEffectKind.wavefold} onClick={() => setEffectKind(SomaticEffectKind.wavefold)}>Wavefold</RadioButton>
+                                    <RadioButton selected={instrument.effectKind === SomaticEffectKind.hardSync} onClick={() => setEffectKind(SomaticEffectKind.hardSync)}>Hard Sync</RadioButton>
+                                </ButtonGroup>
                             </div>
                             <div className="field-row">
                                 <label>Mod source</label>
-                                <RadioButton selected={instrument.effectModSource === 'envelope'} onClick={() => setEffectModSource('envelope')}>Envelope</RadioButton>
-                                <RadioButton selected={instrument.effectModSource === 'lfo'} onClick={() => setEffectModSource('lfo')}>LFO</RadioButton>
+                                <ButtonGroup>
+                                    <RadioButton selected={instrument.effectModSource === 'envelope'} onClick={() => setEffectModSource('envelope')}>Envelope</RadioButton>
+                                    <RadioButton selected={instrument.effectModSource === 'lfo'} onClick={() => setEffectModSource('lfo')}>LFO</RadioButton>
+                                    <RadioButton selected={instrument.effectModSource === 'none'} onClick={() => setEffectModSource('none')}>None</RadioButton>
+                                </ButtonGroup>
                             </div>
                             <div className="field-row">
                                 <ContinuousKnob
@@ -1131,8 +1159,15 @@ show render slot if there are k-rate effects enabled
                             <ButtonGroup>
                                 <RadioButton selected={instrument.lowpassModSource === 'envelope'} onClick={() => setLowpassModSource('envelope')}>Envelope</RadioButton>
                                 <RadioButton selected={instrument.lowpassModSource === 'lfo'} onClick={() => setLowpassModSource('lfo')}>LFO</RadioButton>
+                                <RadioButton selected={instrument.lowpassModSource === 'none'} onClick={() => setLowpassModSource('none')}>None</RadioButton>
                             </ButtonGroup>
                             <ButtonGroup>
+                                <ContinuousKnob
+                                    label='freq'
+                                    value={instrument.lowpassFreqU8}
+                                    config={LowpassFrequencyConfig}
+                                    onChange={setLowpassFreqU8}
+                                />
                                 <ContinuousKnob
                                     label='decay'
                                     value={instrument.lowpassDurationSeconds}

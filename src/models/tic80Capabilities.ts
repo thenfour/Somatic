@@ -60,20 +60,24 @@ export const TIC80_EFFECT_DESCRIPTIONS: Record<SomaticEffectCommand, string> = {
 export enum SomaticPatternCommand {
    EffectStrengthScale = 0, // 'E'
    SetLFOPhase = 1,         // 'L'
+   FilterFrequency = 2,     // 'F'
 }
 
 export const SOMATIC_PATTERN_COMMAND_KEYS: Record<string, SomaticPatternCommand> = {
    "e": SomaticPatternCommand.EffectStrengthScale,
+   "f": SomaticPatternCommand.FilterFrequency,
    "l": SomaticPatternCommand.SetLFOPhase,
 };
 
 export const SOMATIC_PATTERN_COMMAND_LETTERS: Record<SomaticPatternCommand, string> = {
    [SomaticPatternCommand.EffectStrengthScale]: "E",
+   [SomaticPatternCommand.FilterFrequency]: "F",
    [SomaticPatternCommand.SetLFOPhase]: "L",
 };
 
 export const SOMATIC_PATTERN_COMMAND_DESCRIPTIONS: Record<SomaticPatternCommand, string> = {
    [SomaticPatternCommand.EffectStrengthScale]: "Effect strength scale (00=bypass, FF=max)",
+   [SomaticPatternCommand.FilterFrequency]: "Lowpass frequency (00=min, FF=bypass)",
    [SomaticPatternCommand.SetLFOPhase]: "Set LFO phase (00 - FF)",
 };
 

@@ -104,10 +104,6 @@ function hardSyncStrengthToU8(strength: number|null|undefined): number {
    return clamp(Math.round(((s - 1) / 7) * 255), 0, 255);
 }
 
-function modSourceToU8(src: ModSource|undefined|null): number {
-   return src === "lfo" ? 1 : 0;
-}
-
 function RateInHzToTicks60HzAllowZero(rateHz: number): number {
    if (!Number.isFinite(rateHz) || rateHz <= 0)
       return 0;
@@ -160,6 +156,7 @@ function getMorphMap(song: Song): MorphEntryInput[] {
             pwmDepth5: clamp(inst.pwmDepth | 0, 0, 31),
 
             lowpassEnabled,
+            lowpassFreqU8: clamp((inst as any).lowpassFreqU8 ?? 0xff, 0, 0xff),
             lowpassDurationTicks12,
             lowpassCurveS6: curveN11ToS6(inst.lowpassCurveN11),
             lowpassModSource: modSourceToU8(inst.lowpassModSource),
