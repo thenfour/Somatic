@@ -7,6 +7,7 @@ import './somatic.css';
 
 import { LoopMode, SomaticTransportState } from './audio/backend';
 import { AudioController } from './audio/controller';
+import { importSongFromTicCartBytes } from './audio/import';
 import { serializeSongToCart } from './audio/tic80_cart_serializer';
 import { useAppInstancePresence } from './hooks/useAppPresence';
 import { useClipboard } from './hooks/useClipboard';
@@ -430,6 +431,34 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         undoStackRef.current?.clear();
     };
 
+    const importTicCartFile = async () => {
+        const files = (await fileDialog({ accept: '.tic' })) as FileList | File[] | undefined;
+        const fileArray = files ? Array.from(files as any) : [];
+        const file = fileArray[0] as File | undefined;
+        if (!file) return;
+
+        try {
+            const buf = await file.arrayBuffer();
+            const { song: importedSong, warnings } = importSongFromTicCartBytes(new Uint8Array(buf), { fileName: file.name });
+
+            setSong(importedSong);
+            updateEditorState((s) => {
+                s.setActiveSongPosition(0);
+            });
+            undoStackRef.current?.clear();
+
+            pushToast({ message: 'TIC-80 cartridge imported.', variant: 'success' });
+            if (warnings.length > 0) {
+                console.warn('Import warnings:', warnings);
+                pushToast({ message: `Imported with ${warnings.length} warning(s). See console.`, variant: 'info' });
+            }
+        } catch (err) {
+            console.error('Import failed', err);
+            const msg = err instanceof Error ? err.message : 'Unknown error';
+            pushToast({ message: `Failed to import .tic: ${msg}`, variant: 'error' });
+        }
+    };
+
     const saveSongFile = () => {
         saveSync(song.toJSON(), song.getFilename(".somatic"));
     };
@@ -666,6 +695,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     });
 
     useActionHandler("OpenFile", openSongFile);
+    useActionHandler("ImportTicCart", () => { void importTicCartFile(); });
     useActionHandler("SaveFile", saveSongFile);
     useActionHandler("NewFile", createNewSong);
 
@@ -708,6 +738,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         shortcut={mgr.getActionBindingLabel("OpenFile")}
                                     >
                                         Open Song...
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        onSelect={() => { void importTicCartFile(); }}
+                                        shortcut={mgr.getActionBindingLabel("ImportTicCart")}
+                                    >
+                                        Import...
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         onSelect={saveSongFile}

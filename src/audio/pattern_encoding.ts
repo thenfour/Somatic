@@ -1,6 +1,6 @@
 import {NOTE_INFOS} from "../defs";
 import {Pattern, PatternCell, PatternChannel} from "../models/pattern";
-import {Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
+import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {clamp} from "../utils/utils";
 
 function encodePatternNote(midiNoteValue: number|undefined): {noteNibble: number; octave: number} {
@@ -22,6 +22,52 @@ function encodePatternCellTriplet(
    const byte1 = ((instrument >> 5) & 0x01) << 7 | ((command & 0x07) << 4) | (argY & 0x0f);
    const byte2 = ((ticPitch.octave & 0x07) << 5) | (instrument & 0x1f);
    return [byte0, byte1, byte2];
+}
+
+function decodeTicPitch(noteNibble: number, octave: number): number|undefined {
+   // See defs.ts mapping: MIDI 12 (C0) -> TIC note index 0.
+   // noteNibble is 4..15 for actual notes.
+   if (noteNibble < 4)
+      return undefined;
+   const noteInOctave = (noteNibble - 4) & 0x0f;
+   const ticNoteIndex = (octave * 12) + noteInOctave;
+   const midi = 12 + ticNoteIndex;
+   // This should always land in 12..107, but be conservative.
+   if (midi < 0 || midi >= NOTE_INFOS.length)
+      return undefined;
+   return midi;
+}
+
+function decodePatternCellTriplet(byte0: number, byte1: number, byte2: number): PatternCell {
+   // XXXXNNNN SCCCYYYY OOOSSSSS
+   const argX = (byte0 >> 4) & 0x0f;
+   const noteNibble = byte0 & 0x0f;
+
+   const instrument = (((byte1 >> 7) & 0x01) << 5) | (byte2 & 0x1f);
+   const command = (byte1 >> 4) & 0x07;
+   const argY = byte1 & 0x0f;
+   const octave = (byte2 >> 5) & 0x07;
+
+   // noteNibble: 0 = empty; 1..3 = stops; 4..15 = notes
+   if (noteNibble === 0) {
+      return {};
+   }
+   if (noteNibble < 4) {
+      // Map TIC-80 stops to Somatic's explicit note cut.
+      return {
+         instrumentIndex: SomaticCaps.noteCutInstrumentIndex,
+      };
+   }
+
+   const midiNote = decodeTicPitch(noteNibble, octave);
+   const effect = command === 0 ? undefined : clamp(command - 1, 0, 7);
+   return {
+      midiNote,
+      instrumentIndex: instrument,
+      effect,
+      effectX: argX,
+      effectY: argY,
+   };
 }
 
 // outputs 4 patterns (one for each channel)
@@ -71,6 +117,29 @@ export function encodePatternChannel(pattern: Pattern, channelIndex: Tic80Channe
 export function encodePatternChannelDirect(channel: PatternChannel): Uint8Array {
    const rows = channel.rows;
    return encodePatternChannelRows((rowIndex) => rows[rowIndex]);
+}
+
+export function decodePatternChannelBytes(bytes: Uint8Array, startOffset = 0): PatternChannel {
+   // Decodes 64 rows (192 bytes) starting at startOffset; missing bytes are treated as 0.
+   const rows: PatternCell[] = new Array(Tic80Caps.pattern.maxRows);
+   for (let row = 0; row < Tic80Caps.pattern.maxRows; row++) {
+      const base = startOffset + (row * 3);
+      const b0 = bytes[base + 0] ?? 0;
+      const b1 = bytes[base + 1] ?? 0;
+      const b2 = bytes[base + 2] ?? 0;
+      rows[row] = decodePatternCellTriplet(b0, b1, b2);
+      if (rows[row].instrumentIndex != null) {
+         const r = rows[row];
+         r.instrumentIndex! += 2; // account for note cut and no instrument
+      }
+
+      // now if there's no effect, remove the param if they are 0.
+      if (rows[row].effect === undefined && rows[row].effectX === 0 && rows[row].effectY === 0) {
+         rows[row].effectX = undefined;
+         rows[row].effectY = undefined;
+      }
+   }
+   return new PatternChannel({rows});
 }
 
 export function encodePattern(pattern: Pattern): [Uint8Array, Uint8Array, Uint8Array, Uint8Array] {

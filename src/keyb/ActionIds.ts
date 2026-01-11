@@ -3,6 +3,7 @@ import {typedValues} from "../utils/utils";
 // a list of all keyboard shortcuts.
 export const GlobalActions = {
    OpenFile: "OpenFile",
+   ImportTicCart: "ImportTicCart",
    SaveFile: "SaveFile",
    NewFile: "NewFile",
 

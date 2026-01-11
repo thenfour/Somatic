@@ -14,6 +14,15 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
          {kind: "character", key: "o", primary: true},
       ],
    },
+
+   "ImportTicCart": {
+      id: "ImportTicCart",
+      title: "import TIC-80 cart",
+      description: "import a TIC-80 .tic cartridge as a song.",
+      category: "File",
+      defaultBindings: [],
+   },
+
    "SaveFile": {
       id: "SaveFile",
       title: "save file",

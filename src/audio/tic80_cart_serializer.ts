@@ -18,17 +18,7 @@ import {PreparedSong, prepareSongColumns} from "./prepared_song";
 import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../../bridge/memory_layout";
 import {OptimizationRuleOptions, processLua} from "../utils/lua/lua_processor";
 import {MemoryRegion} from "../utils/bitpack/MemoryRegion";
-import {createChunk, encodeSfx, encodeTempo, encodeTrackSpeed, encodeWaveforms, packTrackFrame, packWaveformSamplesToBytes16, removeTrailingZerosFn, stringToAsciiPayload} from "./tic80_serialization";
-
-/** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
-// see also: tic.h / sound.c (TIC80_SOURCE)
-const CHUNK = {
-   CODE: 5,
-   SFX: 9,
-   WAVEFORMS: 10,
-   MUSIC_TRACKS: 14,
-   MUSIC_PATTERNS: 15,
-} as const;
+import {createChunk, encodeSfx, encodeTempo, encodeTrackSpeed, encodeWaveforms, packTrackFrame, packWaveformSamplesToBytes16, removeTrailingZerosFn, stringToAsciiPayload, TicChunkType} from "./tic80_serialization";
 
 
 const releaseOptions: OptimizationRuleOptions = {
@@ -878,7 +868,7 @@ export function serializeSongToCartDetailed(
    waveformPayload = removeTrailingZerosFn(waveformPayload);
    const waveformMemoryRegion = new MemoryRegion(
       {name: `${waveformCount} waveforms`, address: Tic80MemoryMap.Waveforms.address, size: waveformPayload.length});
-   const waveformChunk = createChunk(CHUNK.WAVEFORMS, waveformPayload, false);
+   const waveformChunk = createChunk(TicChunkType.WAVEFORMS, waveformPayload, false);
 
    // sfx
    const sfxCount = getMaxSfxUsedIndex(song) + 1;
@@ -886,15 +876,15 @@ export function serializeSongToCartDetailed(
    sfxPayload = removeTrailingZerosFn(sfxPayload);
    const sfxMemoryRegion =
       new MemoryRegion({name: `${sfxCount} SFX`, address: Tic80MemoryMap.Sfx.address, size: sfxPayload.length});
-   const sfxChunk = createChunk(CHUNK.SFX, sfxPayload, false);
+   const sfxChunk = createChunk(TicChunkType.SFX, sfxPayload, false);
 
    // patterns
    // const patternChunkPayload = patternRamData.length > 0 ? patternRamData : new Uint8Array(1); // all zeros when unused
-   const patternChunk = createChunk(CHUNK.MUSIC_PATTERNS, patternSerializationPlan.patternRamData, true);
+   const patternChunk = createChunk(TicChunkType.MUSIC_PATTERNS, patternSerializationPlan.patternRamData, true);
 
-   const trackChunk = createChunk(CHUNK.MUSIC_TRACKS, encodeTrack(song), true);
+   const trackChunk = createChunk(TicChunkType.MUSIC_TRACKS, encodeTrack(song), true);
    const codePayload = stringToAsciiPayload(code);
-   const codeChunk = createChunk(CHUNK.CODE, codePayload, false, 0);
+   const codeChunk = createChunk(TicChunkType.CODE, codePayload, false, 0);
 
    const chunks: Uint8Array[] = [
       codeChunk,
