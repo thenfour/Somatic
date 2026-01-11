@@ -10,6 +10,7 @@ import { ConfirmDialogProvider } from "./ui/basic/confirm_dialog";
 import { Theme } from "./ui/theme_editor_panel";
 import { ToastProvider } from "./ui/toast_provider";
 import { applySweetie16CssVars } from "./theme/ticPalette";
+import { FocusHistoryProvider } from "./ui/basic/restoreFocus";
 
 // Apply TIC-80 palette + contrast CSS vars from code, as early as possible
 (() => {
@@ -92,17 +93,19 @@ const AppWrapper: React.FC = () => {
             onBindingsChange={setKeyBindings}
             attachTo={document}
         >
-            <ToastProvider>
-                <ConfirmDialogProvider>
-                    <ClipboardProvider>
-                        <StatusBarProvider>
-                            {hasContinued
-                                ? <App theme={theme} onToggleTheme={toggleTheme} />
-                                : <SplashScreen onContinue={() => setHasContinued(true)} />}
-                        </StatusBarProvider>
-                    </ClipboardProvider>
-                </ConfirmDialogProvider>
-            </ToastProvider>
+            <FocusHistoryProvider>
+                <ToastProvider>
+                    <ConfirmDialogProvider>
+                        <ClipboardProvider>
+                            <StatusBarProvider>
+                                {hasContinued
+                                    ? <App theme={theme} onToggleTheme={toggleTheme} />
+                                    : <SplashScreen onContinue={() => setHasContinued(true)} />}
+                            </StatusBarProvider>
+                        </ClipboardProvider>
+                    </ConfirmDialogProvider>
+                </ToastProvider>
+            </FocusHistoryProvider>
         </ShortcutManagerProvider>
     );
 }

@@ -11,6 +11,7 @@ import { ButtonGroup } from './Buttons/ButtonGroup';
 import { Button } from './Buttons/PushButton';
 import { CheckboxButton } from './Buttons/CheckboxButton';
 import { IntegerUpDown } from './basic/NumericUpDown';
+import { Dropdown } from './basic/Dropdown';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const clipboard = useClipboard();
@@ -196,20 +197,23 @@ end
                     <div className="debug-panel-option-group">
                         <label>
                             Line Behavior:
-                            <select
-                                value={options.lineBehavior}
-                                onChange={(e) =>
-                                    setOptions((prev) => ({
-                                        ...prev,
-                                        lineBehavior: e.target.value as OptimizationRuleOptions['lineBehavior'],
-                                    }))
-                                }
-                                style={{ marginLeft: '0.5rem' }}
-                            >
-                                <option value="pretty">Pretty</option>
-                                <option value="tight">Tight (pack lines)</option>
-                                <option value="single-line-blocks">Single-line blocks</option>
-                            </select>
+                            <span style={{ marginLeft: '0.5rem' }}>
+                                <Dropdown<OptimizationRuleOptions['lineBehavior']>
+                                    value={options.lineBehavior}
+                                    onChange={(value) =>
+                                        setOptions((prev) => ({
+                                            ...prev,
+                                            lineBehavior: value,
+                                        }))
+                                    }
+                                    options={[
+                                        { value: 'pretty', label: 'Pretty' },
+                                        { value: 'tight', label: 'Tight (pack lines)' },
+                                        { value: 'single-line-blocks', label: 'Single-line blocks' },
+                                    ]}
+                                    showCheckmark={false}
+                                />
+                            </span>
                         </label>
                     </div>
                     <div className="debug-panel-option-group">

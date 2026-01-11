@@ -697,6 +697,7 @@ export const ArrangementEditor: React.FC<{
                             <div
                                 className={controlsClass}
                                 tabIndex={0}
+                                data-focus-bookmark="true"
                                 ref={(el) => (rowRefs[positionIndex] = el)}
                                 onKeyDown={(e) => handleKeyDown(e, positionIndex)}
                                 onMouseDown={(e) => handleRowMouseDown(e, positionIndex)}

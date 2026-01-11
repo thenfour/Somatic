@@ -197,11 +197,23 @@ export const ComponentTester: React.FC = () => {
             <div>
                 <h4>Icon Buttons</h4>
                 <ButtonGroup>
-                    <IconButton highlighted={radio1Selected} tabIndex={0} onClick={() => setRadio1Selected(x => !x)} iconPath={mdiNetwork}>
+                    <IconButton
+                        highlighted={radio1Selected}
+                        tabIndex={0}
+                        data-focus-bookmark="true"
+                        onClick={() => setRadio1Selected(x => !x)} iconPath={mdiNetwork}>
                     </IconButton>
-                    <IconButton highlighted={radio2Selected} tabIndex={0} onClick={() => setRadio2Selected(x => !x)} iconPath={mdiClipboard}>
+                    <IconButton
+                        highlighted={radio2Selected}
+                        tabIndex={0}
+                        data-focus-bookmark="true"
+                        onClick={() => setRadio2Selected(x => !x)} iconPath={mdiClipboard}>
                     </IconButton>
-                    <IconButton highlighted={radio3Selected} tabIndex={0} onClick={() => setRadio3Selected(x => !x)} iconPath={mdiTree}>
+                    <IconButton
+                        highlighted={radio3Selected}
+                        tabIndex={0}
+                        data-focus-bookmark="true"
+                        onClick={() => setRadio3Selected(x => !x)} iconPath={mdiTree}>
                         with label
                     </IconButton>
                 </ButtonGroup>

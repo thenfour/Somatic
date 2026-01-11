@@ -1659,6 +1659,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                 <React.Fragment key={channelIndex}>
                                                     <td
                                                         tabIndex={0}
+                                                        data-focus-bookmark="true"
                                                         ref={(el) => (cellRefs[rowIndex][noteCol] = el)}
                                                         className={noteClass}
                                                         style={cellStyle}
@@ -1678,6 +1679,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     </td>
                                                     <td
                                                         tabIndex={0}
+                                                        data-focus-bookmark="true"
                                                         ref={(el) => (cellRefs[rowIndex][instCol] = el)}
                                                         className={instClass}
                                                         style={cellStyle}
@@ -1699,6 +1701,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     </td>
                                                     <td
                                                         tabIndex={0}
+                                                        data-focus-bookmark="true"
                                                         ref={(el) => (cellRefs[rowIndex][cmdCol] = el)}
                                                         className={cmdClass}
                                                         style={cellStyle}
@@ -1716,6 +1719,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     </td>
                                                     <td
                                                         tabIndex={0}
+                                                        data-focus-bookmark="true"
                                                         ref={(el) => (cellRefs[rowIndex][paramCol] = el)}
                                                         className={paramClass}
                                                         style={cellStyle}
@@ -1733,6 +1737,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     </td>
                                                     <td
                                                         tabIndex={0}
+                                                        data-focus-bookmark="true"
                                                         ref={(el) => (cellRefs[rowIndex][somCmdCol] = el)}
                                                         className={somCmdClass}
                                                         style={cellStyle}
@@ -1750,6 +1755,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     </td>
                                                     <td
                                                         tabIndex={0}
+                                                        data-focus-bookmark="true"
                                                         ref={(el) => (cellRefs[rowIndex][somParamCol] = el)}
                                                         className={somParamClass}
                                                         style={cellStyle}

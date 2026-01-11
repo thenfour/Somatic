@@ -7,6 +7,7 @@ import { Song } from "../models/song";
 import { calculateSongPositionInSeconds, Tic80Caps } from "../models/tic80Capabilities";
 import { CharMap } from "../utils/utils";
 import { Tooltip } from "./basic/tooltip";
+import { Dropdown } from "./basic/Dropdown";
 import { TransportTime } from "./transportTime";
 import { ButtonGroup } from "./Buttons/ButtonGroup";
 import { Button } from "./Buttons/PushButton";
@@ -52,11 +53,6 @@ export const TransportControls: React.FC<TransportControlsProps> = ({ bridgeRead
             loopMode: mode,
             lastNonOffLoopMode: mode !== "off" ? mode : prev.lastNonOffLoopMode,
         }));
-    };
-
-    const handleLoopModeChange: React.ChangeEventHandler<HTMLSelectElement> = (evt) => {
-        const next = evt.target.value as LoopMode;
-        setLoopMode(next);
     };
 
     const handleNextLoopMode = () => {
@@ -168,15 +164,13 @@ export const TransportControls: React.FC<TransportControlsProps> = ({ bridgeRead
                         {CharMap.Refresh}
                     </Button>
                 </Tooltip>
-                <select
-                    className={`loop-mode-select ${editorState.loopMode !== "off" ? "loop-mode-select--on" : "loop-mode-select--off"}`}
-                    value={editorState.loopMode == "off" ? editorState.lastNonOffLoopMode : editorState.loopMode}
-                    onChange={handleLoopModeChange}
-                >
-                    {LOOP_MODE_OPTIONS.filter(opt => opt.value !== "off").map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                </select>
+                <Dropdown<LoopMode>
+                    triggerClassName={`loop-mode-select ${editorState.loopMode !== "off" ? "loop-mode-select--on" : "loop-mode-select--off"}`}
+                    value={editorState.loopMode === "off" ? editorState.lastNonOffLoopMode : editorState.loopMode}
+                    onChange={(next) => setLoopMode(next)}
+                    options={LOOP_MODE_OPTIONS.filter(opt => opt.value !== "off")}
+                    showCheckmark={false}
+                />
             </ButtonGroup>
         </div>
 
