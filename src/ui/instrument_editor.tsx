@@ -744,6 +744,15 @@ show render slot if there are k-rate effects enabled
         return options
     }, [gTic80Palette]);
 
+    const highlightValue: HighlightOptionBase = useMemo(() => {
+        const key = instrument.highlightColor ?? kNullKey;
+        return (
+            highlightOptions.find((opt) => opt.compareKey === key)?.value ??
+            highlightOptions[0]?.value ??
+            { color: null, fgColor: null }
+        );
+    }, [highlightOptions, instrument.highlightColor]);
+
     return (
         <AppPanelShell
             className="instrument-panel"
@@ -801,7 +810,7 @@ show render slot if there are k-rate effects enabled
                     />
                 </ButtonGroup>
                 <Dropdown<HighlightOptionBase>
-                    value={{ color: instrument.highlightColor, fgColor: instrument.highlightFg }}
+                    value={highlightValue}
                     renderTriggerLabel={
                         (option) => {
                             //console.log('renderTriggerLabel', option);
