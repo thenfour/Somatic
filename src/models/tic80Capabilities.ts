@@ -77,7 +77,7 @@ export const SOMATIC_PATTERN_COMMAND_LETTERS: Record<SomaticPatternCommand, stri
 
 export const SOMATIC_PATTERN_COMMAND_DESCRIPTIONS: Record<SomaticPatternCommand, string> = {
    [SomaticPatternCommand.EffectStrengthScale]: "Effect strength scale (00=bypass, FF=max)",
-   [SomaticPatternCommand.FilterFrequency]: "Lowpass frequency (00=min, FF=bypass)",
+   [SomaticPatternCommand.FilterFrequency]: "Lowpass strength scale (00=bypass, FF=max)",
    [SomaticPatternCommand.SetLFOPhase]: "Set LFO phase (00 - FF)",
 };
 

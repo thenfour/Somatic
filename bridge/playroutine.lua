@@ -61,7 +61,7 @@ do
 	local ch_sfx_id = { -1, -1, -1, -1 }
 	local ch_sfx_ticks = { 0, 0, 0, 0 }
 	local ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
-	local ch_lowpass_freq_u8 = { 255, 255, 255, 255 }
+	local ch_lowpass_strength_scale_u8 = { 255, 255, 255, 255 }
 	local last_music_track = -2
 	local last_music_frame = -1
 	local last_music_row = -1
@@ -500,7 +500,7 @@ do
 		return false
 	end
 
-	local function render_tick_cfg(cfg, instId, ticksPlayed, lfoTicks, effectStrengthScaleU8, lowpassFreqU8)
+	local function render_tick_cfg(cfg, instId, ticksPlayed, lfoTicks, effectStrengthScaleU8, lowpassStrengthScaleU8)
 		if not cfg_is_k_rate_processing(cfg) then
 			return
 		end
@@ -508,7 +508,9 @@ do
 			return
 		end
 		local scale01 = clamp01(effectStrengthScaleU8 / 255)
-		local lpFreq01 = clamp01((lowpassFreqU8 or cfg.lowpassFreqU8) / 255)
+		local lpScale01 = clamp01((lowpassStrengthScaleU8 or 255) / 255)
+		local baseLpAmount01 = clamp01((cfg.lowpassAmountU8 or 0) / 255)
+		local lpAmount01 = baseLpAmount01 * lpScale01
 		local effectKind = cfg.effectKind or EFFECT_KIND_NONE
 		-- BEGIN_FEATURE_HARDSYNC
 		if effectKind == EFFECT_KIND_HARDSYNC and cfg.effectAmtU8 > 0 and scale01 > 0 then
@@ -553,11 +555,11 @@ do
 		-- END_FEATURE_WAVEFOLD
 		-- BEGIN_FEATURE_LOWPASS
 		if cfg.lowpassEnabled then
-			local lpOpenness01
+			local t
 			if cfg.lowpassModSource == MOD_SRC_NONE then
-				lpOpenness01 = lpFreq01
+				t = 1
 			else
-				local t = calculate_mod_t(
+				t = calculate_mod_t(
 					cfg.lowpassModSource,
 					cfg.lowpassDurationTicks12,
 					ticksPlayed,
@@ -565,11 +567,12 @@ do
 					cfg.lfoCycleTicks12,
 					1
 				)
-				-- Close over time: start bypassed (1) and close down toward lpFreq01.
-				lpOpenness01 = 1 - (1 - lpFreq01) * clamp01(t)
 			end
-			lpOpenness01 = apply_curveN11(lpOpenness01, cfg.lowpassCurveS6)
-			apply_lowpass_effect_to_samples(render_out, lpOpenness01)
+			-- Close over time: start bypassed (amount=0) and increase toward lpAmount01.
+			local amountAtTime01 = lpAmount01 * clamp01(t)
+			local openness01 = 1 - amountAtTime01
+			openness01 = apply_curveN11(openness01, cfg.lowpassCurveS6)
+			apply_lowpass_effect_to_samples(render_out, openness01)
 		end
 		-- END_FEATURE_LOWPASS
 		wave_write_samples(cfg.renderWaveformSlot, render_out)
@@ -580,10 +583,8 @@ do
 		if cfg_is_k_rate_processing(cfg) then
 			local lt = lfo_ticks_by_sfx[instId] or 0
 			local scaleU8 = ch_effect_strength_scale_u8[ch + 1] or 255
-
-			-- lp freq is not a scale like effect scale. use the specified knob val.
-			local lpU8 = ch_lowpass_freq_u8[ch + 1] or cfg.lowpassFreqU8
-			render_tick_cfg(cfg, instId, 0, lt, scaleU8, lpU8)
+			local lpScaleU8 = ch_lowpass_strength_scale_u8[ch + 1] or 255
+			render_tick_cfg(cfg, instId, 0, lt, scaleU8, lpScaleU8)
 		end
 	end
 
@@ -614,15 +615,13 @@ do
 			local columnIndex0b = getColumnIndex(playingSongOrder, ch)
 			local cells = columnIndex0b ~= nil and patternExtra[columnIndex0b] or nil
 			local cell = cells and cells[row + 1] or nil
-			local sawFilterFreq = false
 			-- effectId: 0=none; 1='E'; 2='L'; 3='F'
 			if cell and cell.effectId == 1 then
 				-- 'E': Set effect strength scale
 				ch_effect_strength_scale_u8[ch + 1] = cell.paramU8 or 255
 			elseif cell and cell.effectId == 3 then
-				-- 'F': Set lowpass frequency knob (00=min cutoff, FF=bypass)
-				ch_lowpass_freq_u8[ch + 1] = cell.paramU8 or 255
-				sawFilterFreq = true
+				-- 'F': Set lowpass strength scale (00=bypass, FF=max)
+				ch_lowpass_strength_scale_u8[ch + 1] = cell.paramU8 or 255
 			elseif cell and cell.effectId == 2 then
 				-- 'L': Set LFO phase for the instrument playing on this channel
 				local instId = ch_sfx_id[ch + 1]
@@ -649,12 +648,6 @@ do
 				-- note on
 				ch_sfx_id[ch + 1] = inst
 				ch_sfx_ticks[ch + 1] = 0
-				if not sawFilterFreq then
-					-- if the user specified a filter freq change on this row, use that;
-					-- otherwise, reset to the instrument default.
-					local cfg = morphMap and morphMap[inst]
-					ch_lowpass_freq_u8[ch + 1] = (cfg and cfg.lowpassFreqU8) or 255
-				end
 				prime_render_slot_for_note_on(inst, ch)
 			end
 		end
@@ -670,8 +663,8 @@ do
 		if cfg_is_k_rate_processing(cfg) then
 			local lt = lfo_ticks_by_sfx[instId] or 0
 			local scaleU8 = ch_effect_strength_scale_u8[ch + 1] or 255
-			local lpU8 = ch_lowpass_freq_u8[ch + 1] or cfg.lowpassFreqU8
-			render_tick_cfg(cfg, instId, ticksPlayed, lt, scaleU8, lpU8)
+			local lpScaleU8 = ch_lowpass_strength_scale_u8[ch + 1] or 255
+			render_tick_cfg(cfg, instId, ticksPlayed, lt, scaleU8, lpScaleU8)
 		end
 		ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 	end
@@ -840,6 +833,7 @@ do
 		backBufferIsA = false
 		stopPlayingOnNextFrame = false
 		ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
+		ch_lowpass_strength_scale_u8 = { 255, 255, 255, 255 }
 		lfo_ticks_by_sfx = {}
 		log("somatic_reset_state") -- DEBUG_ONLY
 		--ch_set_playroutine_regs(0xFF)

@@ -84,7 +84,7 @@ export const MorphEntryCodec = C.struct("MorphEntry", [
    C.field("pwmDepth5", C.u(5)),
    C.field("lfoCycleTicks12", C.u(12)),
    C.field("lowpassEnabled", C.bool()),
-   C.field("lowpassFreqU8", C.u8()),
+   C.field("lowpassAmountU8", C.u8()),
    C.field("lowpassDurationTicks12", C.u(12)),
    C.field("lowpassCurveS6", C.i(6)),
    // 0=envelope, 1=lfo, 2=none
@@ -150,7 +150,7 @@ export type MorphEntryInput = {
       pwmDuty5: number;        //
       pwmDepth5: number;       //
       lowpassEnabled: boolean; //
-      lowpassFreqU8: number;
+      lowpassAmountU8: number;
       lowpassDurationTicks12: number; //
       lowpassCurveS6: number;         //
       lowpassModSource: number;       //
@@ -178,7 +178,7 @@ function flattenEntry(entry: MorphEntryInput): MorphEntryPacked {
       pwmDepth5: cfg.pwmDepth5,
       lfoCycleTicks12: cfg.lfoCycleTicks12,
       lowpassEnabled: cfg.lowpassEnabled ? 1 : 0,
-      lowpassFreqU8: cfg.lowpassFreqU8,
+      lowpassAmountU8: cfg.lowpassAmountU8,
       lowpassDurationTicks12: cfg.lowpassDurationTicks12,
       lowpassCurveS6: cfg.lowpassCurveS6,
       lowpassModSource: cfg.lowpassModSource,

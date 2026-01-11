@@ -196,7 +196,7 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
 
    // Somatic command semantics
    const SOMATIC_CMD_EFFECT_STRENGTH_SCALE_NOMINAL = 0xff;
-   const SOMATIC_CMD_FILTER_FREQUENCY_NOMINAL = 0;
+   const SOMATIC_CMD_FILTER_FREQUENCY_NOMINAL = 0xff;
 
    // init k-rate render slot per channel (for sustaining notes).
    const activeKRateSlotByChannel: (number|null)[] = Array.from({length: channelCount}, () => null);
@@ -245,7 +245,7 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
                   stateMap.set(somCmd, {paramU8});
                }
             } else if (somCmd === SomaticPatternCommand.FilterFrequency) {
-               // 0xFF is the nominal value (bypass).
+               // 0xFF is the nominal value (unity scale).
                if (paramU8 === SOMATIC_CMD_FILTER_FREQUENCY_NOMINAL) {
                   stateMap.delete(somCmd);
                } else {

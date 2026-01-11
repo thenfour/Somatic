@@ -71,10 +71,10 @@ const LowpassCurveConfig: ContinuousParamConfig = {
     format: (v) => v.toFixed(2),
 };
 
-const LowpassFrequencyConfig: ContinuousParamConfig = {
+const LowpassAmountConfig: ContinuousParamConfig = {
     resolutionSteps: 256,
-    default: 0xff,
-    center: 0xff,
+    default: 0,
+    center: 0,
     convertTo01: (v) => v / 255,
     convertFrom01: (v01) => v01 * 255,
     format: (v) => {
@@ -593,13 +593,13 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
-    const setLowpassFreqU8 = (value: number) => {
+    const setLowpassAmountU8 = (value: number) => {
         onSongChange({
-            description: 'Set lowpass frequency',
+            description: 'Set lowpass amount',
             undoable: true,
             mutator: (s) => {
                 const inst = s.instruments[instrumentIndex];
-                inst.lowpassFreqU8 = clamp(Math.round(value), 0, 0xff);
+                inst.lowpassAmountU8 = clamp(Math.round(value), 0, 0xff);
             },
         });
     };
@@ -1163,10 +1163,10 @@ show render slot if there are k-rate effects enabled
                             </ButtonGroup>
                             <ButtonGroup>
                                 <ContinuousKnob
-                                    label='freq'
-                                    value={instrument.lowpassFreqU8}
-                                    config={LowpassFrequencyConfig}
-                                    onChange={setLowpassFreqU8}
+                                    label='amount'
+                                    value={instrument.lowpassAmountU8}
+                                    config={LowpassAmountConfig}
+                                    onChange={setLowpassAmountU8}
                                 />
                                 <ContinuousKnob
                                     label='decay'

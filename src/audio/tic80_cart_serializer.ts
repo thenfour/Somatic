@@ -156,7 +156,7 @@ function getMorphMap(song: Song): MorphEntryInput[] {
             pwmDepth5: clamp(inst.pwmDepth | 0, 0, 31),
 
             lowpassEnabled,
-            lowpassFreqU8: clamp((inst as any).lowpassFreqU8 ?? 0xff, 0, 0xff),
+            lowpassAmountU8: clamp(inst.lowpassAmountU8, 0, 0xff),
             lowpassDurationTicks12,
             lowpassCurveS6: curveN11ToS6(inst.lowpassCurveN11),
             lowpassModSource: modSourceToU8(inst.lowpassModSource),

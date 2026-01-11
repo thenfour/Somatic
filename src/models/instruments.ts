@@ -261,8 +261,8 @@ export interface Tic80InstrumentDto {
    pwmDepth: number; // 0-31
 
    lowpassEnabled: boolean;
-   // 0..255; 0=min cutoff (most filtering), 255=bypass (no filtering)
-   lowpassFreqU8: number;
+   // 0..255; 0=bypass (no filtering), 255=max filtering (lowest cutoff)
+   lowpassAmountU8: number;
    lowpassDurationSeconds: number;
    lowpassCurveN11: number;
 
@@ -321,8 +321,8 @@ export class Tic80Instrument {
    pwmDepth: number; // 0-31
 
    lowpassEnabled: boolean;
-   // 0..255; 0=min cutoff (most filtering), 255=bypass (no filtering)
-   lowpassFreqU8: number;
+   // 0..255; 0=bypass (no filtering), 255=max filtering (lowest cutoff)
+   lowpassAmountU8: number;
    lowpassDurationSeconds: number;
    lowpassCurveN11: number;
 
@@ -421,7 +421,7 @@ export class Tic80Instrument {
       this.pwmDepth = clamp(data.pwmDepth ?? 10, 0, 31);
 
       this.lowpassEnabled = CoalesceBoolean(data.lowpassEnabled, false);
-      this.lowpassFreqU8 = clamp((data as any).lowpassFreqU8 ?? 0, 0, 0xff);
+      this.lowpassAmountU8 = clamp(data.lowpassAmountU8 ?? 0xff, 0, 0xff);
       this.lowpassDurationSeconds = Math.max(0, data.lowpassDurationSeconds ?? 0.5);
       this.lowpassCurveN11 = clamp(data.lowpassCurveN11 ?? 0, -1, 1);
 
@@ -508,7 +508,7 @@ export class Tic80Instrument {
          pwmDuty: this.pwmDuty,
          pwmDepth: this.pwmDepth,
          lowpassEnabled: this.lowpassEnabled,
-         lowpassFreqU8: this.lowpassFreqU8,
+         lowpassAmountU8: this.lowpassAmountU8,
          lowpassDurationSeconds: this.lowpassDurationSeconds,
          lowpassCurveN11: this.lowpassCurveN11,
          effectKind: this.effectKind,
