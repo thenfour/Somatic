@@ -264,7 +264,7 @@ local function apply_lowpass_effect_to_samples(samples, strength) -- string is 0
 
 	local n = WAVE_SAMPLES_PER_WAVE
 
-	local alpha = 0.03 + 0.95 * strength
+	local alpha = 0.95 * strength
 
 	-- estimate initial state as average to reduce edge junk
 	local acc = 0

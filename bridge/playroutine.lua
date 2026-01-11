@@ -248,8 +248,8 @@ do
 			end
 			-- Close over time: start bypassed (amount=0) and increase toward lpAmount01.
 			local amountAtTime01 = lpAmount01 * clamp01(t)
+			amountAtTime01 = apply_curveN11(amountAtTime01, cfg.lowpassCurveS6)
 			local openness01 = 1 - amountAtTime01
-			openness01 = apply_curveN11(openness01, cfg.lowpassCurveS6)
 			apply_lowpass_effect_to_samples(render_out, openness01)
 		end
 		-- END_FEATURE_LOWPASS
