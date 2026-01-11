@@ -1,4 +1,3 @@
-// todo: indicate when used (opacity i think)
 // todo: keyboard nav on list + delete / insert below?
 // todo: insert new instrument above / below. don't allow if kicking out used instruments
 import React, { useMemo } from "react";
@@ -48,6 +47,37 @@ const swapInstrumentIndicesInPatterns = (song: Song, a: number, b: number) => {
                 cell.instrumentIndex = clamped;
                 if (cell.instrumentIndex === a) cell.instrumentIndex = b;
                 else if (cell.instrumentIndex === b) cell.instrumentIndex = a;
+            }
+        }
+    }
+};
+
+// Insert at `insertIndex` by shifting instruments down one slot (dropping the last slot).
+// Remaps pattern instrument indices so playback is unchanged.
+const insertInstrumentSlotAtIndex = (song: Song, insertIndex: number) => {
+    const lastIndex = song.instruments.length - 1;
+    if (insertIndex < 0 || insertIndex > lastIndex) return;
+    if (insertIndex <= SomaticCaps.noteCutInstrumentIndex) return;
+
+    // Shift instruments down, dropping the last.
+    for (let i = lastIndex; i > insertIndex; i -= 1) {
+        song.instruments[i] = song.instruments[i - 1]!;
+    }
+    song.instruments[insertIndex] = makeDefaultInstrumentForIndex(insertIndex);
+
+    // Remap instrument indices in patterns: anything at/after insertIndex shifts +1.
+    // We intentionally do NOT remap references to the last slot, because the caller
+    // must ensure that slot is unused (otherwise we'd lose an instrument).
+    const maxInstrumentIndex = Math.max(song.instruments.length - 1, 0);
+    for (const pattern of song.patterns) {
+        for (const channel of pattern.channels) {
+            for (const cell of channel.rows) {
+                if (cell.instrumentIndex === undefined || cell.instrumentIndex === null) continue;
+                const clamped = clamp(cell.instrumentIndex, 0, maxInstrumentIndex);
+                cell.instrumentIndex = clamped;
+                if (clamped >= insertIndex && clamped < lastIndex) {
+                    cell.instrumentIndex = clamped + 1;
+                }
             }
         }
     }
@@ -118,6 +148,38 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
         return song.getInstrumentUsageMap();
     }, [song]);
 
+    const lastInstrumentIndex = instrumentCount - 1;
+    const lastInstrumentIsUsed = usageMap.has(lastInstrumentIndex);
+
+    const canInsertAbove = useMemo(() => {
+        if (lastInstrumentIsUsed) return false;
+        if (isReservedInstrument(selectedInstrument)) return false;
+        return selectedInstrument > SomaticCaps.noteCutInstrumentIndex;
+    }, [lastInstrumentIsUsed, selectedInstrument]);
+
+    const canInsertBelow = useMemo(() => {
+        if (lastInstrumentIsUsed) return false;
+        if (isReservedInstrument(selectedInstrument)) return false;
+        const insertIndex = selectedInstrument + 1;
+        if (insertIndex >= instrumentCount) return false;
+        return insertIndex > SomaticCaps.noteCutInstrumentIndex;
+    }, [instrumentCount, lastInstrumentIsUsed, selectedInstrument]);
+
+    const insertAt = (insertIndex: number) => {
+        if (lastInstrumentIsUsed) return;
+        if (insertIndex < 0 || insertIndex >= instrumentCount) return;
+        if (insertIndex <= SomaticCaps.noteCutInstrumentIndex) return;
+
+        onSongChange({
+            description: insertIndex === selectedInstrument ? "Insert instrument above" : "Insert instrument below",
+            undoable: true,
+            mutator: (s) => {
+                insertInstrumentSlotAtIndex(s, insertIndex);
+            },
+        });
+        onEditorStateChange((st) => st.setCurrentInstrument(insertIndex));
+    };
+
     return (
         <AppPanelShell
             className="instruments-panel"
@@ -174,6 +236,22 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                                 title="Move down"
                             >
                                 ↓
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={() => insertAt(selectedInstrument)}
+                                disabled={!canInsertAbove}
+                                title={lastInstrumentIsUsed ? "Cannot insert: last instrument is used" : "Insert new instrument above"}
+                            >
+                                +↑
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={() => insertAt(selectedInstrument + 1)}
+                                disabled={!canInsertBelow}
+                                title={lastInstrumentIsUsed ? "Cannot insert: last instrument is used" : "Insert new instrument below"}
+                            >
+                                +↓
                             </Button>
                             <Button
                                 type="button"
