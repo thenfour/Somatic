@@ -18,6 +18,7 @@ export const GlobalActions = {
    FocusPattern: "FocusPattern",
    ToggleWaveformEditor: "ToggleWaveformEditor",
    ToggleInstrumentPanel: "ToggleInstrumentPanel",
+   ToggleInstrumentsPanel: "ToggleInstrumentsPanel",
    CycleTic80PanelSize: "CycleTic80PanelSize",
    ToggleOnScreenKeyboard: "ToggleOnScreenKeyboard",
    ToggleAdvancedEditPanel: "ToggleAdvancedEditPanel",

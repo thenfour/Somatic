@@ -181,6 +181,17 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       ],
    },
 
+   "ToggleInstrumentsPanel": {
+      id: "ToggleInstrumentsPanel",
+      title: "toggle instruments panel",
+      description: "show or hide the instruments management panel.",
+      category: "View",
+      defaultBindings: [
+         // ctrl + i
+         {kind: "character", key: "i", primary: true},
+      ],
+   },
+
    "CycleTic80PanelSize": {
       id: "CycleTic80PanelSize",
       title: "cycle TIC-80 size",
