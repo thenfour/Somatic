@@ -33,6 +33,7 @@ import { DesktopMenu } from './ui/DesktopMenu/DesktopMenu';
 import { EditorStateControls } from './ui/EditorStateControls';
 import { EncodingUtilsPanel } from './ui/EncodingUtilsPanel';
 import { InstrumentPanel } from './ui/instrument_editor';
+import { InstrumentsPanel } from './ui/InstrumentsPanel';
 import { Keyboard } from './ui/keyboard';
 import { PatternGrid, PatternGridHandle } from './ui/pattern_grid';
 import { PreferencesPanel } from './ui/preferences_panel';
@@ -128,6 +129,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const [patternEditorOpen, setPatternEditorOpen] = useLocalStorage("somatic-patternEditorOpen", true);
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useLocalStorage("somatic-instrumentPanelOpen", false);
+    const [instrumentsPanelOpen, setInstrumentsPanelOpen] = useLocalStorage("somatic-instrumentsPanelOpen", true);
     const [waveformEditorPanelOpen, setWaveformEditorPanelOpen] = useLocalStorage("somatic-waveformEditorPanelOpen", false);
     const [tic80FrameSizeIndex, setTic80FrameSizeIndex] = useLocalStorage<number>("somatic-tic80FrameSizeIndex", TIC80_FRAME_DEFAULT_INDEX);
     const [showingOnScreenKeyboard, setShowingOnScreenKeyboard] = useLocalStorage("somatic-showOnScreenKeyboard", true);
@@ -566,6 +568,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("FocusPattern", () => patternGridRef.current?.focusPattern());
     useActionHandler("ToggleWaveformEditor", () => setWaveformEditorPanelOpen(open => !open));
     useActionHandler("ToggleInstrumentPanel", () => setInstrumentPanelOpen(open => !open));
+    useActionHandler("ToggleInstrumentsPanel", () => setInstrumentsPanelOpen(open => !open));
     useActionHandler("CycleTic80PanelSize", () => cycleTic80FrameSize());
     useActionHandler("ToggleOnScreenKeyboard", () => setShowingOnScreenKeyboard(open => !open));
     useActionHandler("ToggleAdvancedEditPanel", () => setAdvancedEditPanelOpen(open => !open));
@@ -857,6 +860,13 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     >
                                         Instrument Panel
                                     </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={instrumentsPanelOpen}
+                                        onSelect={() => setInstrumentsPanelOpen(open => !open)}
+                                        shortcut={mgr.getActionBindingLabel("ToggleInstrumentsPanel")}
+                                    >
+                                        Instruments
+                                    </DesktopMenu.Item>
                                     <DesktopMenu.Divider />
                                     <DesktopMenu.Item
                                         checked={showingOnScreenKeyboard}
@@ -1051,6 +1061,24 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         onClose={() => setInstrumentPanelOpen(false)}
                     />
                 )}
+                {instrumentsPanelOpen && (
+                    <InstrumentsPanel
+                        song={song}
+                        editorState={editorState}
+                        onSongChange={updateSong}
+                        onEditorStateChange={updateEditorState}
+                        onClose={() => setInstrumentsPanelOpen(false)}
+                    />
+                )}
+                {songStatsPanelOpen && (
+                    <SongStatsAppPanel
+                        data={songStatsData}
+                        onClose={() => setSongStatsPanelOpen(false)}
+                        variant={songStatsVariant}
+                        onVariantChange={setSongStatsVariant}
+                    />
+                )}
+
                 {preferencesPanelOpen && (
                     <PreferencesPanel
                         midiStatus={midiStatus}
@@ -1066,19 +1094,11 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 {themePanelOpen && (
                     <ThemeEditorPanel onClose={() => setThemePanelOpen(false)} />
                 )}
-                {debugPanelOpen && (
-                    <DebugPanel onClose={() => setDebugPanelOpen(false)} />
-                )}
                 {encodingUtilsPanelOpen && (
                     <EncodingUtilsPanel onClose={() => setEncodingUtilsPanelOpen(false)} />
                 )}
-                {songStatsPanelOpen && (
-                    <SongStatsAppPanel
-                        data={songStatsData}
-                        onClose={() => setSongStatsPanelOpen(false)}
-                        variant={songStatsVariant}
-                        onVariantChange={setSongStatsVariant}
-                    />
+                {debugPanelOpen && (
+                    <DebugPanel onClose={() => setDebugPanelOpen(false)} />
                 )}
             </div>
             <div className="main-app-footer appRow">

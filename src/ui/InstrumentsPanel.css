@@ -1,0 +1,80 @@
+.instruments-panel.app-panel-shell {
+    width: 220px;
+}
+
+.instruments-panel__inner {
+    display: flex;
+    flex-direction: column;
+    /* min-height: 0; */
+    height: 100%;
+}
+
+.instruments-panel__content {
+    /* flex: 1 1 auto; */
+    display: flex;
+    flex-direction: column;
+    /* min-height: 0; */
+    overflow: auto;
+    /* padding: 8px 6px; */
+    padding-bottom: 20vh;
+    /* display: flex;
+    flex-direction: column; */
+    /* gap: 6px; */
+    background-color: var(--bg);
+}
+
+.instruments-panel__row {
+    cursor: pointer;
+    border: 0;
+    padding: 2px 3px;
+    margin: 0;
+    /* just feels better against the scrollbar in FF */
+    margin-right: 8px;
+    background-color: transparent;
+}
+
+.instruments-panel__row .chip {
+    position: relative;
+    width: 100%;
+}
+
+.instruments-panel__row:hover .chip:before {
+    /* background: var(--panel-strong); */
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #eeeeee22;
+
+}
+
+.instruments-panel__row--selected .chip:before {
+    /* box-shadow: 0 0 0 2px var(--row-active) inset; */
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 2px solid var(--accent-strong);
+    box-sizing: border-box;
+    border-radius: 2px;
+    /* inset: -2px; */
+}
+
+.instruments-panel__footer {
+    flex-shrink: 0;
+    padding: 0;
+    background-color: var(--panel);
+    border-top: 1px solid var(--border);
+}
+
+.instruments-panel__footer-row {
+    gap: 6px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 4px 0px;
+}

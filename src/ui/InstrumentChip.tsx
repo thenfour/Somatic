@@ -19,7 +19,7 @@ export const InstrumentChip: React.FC<InstrumentChipProps> = ({ className, style
         moreStyle.width = width;
     }
 
-    const classes = ['chip'];
+    const classes = ['chip instrument-chip '];
     if (className) {
         classes.push(className);
     }
@@ -31,7 +31,9 @@ export const InstrumentChip: React.FC<InstrumentChipProps> = ({ className, style
 
     const renderedChildren = children || (
         <>
-            <span className="instrument-chip-index">{instrument.getIndexString(instrumentIndex)}</span>
+            <span className="instrument-chip-index-container">
+                <span className="instrument-chip-index">{instrument.getIndexString(instrumentIndex)}</span>
+            </span>
             <span className="instrument-chip-separator">{": "}</span>
             {/* {instrument.highlightColor && (
                 <span className="instrument-chip-highlight-indicator" style={{ backgroundColor: instrument.highlightColor }}></span>

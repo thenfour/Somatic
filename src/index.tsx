@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./Somatic";
+import { StatusBarProvider } from "./hooks/useAppStatusBar";
 import { ClipboardProvider } from "./hooks/useClipboard";
 import { useLocalStorage } from "./hooks/useLocalStorage";
-import { StatusBarProvider } from "./hooks/useAppStatusBar";
 import { gActionRegistry } from "./keyb/ActionRegistry";
 import { ShortcutManagerProvider } from "./keyb/KeyboardShortcutManager";
+import { applySweetie16CssVars } from "./theme/ticPalette";
 import { ConfirmDialogProvider } from "./ui/basic/confirm_dialog";
+import { FocusHistoryProvider } from "./ui/basic/restoreFocus";
 import { Theme } from "./ui/theme_editor_panel";
 import { ToastProvider } from "./ui/toast_provider";
-import { applySweetie16CssVars } from "./theme/ticPalette";
-import { FocusHistoryProvider } from "./ui/basic/restoreFocus";
 
 // Apply TIC-80 palette + contrast CSS vars from code, as early as possible
 (() => {

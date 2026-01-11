@@ -1500,7 +1500,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                     const isMultiple = usageCount > 1;
                                     return (
                                         <span className={`pattern-usage-indicator ${isMultiple ? 'pattern-usage-indicator--multiple' : 'pattern-usage-indicator--unique'}`}>
-                                            {!isMultiple ? 'Unique in song' : `${usageCount} instances in song`}
+                                            {!isMultiple ? 'This pattern is unique in song' : `${usageCount} instances of this pattern in song`}
                                         </span>
                                     );
                                 })()}
@@ -1695,7 +1695,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-cell-value={`[${JSON.stringify(row.instrumentIndex)}]`}
                                                     >
                                                         <Tooltip title={instTooltip} disabled={!instTooltip}>
-                                                            <span>
+                                                            <span className='instrument-chip-index'>
                                                                 {instText}
                                                             </span>
                                                         </Tooltip>

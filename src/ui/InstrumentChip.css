@@ -41,12 +41,28 @@
     margin: 0 4px;
 } */
 
-.chip.instrument-chip--highlighted {
+.chip.instrument-chip {
+    --instrument-highlight-color: var(--row-a);
+    --instrument-highlight-fg: var(--cell-instrument);
+}
+
+.chip .instrument-chip-index-container {
+    display: inline-block;
+    padding: 0 4px;
     background-color: var(--instrument-highlight-color);
 }
 
-.chip.instrument-chip--highlighted>span {
+.instrument-chip-separator {
+    color: var(--muted);
+}
+
+.chip.instrument-chip--highlighted .instrument-chip-index-container {}
+
+.chip .instrument-chip-index {
+    color: var(--instrument-highlight-fg);
+}
+
+.chip.instrument-chip--highlighted .instrument-chip-index {
     /* contrast color is very strong; this makes it easier on the eyes*/
     opacity: 65%;
-    color: var(--instrument-highlight-fg);
 }

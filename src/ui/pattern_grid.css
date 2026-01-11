@@ -463,9 +463,15 @@
     background-color: var(--accent);
 }
 
-.pattern-grid-container--locked .pattern-grid td:focus {
+.pattern-grid-container--locked .pattern-grid td:focus:before {
     /* still show a focus indicator otherwise it's confusing what's going on when navigating */
-    background-color: var(--bg);
+    /* background-color: var(--bg); */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #0003;
 }
 
 .pattern-grid .row-number {
@@ -502,7 +508,7 @@
 .pattern-grid-container {
     --pattern-grid-sticky-top: 0px;
     flex-grow: 1;
-    padding-bottom: 50vh;
+    padding-bottom: 20vh;
     position: relative;
     overflow: auto;
 }
