@@ -69,7 +69,7 @@ const SplashScreen: React.FC<{ onContinue: () => void }> = ({ onContinue }) => {
 // just wrapps <App /> to gate on user gesture via splash screen
 const AppWrapper: React.FC = () => {
     const [hasContinued, setHasContinued] = useState(false);
-    const [theme, setTheme] = useLocalStorage<Theme>('somatic-theme', 'light');
+    const [theme, setTheme] = useLocalStorage<Theme>('somatic-theme', 'dark');
 
     useEffect(() => {
         const el = document.documentElement;
