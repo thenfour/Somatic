@@ -842,6 +842,10 @@ local function decode_pattern_row(patternId1b, rowIndex)
 	return noteNibble, inst
 end
 
+-- SOMATIC_SHARED_SFX_START
+
+-- SOMATIC_SHARED_SFX_END
+
 local function apply_music_row_to_sfx_state(track, frame, row)
 	-- Only process once per new (track,frame,row) combination.
 	if track == last_music_track and frame == last_music_frame and row == last_music_row then

@@ -1,4 +1,5 @@
 import playroutineTemplateTxt from "../../bridge/playroutine.lua";
+import playroutineSharedTemplateTxt from "../../bridge/playroutine_shared.inc.lua";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument, ToWaveEngineId, WaveEngineId} from "../models/instruments";
 //import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
@@ -723,8 +724,16 @@ ${emitLuaDecoder(WaveformMorphGradientCodec, {
       includeLayoutComments: false,
    }).trim()}`;
 
+   // Inject shared code, then strip unused feature blocks (so shared feature markers are handled as usual)
+   const playroutineTemplateWithShared = replaceLuaBlock(
+      playroutineTemplateTxt,
+      "-- SOMATIC_SHARED_SFX_START",
+      "-- SOMATIC_SHARED_SFX_END",
+      playroutineSharedTemplateTxt,
+   );
+
    // Replace the SOMATIC_MUSIC_DATA section in the template
-   const playroutineTemplate = stripUnusedFeatureBlocks(playroutineTemplateTxt, features);
+   const playroutineTemplate = stripUnusedFeatureBlocks(playroutineTemplateWithShared, features);
    let code = replaceLuaBlock(
       playroutineTemplate, "-- BEGIN_SOMATIC_MUSIC_DATA", "-- END_SOMATIC_MUSIC_DATA", musicDataSection);
 

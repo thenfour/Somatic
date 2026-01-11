@@ -20,8 +20,10 @@ import {emitLuaBitpackPrelude, emitLuaDecoder} from "../src/utils/bitpack/emitLu
 import {MorphEntryCodec, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec, WaveformMorphGradientCodec,} from "../bridge/morphSchema";
 import {SomaticMemoryLayout, Tic80MemoryMap} from "../bridge/memory_layout";
 import {emitBridgeVersionIconLua} from "./bridgeVersionIcon";
+import {replaceLuaBlock} from "../src/utils/utils";
 
 const BRIDGE_LUA_PATH = path.resolve(__dirname, "../bridge/bridge.lua");
+const PLAYROUTINE_SHARED_LUA_PATH = path.resolve(__dirname, "../bridge/playroutine_shared.inc.lua");
 const OUTPUT_GENERATED_BRIDGE_LUA_PATH = path.resolve(__dirname, "../temp/bridge-generated.lua");
 const OUTPUT_TIC_PATH = path.resolve(__dirname, "../public", getBridgeCartFilename(BUILD_INFO));
 
@@ -185,30 +187,13 @@ export function buildBridge(): void {
    const config = loadBridgeConfig();
    const autogen = generateLuaAutogenBlock(config);
 
+   const sharedSfxTick = fs.readFileSync(PLAYROUTINE_SHARED_LUA_PATH, "utf8");
+
    const luaTemplate = fs.readFileSync(BRIDGE_LUA_PATH, "utf8");
    console.log(`[build-bridge] Lua template: ${luaTemplate.length} bytes`);
 
-   const markerStart = "BRIDGE_AUTOGEN_START";
-   const markerEnd = "BRIDGE_AUTOGEN_END";
-   const startIdx = luaTemplate.indexOf(markerStart);
-   const endIdx = luaTemplate.indexOf(markerEnd);
-   if (startIdx === -1 || endIdx === -1 || endIdx <= startIdx) {
-      throw new Error("BRIDGE_AUTOGEN_START/END markers not found or malformed in bridge.lua");
-   }
-
-   // We want to preserve the full lines that contain the markers, including
-   // the leading "-- ", and replace only the content *between* them.
-   const startLineEndIdx = luaTemplate.indexOf("\n", startIdx);
-   const before = startLineEndIdx === -1 ? luaTemplate : luaTemplate.slice(0, startLineEndIdx + 1);
-
-   let endLineStartIdx = luaTemplate.lastIndexOf("\n", endIdx);
-   if (endLineStartIdx === -1)
-      endLineStartIdx = 0;
-   else
-      endLineStartIdx += 1;
-   const after = luaTemplate.slice(endLineStartIdx);
-
-   const luaSource = `${before}\n\n${autogen}\n\n${after}`;
+   let luaSource = replaceLuaBlock(luaTemplate, "-- BRIDGE_AUTOGEN_START", "-- BRIDGE_AUTOGEN_END", autogen);
+   luaSource = replaceLuaBlock(luaSource, "-- SOMATIC_SHARED_SFX_START", "-- SOMATIC_SHARED_SFX_END", sharedSfxTick);
    console.log(`[build-bridge] Lua source (with autogen): ${luaSource.length} bytes`);
 
    // write out the generated Lua for inspection

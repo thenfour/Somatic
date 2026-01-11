@@ -587,6 +587,12 @@ do
 		return noteNibble, inst
 	end
 
+	-- SOMATIC_SHARED_SFX_START
+
+	-- injected at build time.
+
+	-- SOMATIC_SHARED_SFX_END
+
 	local function getColumnIndex(songPosition0b, ch)
 		return SOMATIC_MUSIC_DATA.songOrder[songPosition0b * 4 + ch + 1]
 	end
