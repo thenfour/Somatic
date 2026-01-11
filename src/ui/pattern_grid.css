@@ -509,6 +509,8 @@
 .pattern-grid-container {
     --pattern-grid-sticky-top: 0px;
     flex-grow: 1;
+    /* needed to display the edit mode border!*/
+    padding: 3px;
     padding-bottom: 20vh;
     position: relative;
     overflow: auto;

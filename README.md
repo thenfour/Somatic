@@ -19,10 +19,12 @@ Live @ https://somatic.tenfourmusic.net
   * wavefolding shaper
   * Hard sync
   * LFO & envelope modulation
+  * Sample import & slicing
 * Tracker ergonomics
   * show carried-over effect status at end of pattern
   * show usage of patterns / instruments
   * highlighting current instrument
+  * Pattern thumbnails shown on the song order to get a complete "minimap" of the song, with highlighting of the current instrument.
   * warnings on pattern editor
   * allow highlight color for specific instruments
   * allow naming patterns, instruments
@@ -49,6 +51,7 @@ Live @ https://somatic.tenfourmusic.net
   * Live insights about the size of the song (size of resulting code, playroutine, song data, cart size...)
 * Extras
   * Tools for encoding/decoding base64, hex-encoded, base85 and LZ-compressed Lua strings.
+  * a built-in Lua minifier
 
 ## Somatic pattern commands
 
@@ -160,3 +163,65 @@ TIC-80 does patterns)
     - Waveform and sfx are placed directly in the standard WAVEFORM and SFX memory locations
     - song order ("frames") & pattern data get stuffed in the large graphics memory area so the playroutine can blit from it.
   - For exported carts, we do similar for waveform & sfx, however Pattern & frame data get exported an Lua strings, encoded & compressed.
+
+## screenshot gallery (WIP)
+
+### the app
+
+![Somatic app](.attachments/image-1.png)
+
+### pattern editor
+
+![pattern editor](.attachments/image-2.png)
+
+* Set pattern names
+* See if this pattern is used in the song (& how many times)
+* Mute/Solo controls
+* Columns: Note, instrument, effect, param XY, somatic command, somatic param
+* Current instrument is highlighted with an orange box
+* Instruments can be configured to display with different colors (18 and 07 are blue for drums)
+* Effect carry-over is displayed at the bottom of the pattern
+* shows other useful tech data; in this case some waveform rendering info is displayed
+
+![pattern editor - warnings](.attachments/image-3.png)
+
+* Box-selection and block operations
+* Warnings are shown when tech conflicts are detected
+
+### pattern advanced edit panel
+
+![pattern advanced edit panel](.attachments/image-4.png)
+
+* Select where thes block ops will be applied (you can make whole-song adjustments here)
+* You can also choose to apply edits to a single instrument.
+* Sync button sets the value to the current instrument
+* Transpose notes by octave or semitone
+* Interpolate notes (select a region, this will fill in all notes between with a ramp)
+* Clear note column
+* Set to instrument
+* increment / decrement instrument
+* Clear instrument column
+* Clear effect column or Somatic FX column
+* Clear or interpolate the effect param columns (X only, Y only, or XY together)
+
+### waveform editor
+
+![waveform editor](.attachments/image-5.png)
+
+
+### SFX (Instrument) editor
+
+
+
+### arrangement editor ("song order" / "frames"...)
+
+![arrangement editor](.attachments/image-6.png)
+
+### instruments mgmt panel
+
+![instruments mgmt panel](.attachments/image-7.png)
+
+### export cart / song stats
+
+![Song stats](.attachments/image-8.png)
+

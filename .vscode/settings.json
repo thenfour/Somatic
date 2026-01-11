@@ -1,3 +1,6 @@
 {
-    "stylua.targetReleaseVersion": "latest"
+    "stylua.targetReleaseVersion": "latest",
+    "markdown.copyFiles.destination": {
+        "**/*.md": ".attachments/"
+    }
 }
