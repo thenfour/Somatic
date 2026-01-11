@@ -12,6 +12,7 @@ import { Button } from './Buttons/PushButton';
 import { CheckboxButton } from './Buttons/CheckboxButton';
 import { IntegerUpDown } from './basic/NumericUpDown';
 import { Dropdown } from './basic/Dropdown';
+import { GlobalActions } from '../keyb/ActionIds';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const clipboard = useClipboard();
@@ -77,6 +78,7 @@ end
             title="Debug Panel"
             className="debug-panel"
             onClose={onClose}
+            closeActionId={GlobalActions.ToggleDebugPanel}
         >
             <div className="debug-panel-content">
                 <div className="debug-panel-options">

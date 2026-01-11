@@ -112,30 +112,30 @@ export const TransportControls: React.FC<TransportControlsProps> = ({ bridgeRead
 
     return <div className={`menu-transport ${bridgeReady ? 'menu-transport--ready' : 'menu-transport--not-ready'}`}>
         <ButtonGroup>
-            <Tooltip title={mgr.getActionBindingLabel("Panic")}>
+            <Tooltip title={`Stop all sound ${mgr.getActionBindingLabelAsTooltipSuffix("Panic")}`}>
                 <Button className={undefined/*'active'*/} onClick={onPanic}>
                     <span className="icon">⏹</span>
                     <span className="caption">Stop</span>
                 </Button>
             </Tooltip>
-            <Tooltip title={mgr.getActionBindingLabel("PlaySong")}>
-                <Button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll} title={mgr.getActionBindingLabel("PlaySong")}>
+            <Tooltip title={`Play song ${mgr.getActionBindingLabelAsTooltipSuffix("PlaySong")}`}>
+                <Button className={undefined/*transportState === 'play-all' ? 'active' : undefined*/} onClick={onPlayAll}>
                     <span className="icon" aria-hidden="true">
                         {CharMap.RightTriangle}
                     </span>
                     Song
                 </Button>
             </Tooltip>
-            <Tooltip title={mgr.getActionBindingLabel("PlayPattern")}>
-                <Button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern} title={mgr.getActionBindingLabel("PlayPattern")}>
+            <Tooltip title={`Play pattern ${mgr.getActionBindingLabelAsTooltipSuffix("PlayPattern")}`}>
+                <Button className={undefined/*transportState === 'play-pattern' ? 'active' : undefined*/} onClick={onPlayPattern}>
                     <span className="icon" aria-hidden="true">
                         {CharMap.RightTriangleOutlined}
                     </span>
                     Pat
                 </Button>
             </Tooltip>
-            <Tooltip title={mgr.getActionBindingLabel("PlayFromPosition")}>
-                <Button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition} title={mgr.getActionBindingLabel("PlayFromPosition")}>
+            <Tooltip title={`Play from position ${mgr.getActionBindingLabelAsTooltipSuffix("PlayFromPosition")}`}>
+                <Button className={undefined/*transportState === 'play-from-position' ? 'active' : undefined*/} onClick={onPlayFromPosition}>
                     <span className="icon" aria-hidden="true">
                         {CharMap.RightTriangleOutlined}
                     </span>

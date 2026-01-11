@@ -12,6 +12,7 @@ import { ButtonGroup } from "./Buttons/ButtonGroup";
 import { Button } from "./Buttons/PushButton";
 import { InstrumentChip } from "./InstrumentChip";
 import "./InstrumentsPanel.css";
+import { GlobalActions } from "../keyb/ActionIds";
 
 export type InstrumentsPanelProps = {
     song: Song;
@@ -224,6 +225,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
             className="instruments-panel"
             title="Instruments"
             onClose={onClose}
+            closeActionId={GlobalActions.ToggleInstrumentsPanel}
         >
             <div className="instruments-panel__inner">
                 <div className="instruments-panel__content">

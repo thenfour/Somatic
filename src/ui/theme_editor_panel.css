@@ -1,14 +1,3 @@
-/* Theme Editor Panel Component Styles */
-
-.app-panel.theme-panel {
-    margin: 8px;
-    gap: 12px;
-    display: flex;
-    flex-direction: column;
-    /* undo the "lot of padding at the bottom for comfort" effect, because we have internal scroller */
-    padding-bottom: 24px;
-}
-
 .theme-panel__palette {
     display: flex;
 }

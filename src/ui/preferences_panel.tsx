@@ -5,6 +5,7 @@ import { AppPanelShell } from './AppPanelShell';
 import { Button } from './Buttons/PushButton';
 import { ButtonGroup } from './Buttons/ButtonGroup';
 import { CheckboxButton } from './Buttons/CheckboxButton';
+import { GlobalActions } from '../keyb/ActionIds';
 
 interface MidiDeviceChipProps {
     device: MidiDevice;
@@ -57,6 +58,7 @@ export const PreferencesPanel: React.FC<PreferencesPanelProps> = ({ midiStatus, 
     <AppPanelShell
         className="preferences-panel"
         onClose={onClose}
+        closeActionId={GlobalActions.TogglePreferencesPanel}
         role="dialog"
         ariaLabel="Preferences"
         title="Preferences"

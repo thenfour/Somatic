@@ -1,4 +1,5 @@
 import { AudioController } from "../audio/controller";
+import { GlobalActions } from "../keyb/ActionIds";
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
 import { AppPanelShell } from "./AppPanelShell"
@@ -18,6 +19,7 @@ export const SongSettingsPanel: React.FC<SongSettingsPanelProps> = ({ song, edit
     return <AppPanelShell
         title="Song Settings"
         onClose={onClose}
+        closeActionId={GlobalActions.ToggleSongSettingsPanel}
     >
         <SongEditor
             song={song}

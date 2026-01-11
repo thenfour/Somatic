@@ -25,6 +25,7 @@ import './instrument_editor.css';
 import { WaveformSelect } from './waveformEditor';
 import { WaveformSwatch } from './waveformSwatch';
 import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
+import { GlobalActions } from '../keyb/ActionIds';
 
 const PWMDutyConfig: ContinuousParamConfig = {
     resolutionSteps: 32,
@@ -757,6 +758,8 @@ show render slot if there are k-rate effects enabled
         <AppPanelShell
             className="instrument-panel"
             onClose={onClose}
+            closeActionId={GlobalActions.ToggleInstrumentPanel}
+            titleString="Instrument Editor"
             title={<>
                 Instrument
                 <Tooltip title="This instrument uses effects processing that will render at 60Hz" disabled={!instrument.isKRateProcessing()}>

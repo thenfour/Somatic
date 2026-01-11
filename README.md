@@ -11,6 +11,7 @@ Live @ https://somatic.tenfourmusic.net
 * ability to import music from existing tic carts
 * Guaranteed sound accuracy because it uses a real TIC-80 as the sound engine.
 * supports long songs (255 frames)
+* Saves your current workspace locally so you always start where you left off.
 * Dynamic instrument waveform rendering (tick-based "K-rate" rendering)
   * PWM synthesis
   * Lowpass filter automation
@@ -46,6 +47,8 @@ Live @ https://somatic.tenfourmusic.net
   * Show unused waveforms, sfx, and patterns don't become part of the exported cart.
   * Show compression journey: pattern data is bloaty and gets optimized and compressed
   * Live insights about the size of the song (size of resulting code, playroutine, song data, cart size...)
+* Extras
+  * Tools for encoding/decoding base64, hex-encoded, base85 and LZ-compressed Lua strings.
 
 ## Somatic pattern commands
 

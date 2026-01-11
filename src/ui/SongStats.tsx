@@ -19,6 +19,7 @@ import { Button } from "./Buttons/PushButton";
 import { MemoryMapTextSummary, MemoryMapVis } from "./MemoryMapVis";
 import { ButtonGroup } from "./Buttons/ButtonGroup";
 import { CheckboxButton } from "./Buttons/CheckboxButton";
+import { GlobalActions } from "../keyb/ActionIds";
 
 type ChunkInfo = {
     name: string; //
@@ -386,6 +387,7 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
             className="song-stats-panel"
             title="Song Stats"
             onClose={onClose}
+            closeActionId={GlobalActions.ToggleCartStatsPanel}
             actions={(
                 <>
                     <Button onClick={handleCopyGeneratedCode} disabled={!input}>Copy generated code</Button>

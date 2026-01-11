@@ -9,6 +9,7 @@ import { base85Plus1Decode, base85Plus1Encode, gSomaticLZDefaultConfig, lzCompre
 import { CharMap, err, getBufferFingerprint, ok, Result, toLuaStringLiteral } from "../utils/utils";
 import { decodeRawString } from "../utils/lua/lua_utils";
 import { KeyValueTable } from "./basic/KeyValueTable";
+import { GlobalActions } from "../keyb/ActionIds";
 
 /*
 
@@ -364,7 +365,12 @@ export const EncodingUtilsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
 
     const barMax = Math.max(inputText.length, outputText.length, payloadByteSize);
 
-    return <AppPanelShell title="Encoding Utilities" className="encoding-utils-panel" onClose={onClose}>
+    return <AppPanelShell
+        title="Encoding Utilities"
+        className="encoding-utils-panel"
+        onClose={onClose}
+        closeActionId={GlobalActions.ToggleEncodingUtilsPanel}
+    >
         <div className="encoding-utils-panel__content">
             <ButtonGroup>
                 <RadioButton selected={inputFormat === "u8"} onClick={() => setInputFormat("u8")}>U8</RadioButton>

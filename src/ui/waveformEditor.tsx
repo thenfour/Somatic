@@ -15,6 +15,7 @@ import { ButtonGroup } from "./Buttons/ButtonGroup";
 import { IconButton } from "./Buttons/IconButton";
 import { mdiContentCopy, mdiContentPaste } from "@mdi/js";
 import { Tooltip } from "./basic/tooltip";
+import { GlobalActions } from "../keyb/ActionIds";
 
 export const WaveformSelect: React.FC<{
     song: Song;
@@ -279,6 +280,7 @@ export const WaveformEditorPanel: React.FC<{
             className="waveform-editor-panel"
             title="Waveform Editor"
             onClose={onClose}
+            closeActionId={GlobalActions.ToggleWaveformEditor}
         >
             <WaveformSelect
                 onClickWaveform={setEditingWaveformId}

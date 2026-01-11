@@ -775,8 +775,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                             </DesktopMenu.Item>
                                         </DesktopMenu.SubContent>
                                     </DesktopMenu.Sub>
-                                    <DesktopMenu.Divider />
-                                    <DesktopMenu.Item onSelect={() => { void optimizeSong(); }}>Optimize Song...</DesktopMenu.Item>
                                 </DesktopMenu.Content>
                             </DesktopMenu.Root>
                             <DesktopMenu.Root>
@@ -804,6 +802,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                             return entry ? `Redo ${entry.description}` : 'Redo';
                                         })()}
                                     </DesktopMenu.Item>
+                                    <DesktopMenu.Divider />
+                                    <DesktopMenu.Item onSelect={() => { void optimizeSong(); }}>Optimize Song...</DesktopMenu.Item>
                                     <DesktopMenu.Divider />
                                     <DesktopMenu.Item
                                         checked={editorState.editingEnabled}
@@ -880,7 +880,14 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         onSelect={() => setSongStatsPanelOpen(open => !open)}
                                         shortcut={mgr.getActionBindingLabel("ToggleCartStatsPanel")}
                                     >
-                                        Export cartridge info
+                                        Export cartridge metrics
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={encodingUtilsPanelOpen}
+                                        onSelect={() => setEncodingUtilsPanelOpen(open => !open)}
+                                        shortcut={mgr.getActionBindingLabel("ToggleEncodingUtilsPanel")}
+                                    >
+                                        Encoding Utilities
                                     </DesktopMenu.Item>
                                     {debugMode && <DesktopMenu.Divider />
                                     }

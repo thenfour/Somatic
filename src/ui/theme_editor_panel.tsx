@@ -190,7 +190,8 @@ export const ThemeEditorPanel: React.FC<{ onClose: () => void }> = ({ onClose })
                 </>
             )}
             headerExtra={<>
-                <p>Drag a palette swatch onto a variable to assign it. Export copies current vars.</p>
+                <div>Drag a palette swatch onto a variable to assign it. Export copies current vars.
+                    NOTE: this is a dev tool; changes to the theme are not saved between sessions</div>
                 <div className="theme-panel__palette" aria-label="TIC-80 palette">
                     {PALETTE_KEYS.map((key, i) => (
                         <PaletteSwatch
