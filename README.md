@@ -8,6 +8,7 @@ Live @ https://somatic.tenfourmusic.net
 
 * MIDI device support
 * export as `.tic` cartridge
+* ability to import music from existing tic carts
 * Guaranteed sound accuracy because it uses a real TIC-80 as the sound engine.
 * supports long songs (255 frames)
 * Dynamic instrument waveform rendering (tick-based "K-rate" rendering)
