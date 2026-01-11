@@ -3,10 +3,12 @@
 -- and builds bridge.tic from the generated source automatically.
 
 -- BRIDGE_AUTOGEN_START
-
 -- injected at build time.
-
 -- BRIDGE_AUTOGEN_END
+
+-- BEGIN_SOMATIC_PLAYROUTINE_SHARED
+-- injected at build time.
+-- END_SOMATIC_PLAYROUTINE_SHARED
 
 -- Derived constants from BRIDGE_CONFIG (Lua view bridge_config.ts)
 local ADDR = {
@@ -192,14 +194,6 @@ local lastCmd = 0
 local lastCmdResult = 0
 local host_last_seq = 0
 
--- Per channel, track which SFX is currently playing and how long it has been held (in 60Hz ticks)
--- This is manual state; TIC-80 does not expose this per-channel for SFX (in a stable way)
-local SFX_CHANNELS = 4
-local ch_sfx_id = { -1, -1, -1, -1 } -- 0-based channel -> sfx id (or -1)
-local ch_sfx_ticks = { 0, 0, 0, 0 } -- 0-based channel -> duration since note-on (ticks)
-local ch_effect_strength_scale_u8 = { 255, 255, 255, 255 } -- per channel (0..3)
-local ch_lowpass_strength_scale_u8 = { 255, 255, 255, 255 } -- per channel (0..3)
-
 local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
 
 -- SOMATIC_SFX_CONFIG lives below the MARKER region; fail fast if layout or payload is inconsistent.
@@ -209,24 +203,6 @@ local pattern_extra_cache = {}
 local morph_nodes_cache = {}
 local sfx_cfg_cache = {}
 local MORPH_GRADIENT_BASE = MORPH_MAP_BASE
-
-local function clamp01(x)
-	if x < 0 then
-		return 0
-	elseif x > 1 then
-		return 1
-	end
-	return x
-end
-
-local function clamp_nibble_round(v)
-	if v < 0 then
-		v = 0
-	elseif v > 15 then
-		v = 15
-	end
-	return math.floor(v + 0.5)
-end
 
 local function lerp(a, b, t)
 	return a + (b - a) * t
@@ -307,21 +283,7 @@ local function u8_to_s8(b)
 	return b
 end
 
-local MOD_SRC_ENVELOPE = 0
-local MOD_SRC_LFO = 1
-local MOD_SRC_NONE = 2
-
-local WAVE_ENGINE_MORPH = 0
-local WAVE_ENGINE_NATIVE = 1
-local WAVE_ENGINE_PWM = 2
-
-local EFFECT_KIND_NONE = 0
-local EFFECT_KIND_WAVEFOLD = 1
-local EFFECT_KIND_HARDSYNC = 2
-
 local WAVE_BASE = BRIDGE_CONFIG.memory.WAVEFORMS_ADDR
-local WAVE_BYTES_PER_WAVE = 16 -- 32x 4-bit samples packed 2-per-byte
-local WAVE_SAMPLES_PER_WAVE = 32
 
 local function read_sfx_cfg(instrumentId)
 	if instrumentId == nil then
@@ -562,28 +524,6 @@ local function cfg_is_k_rate_processing(cfg)
 	return false
 end
 
-local render_src_a = {}
-local render_src_b = {}
-local render_out = {}
-local lfo_ticks_by_sfx = {}
-
-local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)
-	if modSource == MOD_SRC_LFO then
-		local cycle = lfoCycleTicks or 0
-		if cycle <= 0 then
-			return 0
-		end
-		local phase01 = (lfoTicks % cycle) / cycle
-		-- Map sine to 0..1, starting at 0 when phase01=0.
-		return (1 - math.cos(phase01 * math.pi * 2)) * 0.5
-	end
-
-	if durationTicks == nil or durationTicks <= 0 then
-		return fallbackT or 0
-	end
-	return clamp01(ticksPlayed / durationTicks)
-end
-
 local function render_waveform_morph(cfg, ticksPlayed, outSamples)
 	local nodes = cfg.morphGradientNodes
 	local n = #nodes
@@ -811,17 +751,6 @@ end
 -- This reads the current track frame -> pattern IDs, then reads the pattern row triplets.
 local TRACKS_BASE = BRIDGE_CONFIG.memory.TRACKS_ADDR
 local PATTERNS_BASE = BRIDGE_CONFIG.memory.PATTERNS_ADDR
-local TRACK_BYTES_PER_TRACK = 51
-local PATTERN_BYTES_PER_PATTERN = 192
-local ROW_BYTES = 3
-
-local last_music_track = -2
-local last_music_frame = -1
-local last_music_row = -1
-
--- BEGIN_SOMATIC_PLAYROUTINE_SHARED
-
--- END_SOMATIC_PLAYROUTINE_SHARED
 
 local function apply_music_row_to_sfx_state(track, frame, row)
 	-- Only process once per new (track,frame,row) combination.
@@ -1095,90 +1024,6 @@ local function getSongOrderCount()
 	return peek(ADDR.TF_ORDER_LIST_COUNT)
 end
 
--- Read unsigned LEB128 varint from memory.
--- base:   start address of encoded stream
--- si:     current offset (0-based) into the stream
--- srcLen: total length of the encoded stream (in bytes)
--- Returns: value, next_si
-local function read_varint_mem(base, si, srcLen)
-	local x = 0
-	local factor = 1
-
-	while true do
-		if si >= srcLen then
-			-- Truncated varint; in your use-case this should never happen.
-			return 0, si
-		end
-
-		local b = peek(base + si)
-		si = si + 1
-
-		local low7 = b % 0x80 -- b & 0x7f
-		x = x + low7 * factor
-		factor = factor * 0x80 -- *= 128
-
-		if b < 0x80 then
-			break
-		end
-	end
-
-	return x, si
-end
-
--- Decompress from [src .. src+srcLen-1] into [dst ..).
--- Returns number of decompressed bytes written.
-function lzdec_mem(src, srcLen, dst)
-	local si = 0 -- source offset (0..srcLen-1)
-	local di = 0 -- dest offset   (bytes written)
-
-	while si < srcLen do
-		local tag = peek(src + si)
-		si = si + 1
-
-		if tag == 0x00 then
-			-- Literal run: 00 <varint len> <len bytes>
-			local len
-			len, si = read_varint_mem(src, si, srcLen)
-
-			for j = 1, len do
-				local b = peek(src + si)
-				si = si + 1
-				poke(dst + di, b)
-				di = di + 1
-			end
-		elseif tag == 0x80 then
-			-- LZ match: 80 <varint len> <varint dist>
-			local len, dist
-			len, si = read_varint_mem(src, si, srcLen)
-			dist, si = read_varint_mem(src, si, srcLen)
-
-			-- Overlapping copy (LZ-style)
-			for j = 1, len do
-				local b = peek(dst + di - dist)
-				poke(dst + di, b)
-				di = di + 1
-			end
-		elseif tag == 0x81 then
-			-- RLE: 81 <varint len> <byte value>
-			-- we shouldn't need this.
-			local len
-			len, si = read_varint_mem(src, si, srcLen)
-			local v = peek(src + si)
-			si = si + 1
-
-			for j = 1, len do
-				poke(dst + di, v)
-				di = di + 1
-			end
-		else
-			-- error(string.format("unknown LZ tag 0x%02x at src+%d", tag, si-1))
-			break
-		end
-	end
-
-	return di
-end
-
 -- Computes a simple checksum and first-bytes hex preview for a memory region.
 -- addr:      start address in memory
 -- total_len: number of bytes to include in the checksum
@@ -1235,7 +1080,7 @@ local function blitPattern(patternIndex0b, destPointer)
 	readPos = readPos + 2 -- skip past length header
 
 	-- Decompress directly into destination buffer
-	local decompressedSize = lzdec_mem(readPos, patternSize, destPointer)
+	local decompressedSize = lzdm(readPos, patternSize, destPointer)
 
 	-- -- check payload.
 	-- log("pattern " .. tostring(patternIndex0b) .. " blitted")

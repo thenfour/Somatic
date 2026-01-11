@@ -21,31 +21,18 @@ end
 -- (begin somatic playroutine code)
 do
 	-- BEGIN_SOMATIC_MUSIC_DATA
-
 	-- injected at build time.
-
 	-- END_SOMATIC_MUSIC_DATA
 
 	-- PLAYROUTINE_AUTOGEN_START
-
 	-- injected at build time.
-
 	-- PLAYROUTINE_AUTOGEN_END
 
-	local MOD_SRC_ENVELOPE = 0
-	local MOD_SRC_LFO = 1
-	local MOD_SRC_NONE = 2
-
-	local WAVE_ENGINE_MORPH = 0
-	local WAVE_ENGINE_NATIVE = 1
-	local WAVE_ENGINE_PWM = 2
-
-	local EFFECT_KIND_NONE = 0
-	local EFFECT_KIND_WAVEFOLD = 1
-	local EFFECT_KIND_HARDSYNC = 2
+	-- BEGIN_SOMATIC_PLAYROUTINE_SHARED
+	-- injected at build time.
+	-- END_SOMATIC_PLAYROUTINE_SHARED
 
 	-- =========================
-	-- general playroutine support
 	local musicInitialized = false
 	local currentSongOrder = 0
 	local playingSongOrder0b = 0
@@ -57,164 +44,8 @@ do
 	local bufferBLocation = __AUTOGEN_BUF_PTR_B -- pattern 50
 
 	-- Wave morphing
-	local SFX_CHANNELS = 4
-	local ch_sfx_id = { -1, -1, -1, -1 }
-	local ch_sfx_ticks = { 0, 0, 0, 0 }
-	local ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
-	local ch_lowpass_strength_scale_u8 = { 255, 255, 255, 255 }
-	local last_music_track = -2
-	local last_music_frame = -1
-	local last_music_row = -1
-
 	local morphMap = {}
 	local patternExtra = {}
-
-	local WAVE_BYTES_PER_WAVE = 16
-	local WAVE_SAMPLES_PER_WAVE = 32
-	local TRACK_BYTES_PER_TRACK = 51
-	local PATTERN_BYTES_PER_PATTERN = 192
-	local ROW_BYTES = 3
-
-	local function clamp(x, minVal, maxVal)
-		return math.min(math.max(x, minVal), maxVal)
-	end
-
-	-- local function clamp(x, minVal, maxVal)
-	-- 	if x < minVal then
-	-- 		return minVal
-	-- 	elseif x > maxVal then
-	-- 		return maxVal
-	-- 	end
-	-- 	return x
-	-- end
-
-	local function clamp01(x)
-		return clamp(x, 0, 1)
-	end
-
-	local function clamp_nibble_round(v)
-		return math.floor(clamp(v, 0, 15) + 0.5)
-	end
-
-	-- base85 decode (ASCII85-style) for TIC-80 Lua
-	-- Decodes 's' into memory starting at 'dst', writing exactly expectedLen bytes.
-	-- Returns the number of bytes written (should equal expectedLen or error).
-
-	-- BTW, justification for using this instead of typical tonumber() method:
-	-- ASCII85 is 1.25 chars per byte
-	-- HEX is 2 chars per byte
-	-- the ascii85 lua decoder is about 600 bytes.
-	-- so in lua,
-	-- ascii85's payload is 600 + (1.25 * N) bytes
-	-- hex's payload is 2 * N bytes, and probably some tiny amount of decoder like 30 bytes.
-	-- the break-even point is @
-	--      let d85 = ascii85 decoder size 600 bytes
-	--      let d16 = hex decoder size / 30 bytes
-	--      d85 + 1.25 * N < d16 + 2 * N
-	--      2 N - 1.25 N > d85 - d16
-	--      0.75 N > d85 - d16
-	-- 	    N > (d85 - d16) / 0.75
-	-- -> Break-even point = (ascii85 decoder size - hex decoder size) / 0.75
-	-- -> (600 - 30) / 0.75 = 760 bytes
-	-- So for patterns larger than that, ascii85 is more size-efficient.
-
-	local function base85Plus1Decode(s, d)
-		local miss = s:byte(1) - 33
-		s = s:sub(2)
-		local n = (#s // 5) * 4 - miss
-		local i = 1
-		for o = 0, n - 1, 4 do
-			local v = 0
-			for j = i, i + 4 do
-				v = v * 85 + s:byte(j) - 33
-			end
-			i = i + 5
-			for k = 3, 0, -1 do
-				if o + k < n then
-					poke(d + o + k, v % 256)
-				end
-				v = v // 256
-			end
-		end
-		return n
-	end
-
-	-- Read unsigned LEB128 varint from memory.
-	-- base:   start address of encoded stream
-	-- si:     current offset (0-based) into the stream
-	-- srcLen: total length of the encoded stream (in bytes)
-	-- Returns: value, next_si
-	local function varint(base, si, srcLen)
-		local x, f = 0, 1
-		while true do
-			local b = peek(base + si)
-			si = si + 1
-			x = x + (b % 0x80) * f
-			if b < 0x80 then
-				return x, si
-			end
-			f = f * 0x80
-		end
-	end
-
-	-- LZ-Decompress from [src .. src+srcLen-1] into [dst ..).
-	-- Returns number of decompressed bytes written.
-	local function lzdm(src, srcLen, dst)
-		local si, di = 0, 0
-		while si < srcLen do
-			local t = peek(src + si)
-			si = si + 1
-			if t == 0 then
-				local l
-				l, si = varint(src, si, srcLen)
-				for j = 1, l do
-					poke(dst + di, peek(src + si))
-					si = si + 1
-					di = di + 1
-				end
-			else
-				local l, d
-				l, si = varint(src, si, srcLen)
-				d, si = varint(src, si, srcLen)
-				for j = 1, l do
-					poke(dst + di, peek(dst + di - d))
-					di = di + 1
-				end
-			end
-		end
-		return di
-	end
-
-	-- decodes a b85+1 string, then LZ-decompresses it into dst.
-	-- uses __AUTOGEN_TEMP_PTR_A as temp storage
-	-- returns number of bytes written to dst.
-	local function b85Plus1LZDecodeToMem(s, dst)
-		-- BEGIN_DEBUG_ONLY
-		-- assert that dst is not overlapping
-		if dst >= __AUTOGEN_TEMP_PTR_A and dst < (__AUTOGEN_TEMP_PTR_A + 256) then -- reasonable temp buffer size
-			error("b85Plus1LZDecodeToMem: dst overlaps with temp buffer")
-		end
-		-- END_DEBUG_ONLY
-		return lzdm(__AUTOGEN_TEMP_PTR_A, base85Plus1Decode(s, __AUTOGEN_TEMP_PTR_A), dst)
-	end
-
-	local function apply_curveN11(t, curveS6)
-		if t <= 0 then
-			return 0
-		end
-		if t >= 1 then
-			return 1
-		end
-
-		local k = curveS6 / 31 -- curveS6 is signed 6-bit (-32..31)
-		k = clamp(k, -1, 1)
-		if k == 0 then
-			return t
-		end
-
-		local e = 2 ^ (4 * math.abs(k))
-		return (k > 0) and (t ^ e) or (1 - (1 - t) ^ e)
-	end
 
 	local function wave_read_samples(waveIndex, outSamples)
 		local r = _bp_make_reader(WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE)
@@ -232,6 +63,19 @@ do
 			poke(base + i, (s1 << 4) | s0)
 			si = si + 2
 		end
+	end
+
+	-- decodes a b85+1 string, then LZ-decompresses it into dst.
+	-- uses __AUTOGEN_TEMP_PTR_A as temp storage
+	-- returns number of bytes written to dst.
+	local function b85Plus1LZDecodeToMem(s, dst)
+		-- BEGIN_DEBUG_ONLY
+		-- assert that dst is not overlapping
+		if dst >= __AUTOGEN_TEMP_PTR_A and dst < (__AUTOGEN_TEMP_PTR_A + 256) then -- reasonable temp buffer size
+			error("b85Plus1LZDecodeToMem: dst overlaps with temp buffer")
+		end
+		-- END_DEBUG_ONLY
+		return lzdm(__AUTOGEN_TEMP_PTR_A, base85Plus1Decode(s, __AUTOGEN_TEMP_PTR_A), dst)
 	end
 
 	-- BEGIN_FEATURE_LOWPASS
@@ -320,31 +164,9 @@ do
 	end
 	-- END_FEATURE_HARDSYNC
 
-	local render_src_a = {}
-	local render_src_b = {}
-	local render_out = {}
-	local lfo_ticks_by_sfx = {}
 	local morphIds = {}
 	local morph_nodes_cache = {}
 	local MORPH_GRADIENT_BASE = __AUTOGEN_TEMP_PTR_B
-
-	local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)
-		-- BEGIN_FEATURE_LFO
-		if modSource == MOD_SRC_LFO then
-			local cycle = lfoCycleTicks
-			if cycle <= 0 then
-				return 0
-			end
-			local phase01 = (lfoTicks % cycle) / cycle
-			return (1 - math.cos(phase01 * math.pi * 2)) * 0.5
-		end
-		-- END_FEATURE_LFO
-
-		if durationTicks == nil or durationTicks <= 0 then
-			return fallbackT
-		end
-		return clamp01(ticksPlayed / durationTicks)
-	end
 
 	local function cfg_is_k_rate_processing(cfg)
 		if not cfg then
@@ -587,9 +409,6 @@ do
 			render_tick_cfg(cfg, instId, 0, lt, scaleU8, lpScaleU8)
 		end
 	end
-
-	-- BEGIN_SOMATIC_PLAYROUTINE_SHARED
-	-- END_SOMATIC_PLAYROUTINE_SHARED
 
 	local function getColumnIndex(songPosition0b, ch)
 		return SOMATIC_MUSIC_DATA.songOrder[songPosition0b * 4 + ch + 1]
