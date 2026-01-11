@@ -1,174 +1,158 @@
 # Somatic: A music tracker for the TIC-80
 
-The main idea of Somatic tracker is that a real tic80 is used as the sound engine,
-but the tracker interface is a web-based SPA with more ... ergonomics.
+## try it
 
-It also augments the built-in `music()` player with new features.
+Live @ https://somatic.tenfourmusic.net
 
-features you might find interesting:
+## Main features
 
 * MIDI device support
 * export as `.tic` cartridge
-* augments to the default tic80 music routine
-  * long songs (up to 255 song order)
-  * PWM waveform synthesis
-  * wavetable crossfading over time
-  * lowpass filter automation
+* Guaranteed sound accuracy because it uses a real TIC-80 as the sound engine.
+* supports long songs (255 frames)
+* Dynamic instrument waveform rendering (tick-based "K-rate" rendering)
+  * PWM synthesis
+  * Lowpass filter automation
+  * Waveform crossfading ("gradients")
   * wavefolding shaper
-  * hard sync
-  * lfo modulation
-  * Somatic pattern commands (additional per-pattern effect columns)
-    * **E**: Effect strength scale (00=bypass, FF=max)
-    * **L**: Set LFO phase (00-FF)
-    * **F**: set filter (00-FF, only if LP is enabled on the instrument)
-* tracker goodies
+  * Hard sync
+  * LFO & envelope modulation
+* Tracker ergonomics
   * show carried-over effect status at end of pattern
   * show usage of patterns / instruments
   * highlighting current instrument
   * warnings on pattern editor
-  * allow naming patterns
-  * song order marking
+  * allow highlight color for specific instruments
+  * allow naming patterns, instruments
+  * allow markers for song order
+* Light/dark mode themes
+* Keyboard support
+  * keyboard note input should be more keyboard-layout-agnostic
+  * all keyboard shortcuts can be configurable and saved to localstorage / exported
+  * tooltips over most commands revealing shortcut
+  * almost every command can be configured with a keyboard shortcut
 * transport
   * Mute/Solo per channel
   * looping modes
-* editing features
-  * box selection in song order + operations like duplicate, move selection
+* pattern editing features
   * block operations
   * transpose, instrument, command interpolation
   * Copy/paste supported everywhere
   * arranger editing
   * Undo/redo support
-* waveform manipulation tools like smoothing, normalization, mixing in harmonics
-* instrument editor (sfx) shows the waveform sequence
-* Themes: dark/light supported
-* keyboard note input uses physically bound key shortcuts to be more keyboard layout compatible
-* Guaranteed sound accuracy because it uses a real TIC-80 as the sound engine.
+  * box selection in song order + operations like duplicate, move selection
 * Song optimizations
   * Show unused waveforms, sfx, and patterns don't become part of the exported cart.
   * Show compression journey: pattern data is bloaty and gets optimized and compressed
   * Live insights about the size of the song (size of resulting code, playroutine, song data, cart size...)
 
-# try it
+## Somatic pattern commands
 
-Live @ https://somatic.tenfourmusic.net
+additional per-pattern effect columns
 
-# export procedure
+* **E**: Effect strength scale (00=bypass, FF=max)
+* **L**: Set LFO phase (00-FF)
+* **F**: set filter strength (00-FF, only if LP is enabled on the instrument)
+
+## export procedure / how to use in a demo
 
 To use a Somatic track in your demo,
 
 - export as a cartridge via the file menu
 - your demo can now import the music data from this cart
 - and you can copy/paste the code as the playroutine.
+- NOTE: Even though Somatic has a lot of stuff outside of the built-in music routine, all of its data gets stored in music blocks in the .tic cart, and in the Lua playroutine code.
+- NOTE: Export only supports Lua for the playroutine.
 
 All your demo needs to do is
 
 ```lua
 function TIC()
 	somatic_tick()
-    ...
+  ...
 end
 
 ```
 
-You can get realtime frame and row data from `somatic_get_state()`.
+You can get realtime frame and row data from `somatic_get_state()`. See the default exported
+playroutine to see how it can be used for sync / playback control.
 
 ```lua
 local track, currentFrame, currentRow = somatic_get_state()
 print(string.format("t:%d f:%d r:%d", track, currentFrame, currentRow), 0, 0)
 ```
 
+## motivations / history
 
+This started as a fork of https://reverietracker.github.io/chromatic/. However, Somatic has basically nothing related to the original anymore. Sound engine, UI, pattern, playroutine have all been
+since replaced.
 
-# Limitations
+Somatic has 2 main goals:
 
-- Using the TIC-80 as a sound engine means a bit of lag.
-- using a web app as a sophisticated music production tool has its own limitations too, like awkward keyboard shortcut support.
+1. be an ultra-ergonomic UX. to be "the ultimate tracker UX"
+2. provide reasonably-musical playroutine that augments the built-in TIC-80 music routine.
 
-# motivations / history
-
-This started as a fork of https://reverietracker.github.io/chromatic/
-
-however, Somatic has basically nothing related to the original anymore.
-Reverietracker/Chromatic uses its own custom player in order to:
-
-- allow longer tracks (by default tic80 supports 8 tracks @ 16 frames which is not long)
-- allow procedurally-synthesized instruments
-- play with correct note tuning (though maybe could be hacked via pitch commands?)
-
-I care less about the synthesized instruments, but I do care about song length.
-So a custom playroutine is important still, though i will attempt to keep using
-`music()` for its effect support and simplicity.
-
-In the future, a custom playroutine is probably worth exploring, but code size
-is a tradeoff.
-
-# issues
+## issues / limitations
 
 this was made like, yesterday. it has bugs. file them @ https://github.com/thenfour/Somatic/issues
 
-# How does it work
+Other stuff worth metioning:
+
+* Mobile: Absolutely will not be a good experience on mobile / small screens. This thing works like a 
+  desktop app and wants mouse + keyboard.
+* There are quirks due to using the embedded TIC-80, and the goofy playroutine. Instrument/waveform
+  updates tend to be updated in real-time, but pattern/order changes, or changing looping mode
+  requires stopping / playing again to hear the change.
+
+## How does it work
 
 A TIC-80 lives in an `<iframe>`, and Somatic establishes 2-way communication with it
 through a custom cart called "bridge.tic" (source of bridge is @ `/bridge/bridge.lua`).
 Based on that, Somatic can write to TIC-80 memory, and tell the bridge to do things like play, stop, etc.
 
-It's pretty reliable but not 100% perfect -- it does introduce lag, and it's harder
-to do things like make realtime updates. Could be solved but introduces complexity.
 
-## Why an `<iframe>`?
+
+### Why an `<iframe>`?
 
 because the tic80 will capture input from its whole `document` which conflicts with Somatic. It has to be isolated.
 
-# dev stuff
+## dev stuff
 
 ```
 
 npm install
 npm start
 npm run typecheck
-
+npm run tests
 npm run build
-npx webpack --mode production
 npx serve
 
 
 ```
 
-## changes to bridge.lua or playroutines
+### bridge.lua and playroutine.lua
 
-Used to be manual process: load it in a tic80 instance and save the cart to `/public/bridge.tic`. that's what gets loaded @ runtime.
+The tracker's embedded TIC-80 loads a cart that's built as part of the project build process.
+The `build-bridge` webpack plugin, `bridge.lua`, gets injected with a bunch of stuff (constants 
+from memory map / TIC-80 constants / shared playback Lua routines), and built into a .tic cart.
 
-It's now an automated build process (see the webpack plugin `build-bridge.ts` and `bridge-watch-plugin.ts`).
+`build-bridge` is also run automatically at runtime when relevant files are changed. It's finnicky though.
 
-Bridge.tic depends on `bridge.lua` and `bridge_config.ts`.
+`playroutine.lua` is a template that is used for exporting the song.
 
-* You change `bridge.lua`, and the bridge watcher detects it and builds the `.tic` cart.
-* Or you change `bridge_config.ts` and the same chain happens.
+### Song's journey from UI to TIC80.
 
-`playroutine-*.lua` is also not a raw lua; it's a template that gets preprocessed by the tic80 cart serializer.
+The `Song` in Somatic's editor largely resembles the built-in TIC-80 song format,
+with a bunch of differences (>16 frames supported, various waveform effects, etc)
 
-
-## sanity checks
-
-code is not so well organized in many places; lots of dependencies still cause confusion and unexpected effect loops. check for this before deploying.
-
-## Song's journey from UI to TIC80.
-
-You edit a `Song` in the UI that's mostly related to TIC-80's song format, but not necessarily. There is conversion to turn it into something
-the TIC-80 can play natively.
-
-When it gets passed to the TIC-80, it goes through some stages:
+The playroutine uses the built-in `music()` TIC-80 function, so there's a lot of
+conversion that goes on between Somatic and the exported cartridge.
 
 - **Baking**: your play options (channel muting, looping, selection) change the song that gets played by the TIC-80. For example if you choose to loop a 4-row bit of song, it gets converted to a song with only those 4 rows, looped.
-- **Optimization**: detecting which instruments, waveforms, patterns are unused or duplicates, removing them and sliding them to be together.
+- **Optimization**: detecting which instruments, waveforms, patterns are unused or duplicates, removing them and sliding them to be together. We also break Somatic patterns into 4 individual channels (the way
+TIC-80 does patterns)
 - **Transmission**:
-  - For Somatic tracker's live play, we `POKE` it into the TIC-80's memory in a way that the runtime playroutine can use.
+  - For Somatic tracker's live web play, we `POKE` it into the TIC-80's memory in a way that the runtime playroutine can use.
     - Waveform and sfx are placed directly in the standard WAVEFORM and SFX memory locations
     - song order ("frames") & pattern data get stuffed in the large graphics memory area so the playroutine can blit from it.
   - For exported carts, we do similar for waveform & sfx, however Pattern & frame data get exported an Lua strings, encoded & compressed.
-
-This can get confusing because for example `SongOrderPosition` can mean many things:
-
-- The one order you see in the UI (the top level)
-- the one that the playroutine is reporting as the "somatic play order" in its music state reporting.
-- the one the TIC-80 is reporting which is 0-15.

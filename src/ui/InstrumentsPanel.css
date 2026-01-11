@@ -2,6 +2,10 @@
     width: 220px;
 }
 
+.instruments-panel.app-panel-shell .app-panel-shell__content {
+    padding: 0;
+}
+
 .instruments-panel__inner {
     display: flex;
     flex-direction: column;
