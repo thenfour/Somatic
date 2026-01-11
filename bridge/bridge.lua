@@ -807,44 +807,9 @@ local last_music_track = -2
 local last_music_frame = -1
 local last_music_row = -1
 
-local function decode_track_frame_patterns(trackIndex, frameIndex)
-	if trackIndex == nil or trackIndex < 0 then
-		return 0, 0, 0, 0
-	end
-	local base = TRACKS_BASE + trackIndex * TRACK_BYTES_PER_TRACK + frameIndex * 3
-	local b0 = peek(base)
-	local b1 = peek(base + 1)
-	local b2 = peek(base + 2)
-	local packed = b0 + b1 * 256 + b2 * 65536
-	local p0 = packed & 0x3f
-	local p1 = (packed >> 6) & 0x3f
-	local p2 = (packed >> 12) & 0x3f
-	local p3 = (packed >> 18) & 0x3f
-	return p0, p1, p2, p3
-end
+-- BEGIN_SOMATIC_PLAYROUTINE_SHARED
 
--- Decode a pattern row's 3-byte triplet into note nibble and sfx id.
--- Triplet layout (see pattern_encoding.ts):
---  byte0: high nibble = argX, low nibble = noteNibble
---  byte1: bit7 = instrument bit5, bits4..6 = command, low nibble = argY
---  byte2: bits5..7 = octave, low5 = instrument low5
-local function decode_pattern_row(patternId1b, rowIndex)
-	if patternId1b == nil or patternId1b == 0 then
-		return 0, 0
-	end
-	local pat0b = patternId1b - 1
-	local addr = PATTERNS_BASE + pat0b * PATTERN_BYTES_PER_PATTERN + rowIndex * ROW_BYTES
-	local b0 = peek(addr)
-	local b1 = peek(addr + 1)
-	local b2 = peek(addr + 2)
-	local noteNibble = b0 & 0x0f
-	local inst = (b2 & 0x1f) | (((b1 >> 7) & 0x01) << 5)
-	return noteNibble, inst
-end
-
--- SOMATIC_SHARED_SFX_START
-
--- SOMATIC_SHARED_SFX_END
+-- END_SOMATIC_PLAYROUTINE_SHARED
 
 local function apply_music_row_to_sfx_state(track, frame, row)
 	-- Only process once per new (track,frame,row) combination.

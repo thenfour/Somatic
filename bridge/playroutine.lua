@@ -568,30 +568,8 @@ do
 		render_tick_cfg(cfg, instId, 0, lt, scaleU8)
 	end
 
-	local function decode_track_frame_patterns(trackIndex, frameIndex)
-		local r = _bp_make_reader(TRACKS_BASE + trackIndex * TRACK_BYTES_PER_TRACK + frameIndex * 3)
-		return r.u(6), r.u(6), r.u(6), r.u(6)
-	end
-
-	local function decode_pattern_row(patternId1b, rowIndex)
-		if patternId1b == nil or patternId1b == 0 then
-			return 0, 0
-		end
-		local pat0b = patternId1b - 1
-		local addr = PATTERNS_BASE + pat0b * PATTERN_BYTES_PER_PATTERN + rowIndex * ROW_BYTES
-		local b0 = peek(addr)
-		local b1 = peek(addr + 1)
-		local b2 = peek(addr + 2)
-		local noteNibble = b0 & 0x0f
-		local inst = (b2 & 0x1f) | (((b1 >> 7) & 0x01) << 5)
-		return noteNibble, inst
-	end
-
-	-- SOMATIC_SHARED_SFX_START
-
-	-- injected at build time.
-
-	-- SOMATIC_SHARED_SFX_END
+	-- BEGIN_SOMATIC_PLAYROUTINE_SHARED
+	-- END_SOMATIC_PLAYROUTINE_SHARED
 
 	local function getColumnIndex(songPosition0b, ch)
 		return SOMATIC_MUSIC_DATA.songOrder[songPosition0b * 4 + ch + 1]

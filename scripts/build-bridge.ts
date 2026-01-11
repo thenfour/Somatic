@@ -193,7 +193,8 @@ export function buildBridge(): void {
    console.log(`[build-bridge] Lua template: ${luaTemplate.length} bytes`);
 
    let luaSource = replaceLuaBlock(luaTemplate, "-- BRIDGE_AUTOGEN_START", "-- BRIDGE_AUTOGEN_END", autogen);
-   luaSource = replaceLuaBlock(luaSource, "-- SOMATIC_SHARED_SFX_START", "-- SOMATIC_SHARED_SFX_END", sharedSfxTick);
+   luaSource = replaceLuaBlock(
+      luaSource, "-- BEGIN_SOMATIC_PLAYROUTINE_SHARED", "-- END_SOMATIC_PLAYROUTINE_SHARED", sharedSfxTick);
    console.log(`[build-bridge] Lua source (with autogen): ${luaSource.length} bytes`);
 
    // write out the generated Lua for inspection

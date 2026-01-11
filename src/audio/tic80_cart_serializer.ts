@@ -727,8 +727,8 @@ ${emitLuaDecoder(WaveformMorphGradientCodec, {
    // Inject shared code, then strip unused feature blocks (so shared feature markers are handled as usual)
    const playroutineTemplateWithShared = replaceLuaBlock(
       playroutineTemplateTxt,
-      "-- SOMATIC_SHARED_SFX_START",
-      "-- SOMATIC_SHARED_SFX_END",
+      "-- BEGIN_SOMATIC_PLAYROUTINE_SHARED",
+      "-- END_SOMATIC_PLAYROUTINE_SHARED",
       playroutineSharedTemplateTxt,
    );
 
