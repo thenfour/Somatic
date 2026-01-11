@@ -222,12 +222,6 @@ end
 -- equal power (sqrt or sine law) makes a better xfade, but it doesn't preserve the waveshapes at either end so... not the best idea
 local lerp_nibble = lerp_nibble_lin
 
-local function wave_unpack_byte_to_samples(b, outSamples, si)
-	outSamples[si] = b & 0x0f
-	outSamples[si + 1] = (b >> 4) & 0x0f
-	return si + 2
-end
-
 local function morph_get_nodes(offBytes)
 	if offBytes == nil or offBytes <= 0 then
 		return nil
@@ -282,8 +276,6 @@ local function u8_to_s8(b)
 	end
 	return b
 end
-
-local WAVE_BASE = BRIDGE_CONFIG.memory.WAVEFORMS_ADDR
 
 local function read_sfx_cfg(instrumentId)
 	if instrumentId == nil then
@@ -367,161 +359,6 @@ local function read_pattern_extra_cells(patternIndex0b)
 
 	pattern_extra_cache[patternIndex0b] = false
 	return nil
-end
-
--- Deserialize a waveform (packed nibbles in RAM) into a 0-based array of samples (0..15).
-local function wave_read_samples(waveIndex, outSamples)
-	local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
-	local si = 0
-	for i = 0, WAVE_BYTES_PER_WAVE - 1 do
-		local b = peek(base + i)
-		si = wave_unpack_byte_to_samples(b, outSamples, si)
-	end
-end
-
-local function wave_write_samples(waveIndex, samples)
-	local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
-	local si = 0
-	for i = 0, WAVE_BYTES_PER_WAVE - 1 do
-		local s0 = clamp_nibble_round(samples[si] or 0)
-		local s1 = clamp_nibble_round(samples[si + 1] or 0)
-		poke(base + i, (s1 << 4) | s0)
-		si = si + 2
-	end
-end
-
--- s8: -128..127 mapped to -1..+1
-local function apply_curveN11(t01, curveS6)
-	local t = clamp01(t01)
-	if t <= 0 then
-		return 0
-	end
-	if t >= 1 then
-		return 1
-	end
-
-	local k = curveS6 / 31 -- curveS6 is signed 6-bit (-32..31)
-	if k < -1 then
-		k = -1
-	elseif k > 1 then
-		k = 1
-	end
-	if k == 0 then
-		return t
-	end
-
-	local s = 4
-	local function a(x)
-		return 2 ^ (s * x)
-	end
-
-	if k > 0 then
-		return t ^ (a(k))
-	end
-	return 1 - (1 - t) ^ (a(-k))
-end
-
--- a 1-pole lowpass filter applied forward and backward for zero-phase
-local function apply_lowpass_effect_to_samples(samples, strength) -- string is 0..1
-	local strength = strength * strength -- better param curve
-
-	local n = WAVE_SAMPLES_PER_WAVE
-
-	local alpha = 0.03 + 0.95 * strength
-
-	-- estimate initial state as average to reduce edge junk
-	local acc = 0
-	for i = 0, n - 1 do
-		acc = acc + samples[i]
-	end
-	local y = acc / n
-
-	-- forward pass
-	for i = 0, n - 1 do
-		local x = samples[i]
-		y = y + alpha * (x - y)
-		samples[i] = y
-	end
-
-	-- backward pass for zero-phase
-	for i = n - 1, 0, -1 do
-		local x = samples[i]
-		y = y + alpha * (x - y)
-		samples[i] = y
-	end
-end
-
-local function apply_wavefold_effect_to_samples(samples, strength01)
-	local gain = 1 + 20 * clamp01(strength01 or 0)
-	if gain <= 1 then
-		return
-	end
-
-	for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-		-- map 0..15 -> -1..1 and apply gain
-		local x = (samples[i] / 7.5 - 1) * gain
-
-		-- triangle-ish fold in [-1,1]
-		local y = (2 / math.pi) * math.asin(math.sin(x))
-
-		-- back to 0..15
-		local out = (y + 1) * 7.5
-
-		-- clamp and quantize
-		if out < 0 then
-			out = 0
-		elseif out > 15 then
-			out = 15
-		end
-
-		samples[i] = math.floor(out + 0.5)
-	end
-end
-
-local hs_scratch = {}
-local function apply_hardsync_effect_to_samples(samples, multiplier)
-	local m = multiplier or 1
-	if m <= 1.001 then
-		return
-	end
-
-	local N = WAVE_SAMPLES_PER_WAVE
-
-	for i = 0, N - 1 do
-		hs_scratch[i] = samples[i] or 0
-	end
-
-	for i = 0, N - 1 do
-		local u = (i / N) * m -- slave cycles within master cycle
-		local k = math.floor(u)
-		local frac = u - k -- 0..1
-		local p = frac * N
-		local idx0 = math.floor(p)
-		local f = p - idx0
-		local idx1 = (idx0 + 1) % N
-
-		local s0 = hs_scratch[idx0]
-		local s1 = hs_scratch[idx1]
-		local v = s0 + (s1 - s0) * f
-
-		samples[i] = v
-	end
-end
-
-local function cfg_is_k_rate_processing(cfg)
-	if cfg.waveEngineId == WAVE_ENGINE_MORPH or cfg.waveEngineId == WAVE_ENGINE_PWM then
-		return true
-	end
-	if cfg.lowpassEnabled then
-		return true
-	end
-	if (cfg.effectKind == EFFECT_KIND_WAVEFOLD) and (cfg.effectAmtU8 or 0) > 0 then
-		return true
-	end
-	if (cfg.effectKind == EFFECT_KIND_HARDSYNC) and (cfg.effectAmtU8 or 0) > 0 then
-		return true
-	end
-	return false
 end
 
 local function render_waveform_morph(cfg, ticksPlayed, outSamples)

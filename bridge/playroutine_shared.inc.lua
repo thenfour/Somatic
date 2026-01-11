@@ -179,6 +179,30 @@ local last_music_track = -2
 local last_music_frame = -1
 local last_music_row = -1
 
+local function wave_read_samples(waveIndex, outSamples)
+	local r = _bp_make_reader(WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE)
+	for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+		outSamples[i] = r.u(4)
+	end
+end
+
+local function wave_write_samples(waveIndex, samples)
+	local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
+	local si = 0
+	for i = 0, WAVE_BYTES_PER_WAVE - 1 do
+		local s0 = clamp_nibble_round(samples[si])
+		local s1 = clamp_nibble_round(samples[si + 1])
+		poke(base + i, (s1 << 4) | s0)
+		si = si + 2
+	end
+end
+
+local function wave_unpack_byte_to_samples(b, outSamples, si)
+	outSamples[si] = b & 0x0f
+	outSamples[si + 1] = (b >> 4) & 0x0f
+	return si + 2
+end
+
 local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)
 	-- BEGIN_FEATURE_LFO
 	if modSource == MOD_SRC_LFO then
@@ -197,3 +221,123 @@ local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, 
 	end
 	return clamp01(ticksPlayed / durationTicks)
 end
+
+local function cfg_is_k_rate_processing(cfg)
+	if not cfg then
+		return false
+	end
+	local we = cfg.waveEngineId
+	-- BEGIN_FEATURE_WAVEMORPH
+	if we == WAVE_ENGINE_MORPH then
+		return true
+	end
+	-- END_FEATURE_WAVEMORPH
+	-- BEGIN_FEATURE_PWM
+	if we == WAVE_ENGINE_PWM then
+		return true
+	end
+	-- END_FEATURE_PWM
+	-- BEGIN_FEATURE_LOWPASS
+	if cfg.lowpassEnabled then
+		return true
+	end
+	-- END_FEATURE_LOWPASS
+	local effectKind = cfg.effectKind
+	-- BEGIN_FEATURE_WAVEFOLD
+	if effectKind == EFFECT_KIND_WAVEFOLD and cfg.effectAmtU8 > 0 then
+		return true
+	end
+	-- END_FEATURE_WAVEFOLD
+	-- BEGIN_FEATURE_HARDSYNC
+	if effectKind == EFFECT_KIND_HARDSYNC and cfg.effectAmtU8 > 0 then
+		return true
+	end
+	-- END_FEATURE_HARDSYNC
+	return false
+end
+
+-- BEGIN_FEATURE_LOWPASS
+-- a 1-pole lowpass filter applied forward and backward for zero-phase
+-- a 1-pole lowpass filter applied forward and backward for zero-phase
+local function apply_lowpass_effect_to_samples(samples, strength) -- string is 0..1
+	local strength = strength * strength -- better param curve
+
+	local n = WAVE_SAMPLES_PER_WAVE
+
+	local alpha = 0.03 + 0.95 * strength
+
+	-- estimate initial state as average to reduce edge junk
+	local acc = 0
+	for i = 0, n - 1 do
+		acc = acc + samples[i]
+	end
+	local y = acc / n
+
+	local function doPass(from, to, step)
+		for i = from, to, step do
+			local x = samples[i]
+			y = y + alpha * (x - y)
+			samples[i] = y
+		end
+	end
+	doPass(0, n - 1, 1) -- forward pass
+	doPass(n - 1, 0, -1) -- backward pass for zero-phase
+end
+
+-- END_FEATURE_LOWPASS
+
+-- BEGIN_FEATURE_WAVEFOLD
+local function apply_wavefold_effect_to_samples(samples, strength01)
+	local gain = 1 + 20 * clamp01(strength01 or 0)
+	if gain <= 1 then
+		return
+	end
+
+	for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
+		-- map 0..15 -> -1..1 and apply gain
+		local x = (samples[i] / 7.5 - 1) * gain
+
+		-- triangle-ish fold in [-1,1]
+		local y = (2 / math.pi) * math.asin(math.sin(x))
+
+		-- back to 0..15
+		local out = (y + 1) * 7.5
+
+		-- clamp and quantize
+		samples[i] = clamp_nibble_round(out, 0, 15)
+	end
+end
+
+-- END_FEATURE_WAVEFOLD
+
+-- BEGIN_FEATURE_HARDSYNC
+local hs_scratch = {}
+local function apply_hardsync_effect_to_samples(samples, multiplier)
+	local m = multiplier or 1
+	if m <= 1.001 then
+		return
+	end
+
+	local N = WAVE_SAMPLES_PER_WAVE
+
+	for i = 0, N - 1 do
+		hs_scratch[i] = samples[i]
+	end
+
+	for i = 0, N - 1 do
+		local u = (i / N) * m -- slave cycles within master cycle
+		local k = math.floor(u)
+		local frac = u - k -- 0..1
+		local p = frac * N
+		local idx0 = math.floor(p)
+		local f = p - idx0
+		local idx1 = (idx0 + 1) % N
+
+		local s0 = hs_scratch[idx0]
+		local s1 = hs_scratch[idx1]
+		local v = s0 + (s1 - s0) * f
+
+		samples[i] = v
+	end
+end
+-- END_FEATURE_HARDSYNC
