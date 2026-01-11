@@ -758,8 +758,8 @@ export const ArrangementEditor: React.FC<{
                                         {thumbnail}
                                     </div>
                                 )}
-                                <span className="arrangement-editor__marker">
-                                    <Tooltip title="Set marker">
+                                <Tooltip title="Set visual marker for this position">
+                                    <span className="arrangement-editor__marker">
                                         <SongOrderMarkerControl
                                             value={orderItem.markerVariant}
                                             onChange={(newVariant) => {
@@ -772,8 +772,8 @@ export const ArrangementEditor: React.FC<{
                                                 });
                                             }}
                                         />
-                                    </Tooltip>
-                                </span>
+                                    </span>
+                                </Tooltip>
                                 <div
                                     className="arrangement-editor__pattern-name-container"
                                     style={{ flexGrow: 1 }}
