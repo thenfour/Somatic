@@ -377,58 +377,6 @@ type MenuContentBodyProps = {
 
 const MenuContentBody: React.FC<MenuContentBodyProps> = ({ ctx, classes, contentStyle, combinedRef, children }) => {
     const mgr = useShortcutManager<MenuActionId>();
-    // Utility helpers for keyboard navigation within this menu scope
-    // const focusNextItem = useCallback((delta: number) => {
-    //     const active = document.activeElement as HTMLElement | null;
-    //     const menuEl = active?.closest('[role="menu"]') as HTMLElement | null ?? ctx.contentRef.current;
-    //     if (!menuEl) return;
-    //     const items = Array.from(menuEl.querySelectorAll<HTMLElement>('[data-menu-item="true"]:not([aria-disabled="true"])'));
-    //     if (!items.length) return;
-    //     const currentIndex = active ? items.indexOf(active) : -1;
-    //     const nextIndex = (currentIndex + delta + items.length) % items.length;
-    //     items[nextIndex]?.focus();
-    // }, [ctx.contentRef]);
-
-    // const activateCurrentItem = useCallback(() => {
-    //     const active = document.activeElement as HTMLElement | null;
-    //     if (!active) return;
-    //     if (active.getAttribute('data-menu-item') !== 'true') return;
-    //     active.click();
-    // }, []);
-
-    // const openSubmenuOrNextMenu = useCallback(() => {
-    //     const active = document.activeElement as HTMLElement | null;
-    //     if (active && active.getAttribute('aria-haspopup') === 'menu' && active.getAttribute('aria-disabled') !== 'true') {
-    //         active.click();
-    //         // After opening, focus first item of the submenu (next level)
-    //         window.setTimeout(() => {
-    //             const submenu = document.querySelector<HTMLElement>(`.desktop-menu-popover--level-${ctx.level + 1}[data-menu-root="${ctx.rootId}"]`);
-    //             focusFirstItem(submenu);
-    //         }, 0);
-    //         return;
-    //     }
-
-    //     // At top level, ArrowRight should move to next root menu
-    //     if (ctx.level === 0) {
-    //         const triggers = Array.from(document.querySelectorAll<HTMLButtonElement>('.desktop-menu-bar .desktop-menu-trigger'));
-    //         const current = ctx.triggerRef.current;
-    //         if (!current) return;
-    //         const idx = triggers.indexOf(current as HTMLButtonElement);
-    //         if (idx === -1) return;
-    //         const next = triggers[(idx + 1) % triggers.length];
-    //         next?.click();
-    //         next?.focus();
-    //     }
-    // }, [ctx.level, ctx.rootId, ctx.triggerRef]);
-
-    // const closeOrParentMenu = useCallback(() => {
-    //     if (ctx.level > 0) {
-    //         ctx.close();
-    //         ctx.triggerRef.current?.focus();
-    //     } else {
-    //         ctx.closeTree();
-    //     }
-    // }, [ctx]);
 
     // Local shortcuts
     mgr.useActionHandler('Close', () => {
@@ -437,10 +385,10 @@ const MenuContentBody: React.FC<MenuContentBodyProps> = ({ ctx, classes, content
             ctx.triggerRef.current?.focus();
         }
     });
-    // TODO: these are jank
+
     // mgr.useActionHandler('NextItem', () => focusNextItem(1));
     // mgr.useActionHandler('PrevItem', () => focusNextItem(-1));
-    //mgr.useActionHandler('ActivateItem', () => activateCurrentItem());
+    // mgr.useActionHandler('ActivateItem', () => activateCurrentItem());
     // mgr.useActionHandler('OpenOrNextMenu', () => openSubmenuOrNextMenu());
     // mgr.useActionHandler('CloseOrParentMenu', () => closeOrParentMenu());
 

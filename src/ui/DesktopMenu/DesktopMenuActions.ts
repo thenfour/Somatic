@@ -18,12 +18,22 @@ export type MenuActionId = keyof typeof MenuActions;
 
 
 export const gMenuActionRegistry: ActionRegistry<MenuActionId> = {
+   // close the dropdown menu
    Close: {
       id: MenuActions.Close,
       defaultBindings: [
          {kind: "character", key: "Escape"},
       ],
    },
+   ActivateItem: {
+      id: MenuActions.ActivateItem,
+      defaultBindings: [
+         {kind: "character", key: "Enter"},
+         {kind: "character", key: " "},
+      ],
+   },
+
+   // select next item vertically in the dropdown menu; wraps around at ends
    NextItem: {
       id: MenuActions.NextItem,
       defaultBindings: [
@@ -36,19 +46,15 @@ export const gMenuActionRegistry: ActionRegistry<MenuActionId> = {
          {kind: "character", key: "ArrowUp"},
       ],
    },
-   ActivateItem: {
-      id: MenuActions.ActivateItem,
-      defaultBindings: [
-         {kind: "character", key: "Enter"},
-         {kind: "character", key: " "},
-      ],
-   },
+
+   // if the current item is a submenu, open it; otherwise, move to the next menu (e.g. from menubar to first menu). Wraps at edges.
    OpenOrNextMenu: {
       id: MenuActions.OpenOrNextMenu,
       defaultBindings: [
          {kind: "character", key: "ArrowRight"},
       ],
    },
+   // if in a submenu, close it; otherwise, move to the parent menu (e.g. from first menu to menubar)
    CloseOrParentMenu: {
       id: MenuActions.CloseOrParentMenu,
       defaultBindings: [
