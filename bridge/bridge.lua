@@ -198,6 +198,7 @@ local SFX_CHANNELS = 4
 local ch_sfx_id = { -1, -1, -1, -1 } -- 0-based channel -> sfx id (or -1)
 local ch_sfx_ticks = { 0, 0, 0, 0 } -- 0-based channel -> duration since note-on (ticks)
 local ch_effect_strength_scale_u8 = { 255, 255, 255, 255 } -- per channel (0..3)
+local ch_lowpass_freq_u8 = { 255, 255, 255, 255 } -- per channel (0..3)
 
 local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
 
@@ -308,6 +309,7 @@ end
 
 local MOD_SRC_ENVELOPE = 0
 local MOD_SRC_LFO = 1
+local MOD_SRC_NONE = 2
 
 local WAVE_ENGINE_MORPH = 0
 local WAVE_ENGINE_NATIVE = 1
@@ -350,6 +352,7 @@ local function read_sfx_cfg(instrumentId)
 				pwmDuty = entry.pwmDuty5,
 				pwmDepth = entry.pwmDepth5,
 				lowpassEnabled = entry.lowpassEnabled,
+				lowpassFreqU8 = entry.lowpassFreqU8,
 				lowpassDurationInTicks = entry.lowpassDurationTicks12,
 				lowpassCurveS6 = entry.lowpassCurveS6,
 				effectKind = effectKindId,
@@ -667,7 +670,7 @@ local function render_waveform_samples(cfg, ticksPlayed, instrumentId, lfoTicks,
 	end
 end
 
-local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks, effectStrengthScaleU8)
+local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks, effectStrengthScaleU8, lowpassFreqU8)
 	if not cfg_is_k_rate_processing(cfg) then
 		return
 	end
@@ -677,16 +680,21 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks, effectS
 		return
 	end
 	local scale01 = clamp01((effectStrengthScaleU8 or 255) / 255)
+	local lpFreq01 = clamp01(((lowpassFreqU8 or cfg.lowpassFreqU8 or 255) / 255))
 
 	if (cfg.effectKind == EFFECT_KIND_HARDSYNC) and cfg.effectAmtU8 > 0 and scale01 > 0 then
-		local hsT = calculate_mod_t(
-			cfg.effectModSource or MOD_SRC_ENVELOPE,
-			cfg.effectDurationInTicks,
-			ticksPlayed,
-			lfoTicks,
-			cfg.lfoCycleInTicks,
-			0
-		)
+		local hsT = 0
+		local effectModSource = cfg.effectModSource or MOD_SRC_ENVELOPE
+		if effectModSource ~= MOD_SRC_NONE then
+			hsT = calculate_mod_t(
+				effectModSource,
+				cfg.effectDurationInTicks,
+				ticksPlayed,
+				lfoTicks,
+				cfg.lfoCycleInTicks,
+				0
+			)
+		end
 		local env = 1 - apply_curveN11(hsT, cfg.effectCurveS6)
 		local multiplier = 1 + (cfg.effectAmtU8 / 255) * scale01 * 7 * env
 		apply_hardsync_effect_to_samples(render_out, multiplier)
@@ -694,12 +702,22 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks, effectS
 
 	-- Wavefold first (adds harmonics), then lowpass (smooths)
 	local wavefoldModSource = cfg.effectModSource or MOD_SRC_ENVELOPE
-	local wavefoldHasTime = (wavefoldModSource == MOD_SRC_LFO and (cfg.lfoCycleInTicks or 0) > 0)
+	local wavefoldHasTime = (wavefoldModSource == MOD_SRC_NONE)
+		or (wavefoldModSource == MOD_SRC_LFO and (cfg.lfoCycleInTicks or 0) > 0)
 		or ((cfg.effectDurationInTicks or 0) > 0)
 	if (cfg.effectKind == EFFECT_KIND_WAVEFOLD) and cfg.effectAmtU8 > 0 and wavefoldHasTime and scale01 > 0 then
 		local maxAmt = clamp01(cfg.effectAmtU8 / 255) * scale01
-		local wfT =
-			calculate_mod_t(wavefoldModSource, cfg.effectDurationInTicks, ticksPlayed, lfoTicks, cfg.lfoCycleInTicks, 0)
+		local wfT = 0
+		if wavefoldModSource ~= MOD_SRC_NONE then
+			wfT = calculate_mod_t(
+				wavefoldModSource,
+				cfg.effectDurationInTicks,
+				ticksPlayed,
+				lfoTicks,
+				cfg.lfoCycleInTicks,
+				0
+			)
+		end
 		local envShaped = 1 - apply_curveN11(wfT, cfg.effectCurveS6)
 		local strength = maxAmt * envShaped
 
@@ -719,16 +737,18 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks, effectS
 	end
 
 	if cfg.lowpassEnabled then
-		local lpT = calculate_mod_t(
-			cfg.lowpassModSource or MOD_SRC_ENVELOPE,
-			cfg.lowpassDurationInTicks,
-			ticksPlayed,
-			lfoTicks,
-			cfg.lfoCycleInTicks,
-			1
-		)
-		local strength = apply_curveN11(lpT, cfg.lowpassCurveS6)
-		apply_lowpass_effect_to_samples(render_out, strength)
+		local lpOpenness01
+		local lpModSource = cfg.lowpassModSource or MOD_SRC_ENVELOPE
+		if lpModSource == MOD_SRC_NONE then
+			lpOpenness01 = lpFreq01
+		else
+			local t =
+				calculate_mod_t(lpModSource, cfg.lowpassDurationInTicks, ticksPlayed, lfoTicks, cfg.lfoCycleInTicks, 1)
+			-- Close over time: start bypassed (1) and close down toward lpFreq01.
+			lpOpenness01 = 1 - (1 - lpFreq01) * clamp01(t)
+		end
+		lpOpenness01 = apply_curveN11(lpOpenness01, cfg.lowpassCurveS6)
+		apply_lowpass_effect_to_samples(render_out, lpOpenness01)
 	end
 
 	wave_write_samples(cfg.renderWaveformSlot, render_out)
@@ -745,7 +765,8 @@ local function prime_render_slot_for_note_on(instrumentId, ch)
 	-- Render tick 0 so audio starts with a defined wavetable.
 	local lt = lfo_ticks_by_sfx[instrumentId] or 0
 	local scaleU8 = ch_effect_strength_scale_u8[(ch or 0) + 1] or 255
-	render_tick_cfg(cfg, instrumentId, 0, lt, scaleU8)
+	local lpU8 = ch_lowpass_freq_u8[(ch or 0) + 1] or (cfg.lowpassFreqU8 or 255)
+	render_tick_cfg(cfg, instrumentId, 0, lt, scaleU8, lpU8)
 end
 
 local function sfx_tick_channel(channel)
@@ -769,7 +790,8 @@ local function sfx_tick_channel(channel)
 
 	local lt = lfo_ticks_by_sfx[idx] or 0
 	local scaleU8 = ch_effect_strength_scale_u8[channel + 1] or 255
-	render_tick_cfg(cfg, idx, ticksPlayed, lt, scaleU8)
+	local lpU8 = ch_lowpass_freq_u8[channel + 1] or (cfg.lowpassFreqU8 or 255)
+	render_tick_cfg(cfg, idx, ticksPlayed, lt, scaleU8, lpU8)
 	ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 end
 
@@ -820,10 +842,13 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 	last_music_frame = frame
 	last_music_row = row
 
+	-- need to know if the lowpass was set or not so when setting ch_lowpass_freq_u8 we know which value to use.
+	local sawFilterFreqByCh = nil
 	-- Apply Somatic per-pattern extra commands: E = effect strength scale, L = set LFO phase
 	local songPosition0b = peek(BRIDGE_CONFIG.memory.MUSIC_STATE_SOMATIC_SONG_POSITION)
 	if songPosition0b ~= nil and songPosition0b ~= 0xFF then
 		local base = ADDR.TF_ORDER_LIST_ENTRIES + songPosition0b * 4
+		sawFilterFreqByCh = {}
 		for ch = 0, SFX_CHANNELS - 1 do
 			local columnIndex0b = peek(base + ch)
 			local cells = read_pattern_extra_cells(columnIndex0b)
@@ -831,6 +856,10 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 			if cell and cell.effectId == 1 then
 				-- 'E': Set effect strength scale
 				ch_effect_strength_scale_u8[ch + 1] = cell.paramU8 or 255
+			elseif cell and cell.effectId == 3 then
+				-- 'F': Set lowpass frequency knob (00=min cutoff, FF=bypass)
+				ch_lowpass_freq_u8[ch + 1] = cell.paramU8 or 255
+				sawFilterFreqByCh[ch + 1] = true
 			elseif cell and cell.effectId == 2 then
 				-- 'L': Set LFO phase for the instrument playing on this channel
 				local instId = ch_sfx_id[ch + 1]
@@ -862,6 +891,10 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 			-- note-on
 			ch_sfx_id[ch + 1] = inst
 			ch_sfx_ticks[ch + 1] = 0
+			if not (sawFilterFreqByCh and sawFilterFreqByCh[ch + 1]) then
+				local cfg = read_sfx_cfg(inst)
+				ch_lowpass_freq_u8[ch + 1] = (cfg and cfg.lowpassFreqU8) or 255
+			end
 			prime_render_slot_for_note_on(inst, ch)
 		end
 	end
@@ -1287,6 +1320,7 @@ tf_music_reset_state = function()
 	stopPlayingOnNextFrame = false
 	loopSongForever = false
 	ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
+	ch_lowpass_freq_u8 = { 255, 255, 255, 255 }
 	pattern_extra_cache = {}
 	log("reset_state: Music state reset.")
 	ch_set_playroutine_regs(0xFF)

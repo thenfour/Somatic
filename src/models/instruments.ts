@@ -14,7 +14,7 @@ function coerceModSource(v: any): ModSource {
    return "envelope";
 }
 
-function modSourceToU8(src: ModSource|undefined|null): number {
+export function modSourceToU8(src: ModSource|undefined|null): number {
    if (src === "lfo")
       return 1;
    if (src === "none")
