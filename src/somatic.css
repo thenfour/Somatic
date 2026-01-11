@@ -943,6 +943,7 @@ legend {
 }
 
 .header-song-title {
+    padding: 0 12px;
     font-size: 20px;
 }
 
