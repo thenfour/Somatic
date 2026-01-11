@@ -1,6 +1,6 @@
 // todo: keyboard nav on list + delete / insert below?
 // todo: insert new instrument above / below. don't allow if kicking out used instruments
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 
 import { EditorState } from "../models/editor_state";
 import { isReservedInstrument, Tic80Instrument } from "../models/instruments";
@@ -93,6 +93,20 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
     const instrumentCount = song.instruments.length;
     const selectedInstrument = clamp(editorState.currentInstrument, 0, instrumentCount - 1);
 
+    const rowRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+    const focusRow = useCallback((idx: number) => {
+        const el = rowRefs.current[idx];
+        if (!el) return;
+        el.focus();
+        // Ensure keyboard navigation keeps the active row visible.
+        el.scrollIntoView?.({ block: "nearest" });
+    }, []);
+
+    const setCurrentInstrument = useCallback((idx: number) => {
+        onEditorStateChange((st) => st.setCurrentInstrument(idx));
+    }, [onEditorStateChange]);
+
 
     const canMoveUp = useMemo(() => {
         if (selectedInstrument <= 0) return false;
@@ -180,6 +194,31 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
         onEditorStateChange((st) => st.setCurrentInstrument(insertIndex));
     };
 
+    const handleRowKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
+        let next: number | null = null;
+        switch (e.key) {
+            case "ArrowUp":
+                next = clamp(idx - 1, 0, instrumentCount - 1);
+                break;
+            case "ArrowDown":
+                next = clamp(idx + 1, 0, instrumentCount - 1);
+                break;
+            case "Home":
+                next = 0;
+                break;
+            case "End":
+                next = instrumentCount - 1;
+                break;
+            default:
+                return;
+        }
+        if (next === idx) return;
+        e.preventDefault();
+        setCurrentInstrument(next);
+        // Focus immediately so repeated key presses work smoothly.
+        focusRow(next);
+    }, [focusRow, instrumentCount, setCurrentInstrument]);
+
     return (
         <AppPanelShell
             className="instruments-panel"
@@ -197,6 +236,9 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                             <button
                                 key={idx}
                                 type="button"
+                                ref={(el) => {
+                                    rowRefs.current[idx] = el;
+                                }}
                                 className={[
                                     "instruments-panel__row",
                                     isSelected ? "instruments-panel__row--selected" : "",
@@ -205,7 +247,16 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                                 ]
                                     .filter(Boolean)
                                     .join(" ")}
-                                onClick={() => onEditorStateChange((st) => st.setCurrentInstrument(idx))}
+                                tabIndex={isSelected ? 0 : -1}
+                                data-focus-bookmark="true"
+                                aria-selected={isSelected}
+                                onClick={() => setCurrentInstrument(idx)}
+                                onFocus={() => {
+                                    if (idx !== selectedInstrument) {
+                                        setCurrentInstrument(idx);
+                                    }
+                                }}
+                                onKeyDown={(e) => handleRowKeyDown(e, idx)}
                             >
                                 <InstrumentChip
                                     instrumentIndex={idx}

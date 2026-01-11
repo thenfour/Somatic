@@ -50,6 +50,22 @@
 
 }
 
+.instruments-panel__row:focus-visible {
+    outline: 0;
+}
+
+.instruments-panel__row:focus-visible .chip:before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 2px solid var(--accent);
+    box-sizing: border-box;
+    border-radius: 2px;
+}
+
 .instruments-panel__row--selected .chip:before {
     /* box-shadow: 0 0 0 2px var(--row-active) inset; */
     content: "";
