@@ -33,9 +33,20 @@
     height: 10px;
 }
 
+/* 
 .chip .instrument-chip-highlight-indicator {
     width: 10px;
     height: 10px;
     border-radius: 2px;
     margin: 0 4px;
+} */
+
+.chip.instrument-chip--highlighted {
+    background-color: var(--instrument-highlight-color);
+}
+
+.chip.instrument-chip--highlighted>span {
+    /* contrast color is very strong; this makes it easier on the eyes*/
+    opacity: 65%;
+    color: var(--instrument-highlight-fg);
 }

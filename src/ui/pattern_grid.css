@@ -385,6 +385,12 @@
     background-color: var(--instrument-highlight-color);
 }
 
+.pattern-grid td.instrument-cell.pattern-cell--highlighted-instrument>span {
+    color: var(--instrument-highlight-fg);
+    /* contrast color is very strong; this makes it easier on the eyes*/
+    opacity: 65%;
+}
+
 .pattern-grid td.instrument-cell.pattern-cell--selected-instrument:before {
     /* position: absolute;
     top: 0;

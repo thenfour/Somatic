@@ -1,3 +1,4 @@
+export const kNullKey = "__NULL__";
 
 
 export type Ok<T> = {

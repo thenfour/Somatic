@@ -6,7 +6,7 @@ import { ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrum
 import { Song } from '../models/song';
 import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { gTic80Palette } from '../theme/ticPalette';
-import { assert, clamp, secondsTo60HzFrames } from '../utils/utils';
+import { assert, clamp, kNullKey, secondsTo60HzFrames } from '../utils/utils';
 import { AppPanelShell } from './AppPanelShell';
 import { ButtonGroup } from './Buttons/ButtonGroup';
 import { CheckboxButton } from './Buttons/CheckboxButton';
@@ -343,6 +343,13 @@ type InstrumentPanelProps = {
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
     onClose: () => void;
 };
+
+type HighlightOptionBase = {
+    color: string | null;
+    fgColor: string | null;
+};
+
+type HighlightOption = DropdownOption<HighlightOptionBase>;
 
 export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentInstrument, onSongChange, onClose }) => {
     const instrumentIndex = currentInstrument;
@@ -720,12 +727,13 @@ show render slot if there are k-rate effects enabled
     const showNativeWaveformEnvelope = !instrument.isKRateProcessing();
     const showSourceWaveform = !showNativeWaveformEnvelope && instrument.waveEngine === 'native';
 
-    const highlightOptions: DropdownOption<string | null>[] = useMemo(() => {
-        const options: DropdownOption<string | null>[] = [
-            { value: null, label: 'None' },
+    const highlightOptions: HighlightOption[] = useMemo(() => {
+        const options: HighlightOption[] = [
+            { value: { color: null, fgColor: null }, label: 'None', compareKey: kNullKey },
             // use PALETTE_KEYS / PALETTE_CONTRAST_KEYS from ticPalette.ts.
             ...gTic80Palette.map((paletteEntry, i) => ({
-                value: paletteEntry.cssExpression,
+                value: { color: paletteEntry.cssExpression, fgColor: paletteEntry.contrastCssExpression },
+                compareKey: paletteEntry.cssExpression,
                 label: <PaletteSwatch
                     key={i}
                     color={paletteEntry.cssColor}
@@ -792,22 +800,24 @@ show render slot if there are k-rate effects enabled
                         onChange={setSpeed}
                     />
                 </ButtonGroup>
-                <Dropdown<string | null>
-                    value={instrument.highlightColor}
+                <Dropdown<HighlightOptionBase>
+                    value={{ color: instrument.highlightColor, fgColor: instrument.highlightFg }}
                     renderTriggerLabel={
-                        (option, defaultRender) => {
+                        (option) => {
+                            //console.log('renderTriggerLabel', option);
                             if (!option || !option.value) {
                                 return <>Highlight: None</>;
                             }
                             return <span>Highlight: {option.label}</span>
                         }}
-                    onChange={(newColor) => {
+                    onChange={(val) => {
                         onSongChange({
                             description: 'Set instrument highlight color',
                             undoable: true,
                             mutator: (s) => {
                                 const inst = s.instruments[instrumentIndex];
-                                inst.highlightColor = newColor;
+                                inst.highlightColor = val.color;
+                                inst.highlightFg = val.fgColor;
                             }
                         });
                     }}

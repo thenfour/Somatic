@@ -4,6 +4,7 @@ import './Dropdown.css';
 
 export type DropdownOption<TValue> = {
     value: TValue;
+    compareKey?: string | number; // for objects, use this key to compare equality
     label: React.ReactNode;
     disabled?: boolean;
     shortcut?: string;
@@ -36,9 +37,21 @@ export function Dropdown<TValue>(props: DropdownProps<TValue>): JSX.Element {
         showCaret = true,
     } = props;
 
+    // compare options, using compareKey if available
+    const areEqual = (a: DropdownOption<TValue> | null, b: DropdownOption<TValue> | null) => {
+        if (a === null || b === null) {
+            return a === b;
+        }
+        if (a.compareKey !== undefined && b.compareKey !== undefined) {
+            return a.compareKey === b.compareKey;
+        }
+        return Object.is(a.value, b.value);
+    };
+
     const selectedOption = React.useMemo(() => {
         if (value === null) return null;
-        return options.find((opt) => Object.is(opt.value, value)) ?? null;
+        return options.find((opt) => areEqual(opt, { value } as DropdownOption<TValue>)) ?? null;
+        //return options.find((opt) => Object.is(opt.value, value)) ?? null;
     }, [options, value]);
 
     const triggerLabel = React.useMemo(() => {
@@ -66,7 +79,7 @@ export function Dropdown<TValue>(props: DropdownProps<TValue>): JSX.Element {
                 className={['dropdown-menu', contentClassName].filter(Boolean).join(' ')}
             >
                 {options.map((option, idx) => {
-                    const isSelected = selectedOption === option;
+                    const isSelected = areEqual(selectedOption, option); //selectedOption === option;
                     return (
                         <DesktopMenu.Item
                             key={idx}

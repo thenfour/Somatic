@@ -1600,6 +1600,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const cellStyle: React.CSSProperties = {};
                                             if (instrument?.highlightColor) {
                                                 (cellStyle as any)['--instrument-highlight-color'] = instrument.highlightColor;
+                                                (cellStyle as any)['--instrument-highlight-fg'] = instrument.highlightFg;
                                             }
 
                                             const getSelectionClasses = (cellType: ExtendedCellType) => {
