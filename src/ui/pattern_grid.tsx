@@ -44,16 +44,16 @@ const formatInstrumentLabel = (val: number | undefined | null): string => {
     return (val & 0xFF).toString(16).toUpperCase().padStart(2, '0');
 };
 
-const formatInstrumentTooltip = (instId: number | undefined | null, song: Song): string | null => {
-    if (instId === null || instId === undefined) return null;
-    const inst = song.getInstrument(instId);
-    if (!inst) return null;
-    return `${(instId & 0xFF).toString(16).toUpperCase().padStart(2, '0')}: ${inst.name}`;
-};
+// const formatInstrumentTooltip = (instId: number | undefined | null, song: Song): string | null => {
+//     if (instId === null || instId === undefined) return null;
+//     const inst = song.getInstrument(instId);
+//     if (!inst) return null;
+//     return `${(instId & 0xFF).toString(16).toUpperCase().padStart(2, '0')}: ${inst.name}`;
+// };
 
-const formatInstrument = (val: number | undefined | null, song: Song): [string, string | null] => {
-    return [formatInstrumentLabel(val), formatInstrumentTooltip(val, song)];
-};
+// const formatInstrument = (val: number | undefined | null, song: Song): [string, string | null] => {
+//     return [formatInstrumentLabel(val), formatInstrumentTooltip(val, song)];
+// };
 
 const formatCommand = (val: number | undefined | null) => {
     if (val === null || val === undefined) return '-';
@@ -1576,8 +1576,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const row = channel.rows[rowIndex];
                                             const noteCut = isNoteCut(row);
                                             const noteText = noteCut ? "^^^" : formatMidiNote(row.midiNote);
-                                            const [instText, instTooltip] = noteCut ? ["", null] : formatInstrument(row.instrumentIndex, song);
                                             const instrument = row.instrumentIndex != null ? song.getInstrument(row.instrumentIndex) : null;
+                                            const [instText, instTooltip] = noteCut ? ["", null] : [formatInstrumentLabel(row.instrumentIndex), instrument?.getCaption(row.instrumentIndex!)];//formatInstrument(row.instrumentIndex, song);
                                             const instrumentIsSelected = editorState.currentInstrument != null && row.instrumentIndex === editorState.currentInstrument;
                                             const instrumentIsKRate = instrument?.isKRateProcessing() || false;
                                             const krateRenderSlot = instrumentIsKRate ? instrument!.renderWaveformSlot : null;

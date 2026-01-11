@@ -4,7 +4,7 @@
 import React, { useMemo } from "react";
 
 import { EditorState } from "../models/editor_state";
-import { Tic80Instrument } from "../models/instruments";
+import { isReservedInstrument, Tic80Instrument } from "../models/instruments";
 import { Song } from "../models/song";
 import { SomaticCaps } from "../models/tic80Capabilities";
 import { clamp } from "../utils/utils";
@@ -52,8 +52,6 @@ const swapInstrumentIndicesInPatterns = (song: Song, a: number, b: number) => {
         }
     }
 };
-
-const isReservedInstrument = (idx: number) => idx === 0 || idx === SomaticCaps.noteCutInstrumentIndex;
 
 export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
     song,
@@ -116,6 +114,10 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
         });
     };
 
+    const usageMap = useMemo(() => {
+        return song.getInstrumentUsageMap();
+    }, [song]);
+
     return (
         <AppPanelShell
             className="instruments-panel"
@@ -127,6 +129,8 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                     {Array.from({ length: instrumentCount }, (_, idx) => {
                         const inst = song.instruments[idx]!;
                         const isSelected = idx === selectedInstrument;
+                        const isReserved = isReservedInstrument(idx);
+                        const isUsed = usageMap.has(idx);
                         return (
                             <button
                                 key={idx}
@@ -134,6 +138,8 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                                 className={[
                                     "instruments-panel__row",
                                     isSelected ? "instruments-panel__row--selected" : "",
+                                    isReserved ? "instruments-panel__row--reserved" : "",
+                                    isUsed ? "instruments-panel__row--used" : "instruments-panel__row--unused",
                                 ]
                                     .filter(Boolean)
                                     .join(" ")}

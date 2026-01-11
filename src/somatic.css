@@ -553,7 +553,7 @@ option {
 
 .main-editor-area {
     display: flex;
-    gap: 20px;
+    gap: 14px;
     /* Let internal panels own scrolling (e.g. arrangement-editor__content). */
     overflow: hidden;
     min-height: 0;

@@ -185,6 +185,35 @@ export class Song {
       return `${safeName}${extensionWithDot}`;
    }
 
+   countInstrumentNotesInSong(instrumentIndex: number): number {
+      let total = 0;
+      for (const orderItem of this.songOrder) {
+         const patternIndex = clamp(orderItem.patternIndex ?? 0, 0, this.patterns.length - 1);
+         total += this.countInstrumentNotesInPattern(patternIndex, instrumentIndex);
+      }
+      return total;
+   }
+
+   getInstrumentUsageMap(): Map<number, boolean> {
+      const usageMap = new Map<number, boolean>();
+      for (const orderItem of this.songOrder) {
+         const patternIndex = clamp(orderItem.patternIndex ?? 0, 0, this.patterns.length - 1);
+         const pattern = this.patterns[patternIndex];
+         const rowLimit = clamp(this.rowsPerPattern, 0, Tic80Caps.pattern.maxRows);
+         for (let ch = 0; ch < pattern.channels.length; ch += 1) {
+            const rows = pattern.channels[ch].rows;
+            const limit = Math.min(rows.length, rowLimit);
+            for (let r = 0; r < limit; r += 1) {
+               const cell = rows[r] || {};
+               if (cell.instrumentIndex !== undefined && cell.instrumentIndex !== null) {
+                  usageMap.set(cell.instrumentIndex, true);
+               }
+            }
+         }
+      }
+      return usageMap;
+   }
+
    toData(): Required<SongDto> {
       return {
          instruments: this.instruments.map((inst) => inst.toData()),

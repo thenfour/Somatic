@@ -26,7 +26,7 @@
 .instruments-panel__row {
     cursor: pointer;
     border: 0;
-    padding: 2px 3px;
+    padding: 1px 3px;
     margin: 0;
     /* just feels better against the scrollbar in FF */
     margin-right: 8px;
@@ -77,4 +77,12 @@
     justify-content: flex-start;
     align-items: center;
     padding: 4px 0px;
+}
+
+.instruments-panel__row.instruments-panel__row--unused {
+    opacity: 40%;
+}
+
+.instruments-panel__row.instruments-panel__row--reserved {
+    opacity: 33%;
 }

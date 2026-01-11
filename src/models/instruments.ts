@@ -1,9 +1,12 @@
 // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
 import {clamp, CoalesceBoolean} from "../utils/utils";
-import {Tic80Caps} from "./tic80Capabilities";
+import {SomaticCaps, Tic80Caps} from "./tic80Capabilities";
 import {WaveformBaseDto} from "./waveform";
 
 export type ModSource = "envelope"|"lfo"|"none";
+
+export const isReservedInstrument = (myIndex: number) =>
+   myIndex === 0 || myIndex === SomaticCaps.noteCutInstrumentIndex;
 
 
 function coerceModSource(v: any): ModSource {
@@ -542,7 +545,8 @@ export class Tic80Instrument {
    // use <InstrumentChip> to render instrument name in UI.
    getCaption(myIndex: number): string {
       const indexString = this.getIndexString(myIndex);
-      return `${indexString}: ${this.name}${this.isKRateProcessing() ? " [K-rate]" : ""}`;
+      return `${indexString}: ${this.name}${
+         this.isKRateProcessing() ? ` [K-rate #${this.renderWaveformSlot.toString(16).toUpperCase()}]` : ""}`;
    }
 
    isKRateProcessing(): boolean {
