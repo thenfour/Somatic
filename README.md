@@ -20,9 +20,12 @@ features you might find interesting:
   * Somatic pattern commands (additional per-pattern effect columns)
     * **E**: Effect strength scale (00=bypass, FF=max)
     * **L**: Set LFO phase (00-FF)
+    * **F**: set filter (00-FF, only if LP is enabled on the instrument)
 * tracker goodies
   * show carried-over effect status at end of pattern
   * show usage of patterns / instruments
+  * highlighting current instrument
+  * warnings on pattern editor
   * allow naming patterns
   * song order marking
 * transport
