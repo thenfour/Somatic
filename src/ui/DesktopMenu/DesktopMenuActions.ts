@@ -18,13 +18,15 @@ export type MenuActionId = keyof typeof MenuActions;
 
 
 export const gMenuActionRegistry: ActionRegistry<MenuActionId> = {
-   // close the dropdown menu
+   // close a level of menu. If a submenu is open, it will close (and you'll be left with the parent menu open). If no submenu is open, the entire menu will close.
    Close: {
       id: MenuActions.Close,
       defaultBindings: [
          {kind: "character", key: "Escape"},
       ],
    },
+   // enter on a submenu item opens it.
+   // on a normal item, activates it.
    ActivateItem: {
       id: MenuActions.ActivateItem,
       defaultBindings: [

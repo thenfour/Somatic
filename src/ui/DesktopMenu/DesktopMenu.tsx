@@ -34,6 +34,8 @@ type MenuCaptureContextValue = {
     isCaptured: boolean;
     activeMenuId: string | null;
     setActiveMenu: (menuId: string | null) => void;
+    registerTopLevelMenu: (menuId: string) => () => void;
+    getAdjacentTopLevelMenuId: (menuId: string, direction: -1 | 1) => string | null;
 };
 
 const MenuCaptureContext = createContext<MenuCaptureContextValue | null>(null);
@@ -54,6 +56,7 @@ type InternalMenuProviderProps = MenuStateProps & {
     parentCloseTree?: () => void;
     level?: number;
     rootId?: string;
+    menuId?: string;
 };
 
 type MenuContextValue = {
@@ -67,6 +70,7 @@ type MenuContextValue = {
     placement: MenuPlacement;
     level: number;
     rootId: string;
+    menuId?: string;
 };
 
 const MenuContext = createContext<MenuContextValue | null>(null);
@@ -88,6 +92,7 @@ const InternalMenuProvider: React.FC<InternalMenuProviderProps> = ({
     defaultOpen,
     onOpenChange,
     rootId,
+    menuId,
 }) => {
     const generatedRootId = useId();
     const resolvedRootId = level === 0 ? (rootId ?? generatedRootId) : (rootId ?? generatedRootId);
@@ -125,7 +130,8 @@ const InternalMenuProvider: React.FC<InternalMenuProviderProps> = ({
         placement,
         level,
         rootId: resolvedRootId,
-    }), [actualOpen, closeMenu, closeTree, level, openMenu, placement, resolvedRootId, toggleMenu]);
+        menuId,
+    }), [actualOpen, closeMenu, closeTree, level, menuId, openMenu, placement, resolvedRootId, toggleMenu]);
 
     return (
         <MenuContext.Provider value={value}>
@@ -160,12 +166,16 @@ const isFocusableItem = (node: Element | null) => {
     return node.getAttribute('role') === 'menuitem' && node.getAttribute('aria-disabled') !== 'true';
 };
 
-const focusFirstItem = (container: HTMLElement | null) => {
-    if (!container) return;
-    const candidate = container.querySelector('[data-menu-item="true"]') as HTMLElement | null;
-    if (candidate && isFocusableItem(candidate)) {
-        candidate.focus();
+const focusFirstItem = (container: HTMLElement | null): boolean => {
+    if (!container) return false;
+    const candidates = Array.from(container.querySelectorAll('[data-menu-item="true"]')) as HTMLElement[];
+    for (const candidate of candidates) {
+        if (isFocusableItem(candidate)) {
+            candidate.focus();
+            return true;
+        }
     }
+    return false;
 };
 
 const getMenuPosition = (placement: MenuPlacement, trigger: HTMLElement | null, menuContent: HTMLElement | null) => {
@@ -240,6 +250,11 @@ const MenuRoot: React.FC<MenuRootProps> = ({ children, open, defaultOpen, onOpen
     const isControlled = typeof open === 'boolean';
     const actualOpen = isControlled ? open : internalOpen;
 
+    useEffect(() => {
+        if (!capture?.registerTopLevelMenu) return;
+        return capture.registerTopLevelMenu(menuId);
+    }, [capture?.registerTopLevelMenu, menuId]);
+
     // Standalone menus (not within a <DesktopMenu.Bar>) should restore focus when they close.
     // Menubar capture is handled at the bar level so switching between top-level menus does not restore focus.
     useEffect(() => {
@@ -264,6 +279,18 @@ const MenuRoot: React.FC<MenuRootProps> = ({ children, open, defaultOpen, onOpen
         }
     }, [capture, actualOpen, menuId, isControlled, onOpenChange]);
 
+    // Auto-open when capture switches to this menu (keyboard cycling between top-level menus)
+    useEffect(() => {
+        if (!capture) return;
+        if (capture.activeMenuId !== menuId) return;
+        if (actualOpen) return;
+
+        if (!isControlled) {
+            setInternalOpen(true);
+        }
+        onOpenChange?.(true);
+    }, [actualOpen, capture, isControlled, menuId, onOpenChange]);
+
     // Notify capture context when this menu opens/closes
     const handleOpenChange = useCallback((isOpen: boolean) => {
         if (!isControlled) {
@@ -278,6 +305,7 @@ const MenuRoot: React.FC<MenuRootProps> = ({ children, open, defaultOpen, onOpen
     return (
         <InternalMenuProvider
             placement="bottom-start"
+            menuId={menuId}
             open={isControlled ? open : internalOpen}
             defaultOpen={undefined}
             onOpenChange={handleOpenChange}
@@ -300,6 +328,7 @@ const MenuSub: React.FC<MenuSubProps> = ({ children, ...stateProps }) => {
             parentCloseTree={parentCtx.closeTree}
             level={parentCtx.level + 1}
             rootId={parentCtx.rootId}
+            menuId={parentCtx.menuId}
             {...stateProps}
         >
             {children}
@@ -377,20 +406,116 @@ type MenuContentBodyProps = {
 
 const MenuContentBody: React.FC<MenuContentBodyProps> = ({ ctx, classes, contentStyle, combinedRef, children }) => {
     const mgr = useShortcutManager<MenuActionId>();
+    const capture = useMenuCapture();
+
+    const getContainer = useCallback(() => ctx.contentRef.current, [ctx.contentRef]);
+
+    const getFocusableItems = useCallback((): HTMLElement[] => {
+        const container = getContainer();
+        if (!container) return [];
+        const nodes = Array.from(container.querySelectorAll('[data-menu-item="true"]')) as HTMLElement[];
+        return nodes.filter(n => isFocusableItem(n));
+    }, [getContainer]);
+
+    const getFocusedIndex = useCallback((items: HTMLElement[]): number => {
+        const container = getContainer();
+        if (!container) return -1;
+        const active = document.activeElement as HTMLElement | null;
+        if (!active) return -1;
+        if (!container.contains(active)) return -1;
+        return items.findIndex(it => it === active);
+    }, [getContainer]);
+
+    const focusItemByDelta = useCallback((delta: -1 | 1) => {
+        const items = getFocusableItems();
+        if (!items.length) return;
+
+        const currentIndex = getFocusedIndex(items);
+        const startIndex = currentIndex >= 0 ? currentIndex : (delta === 1 ? -1 : 0);
+        const nextIndex = (startIndex + delta + items.length) % items.length;
+        const next = items[nextIndex];
+        next.focus();
+        next.scrollIntoView({ block: 'nearest' });
+    }, [getFocusableItems, getFocusedIndex]);
+
+    const getFocusedItem = useCallback((): HTMLElement | null => {
+        const container = getContainer();
+        if (!container) return null;
+        const active = document.activeElement as HTMLElement | null;
+        if (active && container.contains(active) && isFocusableItem(active)) return active;
+        const items = getFocusableItems();
+        return items[0] ?? null;
+    }, [getContainer, getFocusableItems]);
+
+    const openFocusedSubmenuIfPresent = useCallback(() => {
+        const focused = getFocusedItem();
+        if (!focused) return false;
+        const isSubmenuTrigger = focused.getAttribute('aria-haspopup') === 'menu';
+        if (!isSubmenuTrigger) return false;
+
+        const isExpanded = focused.getAttribute('aria-expanded') === 'true';
+        if (!isExpanded) {
+            focused.click();
+        }
+        // Submenu content auto-focuses its first item on open.
+        return true;
+    }, [getFocusedItem]);
+
+    const activateFocusedItem = useCallback(() => {
+        const focused = getFocusedItem();
+        if (!focused) return;
+        if (focused.getAttribute('aria-haspopup') === 'menu') {
+            openFocusedSubmenuIfPresent();
+            return;
+        }
+        focused.click();
+    }, [getFocusedItem, openFocusedSubmenuIfPresent]);
+
+    const openSubmenuOrNextMenu = useCallback(() => {
+        if (openFocusedSubmenuIfPresent()) return;
+
+        if (capture?.isCaptured && ctx.menuId) {
+            const nextId = capture.getAdjacentTopLevelMenuId(ctx.menuId, 1);
+            if (nextId) {
+                capture.setActiveMenu(nextId);
+            }
+        }
+    }, [capture, ctx.menuId, openFocusedSubmenuIfPresent]);
+
+    const closeOrParentMenu = useCallback(() => {
+        if (ctx.level > 0) {
+            ctx.close();
+            ctx.triggerRef.current?.focus();
+            return;
+        }
+
+        if (capture?.isCaptured && ctx.menuId) {
+            const prevId = capture.getAdjacentTopLevelMenuId(ctx.menuId, -1);
+            if (prevId) {
+                capture.setActiveMenu(prevId);
+                return;
+            }
+        }
+
+        ctx.closeTree();
+    }, [capture, ctx, ctx.menuId]);
 
     // Local shortcuts
     mgr.useActionHandler('Close', () => {
-        ctx.closeTree();
         if (ctx.level > 0) {
+            ctx.close();
             ctx.triggerRef.current?.focus();
+            return;
         }
+
+        ctx.closeTree();
     });
 
-    // mgr.useActionHandler('NextItem', () => focusNextItem(1));
-    // mgr.useActionHandler('PrevItem', () => focusNextItem(-1));
-    // mgr.useActionHandler('ActivateItem', () => activateCurrentItem());
-    // mgr.useActionHandler('OpenOrNextMenu', () => openSubmenuOrNextMenu());
-    // mgr.useActionHandler('CloseOrParentMenu', () => closeOrParentMenu());
+    mgr.useActionHandler('NextItem', () => focusItemByDelta(1));
+    mgr.useActionHandler('PrevItem', () => focusItemByDelta(-1));
+    mgr.useActionHandler('ActivateItem', () => activateFocusedItem());
+    mgr.useActionHandler('OpenOrNextMenu', () => openSubmenuOrNextMenu());
+    mgr.useActionHandler('CloseOrParentMenu', () => closeOrParentMenu());
 
     return (
         <div
@@ -399,6 +524,7 @@ const MenuContentBody: React.FC<MenuContentBodyProps> = ({ ctx, classes, content
             style={contentStyle}
             ref={combinedRef}
             data-menu-root={ctx.rootId}
+            data-menu-level={ctx.level}
             tabIndex={-1}
         >
             {children}
@@ -409,7 +535,11 @@ const MenuContentBody: React.FC<MenuContentBodyProps> = ({ ctx, classes, content
 const MenuContent = React.forwardRef<HTMLDivElement, MenuContentProps>(({ children, className = '', minWidth, style, autoFocus = true }, forwardedRef) => {
     const ctx = useMenuContext('DesktopMenu.Content');
     const [position, setPosition] = useState(() => getMenuPosition(ctx.placement, ctx.triggerRef.current, null));
-    const combinedRef = composeRefs<HTMLDivElement>(forwardedRef, (node) => { ctx.contentRef.current = node; });
+    const [contentNode, setContentNode] = useState<HTMLDivElement | null>(null);
+    const combinedRef = composeRefs<HTMLDivElement>(forwardedRef, (node) => {
+        ctx.contentRef.current = node;
+        if (node) setContentNode(node);
+    });
 
     useLayoutEffect(() => {
         if (!ctx.isOpen) return;
@@ -451,7 +581,12 @@ const MenuContent = React.forwardRef<HTMLDivElement, MenuContentProps>(({ childr
 
     useEffect(() => {
         if (!ctx.isOpen || !autoFocus) return;
-        focusFirstItem(ctx.contentRef.current);
+        const focused = focusFirstItem(ctx.contentRef.current);
+        if (!focused) {
+            // Ensure focus stays within the menu so keyboard shortcuts (scoped to this menu content)
+            // keep working even if all items are disabled.
+            ctx.contentRef.current?.focus();
+        }
     }, [autoFocus, ctx.isOpen]);
 
     if (!ctx.isOpen) return null;
@@ -473,8 +608,7 @@ const MenuContent = React.forwardRef<HTMLDivElement, MenuContentProps>(({ childr
         <ShortcutManagerProvider<MenuActionId>
             name="DesktopMenu"
             actions={gMenuActionRegistry}
-            //attachTo={ctx.contentRef}
-            attachTo={document}
+            attachTo={contentNode ?? document}
             eventPhase="capture"
         >
             <MenuContentBody
@@ -655,6 +789,25 @@ const MenuBar: React.FC<MenuBarProps> = ({ children }) => {
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const focusHistory = useFocusHistory();
     const focusBookmarkRef = useRef<{ restore: () => void } | null>(null);
+    const topLevelMenuIdsRef = useRef<string[]>([]);
+
+    const registerTopLevelMenu = useCallback((menuId: string) => {
+        if (!topLevelMenuIdsRef.current.includes(menuId)) {
+            topLevelMenuIdsRef.current = [...topLevelMenuIdsRef.current, menuId];
+        }
+        return () => {
+            topLevelMenuIdsRef.current = topLevelMenuIdsRef.current.filter(id => id !== menuId);
+        };
+    }, []);
+
+    const getAdjacentTopLevelMenuId = useCallback((menuId: string, direction: -1 | 1) => {
+        const ids = topLevelMenuIdsRef.current;
+        if (ids.length < 2) return null;
+        const idx = ids.indexOf(menuId);
+        if (idx < 0) return null;
+        const nextIdx = (idx + direction + ids.length) % ids.length;
+        return ids[nextIdx] ?? null;
+    }, []);
 
     useEffect(() => {
         if (activeMenuId !== null) {
@@ -673,7 +826,9 @@ const MenuBar: React.FC<MenuBarProps> = ({ children }) => {
         isCaptured: activeMenuId !== null,
         activeMenuId,
         setActiveMenu: setActiveMenuId,
-    }), [activeMenuId]);
+        registerTopLevelMenu,
+        getAdjacentTopLevelMenuId,
+    }), [activeMenuId, getAdjacentTopLevelMenuId, registerTopLevelMenu]);
 
     return (
         <MenuCaptureContext.Provider value={captureValue}>
