@@ -53,9 +53,17 @@ Live @ https://somatic.tenfourmusic.net
   * Tools for encoding/decoding base64, hex-encoded, base85 and LZ-compressed Lua strings.
   * a built-in Lua minifier
 
+## Features that aren't obvious
+
+* <kbd>Ctrl+Click</kbd> on a note or instrument column to select that instrument.
+* holding <kbd>Shift+drag</kbd> while drawing on the waveform editor canvas draws straight lines
+* <kbd>Ctrl+Click</kbd> on a knob will reset it to default value
+* <kbd>Shift+drag</kbd> on a knob for fine control
+
+
 ## Somatic pattern commands
 
-additional per-pattern effect columns
+additional per-pattern effect columns that do Somatic-specific things
 
 * **E**: Effect strength scale (00=bypass, FF=max)
 * **L**: Set LFO phase (00-FF)
