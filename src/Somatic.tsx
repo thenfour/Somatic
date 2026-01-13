@@ -676,7 +676,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     });
     useActionHandler("UnmuteUnsoloAllChannels", () => {
         updateEditorState((s) => {
-            const channelIndices = numericRange(0, song.subsystem.channelCount - 1);
+            const channelIndices = numericRange(0, song.subsystem.channelCount);
             channelIndices.forEach((ch) => {
                 s.setChannelMute(ch, false);
                 s.setChannelSolo(ch, false);

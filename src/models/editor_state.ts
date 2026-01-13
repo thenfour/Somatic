@@ -163,13 +163,13 @@ export class EditorState {
    }
 
    getAudibleChannels(song: Song): Set<number> {
-      const channelIndices = numericRange(0, song.subsystem.channelCount - 1);
+      const channelIndices = numericRange(0, song.subsystem.channelCount);
       return new Set(channelIndices.filter(ch => this.isChannelAudible(ch)));
    }
 
    // Returns a string signature representing the current audible channels state; deterministic hash-like.
    getAudibleChannelSignature(song: Song): string {
-      const channelIndices = numericRange(0, song.subsystem.channelCount - 1);
+      const channelIndices = numericRange(0, song.subsystem.channelCount);
       return channelIndices.map(ch => this.isChannelAudible(ch) ? "1" : "0").join("");
    }
 

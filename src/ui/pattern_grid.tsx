@@ -148,7 +148,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
         }, [editingEnabled, clearPendingInstrumentEntry]);
 
-        const channelsArray = numericRange(0, song.subsystem.channelCount - 1);
+        const channelsArray = numericRange(0, song.subsystem.channelCount);
 
         const selection2d = useRectSelection2D({
             selection: editorState.patternSelection,
