@@ -178,8 +178,8 @@ function getSomaticPatternExtraEntries(prepared: PreparedSong): SomaticPatternEn
       const channel = col.channel;
 
       let hasAny = false;
-      for (let row = 0; row < channel.rows.length; row++) {
-         const cell = channel.rows[row];
+      for (let row = 0; row < prepared.rowsPerPattern; row++) {
+         const cell = channel.getCell(row);
          if (!cell)
             continue;
          if (cell.somaticEffect !== undefined || cell.somaticParam !== undefined) {
@@ -190,9 +190,9 @@ function getSomaticPatternExtraEntries(prepared: PreparedSong): SomaticPatternEn
       if (!hasAny)
          continue;
 
-      const cells = new Array(channel.rows.length);
-      for (let row = 0; row < channel.rows.length; row++) {
-         const cell = channel.rows[row]!;
+      const cells = new Array(prepared.rowsPerPattern);
+      for (let row = 0; row < prepared.rowsPerPattern; row++) {
+         const cell = channel.getCell(row);
          // effectId: 0 = none; 1.. = command index + 1
          const somaticEffectInfo = kSomaticPatternCommand.coerceByKey(cell.somaticEffect);
          const effectId = somaticEffectInfo ?

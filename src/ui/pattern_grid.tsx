@@ -1566,7 +1566,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         {Array.from({ length: song.subsystem.channelCount }).map((_, channelIndex) => {
                                             //const channelIndex = ToTic80ChannelIndex(channelIndexRaw);
                                             const channel = pattern.getChannel(channelIndex);
-                                            const row = channel.rows[rowIndex];
+                                            const row = channel.getCell(rowIndex);
                                             const noteCut = isNoteCut(row);
                                             const noteText = noteCut ? "^^^" : formatMidiNote(row.midiNote);
                                             const instrument = row.instrumentIndex != null ? song.getInstrument(row.instrumentIndex) : null;

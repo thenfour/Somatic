@@ -43,13 +43,13 @@ export function calculateSongUsage(song: Song): SongUsage {
       if (!pat)
          return;
       for (let ch = 0; ch < channelCount; ch++) {
-         const channel = pat.getChannel(ch);
-         channel.rows.forEach((cell) => {
+         for (let r = 0; r < song.rowsPerPattern; ++r) {
+            const cell = pat.getCell(ch, r);
             if (cell.instrumentIndex === undefined || cell.instrumentIndex === null)
                return;
             const instIdx = clamp(cell.instrumentIndex, 0, maxInstrumentIndex);
             usedInstruments.add(instIdx);
-         });
+         }
       }
    });
 
@@ -273,13 +273,13 @@ export function OptimizeSong(song: Song): OptimizeResult {
    usedPatternSet.forEach((patternIdx) => {
       const pat = working.patterns[newPatternIndex.get(patternIdx) ?? patternIdx];
       for (let ch = 0; ch < channelCount; ch++) {
-         const channel = pat.getChannel(ch);
-         channel.rows.forEach((cell) => {
+         for (let r = 0; r < working.rowsPerPattern; ++r) {
+            const cell = pat.getCell(ch, r);
             if (cell.instrumentIndex !== undefined && cell.instrumentIndex !== null) {
                const inst = clamp(cell.instrumentIndex, 0, working.instruments.length - 1);
                usedInstrumentSet.add(inst);
             }
-         });
+         }
       }
    });
 
@@ -304,14 +304,16 @@ export function OptimizeSong(song: Song): OptimizeResult {
    // update pattern cells with new instrument indexes across all patterns (used + unused) to keep data consistent.
    working.patterns.forEach((pattern) => {
       for (let ch = 0; ch < channelCount; ch++) {
-         const channel = pattern.getChannel(ch);
-         channel.rows.forEach((cell) => {
+         //const channel = pattern.getChannel(ch);
+         //channel.rows.forEach((cell) => {
+         for (let r = 0; r < song.rowsPerPattern; ++r) {
+            const cell = pattern.getCell(ch, r);
             if (cell.instrumentIndex !== undefined && cell.instrumentIndex !== null) {
                const clamped = clamp(cell.instrumentIndex, 0, newInstruments.length - 1);
                const mapped = instrumentRemap.get(clamped) ?? 0;
                cell.instrumentIndex = mapped;
             }
-         });
+         }
       }
    });
 

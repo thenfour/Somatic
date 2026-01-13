@@ -122,16 +122,16 @@ export function importSongFromTicCartBytes(
          // the tic80 patterns are single-channel; combine into our multi-channel pattern.
          // tic80 also refers to them 1-based, where 0 means empty.
          if (p0 > 0) {
-            pat.channels[0] = singleChannelPatterns[p0 - 1];
+            pat.channels[0] = singleChannelPatterns[p0 - 1].toData();
          }
          if (p1 > 0) {
-            pat.channels[1] = singleChannelPatterns[p1 - 1];
+            pat.channels[1] = singleChannelPatterns[p1 - 1].toData();
          }
          if (p2 > 0) {
-            pat.channels[2] = singleChannelPatterns[p2 - 1];
+            pat.channels[2] = singleChannelPatterns[p2 - 1].toData();
          }
          if (p3 > 0) {
-            pat.channels[3] = singleChannelPatterns[p3 - 1];
+            pat.channels[3] = singleChannelPatterns[p3 - 1].toData();
          }
          combinedIndex = combinedPatterns.length;
          combinedPatterns.push(new Pattern(pat));

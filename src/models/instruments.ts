@@ -601,3 +601,17 @@ export class SomaticInstrument {
       });
    }
 }
+
+// todo: dedupe built-in instrument creation.
+export const makeDefaultInstrumentForIndex = (instrumentIndex: number): SomaticInstrument => {
+   const inst = new SomaticInstrument();
+   if (instrumentIndex === 0) {
+      inst.name = "dontuse";
+   } else if (instrumentIndex === SomaticCaps.noteCutInstrumentIndex) {
+      inst.name = "off";
+      inst.volumeFrames.fill(0);
+   } else {
+      inst.name = `new inst ${instrumentIndex.toString(16).toUpperCase().padStart(2, "0")}`;
+   }
+   return inst;
+};

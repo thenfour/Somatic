@@ -4,10 +4,11 @@ import {AmigaModSubsystemBackend} from "../subsystem/AmigaMod/AmigaModSubsystemB
 import {SidSubsystemBackend} from "../subsystem/Sid/SidSubsystemBackend";
 import {clamp, CoalesceBoolean, SanitizeFilename} from "../utils/utils";
 
-import {SomaticInstrument, SomaticInstrumentDto} from "./instruments";
+import {makeDefaultInstrumentForIndex, SomaticInstrument, SomaticInstrumentDto} from "./instruments";
 import {isNoteCut, Pattern, PatternDto} from "./pattern";
 import {SongOrderDto, SongOrderItem} from "./songOrder";
 import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
+import {SomaticCaps} from "./tic80Capabilities";
 
 // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#music-tracks
 
@@ -135,10 +136,8 @@ export class Song {
       const channelCount = this.subsystem.channelCount;
 
       for (let ch = 0; ch < channelCount; ch += 1) {
-         const rows = pattern.getChannel(ch).rows;
-         const limit = Math.min(rows.length, rowLimit);
-         for (let r = 0; r < limit; r += 1) {
-            const cell = rows[r] || {};
+         for (let r = 0; r < this.rowsPerPattern; r += 1) {
+            const cell = pattern.getCell(ch, r);
             if (cell.instrumentIndex === instrumentIndex && cell.midiNote !== undefined && !isNoteCut(cell)) {
                count += 1;
             }
@@ -175,11 +174,9 @@ export class Song {
          const pattern = this.patterns[patternIndex];
          const rowLimit = this.rowsPerPattern;
          const channelCount = this.subsystem.channelCount;
-         for (let ch = 0; ch < channelCount; ch += 1) {
-            const rows = pattern.getChannel(ch).rows;
-            const limit = Math.min(rows.length, rowLimit);
-            for (let r = 0; r < limit; r += 1) {
-               const cell = rows[r] || {};
+         for (let ch = 0; ch < channelCount; ++ch) {
+            for (let r = 0; r < this.rowsPerPattern; ++r) {
+               const cell = pattern.getCell(ch, r);
                if (cell.instrumentIndex !== undefined && cell.instrumentIndex !== null) {
                   usageMap.set(cell.instrumentIndex, true);
                }
@@ -188,6 +185,67 @@ export class Song {
       }
       return usageMap;
    }
+
+   swapInstrumentIndicesInPatterns(a: number, b: number) {
+      const maxInstrumentIndex = Math.max(this.instruments.length - 1, 0);
+      const channelCount = this.subsystem.channelCount;
+      for (const pattern of this.patterns) {
+         for (let ch = 0; ch < channelCount; ++ch) {
+            //const channel = pattern.getChannel(ch);
+            for (let r = 0; r < this.rowsPerPattern; ++r) {
+               const cell = pattern.getCell(ch, r);
+               //for (const cell of channel.rows) {
+               if (cell.instrumentIndex === undefined || cell.instrumentIndex === null)
+                  continue;
+               const clamped = clamp(cell.instrumentIndex, 0, maxInstrumentIndex);
+               // keep index sane even if song was loaded with out-of-range references
+               cell.instrumentIndex = clamped;
+               if (cell.instrumentIndex === a)
+                  cell.instrumentIndex = b;
+               else if (cell.instrumentIndex === b)
+                  cell.instrumentIndex = a;
+            }
+         }
+      }
+   };
+
+   // Insert at `insertIndex` by shifting instruments down one slot (dropping the last slot).
+   // Remaps pattern instrument indices so playback is unchanged.
+   insertInstrumentSlotAtIndex(insertIndex: number) {
+      const lastIndex = this.instruments.length - 1;
+      if (insertIndex < 0 || insertIndex > lastIndex)
+         return;
+      if (insertIndex <= SomaticCaps.noteCutInstrumentIndex)
+         return;
+
+      // Shift instruments down, dropping the last.
+      for (let i = lastIndex; i > insertIndex; i -= 1) {
+         this.instruments[i] = this.instruments[i - 1]!;
+      }
+      this.instruments[insertIndex] = makeDefaultInstrumentForIndex(insertIndex);
+
+      // Remap instrument indices in patterns: anything at/after insertIndex shifts +1.
+      // We intentionally do NOT remap references to the last slot, because the caller
+      // must ensure that slot is unused (otherwise we'd lose an instrument).
+      const maxInstrumentIndex = Math.max(this.instruments.length - 1, 0);
+      const channelCount = this.subsystem.channelCount;
+      for (const pattern of this.patterns) {
+         for (let ch = 0; ch < channelCount; ++ch) {
+            //const channel = pattern.getChannel(ch);
+            for (let r = 0; r < this.rowsPerPattern; ++r) {
+               const cell = pattern.getCell(ch, r);
+               if (cell.instrumentIndex === undefined || cell.instrumentIndex === null)
+                  continue;
+               const clamped = clamp(cell.instrumentIndex, 0, maxInstrumentIndex);
+               cell.instrumentIndex = clamped;
+               if (clamped >= insertIndex && clamped < lastIndex) {
+                  cell.instrumentIndex = clamped + 1;
+               }
+            }
+         }
+      }
+   };
+
 
    toData(): Required<SongDto> {
       return {

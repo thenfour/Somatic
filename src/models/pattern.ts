@@ -1,6 +1,6 @@
 import {assert, clamp} from "../utils/utils";
 import type {Song} from "./song";
-import {kSomaticPatternCommand, kTic80EffectCommand, SomaticCaps, SomaticPatternCommand, Tic80Caps, Tic80EffectCommand} from "./tic80Capabilities";
+import {kSomaticPatternCommand, kTic80EffectCommand, SomaticCaps, SomaticPatternCommand, Tic80EffectCommand} from "./tic80Capabilities";
 
 
 export type PatternCell = {
@@ -18,7 +18,7 @@ export type PatternCell = {
    somaticParam?: number;
 };
 
-// LEGACY support:
+// LEGACY support (alpha):
 type PatternCellLegacy = {
    effect?: number; // TIC-80 effect command
    effectX?: number;
@@ -32,12 +32,13 @@ export function isNoteCut(cell: PatternCell): boolean {
    return cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex;
 }
 
+// DTO = Data Transfer Object; the serializable representation of the class.
 export type PatternChannelDto = {
    rows: PatternCell[];
 };
 
-export class PatternChannel implements PatternChannelDto {
-   rows: PatternCell[];
+export class PatternChannel {
+   private rows: PatternCell[];
 
    constructor(data?: PatternChannelDto) {
       this.rows = data ? [...data.rows] : [];
@@ -68,18 +69,18 @@ export class PatternChannel implements PatternChannelDto {
             // delete cell.somaticEffect; -- don't delete; it's still part of PatternCellLegacy
          }
       }
-
-      // ensure we have all rows. the reason is that upon render we can weed out; for editing just make sure we always have data.
-      this.ensureRows(Tic80Caps.pattern.maxRows);
    }
 
-   setRow(index: number, cellValue: PatternCell) {
+   setCell(index: number, cellValue: PatternCell) {
       if (index < 0 || index >= this.rows.length)
          return;
       this.ensureRows(index + 1);
       this.rows[index] = {...cellValue};
    }
-
+   getCell(index: number): PatternCell {
+      this.ensureRows(index + 1);
+      return this.rows[index];
+   }
    ensureRows(count: number) {
       while (this.rows.length < count) {
          this.rows.push({});
@@ -140,13 +141,13 @@ export class Pattern {
    }
 
    setCell(channelIndex: number, rowIndex: number, cellValue: PatternCell) {
-      this.getChannel(channelIndex).setRow(rowIndex, cellValue);
+      this.getChannel(channelIndex).setCell(rowIndex, cellValue);
    }
 
    getCell(channelIndex: number, rowIndex: number): PatternCell {
       const channel = this.getChannel(channelIndex);
       channel.ensureRows(rowIndex + 1);
-      return channel.rows[rowIndex];
+      return channel.getCell(rowIndex);
    }
 
    static fromData(data: PatternDto): Pattern {

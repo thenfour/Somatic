@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useRef } from "react";
 
 import { EditorState } from "../models/editor_state";
-import { isReservedInstrument, SomaticInstrument } from "../models/instruments";
+import { isReservedInstrument, makeDefaultInstrumentForIndex, SomaticInstrument } from "../models/instruments";
 import { Song } from "../models/song";
 import { SomaticCaps } from "../models/tic80Capabilities";
 import { clamp } from "../utils/utils";
@@ -20,72 +20,6 @@ export type InstrumentsPanelProps = {
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
     onClose: () => void;
-};
-
-// todo: dedupe built-in instrument creation.
-const makeDefaultInstrumentForIndex = (instrumentIndex: number): SomaticInstrument => {
-    const inst = new SomaticInstrument();
-    if (instrumentIndex === 0) {
-        inst.name = "dontuse";
-    } else if (instrumentIndex === SomaticCaps.noteCutInstrumentIndex) {
-        inst.name = "off";
-        inst.volumeFrames.fill(0);
-    } else {
-        inst.name = `new inst ${instrumentIndex.toString(16).toUpperCase().padStart(2, "0")}`;
-    }
-    return inst;
-};
-
-// todo: prob move this to song
-const swapInstrumentIndicesInPatterns = (song: Song, a: number, b: number) => {
-    const maxInstrumentIndex = Math.max(song.instruments.length - 1, 0);
-    const channelCount = song.subsystem.channelCount;
-    for (const pattern of song.patterns) {
-        for (let ch = 0; ch < channelCount; ch++) {
-            const channel = pattern.getChannel(ch);
-            for (const cell of channel.rows) {
-                if (cell.instrumentIndex === undefined || cell.instrumentIndex === null) continue;
-                const clamped = clamp(cell.instrumentIndex, 0, maxInstrumentIndex);
-                // keep index sane even if song was loaded with out-of-range references
-                cell.instrumentIndex = clamped;
-                if (cell.instrumentIndex === a) cell.instrumentIndex = b;
-                else if (cell.instrumentIndex === b) cell.instrumentIndex = a;
-            }
-        }
-    }
-};
-
-// Insert at `insertIndex` by shifting instruments down one slot (dropping the last slot).
-// Remaps pattern instrument indices so playback is unchanged.
-const insertInstrumentSlotAtIndex = (song: Song, insertIndex: number) => {
-    const lastIndex = song.instruments.length - 1;
-    if (insertIndex < 0 || insertIndex > lastIndex) return;
-    if (insertIndex <= SomaticCaps.noteCutInstrumentIndex) return;
-
-    // Shift instruments down, dropping the last.
-    for (let i = lastIndex; i > insertIndex; i -= 1) {
-        song.instruments[i] = song.instruments[i - 1]!;
-    }
-    song.instruments[insertIndex] = makeDefaultInstrumentForIndex(insertIndex);
-
-    // Remap instrument indices in patterns: anything at/after insertIndex shifts +1.
-    // We intentionally do NOT remap references to the last slot, because the caller
-    // must ensure that slot is unused (otherwise we'd lose an instrument).
-    const maxInstrumentIndex = Math.max(song.instruments.length - 1, 0);
-    const channelCount = song.subsystem.channelCount;
-    for (const pattern of song.patterns) {
-        for (let ch = 0; ch < channelCount; ch++) {
-            const channel = pattern.getChannel(ch);
-            for (const cell of channel.rows) {
-                if (cell.instrumentIndex === undefined || cell.instrumentIndex === null) continue;
-                const clamped = clamp(cell.instrumentIndex, 0, maxInstrumentIndex);
-                cell.instrumentIndex = clamped;
-                if (clamped >= insertIndex && clamped < lastIndex) {
-                    cell.instrumentIndex = clamped + 1;
-                }
-            }
-        }
-    }
 };
 
 export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
@@ -143,7 +77,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                 s.instruments[a] = s.instruments[b];
                 s.instruments[b] = tmp;
                 // Rewrite pattern instrument indices so playback is unchanged.
-                swapInstrumentIndicesInPatterns(s, a, b);
+                s.swapInstrumentIndicesInPatterns(a, b);
             },
         });
 
@@ -193,7 +127,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
             description: insertIndex === selectedInstrument ? "Insert instrument above" : "Insert instrument below",
             undoable: true,
             mutator: (s) => {
-                insertInstrumentSlotAtIndex(s, insertIndex);
+                s.insertInstrumentSlotAtIndex(insertIndex);
             },
         });
         onEditorStateChange((st) => st.setCurrentInstrument(insertIndex));

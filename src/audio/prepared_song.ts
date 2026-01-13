@@ -17,6 +17,8 @@ export type PreparedSongOrderItem = {
 
 export type PreparedSong = {
    baseSong: Song;                          //
+   rowsPerPattern: number;                  //
+   channelCount: number;                    //
    patternColumns: PreparedPatternColumn[]; //
    songOrder: PreparedSongOrderItem[];
 };
@@ -65,5 +67,7 @@ export function prepareSongColumns(song: Song): PreparedSong {
       baseSong: song,
       patternColumns,
       songOrder,
+      rowsPerPattern: song.rowsPerPattern,
+      channelCount: song.subsystem.channelCount,
    };
 }

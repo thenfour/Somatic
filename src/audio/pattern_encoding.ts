@@ -117,8 +117,8 @@ export function encodePatternChannel(pattern: Pattern, channelIndex: number): Ui
 }
 
 export function encodePatternChannelDirect(channel: PatternChannel): Uint8Array {
-   const rows = channel.rows;
-   return encodePatternChannelRows((rowIndex) => rows[rowIndex]);
+   //const rows = channel.rows;
+   return encodePatternChannelRows((rowIndex) => channel.getCell(rowIndex));
 }
 
 export function decodePatternChannelBytes(bytes: Uint8Array, startOffset = 0): PatternChannel {
