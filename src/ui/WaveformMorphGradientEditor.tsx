@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useClipboard } from "../hooks/useClipboard";
-import { Tic80Instrument } from "../models/instruments";
+import { SomaticInstrument } from "../models/instruments";
 import { Song } from "../models/song";
 import { SomaticCaps, Tic80Caps } from "../models/tic80Capabilities";
 import { clamp } from "../utils/utils";
@@ -32,7 +32,7 @@ const MorphCurveConfig: ContinuousParamConfig = {
 
 export const WaveformMorphGradientEditor: React.FC<{
     song: Song;
-    instrument: Tic80Instrument;
+    instrument: SomaticInstrument;
     instrumentIndex: number;
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
 }> = ({ song, instrument, instrumentIndex, onSongChange }) => {

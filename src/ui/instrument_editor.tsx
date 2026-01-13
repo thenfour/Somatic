@@ -2,7 +2,7 @@ import { mdiArrowDown, mdiArrowLeft, mdiArrowRight, mdiArrowUp, mdiContentCopy, 
 import React, { useMemo, useState } from 'react';
 import { AudioController } from '../audio/controller';
 import { useClipboard } from '../hooks/useClipboard';
-import { ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument, Tic80InstrumentDto } from '../models/instruments';
+import { ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, SomaticInstrument, SomaticInstrumentDto } from '../models/instruments';
 import { Song } from '../models/song';
 import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { gTic80Palette } from '../theme/ticPalette';
@@ -494,12 +494,12 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
     };
 
     const handlePaste = async () => {
-        const data = await clipboard.readObjectFromClipboard<Tic80InstrumentDto>();
+        const data = await clipboard.readObjectFromClipboard<SomaticInstrumentDto>();
         onSongChange({
             description: 'Paste instrument',
             undoable: true,
             mutator: (s) => {
-                s.instruments[instrumentIndex] = Tic80Instrument.fromData(data);
+                s.instruments[instrumentIndex] = SomaticInstrument.fromData(data);
             },
         });
     };

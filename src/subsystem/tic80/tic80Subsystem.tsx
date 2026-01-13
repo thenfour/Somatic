@@ -1,4 +1,4 @@
-import { Tic80Instrument, Tic80InstrumentDto } from "../../models/instruments";
+import { SomaticInstrument, SomaticInstrumentDto } from "../../models/instruments";
 import { Song, SongDto } from "../../models/song";
 import { Tic80Caps } from "../../models/tic80Capabilities";
 import { Tic80Waveform, Tic80WaveformDto } from "../../models/waveform";
@@ -33,11 +33,11 @@ const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {
 };
 
 
-const makeInstrumentList = (data: Tic80InstrumentDto[]): Tic80Instrument[] => {
+const makeInstrumentList = (data: SomaticInstrumentDto[]): SomaticInstrument[] => {
     //const length =  INSTRUMENT_COUNT + 1; // index 0 unused, indexes 1..INSTRUMENT_COUNT
     const list = Array.from({ length: Tic80Caps.sfx.count }, (_, i) => {
         const instData = data[i]!;
-        const ret = new Tic80Instrument(instData);
+        const ret = new SomaticInstrument(instData);
         if (IsNullOrWhitespace(ret.name)) {
             if (i === 0) {
                 ret.name = "dontuse";

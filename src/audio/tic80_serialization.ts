@@ -1,7 +1,7 @@
 // low level tic-80 cart serialization utils
 // nothing somatic-specific here.
 import {Tic80Constants} from "../../bridge/memory_layout";
-import {Tic80Instrument, type Tic80InstrumentDto} from "../models/instruments";
+import {SomaticInstrument, type SomaticInstrumentDto} from "../models/instruments";
 import {Song} from "../models/song";
 import {Tic80Caps} from "../models/tic80Capabilities";
 import {clamp} from "../utils/utils";
@@ -187,7 +187,7 @@ function decodeSignedNibble4(v: number): number {
    return nib >= 8 ? nib - 16 : nib;
 }
 
-export function decodeInstrumentFromBytes66(payload: Uint8Array, startOffset = 0): Partial<Tic80InstrumentDto> {
+export function decodeInstrumentFromBytes66(payload: Uint8Array, startOffset = 0): Partial<SomaticInstrumentDto> {
    // See https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#sfx
    // Missing bytes are treated as 0.
    const volumeFrames: number[] = new Array(Tic80Caps.sfx.envelopeFrameCount);
@@ -321,7 +321,7 @@ export function parseTicCartChunks(cartBytes: Uint8Array): TicCartChunk[] {
    return chunks;
 }
 
-export const encodeInstrument = (inst: Tic80Instrument): Uint8Array => {
+export const encodeInstrument = (inst: SomaticInstrument): Uint8Array => {
    const out = new Uint8Array(Tic80Constants.BYTES_PER_SFX);
 
    for (let tick = 0; tick < Tic80Caps.sfx.envelopeFrameCount; tick++) {

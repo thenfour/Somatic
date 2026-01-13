@@ -219,7 +219,7 @@ function coerceEffectKind(v: any, fallback: SomaticEffectKind): SomaticEffectKin
 
 //export const SFX_FRAME_COUNT = 30;
 
-export interface Tic80InstrumentDto {
+export interface SomaticInstrumentDto {
    name: string;
    highlightColor: string|null;
    highlightFg: string|null;
@@ -288,7 +288,7 @@ export interface Tic80InstrumentDto {
 }
 
 // aka "SFX" aka "sample" (from tic.h / sound.c)
-export class Tic80Instrument {
+export class SomaticInstrument {
    name: string;
    highlightColor: string|null;
    highlightFg: string|null;
@@ -349,7 +349,7 @@ export class Tic80Instrument {
 
 
    // editor-only...
-   constructor(data: Partial<Tic80InstrumentDto> = {}) {
+   constructor(data: Partial<SomaticInstrumentDto> = {}) {
       this.name = data.name ?? "";
 
       this.highlightColor = data.highlightColor ?? null;
@@ -481,11 +481,11 @@ export class Tic80Instrument {
       this.lowpassModSource = coerceModSource(data.lowpassModSource ?? "envelope");
    }
 
-   static fromData(data?: Partial<Tic80InstrumentDto>): Tic80Instrument {
-      return new Tic80Instrument(data || {});
+   static fromData(data?: Partial<SomaticInstrumentDto>): SomaticInstrument {
+      return new SomaticInstrument(data || {});
    }
 
-   toData(): Tic80InstrumentDto {
+   toData(): SomaticInstrumentDto {
       return {
          name: this.name,
          highlightColor: this.highlightColor,
@@ -535,8 +535,8 @@ export class Tic80Instrument {
       };
    };
 
-   clone(): Tic80Instrument {
-      return new Tic80Instrument(this.toData());
+   clone(): SomaticInstrument {
+      return new SomaticInstrument(this.toData());
    }
 
    contentSignature(): string {

@@ -1,11 +1,11 @@
 import React from "react";
 import "./InstrumentChip.css";
-import { Tic80Instrument } from "../models/instruments";
+import { SomaticInstrument } from "../models/instruments";
 import { Tooltip } from "./basic/tooltip";
 
 export interface InstrumentChipProps {
     instrumentIndex: number;
-    instrument: Tic80Instrument;
+    instrument: SomaticInstrument;
     onClick?: () => void;
     style?: React.CSSProperties;
     className?: string;

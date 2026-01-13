@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useRef } from "react";
 
 import { EditorState } from "../models/editor_state";
-import { isReservedInstrument, Tic80Instrument } from "../models/instruments";
+import { isReservedInstrument, SomaticInstrument } from "../models/instruments";
 import { Song } from "../models/song";
 import { SomaticCaps } from "../models/tic80Capabilities";
 import { clamp } from "../utils/utils";
@@ -23,8 +23,8 @@ export type InstrumentsPanelProps = {
 };
 
 // todo: dedupe built-in instrument creation.
-const makeDefaultInstrumentForIndex = (instrumentIndex: number): Tic80Instrument => {
-    const inst = new Tic80Instrument();
+const makeDefaultInstrumentForIndex = (instrumentIndex: number): SomaticInstrument => {
+    const inst = new SomaticInstrument();
     if (instrumentIndex === 0) {
         inst.name = "dontuse";
     } else if (instrumentIndex === SomaticCaps.noteCutInstrumentIndex) {

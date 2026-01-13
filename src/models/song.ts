@@ -2,7 +2,7 @@ import {kSubsystem, SomaticSubsystem, SubsystemTypeKey} from "../subsystem/base/
 import {Tic80Subsystem} from "../subsystem/tic80/tic80Subsystem";
 import {clamp, CoalesceBoolean, SanitizeFilename} from "../utils/utils";
 
-import {Tic80Instrument, Tic80InstrumentDto} from "./instruments";
+import {SomaticInstrument, SomaticInstrumentDto} from "./instruments";
 import {isNoteCut, Pattern, PatternDto} from "./pattern";
 import {SongOrderDto, SongOrderItem} from "./songOrder";
 //import {Tic80Caps} from "./tic80Capabilities";
@@ -22,7 +22,7 @@ export type SongDto = {
    highlightRowCount: number;
    patternEditStep: number;
 
-   instruments: Tic80InstrumentDto[]; //
+   instruments: SomaticInstrumentDto[]; //
    waveforms: Tic80WaveformDto[];
    patterns: PatternDto[];
    songOrder: (number|SongOrderDto)[]; // index into patterns
@@ -46,7 +46,7 @@ const makePatternList = (data: PatternDto[]): Pattern[] => {
 };
 
 export class Song {
-   instruments: Tic80Instrument[];
+   instruments: SomaticInstrument[];
    waveforms: Tic80Waveform[];
    patterns: Pattern[];
    songOrder: SongOrderItem[]; // index into patterns
@@ -144,7 +144,7 @@ export class Song {
       return count;
    }
 
-   getInstrument(index: number): Tic80Instrument|null {
+   getInstrument(index: number): SomaticInstrument|null {
       if (index < 0 || index >= this.instruments.length)
          return null;
       return this.instruments[index]!;

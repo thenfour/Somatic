@@ -5,7 +5,7 @@ import {
     MorphSampleImportAutoWindowParamsDto,
     MorphSampleImportStateDto,
     MorphSampleImportWindowDto,
-    Tic80Instrument,
+    SomaticInstrument,
     WaveformMorphGradientNode,
 } from "../models/instruments";
 import { Song } from "../models/song";
@@ -72,7 +72,7 @@ const WindowCountConfig: ContinuousParamConfig = {
     format: (v) => `${Math.trunc(v)}`,
 };
 
-function ensureImportState(instrument: Tic80Instrument): MorphSampleImportStateDto {
+function ensureImportState(instrument: SomaticInstrument): MorphSampleImportStateDto {
     return instrument.morphSampleImport ?? {
         sample: undefined,
         autoWindowParams: {
@@ -104,7 +104,7 @@ function nodesEqual(a: WaveformMorphGradientNode[], b: WaveformMorphGradientNode
 
 export const MorphSampleImportTab: React.FC<{
     song: Song;
-    instrument: Tic80Instrument;
+    instrument: SomaticInstrument;
     instrumentIndex: number;
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
 }> = ({ song, instrument, instrumentIndex, onSongChange }) => {

@@ -1,6 +1,6 @@
 import {getNoteInfo} from "../defs";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
-import {Tic80Instrument} from "../models/instruments";
+import {SomaticInstrument} from "../models/instruments";
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {gChannelsArray, Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
@@ -36,7 +36,8 @@ export class Tic80Backend {
       this.bridge = bridgeGetter;
    }
 
-   async sfxNoteOn(instrumentIndex: number, instrument: Tic80Instrument, midiNote: number, channel: Tic80ChannelIndex) {
+   async sfxNoteOn(
+      instrumentIndex: number, instrument: SomaticInstrument, midiNote: number, channel: Tic80ChannelIndex) {
       const b = this.bridge();
       if (!b || !b.isReady())
          return;

@@ -1,7 +1,7 @@
 import playroutineTemplateTxt from "../../bridge/playroutine.lua";
 import playroutineSharedTemplateTxt from "../../bridge/playroutine_shared.inc.lua";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
-import {ModSource, modSourceToU8, SomaticEffectKind, SomaticInstrumentWaveEngine, Tic80Instrument, ToWaveEngineId, WaveEngineId} from "../models/instruments";
+import {ModSource, modSourceToU8, SomaticEffectKind, SomaticInstrumentWaveEngine, SomaticInstrument, ToWaveEngineId, WaveEngineId} from "../models/instruments";
 //import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
 import type {Song} from "../models/song";
 import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";

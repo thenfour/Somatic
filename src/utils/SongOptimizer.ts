@@ -1,7 +1,7 @@
 import {gSomaticLZDefaultConfig, lzCompress} from "../audio/encoding";
 import {encodePatternChannelDirect} from "../audio/pattern_encoding";
 import {prepareSongColumns} from "../audio/prepared_song";
-import {SomaticEffectKind, Tic80Instrument} from "../models/instruments";
+import {SomaticEffectKind, SomaticInstrument} from "../models/instruments";
 import {Pattern} from "../models/pattern";
 import {Song} from "../models/song";
 import {SongOrderItem} from "../models/songOrder";
@@ -277,7 +277,7 @@ export function OptimizeSong(song: Song): OptimizeResult {
       });
    });
 
-   const newInstruments: Tic80Instrument[] = [];
+   const newInstruments: SomaticInstrument[] = [];
    const instrumentRemap = new Map<number, number>();
    const appendInstrument = (oldIndex: number) => {
       instrumentRemap.set(oldIndex, newInstruments.length);
