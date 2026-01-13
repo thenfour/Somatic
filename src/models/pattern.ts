@@ -18,6 +18,14 @@ export type PatternCell = {
    somaticParam?: number;
 };
 
+// LEGACY support:
+type PatternCellLegacy = {
+   effect?: number; // TIC-80 effect command
+   effectX?: number;
+   effectY?: number;
+   somaticEffect?: number; // 0-based value
+}
+
 export const MakeEmptyPatternCell = (): PatternCell => ({});
 
 export function isNoteCut(cell: PatternCell): boolean {
@@ -33,6 +41,34 @@ export class PatternChannel implements PatternChannelDto {
 
    constructor(data?: PatternChannelDto) {
       this.rows = data ? [...data.rows] : [];
+
+      // LEGACY support: migrate legacy effect fields to new tic80Effect fields
+      for (let i = 0; i < this.rows.length; i++) {
+         const cell = this.rows[i] as Partial<PatternCellLegacy>;
+         if (cell.effect !== undefined) {
+            const effectInfo = kTic80EffectCommand.infos.find(info => info.value === cell.effect);
+            if (effectInfo) {
+               this.rows[i].tic80Effect = effectInfo.key;
+            }
+            delete cell.effect;
+         }
+         if (cell.effectX !== undefined) {
+            this.rows[i].tic80EffectX = cell.effectX;
+            delete cell.effectX;
+         }
+         if (cell.effectY !== undefined) {
+            this.rows[i].tic80EffectY = cell.effectY;
+            delete cell.effectY;
+         }
+         if (typeof cell.somaticEffect === "number") {
+            const somaticEffectInfo = kSomaticPatternCommand.infos.find(info => info.value === cell.somaticEffect);
+            if (somaticEffectInfo) {
+               this.rows[i].somaticEffect = somaticEffectInfo.key;
+            }
+            // delete cell.somaticEffect; -- don't delete; it's still part of PatternCellLegacy
+         }
+      }
+
       // ensure we have all rows. the reason is that upon render we can weed out; for editing just make sure we always have data.
       this.ensureRows(Tic80Caps.pattern.maxRows);
    }
@@ -77,15 +113,8 @@ export class Pattern {
 
    constructor(data?: PatternDto) {
       if (data) {
-         //assert(data.channels.length === Tic80Caps.song.audioChannelsXXX);
          this.name = data.name ?? "";
          this.channels = data.channels.map((ch) => new PatternChannel(ch));
-         // this.channels = [
-         //    new PatternChannel(data.channels[0]),
-         //    new PatternChannel(data.channels[1]),
-         //    new PatternChannel(data.channels[2]),
-         //    new PatternChannel(data.channels[3]),
-         // ];
       } else {
          this.name = "";
          this.channels = [];
@@ -96,11 +125,6 @@ export class Pattern {
       return {
          name: this.name, //
             channels: this.channels.map(ch => ch.toData()),
-         // this.channels[0].toData(),
-         // this.channels[1].toData(),
-         // this.channels[2].toData(),
-         // this.channels[3].toData(),
-         //]
       }
    }
 
