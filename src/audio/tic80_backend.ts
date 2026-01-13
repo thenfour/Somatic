@@ -3,20 +3,20 @@ import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {SomaticInstrument} from "../models/instruments";
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
-import {gChannelsArray, Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
+import {gChannelsArray, Tic80Caps, TicMemoryMap} from "../models/tic80Capabilities";
 import type {Tic80BridgeHandle} from "../ui/Tic80Bridged";
 import {convertTic80MusicStateToSomatic} from "../utils/bakeSong";
-import {LoopMode, MakeEmptySomaticTransportState, MakeEmptyTic80TransportState, SomaticTransportState, Tic80TransportState} from "./backend";
+import {LoopMode, MakeEmptySomaticTransportState, SomaticTransportState, Tic80TransportState} from "./backend";
 import {serializeSongForTic80Bridge, Tic80SerializedSong} from "./tic80_cart_serializer";
 
 export type BackendPlaySongArgs = {
    reason: string;                           //
    song: Song,                               //
    cursorSongOrder: number,                  //
-   cursorChannelIndex: Tic80ChannelIndex,    //
+   cursorChannelIndex: number,               //
    cursorRowIndex: number,                   //
    patternSelection: SelectionRect2D | null, //
-   audibleChannels: Set<Tic80ChannelIndex>,  //
+   audibleChannels: Set<number>,             //
    startPosition: number,                    //
    startRow: number,                         //
    loopMode: LoopMode,                       //
@@ -36,8 +36,7 @@ export class Tic80Backend {
       this.bridge = bridgeGetter;
    }
 
-   async sfxNoteOn(
-      instrumentIndex: number, instrument: SomaticInstrument, midiNote: number, channel: Tic80ChannelIndex) {
+   async sfxNoteOn(instrumentIndex: number, instrument: SomaticInstrument, midiNote: number, channel: number) {
       const b = this.bridge();
       if (!b || !b.isReady())
          return;
@@ -52,7 +51,7 @@ export class Tic80Backend {
       });
    }
 
-   async sfxNoteOff(channel: Tic80ChannelIndex) {
+   async sfxNoteOff(channel: number) {
       const b = this.bridge();
       if (!b || !b.isReady())
          return;
@@ -70,11 +69,10 @@ export class Tic80Backend {
          return;
       }
 
-      type PlaybackRequest = { channel: Tic80ChannelIndex; sfxId: number; tic80Note: number; speed: number };
+      type PlaybackRequest = { channel: number; sfxId: number; tic80Note: number; speed: number };
       const requests: PlaybackRequest[] = [];
 
-      for (let channel = 0; channel < Tic80Caps.song.audioChannels; channel++) {
-         const channelIndex = channel as Tic80ChannelIndex;
+      for (let channelIndex = 0; channelIndex < Tic80Caps.song.audioChannels; channelIndex++) {
          const cell = pattern.getCell(channelIndex, rowNumber);
          if (!cell.midiNote || cell.instrumentIndex == null) {
             continue;

@@ -243,16 +243,14 @@ export const Tic80Caps = {
 
 export const Tic80PatternBytes = Tic80Caps.pattern.maxRows * 3; // 192 bytes per pattern
 
-export type Tic80ChannelIndex = 0|1|2|3;
+//export type Tic80ChannelIndex = 0|1|2|3;
 
-export const ToTic80ChannelIndex = (value: number): Tic80ChannelIndex => {
-   return clamp(value, 0, Tic80Caps.song.audioChannels - 1) as Tic80ChannelIndex;
+export const ToTic80ChannelIndex = (value: number): number => {
+   return clamp(value, 0, Tic80Caps.song.audioChannels - 1);
 };
 
-export const gChannelsArray =
-   [0 as Tic80ChannelIndex, 1 as Tic80ChannelIndex, 2 as Tic80ChannelIndex, 3 as Tic80ChannelIndex] as const;
-
-export const gAllChannelsAudible = new Set<Tic80ChannelIndex>(gChannelsArray);
+export const gChannelsArray = [0, 1, 2, 3] as const;
+export const gAllChannelsAudible = new Set<number>(gChannelsArray);
 
 export const TicMemoryMap = {
    // BRIDGE_MEMORY_MAP (shared with bridge.lua via bridge_config.ts)

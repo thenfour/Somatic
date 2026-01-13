@@ -1,5 +1,5 @@
 import {isNoteCut, Pattern, PatternCell} from "../models/pattern";
-import {SomaticCaps, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex} from "../models/tic80Capabilities";
+import {SomaticCaps, Tic80Caps, ToTic80ChannelIndex} from "../models/tic80Capabilities";
 import {InterpolateTarget} from "../ui/PatternAdvancedPanel";
 import {clamp, lerp} from "./utils";
 
@@ -22,7 +22,7 @@ const mutatePatternCells = (
    rowRange: RowRange,
    rowsPerPattern: number,
    instrumentIndex: number|null|undefined,
-   mutator: (cell: PatternCell, channelIndex: Tic80ChannelIndex, rowIndex: number) => PatternCell | null,
+   mutator: (cell: PatternCell, channelIndex: number, rowIndex: number) => PatternCell | null,
    ): boolean => {
    const maxRow = clamp(rowsPerPattern - 1, 0, Tic80Caps.pattern.maxRows - 1);
    if (maxRow < 0)

@@ -1,6 +1,6 @@
 import { mdiArrowDown, mdiArrowLeft, mdiArrowRight, mdiArrowUp, mdiContentCopy, mdiContentPaste } from '@mdi/js';
 import React, { useMemo, useState } from 'react';
-import { AudioController } from '../audio/controller';
+import { Tic80AudioController } from '../audio/controller';
 import { useClipboard } from '../hooks/useClipboard';
 import { ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, SomaticInstrument, SomaticInstrumentDto } from '../models/instruments';
 import { Song } from '../models/song';
@@ -339,7 +339,7 @@ export const InstrumentEnvelopeEditor: React.FC<{
 
 type InstrumentPanelProps = {
     song: Song;
-    audio: AudioController;
+    audio: Tic80AudioController;
     currentInstrument: number;
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
     onClose: () => void;

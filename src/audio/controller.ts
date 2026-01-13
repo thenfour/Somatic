@@ -1,16 +1,16 @@
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
-import {Tic80ChannelIndex} from "../models/tic80Capabilities";
+import {Tic80Caps} from "../models/tic80Capabilities";
 import {Tic80BridgeHandle} from "../ui/Tic80Bridged";
 import {BackendPlaySongArgs, Tic80Backend} from "./tic80_backend";
 import {VoiceManager} from "./voice_manager";
 
-export class AudioController {
+export class Tic80AudioController {
    backend: Tic80Backend;
    private voiceManager: VoiceManager;
 
    constructor(opts: {bridgeGetter: () => Tic80BridgeHandle | null}) {
-      this.voiceManager = new VoiceManager();
+      this.voiceManager = new VoiceManager(Tic80Caps.song.audioChannels);
       this.backend = new Tic80Backend(opts.bridgeGetter);
    }
 
@@ -22,7 +22,7 @@ export class AudioController {
       return this.backend.getFPS();
    }
 
-   sfxNoteOn(song: Song, instrumentIndex: number, note: number, preferredChannel: Tic80ChannelIndex|null = null) {
+   sfxNoteOn(song: Song, instrumentIndex: number, note: number, preferredChannel: number|null = null) {
       const channel = this.voiceManager.allocateVoice(instrumentIndex, note, preferredChannel);
       this.backend.sfxNoteOn(instrumentIndex, song.instruments[instrumentIndex], note, channel);
    }

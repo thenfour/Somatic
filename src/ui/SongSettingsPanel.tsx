@@ -1,4 +1,4 @@
-import { AudioController } from "../audio/controller";
+import { Tic80AudioController } from "../audio/controller";
 import { GlobalActions } from "../keyb/ActionIds";
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
@@ -9,7 +9,7 @@ import { SongEditor } from "./song_editor";
 interface SongSettingsPanelProps {
     song: Song;
     editorState: EditorState;
-    audio: AudioController;
+    audio: Tic80AudioController;
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
     onEditorStateChange: (updater: (state: EditorState) => void) => void;
     onClose: () => void;

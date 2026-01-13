@@ -1,5 +1,5 @@
 import React from 'react';
-import { AudioController } from '../audio/controller';
+import { Tic80AudioController } from '../audio/controller';
 //import { INSTRUMENT_COUNT, OCTAVE_COUNT, PATTERN_COUNT } from '../defs';
 import { EditorState } from '../models/editor_state';
 import { Song } from '../models/song';
@@ -17,7 +17,7 @@ type SongEditorProps = {
     editorState: EditorState;
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
-    audio: AudioController;
+    audio: Tic80AudioController;
 };
 
 export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSongChange, onEditorStateChange, audio }) => {

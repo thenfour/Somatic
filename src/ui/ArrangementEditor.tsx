@@ -662,7 +662,7 @@ export const ArrangementEditor: React.FC<{
                     const cacheKey = `${thumbKey}|${song.arrangementThumbnailSize}|${editorState.currentInstrument}|${song.rowsPerPattern}`;
                     let thumbnail = thumbnailCache.get(cacheKey);
                     if (thumbnail === undefined) {
-                        thumbnail = renderThumbnail(pattern, song.rowsPerPattern, song.arrangementThumbnailSize, editorState.currentInstrument);
+                        thumbnail = renderThumbnail(song.subsystem.channelCount, pattern, song.rowsPerPattern, song.arrangementThumbnailSize, editorState.currentInstrument);
                         thumbnailCache.set(cacheKey, thumbnail);
                     }
 

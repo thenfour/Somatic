@@ -8,10 +8,9 @@ import React, {
     useState,
 } from "react";
 import { Tic80SerializedSong } from "../audio/tic80_cart_serializer";
-import { Tic80ChannelIndex, TicBridge, TicMemoryMap } from "../models/tic80Capabilities";
 import { buildInfo } from "../buildInfo";
+import { TicBridge, TicMemoryMap } from "../models/tic80Capabilities";
 import { AsyncMutex } from "../utils/async_mutex";
-import { assert } from "../utils/utils";
 import { gLog } from "../utils/logger";
 import { Tic80Iframe, Tic80IframeHandle } from "./Tic80EmbedIframe";
 //import { Tic80TopLevel, Tic80TopLevelHandle } from "./Tic80TopLevel";
@@ -48,8 +47,8 @@ export type Tic80BridgeHandle = {
 };
 
 export type Tic80BridgeTransaction = {
-    playSfx: (opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; speed: number }) => Promise<void>;
-    stopSfx: (opts: { channel: Tic80ChannelIndex; }) => Promise<void>;
+    playSfx: (opts: { sfxId: number; tic80Note: number; channel: number; speed: number }) => Promise<void>;
+    stopSfx: (opts: { channel: number; }) => Promise<void>;
     transmitAndPlay: (opts: {
         data: Tic80SerializedSong,
         reason: string,
@@ -384,7 +383,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             return heapRef.current!.slice(start, start + length);
         }
 
-        async function playSfxRaw(opts: { sfxId: number; tic80Note: number; channel: Tic80ChannelIndex; speed: number }) {
+        async function playSfxRaw(opts: { sfxId: number; tic80Note: number; channel: number; speed: number }) {
             const channel = (opts.channel ?? 0) & 0xff;
             const sfxId = opts.sfxId & 0xff;
             const note = opts.tic80Note & 0xff;
@@ -393,7 +392,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             await sendMailboxCommandRaw([cmd, sfxId, note, channel, speed], "Play SFX");
         }
 
-        async function stopSfxRaw(opts: { channel: Tic80ChannelIndex; }) {
+        async function stopSfxRaw(opts: { channel: number; }) {
             const channel = opts.channel ?? 0;
             const cmd = TicBridge.CMD_PLAY_SFX_OFF;
             await sendMailboxCommandRaw([cmd, 0, 0, channel & 0xff], "Stop SFX");
@@ -470,23 +469,6 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             for (const block of [...opts.data.standardBlocksToTransmit, ...opts.data.mapBlocksToTransmit]) {
                 pokeBlock(block.region.address, block.payload);
             }
-
-
-
-            // pokeBlock(TicMemoryMap.WAVEFORMS_ADDR, opts.data.waveformData);
-            // pokeBlock(TicMemoryMap.SFX_ADDR, opts.data.sfxData);
-            // pokeBlock(TicMemoryMap.TRACKS_ADDR, opts.data.trackData);
-            // pokeBlock(TicMemoryMap.TF_ORDER_LIST, opts.data.songOrderData);
-            // pokeBlock(TicMemoryMap.TF_PATTERN_DATA, opts.data.patternData);
-
-            // const sfxConfigBytes = TicMemoryMap.MARKER_ADDR - TicMemoryMap.SOMATIC_SFX_CONFIG;
-            // gLog.info(`sfxConfigBytes: ${sfxConfigBytes}`);
-            // assert(sfxConfigBytes > 0, "Invalid TicMemoryMap: MARKER_ADDR must be > SOMATIC_SFX_CONFIG");
-            // assert(
-            //     opts.data.extraSongData.length === sfxConfigBytes,
-            //     `extraSongData length mismatch: got ${opts.data.extraSongData.length}, expected ${sfxConfigBytes}`
-            // );
-            // pokeBlock(TicMemoryMap.SOMATIC_SFX_CONFIG, opts.data.extraSongData);
         };
 
         // Transaction API
@@ -514,35 +496,6 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                 TicBridge.CMD_TRANSMIT
             ], "Transmit");
         };
-
-        // async function playRaw(opts: {
-        //     songPosition: number;
-        //     row: number;
-        //     loopForever: boolean;
-        // }) {
-        //     const songPosition = opts?.songPosition ?? 0;
-        //     const row = opts?.row ?? 0;
-        //     const loopForever = opts?.loopForever ?? false;
-
-        //     gLog.info("play() request", { songPosition, row, loopForever });
-
-        //     // Mailbox layout from the Lua:
-        //     // 0 cmd, 1 songPosition, 2 row, 3 loopForever, 4 sustain (unused here), 5 tempo, 6 speed
-        //     await sendMailboxCommandRaw([
-        //         TicBridge.CMD_PLAY,
-        //         songPosition & 0xff,
-        //         row & 0xff,
-        //         loopForever ? 1 : 0,
-        //         0, // sustain: unused
-        //     ], "Play");
-        // }
-
-        // async function uploadAndPlayRaw(opts: {
-        //     data: Tic80SerializedSong,
-        //     reason: string,
-        // }) {
-
-        // }
 
         async function stopRaw() {
             gLog.info("stop() request");

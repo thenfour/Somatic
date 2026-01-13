@@ -6,7 +6,7 @@ import './AppStatusBar.css';
 import './somatic.css';
 
 import { LoopMode, SomaticTransportState } from './audio/backend';
-import { AudioController } from './audio/controller';
+import { Tic80AudioController } from './audio/controller';
 import { importSongFromTicCartBytes } from './audio/import';
 import { serializeSongToCart } from './audio/tic80_cart_serializer';
 import { useAppInstancePresence } from './hooks/useAppPresence';
@@ -106,7 +106,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const keyboardNoteRef = React.useRef<KeyboardActionNoteInput | null>(null);
     const patternGridRef = React.useRef<PatternGridHandle | null>(null);
     const undoStackRef = React.useRef<UndoStack | null>(null);
-    const audio = useMemo(() => new AudioController({ bridgeGetter: () => bridgeRef.current }), []);
+    const audio = useMemo(() => new Tic80AudioController({ bridgeGetter: () => bridgeRef.current }), []);
     const { pushToast } = useToasts();
     const { confirm } = useConfirmDialog();
     const [song, setSong] = useLocalStorage<Song>(

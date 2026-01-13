@@ -1,5 +1,5 @@
 import { SomaticTransportState } from "../audio/backend";
-import { AudioController } from "../audio/controller";
+import { Tic80AudioController } from "../audio/controller";
 import { WriteBehind } from "../hooks/useWriteBehindEffect";
 import { GlobalActionId } from "../keyb/ActionIds";
 import { useShortcutManager } from "../keyb/KeyboardShortcutManager";
@@ -32,7 +32,7 @@ interface StatusChipsProps {
     midiEnabled: boolean;
     disabledMidiDeviceIds: string[];
     toggleMidiEnabled: () => void;
-    audio: AudioController;
+    audio: Tic80AudioController;
     autoSave: WriteBehind<Song>;
 };
 

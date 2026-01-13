@@ -1,11 +1,11 @@
 import {PatternChannel} from "../models/pattern";
 import {Song} from "../models/song";
-import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
+import {SomaticCaps, Tic80Caps} from "../models/tic80Capabilities";
 import {clamp} from "../utils/utils";
 
 export type PreparedPatternColumn = {
-   sourcePatternIndex: number;      //
-   channelIndex: Tic80ChannelIndex; //
+   sourcePatternIndex: number; //
+   channelIndex: number;       //
    channel: PatternChannel;
 };
 
@@ -24,7 +24,7 @@ export function prepareSongColumns(song: Song): PreparedSong {
    const patternColumns: PreparedPatternColumn[] = [];
    const signatureToIndex = new Map<string, number>();
 
-   const getColumnIndex = (patternIndex: number, channel: Tic80ChannelIndex): number => {
+   const getColumnIndex = (patternIndex: number, channel: number): number => {
       const pattern = song.patterns[patternIndex];
       const channelObj = pattern?.channels[channel];
       if (!channelObj) {
@@ -54,7 +54,7 @@ export function prepareSongColumns(song: Song): PreparedSong {
       const patternIndex = clamp(orderEntry.patternIndex, 0, maxPatternIndex);
       const columnIndices: [number, number, number, number] = [0, 0, 0, 0];
       for (let ch = 0; ch < Tic80Caps.song.audioChannels; ch++) {
-         columnIndices[ch] = getColumnIndex(patternIndex, ch as Tic80ChannelIndex);
+         columnIndices[ch] = getColumnIndex(patternIndex, ch);
       }
       songOrder.push({patternColumnIndices: columnIndices});
    }

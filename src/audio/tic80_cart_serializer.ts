@@ -4,7 +4,7 @@ import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {ModSource, modSourceToU8, SomaticEffectKind, SomaticInstrumentWaveEngine, SomaticInstrument, ToWaveEngineId, WaveEngineId} from "../models/instruments";
 //import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
 import type {Song} from "../models/song";
-import {gAllChannelsAudible, kSomaticPatternCommand, SomaticCaps, Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
+import {gAllChannelsAudible, kSomaticPatternCommand, SomaticCaps, Tic80Caps, TicMemoryMap} from "../models/tic80Capabilities";
 import {BakedSong, BakeSong} from "../utils/bakeSong";
 import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
 import bridgeConfig from "../../bridge/bridge_config";
@@ -292,11 +292,11 @@ function encodeTrack(song: Song): Uint8Array {
 export interface Tic80SerializeSongArgs {
    song: Song;
    loopMode: LoopMode;
-   cursorSongOrder: number,                  //
-      cursorChannelIndex: Tic80ChannelIndex, //
+   cursorSongOrder: number,       //
+      cursorChannelIndex: number, //
       cursorRowIndex: number,
       patternSelection: SelectionRect2D|null, //
-      audibleChannels: Set<Tic80ChannelIndex>,
+      audibleChannels: Set<number>,
       startPosition: number, //
       startRow: number,      //
       songOrderSelection: SelectionRect2D|null,
@@ -794,10 +794,10 @@ export type SongCartDetails = {
 }
 
 export function serializeSongToCartDetailed(
-   song: Song,                             //
-   optimize: boolean,                      //
-   variant: "debug"|"release",             //
-   audibleChannels: Set<Tic80ChannelIndex> //
+   song: Song,                  //
+   optimize: boolean,           //
+   variant: "debug"|"release",  //
+   audibleChannels: Set<number> //
    ):
    SongCartDetails //
 {
@@ -944,7 +944,7 @@ export function serializeSongToCartDetailed(
 
 
 export function serializeSongToCart(
-   song: Song, optimize: boolean, variant: "debug"|"release", audibleChannels: Set<Tic80ChannelIndex>): Uint8Array {
+   song: Song, optimize: boolean, variant: "debug"|"release", audibleChannels: Set<number>): Uint8Array {
    const details = serializeSongToCartDetailed(song, optimize, variant, audibleChannels);
    return details.cartridge;
 }

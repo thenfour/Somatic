@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AudioController } from "../audio/controller";
+import { Tic80AudioController } from "../audio/controller";
 import { NOTE_INFOS } from "../defs";
 import './keyboard.css';
 

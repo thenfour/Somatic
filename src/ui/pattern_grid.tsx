@@ -1,6 +1,6 @@
 import React, { forwardRef, KeyboardEvent, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { SomaticTransportState } from '../audio/backend';
-import { AudioController } from '../audio/controller';
+import { Tic80AudioController } from '../audio/controller';
 import { midiToName } from '../defs';
 import { useClipboard } from '../hooks/useClipboard';
 import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D';
@@ -11,7 +11,7 @@ import { useActionHandler } from '../keyb/useActionHandler';
 import { EditorState } from '../models/editor_state';
 import { analyzePatternPlaybackForGrid, isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { formatPatternIndex, Song } from '../models/song';
-import { gChannelsArray, kSomaticPatternCommand, kTic80EffectCommand, SomaticCaps, SomaticPatternCommand, Tic80Caps, Tic80ChannelIndex, Tic80EffectCommand, ToTic80ChannelIndex } from '../models/tic80Capabilities';
+import { gChannelsArray, kSomaticPatternCommand, kTic80EffectCommand, SomaticCaps, SomaticPatternCommand, Tic80Caps, Tic80EffectCommand, ToTic80ChannelIndex } from '../models/tic80Capabilities';
 import { changeInstrumentInPattern, interpolatePatternValues, nudgeInstrumentInPattern, RowRange, setInstrumentInPattern, transposeCellsInPattern } from '../utils/advancedPatternEdit';
 import { CharMap, clamp, Coord2D, includesOf, numericRange } from '../utils/utils';
 import { Tooltip } from './basic/tooltip';
@@ -72,7 +72,7 @@ const formatSomaticParam = (val: number | undefined | null) => {
 
 type PatternGridProps = {
     song: Song;
-    audio: AudioController;
+    audio: Tic80AudioController;
     musicState: SomaticTransportState;
     editorState: EditorState;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
@@ -138,7 +138,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const pendingInstrumentEntryRef = useRef<{
             rowIndex: number;
-            channelIndex: Tic80ChannelIndex;
+            channelIndex: number;
             hiNibble: number;
         } | null>(null);
 
@@ -767,13 +767,13 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             audio.playRow(song, pattern, rowIndex);
         };
 
-        const handleNoteKey = (_channelIndex: Tic80ChannelIndex, _rowIndex: number, _e: KeyboardEvent<HTMLTableCellElement>) => {
+        const handleNoteKey = (_channelIndex: number, _rowIndex: number, _e: KeyboardEvent<HTMLTableCellElement>) => {
             // Note entry is handled via global note input sources (MIDI/keyboard)
             // InsertNoteCut is now handled via useActionHandler
         };
 
         const handleInstrumentKey = (
-            channelIndex: Tic80ChannelIndex,
+            channelIndex: number,
             rowIndex: number,
             key: string,
         ): false | 'pending' | 'committed' => {
@@ -823,7 +823,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             return 'committed';
         };
 
-        const handleCommandKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, cmdKey: Tic80EffectCommand): boolean => {
+        const handleCommandKey = (channelIndex: number, rowIndex: number, cmdKey: Tic80EffectCommand): boolean => {
 
             //const idx = commandKeyMap.indexOf(key);
             //if (idx === -1) return false;
@@ -843,7 +843,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             return true;
         };
 
-        const handleSomaticCommandKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, cmdKey: SomaticPatternCommand): boolean => {
+        const handleSomaticCommandKey = (channelIndex: number, rowIndex: number, cmdKey: SomaticPatternCommand): boolean => {
             //const cmd = SOMATIC_PATTERN_COMMAND_KEYS[key.toLowerCase()];
             //const idx = cmd !== undefined ? cmd : -1;
             //if (idx === -1) return false;
@@ -863,7 +863,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             return true;
         };
 
-        const handleParamKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
+        const handleParamKey = (channelIndex: number, rowIndex: number, key: string): boolean => {
             const idx = paramKeyMap.indexOf(key);
             if (idx === -1) return false;
             onSongChange({
@@ -888,7 +888,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             return true;
         };
 
-        const handleSomaticParamKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
+        const handleSomaticParamKey = (channelIndex: number, rowIndex: number, key: string): boolean => {
             const idx = somaticParamKeyMap.indexOf(key);
             if (idx === -1) return false;
             onSongChange({
@@ -945,7 +945,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             nudgeInstrumentInSelection,
         }), [editorState.patternEditChannel, editorState.patternEditRow, focusCell, focusCellAdvancedToRow]);
 
-        const updateEditTarget = ({ rowIndex, channelIndex }: { rowIndex: number, channelIndex: Tic80ChannelIndex }) => {
+        const updateEditTarget = ({ rowIndex, channelIndex }: { rowIndex: number, channelIndex: number }) => {
             //const channelIndex = Math.floor(col / 4);
             onEditorStateChange((s) => s.setPatternEditTarget({ rowIndex, channelIndex }));
         };
@@ -1210,7 +1210,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
             const target = e.currentTarget;
             const rowIndex = parseInt(target.dataset.rowIndex!, 10);
-            const channelIndex = parseInt(target.dataset.channelIndex!, 10) as Tic80ChannelIndex;
+            const channelIndex = parseInt(target.dataset.channelIndex!, 10) as number;
             const cellType = target.dataset.cellType as ExtendedCellType;
             //const colOffset = cellType === 'note' ? 0 : cellType === 'instrument' ? 1 : cellType === 'command' ? 2 : 3;
             const columnIndex = parseInt(target.dataset.columnIndex!, 10);
@@ -1286,19 +1286,19 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
         };
 
-        const toggleChannelMute = (channelIndex: Tic80ChannelIndex) => {
+        const toggleChannelMute = (channelIndex: number) => {
             onEditorStateChange((s) => {
                 s.setChannelMute(channelIndex, !s.isChannelExplicitlyMuted(channelIndex));
             });
         };
 
-        const toggleChannelSolo = (channelIndex: Tic80ChannelIndex) => {
+        const toggleChannelSolo = (channelIndex: number) => {
             onEditorStateChange((s) => {
                 s.setChannelSolo(channelIndex, !s.isChannelExplicitlySoloed(channelIndex));
             });
         };
 
-        const onCellFocus = (rowIndex: number, channelIndex: Tic80ChannelIndex, col: number) => {
+        const onCellFocus = (rowIndex: number, channelIndex: number, col: number) => {
             const pending = pendingInstrumentEntryRef.current;
             if (pending && (pending.rowIndex !== rowIndex || pending.channelIndex !== channelIndex)) {
                 pendingInstrumentEntryRef.current = null;
@@ -1318,7 +1318,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             onEditorStateChange((s) => s.setPatternEditColumnType(columnType));
         };
 
-        const onCellMouseDownSelectingInstrument = (e: React.MouseEvent<HTMLTableCellElement>, rowIndex: number, channelIndex: Tic80ChannelIndex) => {
+        const onCellMouseDownSelectingInstrument = (e: React.MouseEvent<HTMLTableCellElement>, rowIndex: number, channelIndex: number) => {
             // ctrl+click = select that instrument.
             if (e.ctrlKey || e.metaKey) {
                 const cell = pattern.getCell(channelIndex, rowIndex);
@@ -1336,7 +1336,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             selection2d.onCellMouseDown(e, { y: rowIndex, x: channelIndex });
         };
 
-        const handleChannelHeaderClick = (e: React.MouseEvent<HTMLDivElement>, channelIndex: Tic80ChannelIndex) => {
+        const handleChannelHeaderClick = (e: React.MouseEvent<HTMLDivElement>, channelIndex: number) => {
             // hm this is slightly awkward but it will do for now..
             // issues:
             // - anchor moves to a place that's not natural

@@ -3,7 +3,7 @@ import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {clamp, CoalesceBoolean, Rect2D} from "../utils/utils";
 import {Pattern, PatternCell} from "./pattern";
 import {Song} from "./song";
-import {gChannelsArray, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex} from "./tic80Capabilities";
+import {gChannelsArray, Tic80Caps, ToTic80ChannelIndex} from "./tic80Capabilities";
 
 // export type PatternSelectionDto = {
 //    startRow: number;     //
@@ -18,11 +18,11 @@ export interface EditorStateDto {
    currentInstrument: number;
    editingEnabled: boolean;
    patternEditRow: number;
-   patternEditChannel: Tic80ChannelIndex;
+   patternEditChannel: number;
    selectedArrangementPositions: Rect2D|null;
    patternSelection: Rect2D|null;
-   mutedChannels: Tic80ChannelIndex[];
-   soloedChannels: Tic80ChannelIndex[];
+   mutedChannels: number[];
+   soloedChannels: number[];
    loopMode: LoopMode;
    lastNonOffLoopMode: LoopMode;
 }
@@ -35,12 +35,12 @@ export class EditorState {
    currentInstrument: number;
    editingEnabled: boolean;
    patternEditRow: number;
-   patternEditChannel: Tic80ChannelIndex;
+   patternEditChannel: number;
    patternEditColumnType: SomaticEditorStateColumnType;
    selectedArrangementPositions: SelectionRect2D|null;
    patternSelection: SelectionRect2D|null;
-   mutedChannels: Set<Tic80ChannelIndex> = new Set<Tic80ChannelIndex>();
-   soloedChannels: Set<Tic80ChannelIndex> = new Set<Tic80ChannelIndex>();
+   mutedChannels: Set<number> = new Set<number>();
+   soloedChannels: Set<number> = new Set<number>();
    loopMode: LoopMode;
    lastNonOffLoopMode: LoopMode;
 
@@ -90,7 +90,7 @@ export class EditorState {
       this.editingEnabled = Boolean(enabled);
    }
 
-   setPatternEditTarget({rowIndex, channelIndex}: {rowIndex: number, channelIndex: Tic80ChannelIndex}) {
+   setPatternEditTarget({rowIndex, channelIndex}: {rowIndex: number, channelIndex: number}) {
       this.patternEditRow = clamp(rowIndex, 0, Tic80Caps.pattern.maxRows - 1);
       this.patternEditChannel = channelIndex;
    }
@@ -135,15 +135,15 @@ export class EditorState {
       return currentRow;
    }
 
-   isChannelExplicitlyMuted(channelIndex: Tic80ChannelIndex): boolean {
+   isChannelExplicitlyMuted(channelIndex: number): boolean {
       return this.mutedChannels.has(channelIndex);
    }
 
-   isChannelExplicitlySoloed(channelIndex: Tic80ChannelIndex): boolean {
+   isChannelExplicitlySoloed(channelIndex: number): boolean {
       return this.soloedChannels.has(channelIndex);
    }
 
-   setChannelSolo(channelIndex: Tic80ChannelIndex, soloed: boolean) {
+   setChannelSolo(channelIndex: number, soloed: boolean) {
       if (soloed) {
          this.soloedChannels.add(channelIndex);
       } else {
@@ -151,7 +151,7 @@ export class EditorState {
       }
    }
 
-   setChannelMute(channelIndex: Tic80ChannelIndex, muted: boolean) {
+   setChannelMute(channelIndex: number, muted: boolean) {
       if (muted) {
          this.mutedChannels.add(channelIndex);
       } else {
@@ -159,7 +159,7 @@ export class EditorState {
       }
    }
 
-   isChannelAudible(channelIndex: Tic80ChannelIndex): boolean {
+   isChannelAudible(channelIndex: number): boolean {
       if (this.soloedChannels.size > 0) {
          return this.soloedChannels.has(channelIndex);
       }
@@ -169,7 +169,7 @@ export class EditorState {
       return true;
    }
 
-   getAudibleChannels(): Set<Tic80ChannelIndex> {
+   getAudibleChannels(): Set<number> {
       return new Set(gChannelsArray.filter(ch => this.isChannelAudible(ch)));
    }
 
@@ -178,7 +178,7 @@ export class EditorState {
       return gChannelsArray.map(ch => this.isChannelAudible(ch) ? "1" : "0").join("");
    }
 
-   isPatternChannelSelected(channelIndex: Tic80ChannelIndex): boolean {
+   isPatternChannelSelected(channelIndex: number): boolean {
       if (!this.patternSelection) {
          return false;
       }

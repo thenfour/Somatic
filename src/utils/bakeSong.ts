@@ -3,7 +3,7 @@ import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {Pattern, PatternCell} from "../models/pattern";
 import {Song} from "../models/song";
 import {SongOrderItem} from "../models/songOrder";
-import {gChannelsArray, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
+import {gChannelsArray, Tic80Caps} from "../models/tic80Capabilities";
 
 export interface BakeSongArgs {
    song: Song;              // the full song being edited
@@ -13,13 +13,13 @@ export interface BakeSongArgs {
    // if loopMode is "selectionInSongOrder", this indicates the selected song order range (use only the Y(row) selection; there are no columns (x) selected.)
    songOrderSelection: SelectionRect2D|null;
 
-   cursorChannelIndex: Tic80ChannelIndex; // which channel the cursor is on (i think this is ignored for baking)
-   cursorRowIndex: number;                // which row the cursor is on (used for half/quarter pattern loop modes)
+   cursorChannelIndex: number; // which channel the cursor is on (i think this is ignored for baking)
+   cursorRowIndex: number;     // which row the cursor is on (used for half/quarter pattern loop modes)
 
    // if loopMode is "selectionInPattern", this indicates the selected pattern range.
    patternSelection: SelectionRect2D|null;
 
-   audibleChannels: Set<Tic80ChannelIndex>; // which channels are audible (not muted)
+   audibleChannels: Set<number>; // which channels are audible (not muted)
 
    // the song order position the user is requesting to start from. this is populated when
    // "play from this pattern" or "play from this row" is used.
@@ -141,7 +141,7 @@ this will avoid extremely short patterns that are likely to glitch out.
 
 */
 
-function muteInaudibleChannels(song: Song, audibleChannels: Set<Tic80ChannelIndex>): void {
+function muteInaudibleChannels(song: Song, audibleChannels: Set<number>): void {
    const emptyCell: PatternCell = {};
    for (const pattern of song.patterns) {
       for (const ch of gChannelsArray) {

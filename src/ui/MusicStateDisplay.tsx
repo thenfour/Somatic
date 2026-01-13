@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { SomaticTransportState } from "../audio/backend";
-import { AudioController } from "../audio/controller";
+import { Tic80AudioController } from "../audio/controller";
 import { Song } from "../models/song";
 import { KeyValueTable } from "./basic/KeyValueTable";
 import { Tooltip } from "./basic/tooltip";
@@ -10,7 +10,7 @@ const FPS_WARNING_THRESHOLD = 45; // below this and we show a warning
 
 // why accept musicState as a prop? to let the parent fetch it only when needed
 // and why not put fps in music state? because we expect it's updating constantly and don't want infinite re-renders
-export const MusicStateDisplay: React.FC<{ song: Song, bridgeReady: boolean; audio: AudioController, musicState: SomaticTransportState }> = ({ song, bridgeReady, audio, musicState }) => {
+export const MusicStateDisplay: React.FC<{ song: Song, bridgeReady: boolean; audio: Tic80AudioController, musicState: SomaticTransportState }> = ({ song, bridgeReady, audio, musicState }) => {
 
     const [fps, setFps] = useState(0);
 

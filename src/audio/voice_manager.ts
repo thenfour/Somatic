@@ -1,8 +1,8 @@
-import {Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
+//import {Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 
 
 type VoiceState = {
-   channel: Tic80ChannelIndex;     //
+   channel: number;                //
    midiNote: number | null;        //
    instrumentIndex: number | null; //
    timestamp: number;              // for LRU replacement
@@ -10,11 +10,13 @@ type VoiceState = {
 
 export class VoiceManager {
    private voices: VoiceState[] = [];
+   private voiceCount: number;
 
-   constructor() {
-      for (let i = 0; i < Tic80Caps.song.audioChannels; i++) {
+   constructor(voiceCount: number) {
+      this.voiceCount = voiceCount;
+      for (let i = 0; i < voiceCount; i++) {
          this.voices.push({
-            channel: i as Tic80ChannelIndex,
+            channel: i,
             midiNote: null,
             instrumentIndex: null,
             timestamp: 0,
@@ -29,15 +31,14 @@ export class VoiceManager {
       }
    }
 
-   allocateVoice(instrumentIndex: number, midiNote: number, preferredChannel: Tic80ChannelIndex|null = 0):
-      Tic80ChannelIndex //
+   allocateVoice(instrumentIndex: number, midiNote: number, preferredChannel: number|null = 0): number //
    {
       const now = performance.now();
-      const startChannel = (preferredChannel || 0) % Tic80Caps.song.audioChannels;
+      const startChannel = (preferredChannel || 0) % this.voiceCount;
 
       // try to find an idle voice beginning from preferredChannel
-      for (let offset = 0; offset < Tic80Caps.song.audioChannels; offset++) {
-         const channelIndex = (startChannel + offset) % Tic80Caps.song.audioChannels;
+      for (let offset = 0; offset < this.voiceCount; offset++) {
+         const channelIndex = (startChannel + offset) % this.voiceCount;
          const voice = this.voices[channelIndex];
          if (voice.midiNote === null) {
             voice.midiNote = midiNote;
@@ -61,7 +62,7 @@ export class VoiceManager {
       return oldest.channel;
    }
 
-   releaseVoice(midiNote: number): Tic80ChannelIndex|null {
+   releaseVoice(midiNote: number): number|null {
       for (const voice of this.voices) {
          if (voice.midiNote === midiNote) {
             const channel = voice.channel;
@@ -74,8 +75,8 @@ export class VoiceManager {
       return null;
    }
 
-   releaseAll(): Tic80ChannelIndex[] {
-      const channels: Tic80ChannelIndex[] = [];
+   releaseAll(): number[] {
+      const channels: number[] = [];
       for (const voice of this.voices) {
          if (voice.midiNote !== null) {
             channels.push(voice.channel);
@@ -87,7 +88,7 @@ export class VoiceManager {
       return channels;
    }
 
-   getChannelForNote(midiNote: number): Tic80ChannelIndex|null {
+   getChannelForNote(midiNote: number): number|null {
       for (const voice of this.voices) {
          if (voice.midiNote === midiNote) {
             return voice.channel;

@@ -1,7 +1,6 @@
 import {NOTE_INFOS} from "../defs";
 import {Pattern, PatternCell, PatternChannel} from "../models/pattern";
-import {kTic80EffectCommand, SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
-import {clamp} from "../utils/utils";
+import {kTic80EffectCommand, SomaticCaps, Tic80Caps} from "../models/tic80Capabilities";
 
 function encodePatternNote(midiNoteValue: number|undefined): {noteNibble: number; octave: number} {
    if (midiNoteValue === undefined) {
@@ -113,7 +112,7 @@ function encodePatternChannelRows(
    return buf;
 }
 
-export function encodePatternChannel(pattern: Pattern, channelIndex: Tic80ChannelIndex): Uint8Array {
+export function encodePatternChannel(pattern: Pattern, channelIndex: number): Uint8Array {
    return encodePatternChannelRows((rowIndex) => pattern.getCell(channelIndex, rowIndex));
 }
 

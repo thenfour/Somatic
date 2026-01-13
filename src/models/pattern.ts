@@ -1,6 +1,6 @@
 import {assert, clamp} from "../utils/utils";
 import type {Song} from "./song";
-import {kSomaticPatternCommand, kTic80EffectCommand, SomaticCaps, SomaticPatternCommand, Tic80Caps, Tic80ChannelIndex, Tic80EffectCommand} from "./tic80Capabilities";
+import {kSomaticPatternCommand, kTic80EffectCommand, SomaticCaps, SomaticPatternCommand, Tic80Caps, Tic80EffectCommand} from "./tic80Capabilities";
 
 
 export type PatternCell = {
@@ -114,11 +114,11 @@ export class Pattern implements PatternDto {
       }
    }
 
-   setCell(channelIndex: Tic80ChannelIndex, rowIndex: number, cellValue: PatternCell) {
+   setCell(channelIndex: number, rowIndex: number, cellValue: PatternCell) {
       this.channels[channelIndex].setRow(rowIndex, cellValue);
    }
 
-   getCell(channelIndex: Tic80ChannelIndex, rowIndex: number): PatternCell {
+   getCell(channelIndex: number, rowIndex: number): PatternCell {
       this.channels[channelIndex].ensureRows(rowIndex + 1);
       return this.channels[channelIndex].rows[rowIndex];
    }
@@ -136,7 +136,7 @@ export class Pattern implements PatternDto {
       return JSON.stringify({channels: dto.channels});
    }
 
-   contentSignatureForColumn(channelIndex: Tic80ChannelIndex): string {
+   contentSignatureForColumn(channelIndex: number): string {
       const dto = this.toData();
       return JSON.stringify({channel: dto.channels[channelIndex]});
    }
