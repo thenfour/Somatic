@@ -3,6 +3,7 @@ import type { SomaticTransportState } from '../audio/backend';
 import { Tic80AudioController } from '../audio/controller';
 import { midiToName } from '../defs';
 import { useClipboard } from '../hooks/useClipboard';
+import { useCellRefsGrid } from '../hooks/useCellRefsGrid';
 import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D';
 import { useRenderAlarm } from '../hooks/useRenderAlarm';
 import { GlobalActionId } from '../keyb/ActionIds';
@@ -122,10 +123,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const fxCarryTooltip = `Effect command state at the end of this pattern (doesn't consider previous patterns)`;
 
-        // TODO: this needs to be able to grow based on subsystem channel count.
-        const cellRefs = useMemo(
-            () => Array.from({ length: song.subsystem.maxRowsPerPattern }, () => Array(CELLS_PER_CHANNEL * song.subsystem.channelCount).fill(null) as (HTMLTableCellElement | null)[]),
-            []);
+        const cellRefs = useCellRefsGrid<HTMLTableCellElement>(
+            song.subsystem.maxRowsPerPattern,
+            CELLS_PER_CHANNEL * song.subsystem.channelCount,
+        );
 
         const editingEnabled = editorState.editingEnabled !== false;
         const clipboard = useClipboard();
