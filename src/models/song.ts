@@ -1,5 +1,7 @@
 import {kSubsystem, SomaticSubsystemBackend, SubsystemTypeKey} from "../subsystem/base/SubsystemBackendBase";
 import {Tic80SubsystemBackend} from "../subsystem/tic80/tic80SubsystemBackend";
+import {AmigaModSubsystemBackend} from "../subsystem/AmigaMod/AmigaModSubsystemBackend";
+import {SidSubsystemBackend} from "../subsystem/Sid/SidSubsystemBackend";
 import {clamp, CoalesceBoolean, SanitizeFilename} from "../utils/utils";
 
 import {SomaticInstrument, SomaticInstrumentDto} from "./instruments";
@@ -73,6 +75,9 @@ export class Song {
             case kSubsystem.key.TIC80:
                return new Tic80SubsystemBackend();
             case kSubsystem.key.AMIGAMOD:
+               return new AmigaModSubsystemBackend();
+            case kSubsystem.key.SID:
+               return new SidSubsystemBackend();
             default:
                throw new Error(`Unsupported subsystem type: ${this.subsystemType}`);
          }

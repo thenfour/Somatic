@@ -21,7 +21,11 @@ import { KeyboardActionNoteInput } from './midi/keyboard_action_input';
 import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { EditorState } from './models/editor_state';
 import { Song } from './models/song';
-import { gChannelsArray, ToTic80ChannelIndex } from './models/tic80Capabilities';
+import { AmigaModSubsystemFrontend } from './subsystem/AmigaMod/AmigaModSubsystemFrontend';
+import { kSubsystem } from './subsystem/base/SubsystemBackendBase';
+import { SomaticSubsystemFrontend } from './subsystem/base/SubsystemFrontendBase';
+import { SidSubsystemFrontend } from './subsystem/Sid/SidSubsystemFrontend';
+import { Tic80SubsystemFrontend } from './subsystem/tic80/tic80SubsystemFrontend';
 import { AboutSomaticDialog } from './ui/AboutSomaticDialog';
 import { AppStatusBar } from './ui/AppStatusBar';
 import { ArrangementEditor } from './ui/ArrangementEditor';
@@ -50,8 +54,7 @@ import { gLog } from './utils/logger';
 import { OptimizeSong } from './utils/SongOptimizer';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
-import { Tic80SubsystemFrontend } from './subsystem/tic80/tic80SubsystemFrontend';
-import { kSubsystem } from './subsystem/base/SubsystemBackendBase';
+import { numericRange } from './utils/utils';
 
 const TIC80_FRAME_SIZES = [
 
@@ -118,7 +121,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         }
     );
 
-    const subsystemFrontendRef = React.useRef<Tic80SubsystemFrontend>();
+    const subsystemFrontendRef = React.useRef<SomaticSubsystemFrontend<Song> | null>(null);
 
     const appPresence = useAppInstancePresence("somatic");
 
@@ -165,6 +168,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         switch (song.subsystemType) {
             case kSubsystem.key.TIC80:
                 subsystemFrontendRef.current = new Tic80SubsystemFrontend();
+                break;
+            case kSubsystem.key.AMIGAMOD:
+                subsystemFrontendRef.current = new AmigaModSubsystemFrontend();
+                break;
+            case kSubsystem.key.SID:
+                subsystemFrontendRef.current = new SidSubsystemFrontend();
                 break;
             default:
                 throw new Error(`Unsupported subsystem type: ${song.subsystemType}`);
@@ -214,7 +223,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         await audio.transmit({
             song: doc,
             reason: 'auto-save',
-            audibleChannels: editorState.getAudibleChannels(),
+            audibleChannels: editorState.getAudibleChannels(doc),
             cursorChannelIndex: editorState.patternEditChannel,
             cursorRowIndex: editorState.patternEditRow,
             cursorSongOrder: editorState.activeSongPosition,
@@ -308,7 +317,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const handleIncomingNoteOn = useCallback((note: number) => {
         const s = songRef.current;
         const ed = editorRef.current;
-        const channel = ToTic80ChannelIndex(ed.patternEditChannel);
+        const channel = ed.patternEditChannel;
         const skipNoteEntry = isEditingCommandOrParamCell();
         autoSave.flush(); // immediately apply changes to instrument; user is playing a note maybe testing their tweaks.
         audio.sfxNoteOn(s, ed.currentInstrument, note, ed.patternEditChannel);
@@ -480,7 +489,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     };
 
     const exportCart = (variant: "debug" | "release") => {
-        const cartData = serializeSongToCart(song, true, variant, editorState.getAudibleChannels());
+        const cartData = serializeSongToCart(song, true, variant, editorState.getAudibleChannels(song));
 
         // Create a Blob from the Uint8Array
         const blob = new Blob([cartData as any /* workaround for Blob constructor typing */], { type: 'application/octet-stream' });
@@ -550,7 +559,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 cursorChannelIndex: editorRef.current.patternEditChannel,
                 cursorRowIndex: editorRef.current.patternEditRow,
                 patternSelection: editorRef.current.patternSelection,
-                audibleChannels: editorRef.current.getAudibleChannels(),
+                audibleChannels: editorRef.current.getAudibleChannels(songRef.current),
                 startPosition,
                 startRow,
                 loopMode: editorRef.current.loopMode,
@@ -667,10 +676,11 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     });
     useActionHandler("UnmuteUnsoloAllChannels", () => {
         updateEditorState((s) => {
-            for (const ch of gChannelsArray) {
+            const channelIndices = numericRange(0, song.subsystem.channelCount - 1);
+            channelIndices.forEach((ch) => {
                 s.setChannelMute(ch, false);
                 s.setChannelSolo(ch, false);
-            }
+            });
         });
     });
     useActionHandler("ExportCartRelease", () => exportCart('release'));

@@ -1,23 +1,23 @@
 import playroutineTemplateTxt from "../../bridge/playroutine.lua";
 import playroutineSharedTemplateTxt from "../../bridge/playroutine_shared.inc.lua";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
-import {ModSource, modSourceToU8, SomaticEffectKind, SomaticInstrumentWaveEngine, SomaticInstrument, ToWaveEngineId, WaveEngineId} from "../models/instruments";
+import {modSourceToU8, SomaticEffectKind, SomaticInstrumentWaveEngine, ToWaveEngineId} from "../models/instruments";
 //import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
-import type {Song} from "../models/song";
-import {gAllChannelsAudible, kSomaticPatternCommand, SomaticCaps, Tic80Caps, TicMemoryMap} from "../models/tic80Capabilities";
-import {BakedSong, BakeSong} from "../utils/bakeSong";
-import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
 import bridgeConfig from "../../bridge/bridge_config";
+import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../../bridge/memory_layout";
 import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec, WaveformMorphGradientCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked,} from "../../bridge/morphSchema";
+import type {Song} from "../models/song";
+import {gTic80AllChannelsAudible, kSomaticPatternCommand, SomaticCaps, Tic80Caps, TicMemoryMap} from "../models/tic80Capabilities";
+import {BakedSong, BakeSong} from "../utils/bakeSong";
 import {emitLuaBitpackPrelude, emitLuaDecoder} from "../utils/bitpack/emitLuaDecoder";
+import {MemoryRegion} from "../utils/bitpack/MemoryRegion";
+import {OptimizationRuleOptions, processLua} from "../utils/lua/lua_processor";
+import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
 import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../utils/utils";
 import {LoopMode} from "./backend";
 import {base85Plus1Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
 import {encodePatternChannelDirect} from "./pattern_encoding";
 import {PreparedSong, prepareSongColumns} from "./prepared_song";
-import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../../bridge/memory_layout";
-import {OptimizationRuleOptions, processLua} from "../utils/lua/lua_processor";
-import {MemoryRegion} from "../utils/bitpack/MemoryRegion";
 import {createChunk, encodeSfx, encodeTempo, encodeTrackSpeed, encodeWaveforms, packTrackFrame, packWaveformSamplesToBytes16, removeTrailingZerosFn, stringToAsciiPayload, TicChunkType} from "./tic80_serialization";
 
 
@@ -838,7 +838,7 @@ export function serializeSongToCartDetailed(
 
    const bakeResult = BakeSong({
       song,
-      audibleChannels: gAllChannelsAudible,
+      audibleChannels: gTic80AllChannelsAudible,
       cursorSongOrder: 0,
       cursorChannelIndex: 0,
       cursorRowIndex: 0,

@@ -1,16 +1,9 @@
 import {LoopMode} from "../audio/backend";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
-import {clamp, CoalesceBoolean, Rect2D} from "../utils/utils";
+import {clamp, CoalesceBoolean, numericRange, Rect2D} from "../utils/utils";
 import {Pattern, PatternCell} from "./pattern";
 import {Song} from "./song";
-import {gChannelsArray, Tic80Caps, ToTic80ChannelIndex} from "./tic80Capabilities";
-
-// export type PatternSelectionDto = {
-//    startRow: number;     //
-//    rowCount: number;     //
-//    startChannel: number; //
-//    channelCount: number; //
-// };
+import {Tic80Caps, ToTic80ChannelIndex} from "./tic80Capabilities";
 
 export interface EditorStateDto {
    octave: number;
@@ -169,13 +162,15 @@ export class EditorState {
       return true;
    }
 
-   getAudibleChannels(): Set<number> {
-      return new Set(gChannelsArray.filter(ch => this.isChannelAudible(ch)));
+   getAudibleChannels(song: Song): Set<number> {
+      const channelIndices = numericRange(0, song.subsystem.channelCount - 1);
+      return new Set(channelIndices.filter(ch => this.isChannelAudible(ch)));
    }
 
    // Returns a string signature representing the current audible channels state; deterministic hash-like.
-   getAudibleChannelSignature(): string {
-      return gChannelsArray.map(ch => this.isChannelAudible(ch) ? "1" : "0").join("");
+   getAudibleChannelSignature(song: Song): string {
+      const channelIndices = numericRange(0, song.subsystem.channelCount - 1);
+      return channelIndices.map(ch => this.isChannelAudible(ch) ? "1" : "0").join("");
    }
 
    isPatternChannelSelected(channelIndex: number): boolean {

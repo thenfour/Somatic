@@ -1,3 +1,5 @@
+// TIC-80 specific
+
 import React, { useEffect, useMemo, useState } from "react";
 import { lzCompress, lzDecompress } from "../audio/encoding";
 import { serializeSongForTic80Bridge, serializeSongToCartDetailed, SongCartDetails, Tic80SerializedSong } from "../audio/tic80_cart_serializer";
@@ -5,7 +7,6 @@ import { useClipboard } from "../hooks/useClipboard";
 import { useRenderAlarm } from "../hooks/useRenderAlarm";
 import { useWriteBehindEffect } from "../hooks/useWriteBehindEffect";
 import { Song } from "../models/song";
-import { gAllChannelsAudible } from "../models/tic80Capabilities";
 import { analyzePatternColumns, OptimizeSong, PatternColumnAnalysisResult } from "../utils/SongOptimizer";
 import { compareBuffers, formatBytes } from "../utils/utils";
 //import { generateAllMemoryMaps } from "../utils/memoryMapStats";
@@ -20,6 +21,7 @@ import { MemoryMapTextSummary, MemoryMapVis } from "./MemoryMapVis";
 import { ButtonGroup } from "./Buttons/ButtonGroup";
 import { CheckboxButton } from "./Buttons/CheckboxButton";
 import { GlobalActions } from "../keyb/ActionIds";
+import { gTic80AllChannelsAudible } from "../models/tic80Capabilities";
 
 type ChunkInfo = {
     name: string; //
@@ -91,7 +93,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
         }
 
         try {
-            const cartDetails = serializeSongToCartDetailed(debouncedSong, true, variant, gAllChannelsAudible);
+            const cartDetails = serializeSongToCartDetailed(debouncedSong, true, variant, gTic80AllChannelsAudible);
 
             const optimizedDoc = OptimizeSong(debouncedSong).optimizedSong;
             const bridge = serializeSongForTic80Bridge({
@@ -101,7 +103,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
                 cursorChannelIndex: 0,
                 cursorRowIndex: 0,
                 patternSelection: null,
-                audibleChannels: gAllChannelsAudible,
+                audibleChannels: gTic80AllChannelsAudible,
                 startPosition: 0,
                 startRow: 0,
                 songOrderSelection: null,

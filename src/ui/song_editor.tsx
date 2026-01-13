@@ -7,6 +7,8 @@ import { Song } from '../models/song';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
 import type { ArrangementThumbnailSize } from '../models/song';
 import { SomaticCaps } from '../models/tic80Capabilities';
+import { kSubsystem, SubsystemTypeKey } from '../subsystem/base/SubsystemBackendBase';
+import { clamp } from '../utils/utils';
 import { IntegerUpDown } from './basic/NumericUpDown';
 import { Tooltip } from './basic/tooltip';
 import { ButtonGroup } from './Buttons/ButtonGroup';
@@ -41,6 +43,38 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
 
     const thumbnailSize: ArrangementThumbnailSize = song.arrangementThumbnailSize ?? "normal";
 
+    const onSubsystemTypeChange = (nextSubsystemType: SubsystemTypeKey) => {
+        onSongChange({
+            description: 'Set song subsystem',
+            undoable: true,
+            mutator: (s) => {
+                if (s.subsystemType === nextSubsystemType) return;
+                const nextSong = Song.fromData({
+                    ...s.toData(),
+                    subsystemType: nextSubsystemType,
+                });
+                Object.assign(s, nextSong);
+            },
+        });
+
+        // Keep editor state sane when channel count / rows change.
+        onEditorStateChange((st) => {
+            st.setPatternSelection(null);
+            st.setArrangementSelection(null);
+
+            const safeChannel = clamp(st.patternEditChannel ?? 0, 0, song.subsystem.channelCount - 1);
+            const safeRow = clamp(st.patternEditRow ?? 0, 0, song.rowsPerPattern - 1);
+            st.setPatternEditTarget({ rowIndex: safeRow, channelIndex: safeChannel });
+
+            for (const ch of [...st.mutedChannels]) {
+                if (ch < 0 || ch >= song.subsystem.channelCount) st.mutedChannels.delete(ch);
+            }
+            for (const ch of [...st.soloedChannels]) {
+                if (ch < 0 || ch >= song.subsystem.channelCount) st.soloedChannels.delete(ch);
+            }
+        });
+    };
+
     return (
         <div className="section song-editor-root">
             <label>
@@ -59,6 +93,21 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                     })}
                 />
             </label>
+
+            <div className="field-row">
+                <label htmlFor="song-subsystem">Subsystem</label>
+                <select
+                    id="song-subsystem"
+                    value={song.subsystemType}
+                    onChange={(e) => onSubsystemTypeChange(e.target.value as SubsystemTypeKey)}
+                >
+                    {kSubsystem.infos.map((info) => (
+                        <option key={info.key} value={info.key}>
+                            {info.title}
+                        </option>
+                    ))}
+                </select>
+            </div>
             <Tooltip title={`Song tempo (${bpm} BPM); ${mgr.getActionBindingLabelAlways("IncreaseTempo")} / ${mgr.getActionBindingLabelAlways("DecreaseTempo")} to adjust.`}>
                 <div className="field-row">
                     <label htmlFor="song-tempo">Tempo</label>

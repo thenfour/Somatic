@@ -204,8 +204,8 @@ export const ToTic80ChannelIndex = (value: number): number => {
    return clamp(value, 0, Tic80Caps.song.audioChannels - 1);
 };
 
-export const gChannelsArray = [0, 1, 2, 3] as const;
-export const gAllChannelsAudible = new Set<number>(gChannelsArray);
+export const gTic80ChannelsArray = [0, 1, 2, 3] as const;
+export const gTic80AllChannelsAudible = new Set<number>(gTic80ChannelsArray);
 
 export const TicMemoryMap = {
    // BRIDGE_MEMORY_MAP (shared with bridge.lua via bridge_config.ts)

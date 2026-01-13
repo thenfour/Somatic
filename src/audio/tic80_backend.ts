@@ -5,7 +5,7 @@ import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {SomaticInstrument} from "../models/instruments";
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
-import {gChannelsArray, Tic80Caps, TicMemoryMap} from "../models/tic80Capabilities";
+import {gTic80ChannelsArray, Tic80Caps, TicMemoryMap} from "../models/tic80Capabilities";
 import type {Tic80BridgeHandle} from "../ui/Tic80Bridged";
 import {convertTic80MusicStateToSomatic} from "../utils/bakeSong";
 import {LoopMode, MakeEmptySomaticTransportState, SomaticTransportState, Tic80TransportState} from "./backend";
@@ -104,7 +104,7 @@ export class Tic80Backend {
       }
 
       await b.invokeExclusive("playRow", async (tx) => {
-         for (const channel of gChannelsArray) {
+         for (const channel of gTic80ChannelsArray) {
             try {
                await tx.stopSfx({channel});
             } catch (err) {
@@ -198,7 +198,7 @@ export class Tic80Backend {
       }
 
       await b.invokeExclusive("panic", async (tx) => {
-         for (const channel of gChannelsArray) {
+         for (const channel of gTic80ChannelsArray) {
             try {
                await tx.stopSfx({channel});
             } catch (err) {

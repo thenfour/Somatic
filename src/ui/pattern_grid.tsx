@@ -12,7 +12,7 @@ import { useActionHandler } from '../keyb/useActionHandler';
 import { EditorState } from '../models/editor_state';
 import { analyzePatternPlaybackForGrid, isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { formatPatternIndex, Song } from '../models/song';
-import { gChannelsArray, kSomaticPatternCommand, kTic80EffectCommand, SomaticCaps, SomaticPatternCommand, Tic80EffectCommand, ToTic80ChannelIndex } from '../models/tic80Capabilities';
+import { kSomaticPatternCommand, kTic80EffectCommand, SomaticCaps, SomaticPatternCommand, Tic80EffectCommand, ToTic80ChannelIndex } from '../models/tic80Capabilities';
 import { changeInstrumentInPattern, interpolatePatternValues, nudgeInstrumentInPattern, RowRange, setInstrumentInPattern, transposeCellsInPattern } from '../utils/advancedPatternEdit';
 import { CharMap, clamp, Coord2D, includesOf, numericRange } from '../utils/utils';
 import { Tooltip } from './basic/tooltip';
@@ -148,6 +148,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
         }, [editingEnabled, clearPendingInstrumentEntry]);
 
+        const channelsArray = numericRange(0, song.subsystem.channelCount - 1);
+
         const selection2d = useRectSelection2D({
             selection: editorState.patternSelection,
             onChange: (r) => onEditorStateChange((s) => {
@@ -215,14 +217,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 case 'pattern':
                     const patternTargets = {
                         patternIndices: [safePatternIndex],
-                        channels: [...gChannelsArray],
+                        channels: [...channelsArray],
                         rowRange: fullRowRange,
                     };
                     return patternTargets;
                 case 'song':
                     const songTargets = {
                         patternIndices: allPatternIndices,
-                        channels: [...gChannelsArray],
+                        channels: [...channelsArray],
                         rowRange: fullRowRange,
                     };
                     return songTargets;
@@ -1504,7 +1506,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         <thead>
                             <tr>
                                 <th></th>
-                                {gChannelsArray.map((i) => {
+                                {Array.from({ length: song.subsystem.channelCount }, (_, i) => {
                                     const headerClass = `channel-header${editorState.isPatternChannelSelected(i) ? ' channel-header--selected' : ''}`;
                                     return (
                                         <th key={i} colSpan={CELL_STRIDE_PER_CHANNEL} className={headerClass}>
@@ -1538,7 +1540,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                             </tr>
                         </thead>
                         <tbody>
-                            {Array.from({ length: song.rowsPerPattern }, (_, rowIndex) => {
+                            {channelsArray.map((_, rowIndex) => {
                                 const chunkSize = Math.max(song.highlightRowCount || 1, 1);
                                 const sectionIndex = Math.floor(rowIndex / chunkSize) % 2;
                                 const rowClass = `${sectionIndex === 0 ? 'row-section-a' : 'row-section-b'}${activeRow === rowIndex ? ' active-row' : ''}`;
@@ -1785,7 +1787,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         <span>FX{CharMap.DownArrow}</span>
                                     </Tooltip>
                                 </th>
-                                {gChannelsArray.map((channelIndex) => {
+                                {channelsArray.map((channelIndex) => {
                                     const s = fxCarryByChannel[channelIndex];
                                     const entries: string[] = [];
                                     //for (let cmd = 0; cmd < commandKeyMap.length; cmd++) {

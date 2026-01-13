@@ -27,8 +27,8 @@ export function prepareSongColumns(song: Song): PreparedSong {
    const signatureToIndex = new Map<string, number>();
 
    const getColumnIndex = (patternIndex: number, channel: number): number => {
-      const pattern = song.patterns[patternIndex];
-      const channelObj = pattern?.channels[channel];
+      const pattern = song.patterns[patternIndex]!;
+      const channelObj = pattern.getChannel(channel);
       if (!channelObj) {
          return 0;
       }

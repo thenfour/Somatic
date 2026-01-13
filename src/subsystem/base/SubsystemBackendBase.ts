@@ -9,9 +9,12 @@ export const kSubsystem = defineEnum({
    },
    AMIGAMOD: {
       value: 2,
-      title: "Amiga MOD",
+      title: "Amiga 4ch MOD",
    },
-   // SID
+   SID: {
+      value: 3,
+      title: "Commodore 64 SID",
+   }
    // PICO8
    // NES
    // GB

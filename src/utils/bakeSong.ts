@@ -1,9 +1,11 @@
+// tic-80 specific
+
 import {LoopMode, SomaticTransportState, Tic80TransportState} from "../audio/backend";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {Pattern, PatternCell} from "../models/pattern";
 import {Song} from "../models/song";
 import {SongOrderItem} from "../models/songOrder";
-import {gChannelsArray, Tic80Caps} from "../models/tic80Capabilities";
+import {gTic80ChannelsArray, Tic80Caps} from "../models/tic80Capabilities";
 
 export interface BakeSongArgs {
    song: Song;              // the full song being edited
@@ -144,7 +146,7 @@ this will avoid extremely short patterns that are likely to glitch out.
 function muteInaudibleChannels(song: Song, audibleChannels: Set<number>): void {
    const emptyCell: PatternCell = {};
    for (const pattern of song.patterns) {
-      for (const ch of gChannelsArray) {
+      for (const ch of gTic80ChannelsArray) {
          if (!audibleChannels.has(ch)) {
             for (let row = 0; row < Tic80Caps.pattern.maxRows; row++) {
                pattern.setCell(ch, row, emptyCell);
@@ -163,7 +165,7 @@ function copyPatternRows(
    destStartRow: number,
    ): void {
    for (let r = 0; r < rowCount; r++) {
-      for (const ch of gChannelsArray) {
+      for (const ch of gTic80ChannelsArray) {
          const cell = srcPattern.getCell(ch, srcStartRow + r);
          destPattern.setCell(ch, destStartRow + r, {...cell});
       }
