@@ -1,5 +1,5 @@
-import {kSubsystem, SomaticSubsystem, SubsystemTypeKey} from "../subsystem/base/SubsystemBase";
-import {Tic80Subsystem} from "../subsystem/tic80/tic80Subsystem";
+import {kSubsystem, SomaticSubsystemBackend, SubsystemTypeKey} from "../subsystem/base/SubsystemBackendBase";
+import {Tic80SubsystemBackend} from "../subsystem/tic80/tic80SubsystemBackend";
 import {clamp, CoalesceBoolean, SanitizeFilename} from "../utils/utils";
 
 import {SomaticInstrument, SomaticInstrumentDto} from "./instruments";
@@ -59,7 +59,7 @@ export class Song {
 
    // editor-specific
    subsystemType: SubsystemTypeKey;
-   subsystem: SomaticSubsystem<Song, SongDto>;
+   subsystem: SomaticSubsystemBackend<Song, SongDto>;
    name: string;
    highlightRowCount: number;
    patternEditStep: number;
@@ -74,7 +74,7 @@ export class Song {
       this.subsystem = (() => {
          switch (this.subsystemType) {
             case kSubsystem.key.TIC80:
-               return new Tic80Subsystem();
+               return new Tic80SubsystemBackend();
             case kSubsystem.key.AMIGAMOD:
             default:
                throw new Error(`Unsupported subsystem type: ${this.subsystemType}`);

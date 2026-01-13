@@ -50,6 +50,8 @@ import { gLog } from './utils/logger';
 import { OptimizeSong } from './utils/SongOptimizer';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
+import { Tic80SubsystemFrontend } from './subsystem/tic80/tic80SubsystemFrontend';
+import { kSubsystem } from './subsystem/base/SubsystemBackendBase';
 
 const TIC80_FRAME_SIZES = [
 
@@ -116,6 +118,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         }
     );
 
+    const subsystemFrontendRef = React.useRef<Tic80SubsystemFrontend>();
+
     const appPresence = useAppInstancePresence("somatic");
 
     const [loopState, setLoopState] = useLocalStorage<{ loopMode: LoopMode; lastNonOffLoopMode: LoopMode }>(
@@ -156,6 +160,16 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     if (!undoStackRef.current) {
         undoStackRef.current = new UndoStack(200);
     }
+
+    useEffect(() => {
+        switch (song.subsystemType) {
+            case kSubsystem.key.TIC80:
+                subsystemFrontendRef.current = new Tic80SubsystemFrontend();
+                break;
+            default:
+                throw new Error(`Unsupported subsystem type: ${song.subsystemType}`);
+        };
+    }, [song.subsystemType]);
 
     useEffect(() => {
         midiRef.current?.setDisabledDeviceIds(disabledMidiDeviceIds);

@@ -62,8 +62,15 @@ type EnumInfoUnion<D extends EnumDef> = {
 // type ExampleInfoUnion = EnumInfoUnion<typeof ExampleDef>;
 
 export function defineEnum<const D extends EnumDef>(def: D) {
+   // ok so what type do we actualyl want for keys?
+   // -> ["KEY1", "KEY2"] -- explict literal array, not sure if this is actually possible without some recursive type magic
+   // -> ("KEY1" | "KEY2")[]
+   // -> Set<"KEY1" | "KEY2">
+   // etc. ?
    //const keys = typedKeys(def);
    const keys = Object.keys(def) as (keyof D)[];
+   // Set<string>() of keys
+   // []
 
    // key.TIC80 -> "TIC80"
    const key = Object.fromEntries(keys.map((k) => [k, k])) as {
@@ -140,21 +147,67 @@ export function defineEnum<const D extends EnumDef>(def: D) {
    }
 
    return {
-      byKey: def,
-      key,
-      valueByKey,
-      infoByKey,
-      keys,
-      values,
-      infos,
-      keyByValue,
-      infoByValue,
-      coerceByKey: _coerceByKey,
-      coerceByValue: _coerceByValue,
-      coerceByValueOrKey: _coerceByValueOrKey,
-      isValidKey,
+
+      // phantom fields for type extraction
       $key,
       $value,
       $info,
+
+      // record objects
+      valueByKey, // e.valueByKey.TIC80 -> 1
+      infoByKey,  // e.infoByKey.TIC80 -> {key: "TIC80", value: 1, title: "TIC-80"}
+      key,        // e.key.TIC80 -> "TIC80" (so you can refer to keys like traditional enums)
+      byKey: def, // e.byKey.TIC80 -> {value: 1, title: "TIC-80"} -- this is just the original def
+
+      // maps
+      infoByValue,
+      keyByValue,
+
+      // arrays
+      keys, // array of keys e.keys -> ("TIC80" | "AMIGAMOD")[].
+      values,
+      infos, // flat array of all infos
+
+      // sets
+      valuesSet: new Set(values),
+      keysSet: new Set(keys),
+
+      // query fns
+      isValidKey,
+      // todo: others? a lot can be done via coersions.
+
+      // coercion fns (lookup from `any`, with fallback)
+      coerceByKey: _coerceByKey,
+      coerceByValue: _coerceByValue,
+      coerceByValueOrKey: _coerceByValueOrKey,
+
    } as const;
 }
+
+
+// const ExampleDef = {
+//    A: {value: 1, title: "First"},
+//    B: {value: 2, title: "Second"},
+// } as const;
+
+// type ExampleKey = EnumKeyUnion<typeof ExampleDef>;   // "A" | "B"
+// type ExampleVal = EnumValueUnion<typeof ExampleDef>; // 1 | 2
+// type ExampleInfoA = EnumInfo<typeof ExampleDef, "A">;
+
+// // now let's make a type which unions all infos.
+// // {key: "A", value: 1, title: "First"} | {key: "B", value: 2, title: "Second"}
+// type ExampleInfoUnion = EnumInfoUnion<typeof ExampleDef>;
+
+// const kExampleEnum = defineEnum(ExampleDef);
+
+// const throwaway = {
+//    aKey: kExampleEnum.key.A,
+//    aValue: kExampleEnum.valueByKey.A,
+//    aInfo: kExampleEnum.infoByKey.A,
+//    aInfoByValue: kExampleEnum.infoByValue.get(1),
+//    x: kExampleEnum.values,
+//    // y: kExampleEnum.values,
+//    // z: kExampleEnum.infos,
+// };
+
+// throwaway.x[0]
