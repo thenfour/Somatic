@@ -1,31 +1,38 @@
 // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
+import {defineEnum} from "../utils/enum";
 import {clamp, CoalesceBoolean} from "../utils/utils";
 import {SomaticCaps, Tic80Caps} from "./tic80Capabilities";
 import {WaveformBaseDto} from "./waveform";
-
-export type ModSource = "envelope"|"lfo"|"none";
 
 export const isReservedInstrument = (myIndex: number) =>
    myIndex === 0 || myIndex === SomaticCaps.noteCutInstrumentIndex;
 
 
+export const kModSource = defineEnum({
+   envelope: {
+      value: 0,
+      title: "Envelope",
+   },
+   lfo: {
+      value: 1,
+      title: "LFO",
+   },
+   none: {
+      value: 2,
+      title: "None",
+   },
+} as const);
+
+export type ModSource = typeof kModSource.$key;
+const x: typeof kModSource.$info = kModSource.infoByKey.lfo;
+
 function coerceModSource(v: any): ModSource {
-   if (v === "none" || v === 2)
-      return "none";
-   if (v === "lfo" || v === 1 || v === true)
-      return "lfo";
-   return "envelope";
+   return kModSource.coerceByValueOrKey(v, "envelope").key;
 }
 
 export function modSourceToU8(src: ModSource|undefined|null): number {
-   if (src === "lfo")
-      return 1;
-   if (src === "none")
-      return 2;
-   return 0;
+   return kModSource.coerceByValueOrKey(src, "envelope").value;
 }
-
-
 
 export interface WaveformMorphGradientNodeDto extends WaveformBaseDto {
    durationSeconds: number;

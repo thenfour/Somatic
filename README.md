@@ -55,6 +55,8 @@ Live @ https://somatic.tenfourmusic.net
 
 ## Features that aren't obvious
 
+* <kbd>Esc</kbd> enables keyboard editing in the pattern grid.
+* <kbd>Shift+Backspace</kbd> inserts a note-off in the pattern grid.
 * <kbd>Ctrl+Click</kbd> on a note or instrument column to select that instrument.
 * holding <kbd>Shift+drag</kbd> while drawing on the waveform editor canvas draws straight lines
 * <kbd>Ctrl+Click</kbd> on a knob will reset it to default value
