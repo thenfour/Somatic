@@ -167,47 +167,47 @@ const interpolationAccessors: Record<InterpolateTarget, CellValueAccessor> = {
       min: 0,
       max: 0x0f,
       read: (cell) => {
-         if (cell.effectX === undefined)
+         if (cell.tic80EffectX === undefined)
             return undefined;
-         return cell.effectX;
+         return cell.tic80EffectX;
       },
       write: (cell, value) => {
          const clamped = clamp(Math.round(value), 0, 0x0f);
-         if (cell.effectX === clamped)
+         if (cell.tic80EffectX === clamped)
             return null;
-         return {...cell, effectX: clamped};
+         return {...cell, tic80EffectX: clamped};
       },
    },
    paramY: {
       min: 0,
       max: 0x0f,
       read: (cell) => {
-         if (cell.effectY === undefined)
+         if (cell.tic80EffectY === undefined)
             return undefined;
-         return cell.effectY;
+         return cell.tic80EffectY;
       },
       write: (cell, value) => {
          const clamped = clamp(Math.round(value), 0, 0x0f);
-         if (cell.effectY === clamped)
+         if (cell.tic80EffectY === clamped)
             return null;
-         return {...cell, effectY: clamped};
+         return {...cell, tic80EffectY: clamped};
       },
    },
    paramXY: {
       min: 0,
       max: 0xff,
       read: (cell) => {
-         if (cell.effectX === undefined || cell.effectY === undefined)
+         if (cell.tic80EffectX === undefined || cell.tic80EffectY === undefined)
             return undefined;
-         return (cell.effectX << 4) | cell.effectY;
+         return (cell.tic80EffectX << 4) | cell.tic80EffectY;
       },
       write: (cell, value) => {
          const clamped = clamp(Math.round(value), 0, 0xff);
          const newX = (clamped >> 4) & 0x0f;
          const newY = clamped & 0x0f;
-         if (cell.effectX === newX && cell.effectY === newY)
+         if (cell.tic80EffectX === newX && cell.tic80EffectY === newY)
             return null;
-         return {...cell, effectX: newX, effectY: newY};
+         return {...cell, tic80EffectX: newX, tic80EffectY: newY};
       },
    },
    somaticParamXY: {

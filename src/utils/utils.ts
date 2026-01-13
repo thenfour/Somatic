@@ -1,5 +1,15 @@
 export const kNullKey = "__NULL__";
 
+// situation:
+// const arr = ["a","b","c"] as const;
+// const query : string = getUserResponse();
+// arr.includes(query) -> type error because query is string, not "a"|"b"|"c"
+//
+export function includesOf<const A extends readonly unknown[]>(arr: A, value: unknown): value is A[number] {
+   return (arr as readonly unknown[]).includes(value);
+}
+
+
 // result stuff
 export type Ok<T> = {
    ok: true; value: T

@@ -1,7 +1,7 @@
 
 // utility to define enums with all the extras without needing tons of boilerplate and symbols scattered around
+// also allows enums to attach more complex arbitrary data to them.
 
-import {typedKeys} from "./utils";
 
 // export const SubsystemType = defineEnum({
 //    TIC80: {
@@ -48,21 +48,22 @@ type EnumInfoUnion<D extends EnumDef> = {
    [K in EnumKeyUnion<D>]: {key: K}&D[K];
 }[EnumKeyUnion<D>];
 
-const ExampleDef = {
-   A: {value: 1, title: "First"},
-   B: {value: 2, title: "Second"},
-} as const;
+// const ExampleDef = {
+//    A: {value: 1, title: "First"},
+//    B: {value: 2, title: "Second"},
+// } as const;
 
-type ExampleKey = EnumKeyUnion<typeof ExampleDef>;   // "A" | "B"
-type ExampleVal = EnumValueUnion<typeof ExampleDef>; // 1 | 2
-type ExampleInfoA = EnumInfo<typeof ExampleDef, "A">;
+// type ExampleKey = EnumKeyUnion<typeof ExampleDef>;   // "A" | "B"
+// type ExampleVal = EnumValueUnion<typeof ExampleDef>; // 1 | 2
+// type ExampleInfoA = EnumInfo<typeof ExampleDef, "A">;
 
-// now let's make a type which unions all infos.
-// {key: "A", value: 1, title: "First"} | {key: "B", value: 2, title: "Second"}
-type ExampleInfoUnion = EnumInfoUnion<typeof ExampleDef>;
+// // now let's make a type which unions all infos.
+// // {key: "A", value: 1, title: "First"} | {key: "B", value: 2, title: "Second"}
+// type ExampleInfoUnion = EnumInfoUnion<typeof ExampleDef>;
 
 export function defineEnum<const D extends EnumDef>(def: D) {
-   const keys = typedKeys(def);
+   //const keys = typedKeys(def);
+   const keys = Object.keys(def) as (keyof D)[];
 
    // key.TIC80 -> "TIC80"
    const key = Object.fromEntries(keys.map((k) => [k, k])) as {
@@ -134,6 +135,10 @@ export function defineEnum<const D extends EnumDef>(def: D) {
       return _coerceByValue(vk, fallbackKey);
    }
 
+   function isValidKey(k: any): k is EnumKeyUnion<D> {
+      return typeof k === "string" && k in def;
+   }
+
    return {
       byKey: def,
       key,
@@ -147,6 +152,7 @@ export function defineEnum<const D extends EnumDef>(def: D) {
       coerceByKey: _coerceByKey,
       coerceByValue: _coerceByValue,
       coerceByValueOrKey: _coerceByValueOrKey,
+      isValidKey,
       $key,
       $value,
       $info,

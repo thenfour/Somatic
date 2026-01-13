@@ -1,23 +1,23 @@
 import React, { forwardRef, KeyboardEvent, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import type { SomaticTransportState, Tic80TransportState } from '../audio/backend';
+import type { SomaticTransportState } from '../audio/backend';
 import { AudioController } from '../audio/controller';
 import { midiToName } from '../defs';
 import { useClipboard } from '../hooks/useClipboard';
+import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D';
+import { useRenderAlarm } from '../hooks/useRenderAlarm';
+import { GlobalActionId } from '../keyb/ActionIds';
+import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
 import { useActionHandler } from '../keyb/useActionHandler';
 import { EditorState } from '../models/editor_state';
 import { analyzePatternPlaybackForGrid, isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { formatPatternIndex, Song } from '../models/song';
-import { gChannelsArray, SomaticCaps, SomaticEffectCommand, SomaticPatternCommand, SOMATIC_PATTERN_COMMAND_KEYS, SOMATIC_PATTERN_COMMAND_LETTERS, Tic80Caps, Tic80ChannelIndex, ToTic80ChannelIndex } from '../models/tic80Capabilities';
-import { CharMap, clamp, Coord2D, numericRange } from '../utils/utils';
+import { gChannelsArray, kSomaticPatternCommand, kTic80EffectCommand, SomaticCaps, SomaticPatternCommand, Tic80Caps, Tic80ChannelIndex, Tic80EffectCommand, ToTic80ChannelIndex } from '../models/tic80Capabilities';
+import { changeInstrumentInPattern, interpolatePatternValues, nudgeInstrumentInPattern, RowRange, setInstrumentInPattern, transposeCellsInPattern } from '../utils/advancedPatternEdit';
+import { CharMap, clamp, Coord2D, includesOf, numericRange } from '../utils/utils';
+import { Tooltip } from './basic/tooltip';
+import './pattern_grid.css';
 import { AdvancedEditScope, InterpolateTarget, PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
 import { useToasts } from './toast_provider';
-import { Tooltip } from './basic/tooltip';
-import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D';
-import { changeInstrumentInPattern, interpolatePatternValues, RowRange, setInstrumentInPattern, transposeCellsInPattern, nudgeInstrumentInPattern } from '../utils/advancedPatternEdit';
-import { useRenderAlarm } from '../hooks/useRenderAlarm';
-import './pattern_grid.css';
-import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
-import { GlobalActionId } from '../keyb/ActionIds';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 
@@ -28,10 +28,10 @@ const CELL_STRIDE_PER_CHANNEL = 7; // includes non-interactive cells between cha
 const CTRL_ARROW_JUMP_SIZE = 4;
 
 const instrumentKeyMap = '0123456789abcdef'.split('');
-const commandKeyMap = 'mcjspvd'.split('');
+const commandKeyMap = kTic80EffectCommand.infos.map(info => info.keyboardShortcut);
 const paramKeyMap = instrumentKeyMap;
 
-const somaticCommandKeyMap = Object.keys(SOMATIC_PATTERN_COMMAND_KEYS);
+const somaticCommandKeyMap = kSomaticPatternCommand.infos.map(info => info.keyboardShortcut);
 const somaticParamKeyMap = instrumentKeyMap;
 
 
@@ -44,27 +44,14 @@ const formatInstrumentLabel = (val: number | undefined | null): string => {
     return (val & 0xFF).toString(16).toUpperCase().padStart(2, '0');
 };
 
-// const formatInstrumentTooltip = (instId: number | undefined | null, song: Song): string | null => {
-//     if (instId === null || instId === undefined) return null;
-//     const inst = song.getInstrument(instId);
-//     if (!inst) return null;
-//     return `${(instId & 0xFF).toString(16).toUpperCase().padStart(2, '0')}: ${inst.name}`;
-// };
-
-// const formatInstrument = (val: number | undefined | null, song: Song): [string, string | null] => {
-//     return [formatInstrumentLabel(val), formatInstrumentTooltip(val, song)];
-// };
-
-const formatCommand = (val: number | undefined | null) => {
-    if (val === null || val === undefined) return '-';
-    //return val.toString(16).toUpperCase();
-    return `${commandKeyMap[val].toUpperCase()}` || '?';
+const formatCommand = (val: Tic80EffectCommand | undefined | null) => {
+    if (!kTic80EffectCommand.isValidKey(val)) return '-';
+    return kTic80EffectCommand.infoByKey[val].patternChar;
 };
 
-const formatSomaticCommand = (val: number | undefined | null) => {
-    if (val === null || val === undefined) return '-';
-    const letter = SOMATIC_PATTERN_COMMAND_LETTERS[val as SomaticPatternCommand];
-    return letter || '?';
+const formatSomaticCommand = (val: SomaticPatternCommand | undefined | null) => {
+    if (!kSomaticPatternCommand.isValidKey(val)) return '-';
+    return kSomaticPatternCommand.infoByKey[val].patternChar;
 };
 
 const formatParams = (valX: number | undefined | null, valY: number | undefined | null) => {
@@ -467,8 +454,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 scope,
                 'Clear effects',
                 (cell) => {
-                    if (cell.effect === undefined) return cell;
-                    return { ...cell, effect: undefined };
+                    if (cell.tic80Effect === undefined) return cell;
+                    return { ...cell, tic80Effect: undefined };
                 },
                 'No effects were found to clear in that scope.',
             );
@@ -479,8 +466,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 scope,
                 'Clear effect param X',
                 (cell) => {
-                    if (cell.effectX === undefined) return cell;
-                    return { ...cell, effectX: undefined };
+                    if (cell.tic80EffectX === undefined) return cell;
+                    return { ...cell, tic80EffectX: undefined };
                 },
                 'No effect param X values were found to clear in that scope.',
             );
@@ -491,8 +478,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 scope,
                 'Clear effect param Y',
                 (cell) => {
-                    if (cell.effectY === undefined) return cell;
-                    return { ...cell, effectY: undefined };
+                    if (cell.tic80EffectY === undefined) return cell;
+                    return { ...cell, tic80EffectY: undefined };
                 },
                 'No effect param Y values were found to clear in that scope.',
             );
@@ -503,8 +490,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 scope,
                 'Clear effect params',
                 (cell) => {
-                    if (cell.effectX === undefined && cell.effectY === undefined) return cell;
-                    return { ...cell, effectX: undefined, effectY: undefined };
+                    if (cell.tic80EffectX === undefined && cell.tic80EffectY === undefined) return cell;
+                    return { ...cell, tic80EffectX: undefined, tic80EffectY: undefined };
                 },
                 'No effect params were found to clear in that scope.',
             );
@@ -709,9 +696,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     pat.setCell(channelIndex, rowIndex, {
                         midiNote: undefined,
                         instrumentIndex: undefined,
-                        effect: undefined,
-                        effectX: undefined,
-                        effectY: undefined,
+                        tic80Effect: undefined,
+                        tic80EffectX: undefined,
+                        tic80EffectY: undefined,
                         somaticEffect: undefined,
                         somaticParam: undefined,
                     });
@@ -746,9 +733,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     } else if (cellType === 'instrument') {
                         pat.setCell(channelIndex, rowIndex, { ...oldCell, instrumentIndex: undefined });
                     } else if (cellType === 'command') {
-                        pat.setCell(channelIndex, rowIndex, { ...oldCell, effect: undefined });
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, tic80Effect: undefined });
                     } else if (cellType === 'param') {
-                        pat.setCell(channelIndex, rowIndex, { ...oldCell, effectX: undefined, effectY: undefined });
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, tic80EffectX: undefined, tic80EffectY: undefined });
                     } else if (cellType === 'somaticCommand') {
                         pat.setCell(channelIndex, rowIndex, { ...oldCell, somaticEffect: undefined });
                     } else if (cellType === 'somaticParam') {
@@ -836,9 +823,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             return 'committed';
         };
 
-        const handleCommandKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
-            const idx = commandKeyMap.indexOf(key);
-            if (idx === -1) return false;
+        const handleCommandKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, cmdKey: Tic80EffectCommand): boolean => {
+
+            //const idx = commandKeyMap.indexOf(key);
+            //if (idx === -1) return false;
             onSongChange({
                 description: 'Set effect command from key',
                 undoable: true,
@@ -848,17 +836,17 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     const oldCell = pat.getCell(channelIndex, rowIndex);
                     pat.setCell(channelIndex, rowIndex, {
                         ...oldCell,
-                        effect: idx,
+                        tic80Effect: cmdKey,
                     });
                 },
             });
             return true;
         };
 
-        const handleSomaticCommandKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, key: string): boolean => {
-            const cmd = SOMATIC_PATTERN_COMMAND_KEYS[key.toLowerCase()];
-            const idx = cmd !== undefined ? cmd : -1;
-            if (idx === -1) return false;
+        const handleSomaticCommandKey = (channelIndex: Tic80ChannelIndex, rowIndex: number, cmdKey: SomaticPatternCommand): boolean => {
+            //const cmd = SOMATIC_PATTERN_COMMAND_KEYS[key.toLowerCase()];
+            //const idx = cmd !== undefined ? cmd : -1;
+            //if (idx === -1) return false;
             onSongChange({
                 description: 'Set Somatic effect command from key',
                 undoable: true,
@@ -868,7 +856,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     const oldCell = pat.getCell(channelIndex, rowIndex);
                     pat.setCell(channelIndex, rowIndex, {
                         ...oldCell,
-                        somaticEffect: idx,
+                        somaticEffect: cmdKey,
                     });
                 },
             });
@@ -885,15 +873,15 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
                     const pat = s.patterns[patIndex];
                     const oldCell = pat.getCell(channelIndex, rowIndex);
-                    const currentParam = oldCell.effectY ?? 0; // slide over Y to X
+                    const currentParam = oldCell.tic80EffectY ?? 0; // slide over Y to X
                     // Shift the current param left by 4 bits and add the new nibble
                     const newParam = ((currentParam << 4) | idx) & 0xFF;
                     const effectX = (newParam >> 4) & 0x0F;
                     const effectY = newParam & 0x0F;
                     pat.setCell(channelIndex, rowIndex, {
                         ...oldCell,
-                        effectX,
-                        effectY,
+                        tic80EffectX: effectX,
+                        tic80EffectY: effectY,
                     });
                 },
             });
@@ -1257,8 +1245,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     }
                     e.preventDefault();
                 }
-            } else if (cellType === 'command' && commandKeyMap.includes(e.key) && !e.repeat) {
-                const handled = handleCommandKey(channelIndex, rowIndex, e.key);
+            } else if (cellType === 'command' && includesOf(commandKeyMap, e.key) && !e.repeat) {
+                const effect = kTic80EffectCommand.infos.find(info => info.keyboardShortcut === e.key)!;
+                const handled = handleCommandKey(channelIndex, rowIndex, effect.key);
                 if (handled) {
                     advanceAfterCellEdit(rowIndex, columnIndex);
                     e.preventDefault();
@@ -1270,8 +1259,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     //advanceAfterCellEdit(rowIndex, columnIndex);
                     e.preventDefault();
                 }
-            } else if (cellType === 'somaticCommand' && somaticCommandKeyMap.includes(e.key) && !e.repeat) {
-                const handled = handleSomaticCommandKey(channelIndex, rowIndex, e.key);
+            } else if (cellType === 'somaticCommand' && includesOf(somaticCommandKeyMap, e.key) && !e.repeat) {
+                const effect = kSomaticPatternCommand.infos.find(info => info.keyboardShortcut === e.key)!;
+                const handled = handleSomaticCommandKey(channelIndex, rowIndex, effect.key);
                 if (handled) {
                     advanceAfterCellEdit(rowIndex, columnIndex);
                     e.preventDefault();
@@ -1581,8 +1571,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const instrumentIsSelected = editorState.currentInstrument != null && row.instrumentIndex === editorState.currentInstrument;
                                             const instrumentIsKRate = instrument?.isKRateProcessing() || false;
                                             const krateRenderSlot = instrumentIsKRate ? instrument!.renderWaveformSlot : null;
-                                            const cmdText = formatCommand(row.effect);
-                                            const paramText = formatParams(row.effectX, row.effectY);
+                                            const cmdText = formatCommand(row.tic80Effect);
+                                            const paramText = formatParams(row.tic80EffectX, row.tic80EffectY);
                                             const somCmdText = formatSomaticCommand(row.somaticEffect);
                                             const somParamText = formatSomaticParam(row.somaticParam);
                                             const noteCol = channelIndex * CELLS_PER_CHANNEL;
@@ -1591,7 +1581,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const paramCol = channelIndex * CELLS_PER_CHANNEL + 3;
                                             const somCmdCol = channelIndex * CELLS_PER_CHANNEL + 4;
                                             const somParamCol = channelIndex * CELLS_PER_CHANNEL + 5;
-                                            const isEmpty = !row.midiNote && row.effect === undefined && row.instrumentIndex == null && row.effectX === undefined && row.effectY === undefined && row.somaticEffect === undefined && row.somaticParam === undefined;
+                                            const isEmpty = !row.midiNote && row.tic80Effect === undefined && row.instrumentIndex == null && row.tic80EffectX === undefined && row.tic80EffectY === undefined && row.somaticEffect === undefined && row.somaticParam === undefined;
                                             const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
                                             const channelSelected = editorState.isPatternChannelSelected(channelIndex);
                                             const isCellSelected = isRowInSelection && channelSelected;
@@ -1620,7 +1610,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             let errorInRow = false;
                                             let errorText = "";
                                             // J command is an error (not compatible with playroutine)                                        
-                                            if (row.effect === SomaticEffectCommand.J) {
+                                            if (row.tic80Effect === kTic80EffectCommand.key.J) {
                                                 errorInRow = true;
                                                 errorText = "The 'J' command is not supported in Somatic patterns.";
                                             }
@@ -1629,7 +1619,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                 errorInRow = true;
                                                 errorText = "Instrument 0 is reserved and should not be used.";
                                             }
-                                            if (row.effect === undefined && (row.effectX !== undefined || row.effectY !== undefined)) {
+                                            if (row.tic80Effect === undefined && (row.tic80EffectX !== undefined || row.tic80EffectY !== undefined)) {
                                                 errorInRow = true;
                                                 errorText = "Effect parameter set without an effect command.";
                                             }
@@ -1714,7 +1704,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-channel-index={channelIndex}
                                                         data-cell-type="command"
                                                         data-column-index={cmdCol}
-                                                        data-cell-value={`[${JSON.stringify(row.effect)}]`}
+                                                        data-cell-value={`[${JSON.stringify(row.tic80Effect)}]`}
                                                     >
                                                         {cmdText}
                                                     </td>
@@ -1732,7 +1722,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-channel-index={channelIndex}
                                                         data-cell-type="param"
                                                         data-column-index={paramCol}
-                                                        data-cell-value={`[X=${JSON.stringify(row.effectX)},Y=${JSON.stringify(row.effectY)}]`}
+                                                        data-cell-value={`[X=${JSON.stringify(row.tic80EffectX)},Y=${JSON.stringify(row.tic80EffectY)}]`}
                                                     >
                                                         {paramText}
                                                     </td>
@@ -1797,13 +1787,15 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                 {gChannelsArray.map((channelIndex) => {
                                     const s = fxCarryByChannel[channelIndex];
                                     const entries: string[] = [];
-                                    for (let cmd = 0; cmd < commandKeyMap.length; cmd++) {
-                                        const cmdState = s?.commandStates.get(cmd);
+                                    //for (let cmd = 0; cmd < commandKeyMap.length; cmd++) {
+                                    for (const key of kTic80EffectCommand.keys) {
+                                        const cmdState = s?.tic80EffectCommandStates.get(key);
                                         if (!cmdState) continue;
-                                        entries.push(`${formatCommand(cmd)}${formatParams(cmdState.effectX, cmdState.effectY)}`);
+                                        entries.push(`${formatCommand(key)}${formatParams(cmdState.effectX, cmdState.effectY)}`);
                                     }
 
-                                    for (let somCmd = 0; somCmd < somaticCommandKeyMap.length; somCmd++) {
+                                    //for (let somCmd = 0; somCmd < somaticCommandKeyMap.length; somCmd++) {
+                                    for (const somCmd of kSomaticPatternCommand.keys) {
                                         const somState = s?.somaticCommandStates.get(somCmd);
                                         if (!somState) continue;
                                         entries.push(`${formatSomaticCommand(somCmd)}${formatSomaticParam(somState.paramU8)}`);

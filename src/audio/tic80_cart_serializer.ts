@@ -4,7 +4,7 @@ import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {ModSource, modSourceToU8, SomaticEffectKind, SomaticInstrumentWaveEngine, SomaticInstrument, ToWaveEngineId, WaveEngineId} from "../models/instruments";
 //import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
 import type {Song} from "../models/song";
-import {gAllChannelsAudible, SomaticCaps, Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
+import {gAllChannelsAudible, kSomaticPatternCommand, SomaticCaps, Tic80Caps, Tic80ChannelIndex, TicMemoryMap} from "../models/tic80Capabilities";
 import {BakedSong, BakeSong} from "../utils/bakeSong";
 import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
 import bridgeConfig from "../../bridge/bridge_config";
@@ -178,7 +178,7 @@ function getSomaticPatternExtraEntries(prepared: PreparedSong): SomaticPatternEn
       const channel = col.channel;
 
       let hasAny = false;
-      for (let row = 0; row < 64; row++) {
+      for (let row = 0; row < channel.rows.length; row++) {
          const cell = channel.rows[row];
          if (!cell)
             continue;
@@ -190,12 +190,15 @@ function getSomaticPatternExtraEntries(prepared: PreparedSong): SomaticPatternEn
       if (!hasAny)
          continue;
 
-      const cells = new Array(64);
-      for (let row = 0; row < 64; row++) {
-         const cell = channel.rows[row];
+      const cells = new Array(channel.rows.length);
+      for (let row = 0; row < channel.rows.length; row++) {
+         const cell = channel.rows[row]!;
          // effectId: 0 = none; 1.. = command index + 1
-         const effectId = (cell?.somaticEffect ?? null) == null ? 0 : ((cell!.somaticEffect! + 1) & 0x0f);
-         const paramU8 = (cell?.somaticParam ?? 0) & 0xff;
+         const somaticEffectInfo = kSomaticPatternCommand.coerceByKey(cell.somaticEffect);
+         const effectId = somaticEffectInfo ?
+            somaticEffectInfo.tic80SerializedValue :
+            0; //(cell?.somaticEffect ?? null) == null ? 0 : ((cell!.somaticEffect! + 1) & 0x0f);
+         const paramU8 = (cell.somaticParam ?? 0) & 0xff; //(cell?.somaticParam ?? 0) & 0xff;
          cells[row] = {effectId, paramU8};
       }
 

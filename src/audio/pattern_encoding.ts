@@ -1,6 +1,6 @@
 import {NOTE_INFOS} from "../defs";
 import {Pattern, PatternCell, PatternChannel} from "../models/pattern";
-import {SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
+import {kTic80EffectCommand, SomaticCaps, Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
 import {clamp} from "../utils/utils";
 
 function encodePatternNote(midiNoteValue: number|undefined): {noteNibble: number; octave: number} {
@@ -44,7 +44,7 @@ function decodePatternCellTriplet(byte0: number, byte1: number, byte2: number): 
    const noteNibble = byte0 & 0x0f;
 
    const instrument = (((byte1 >> 7) & 0x01) << 5) | (byte2 & 0x1f);
-   const command = (byte1 >> 4) & 0x07;
+   const command = (byte1 >> 4) & 0x07; // 0 = no effect
    const argY = byte1 & 0x0f;
    const octave = (byte2 >> 5) & 0x07;
 
@@ -60,13 +60,14 @@ function decodePatternCellTriplet(byte0: number, byte1: number, byte2: number): 
    }
 
    const midiNote = decodeTicPitch(noteNibble, octave);
-   const effect = command === 0 ? undefined : clamp(command - 1, 0, 7);
+   const effect =
+      kTic80EffectCommand.infos.find(info => info.tic80EncodedValue === command); // clamp(command - 1, 0, 7);
    return {
       midiNote,
       instrumentIndex: instrument,
-      effect,
-      effectX: argX,
-      effectY: argY,
+      tic80Effect: effect ? effect.key : undefined,
+      tic80EffectX: argX,
+      tic80EffectY: argY,
    };
 }
 
@@ -96,10 +97,12 @@ function encodePatternChannelRows(
    for (let row = 0; row < Tic80Caps.pattern.maxRows; row++) {
       const cellData = getCell(row);
       const inst = cellData.instrumentIndex ?? 0;
-      const commandArgX = cellData.effectX ?? 0;
-      const commandArgY = cellData.effectY ?? 0;
-      const command = cellData.effect === undefined ? 0 : clamp(cellData.effect + 1, 0, 7);
-      const [b0, b1, b2] = encodePatternCellTriplet(cellData.midiNote, inst, command, commandArgX, commandArgY);
+      const commandArgX = cellData.tic80EffectX ?? 0;
+      const commandArgY = cellData.tic80EffectY ?? 0;
+      //const command = cellData.effect === undefined ? 0 : clamp(cellData.effect + 1, 0, 7);
+      const command = kTic80EffectCommand.coerceByKey(cellData.tic80Effect);
+      const [b0, b1, b2] = encodePatternCellTriplet(
+         cellData.midiNote, inst, command ? command.tic80EncodedValue : 0, commandArgX, commandArgY);
       const base = 3 * row;
       buf[base + 0] = b0;
       buf[base + 1] = b1;
@@ -134,9 +137,9 @@ export function decodePatternChannelBytes(bytes: Uint8Array, startOffset = 0): P
       }
 
       // now if there's no effect, remove the param if they are 0.
-      if (rows[row].effect === undefined && rows[row].effectX === 0 && rows[row].effectY === 0) {
-         rows[row].effectX = undefined;
-         rows[row].effectY = undefined;
+      if (rows[row].tic80Effect === undefined && rows[row].tic80EffectX === 0 && rows[row].tic80EffectY === 0) {
+         rows[row].tic80EffectX = undefined;
+         rows[row].tic80EffectY = undefined;
       }
    }
    return new PatternChannel({rows});
