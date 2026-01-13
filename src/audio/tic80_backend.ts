@@ -1,3 +1,5 @@
+// TIC80 specific
+
 import {getNoteInfo} from "../defs";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {SomaticInstrument} from "../models/instruments";

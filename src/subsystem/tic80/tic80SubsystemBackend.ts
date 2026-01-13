@@ -74,6 +74,11 @@ export class Tic80SubsystemBackend implements SomaticSubsystemBackend<Song, Song
    maxSongTempo: number = Tic80Caps.song.maxTempo;
    defaultSongTempo: number = 150;
 
+   minPatternMidiNote: number = Tic80Caps.pattern.minMidiNote;
+   maxPatternMidiNote: number = Tic80Caps.pattern.maxMidiNote;
+
+   maxInstruments: number = Tic80Caps.sfx.count;
+
    initWaveformsAndInstruments(song: Song, data: Partial<SongDto>): void {
       song.instruments = makeInstrumentList(data.instruments || []);
       song.waveforms = makeWaveformList(data.waveforms || []);

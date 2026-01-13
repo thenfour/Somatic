@@ -5,7 +5,13 @@ import {clamp, parseAddress} from "../utils/utils";
 import bridgeConfig from "../../bridge/bridge_config";
 import {defineEnum} from "../utils/enum";
 
-//const mem = bridgeConfig.memory as Record<string, string|number>;
+
+// Matches defs.ts MIDI_FOR_TIC_NOTE0 mapping (C0) and TIC-80's 8 octaves of pattern range.
+const TIC_NOTE_MIDI_BASE = 12;
+const MIN_PATTERN_MIDI = TIC_NOTE_MIDI_BASE;
+const MAX_PATTERN_MIDI = TIC_NOTE_MIDI_BASE + 8 /*Tic80Caps.pattern.octaveCount*/ * 12 - 1;
+
+
 
 const mem = bridgeConfig.memory;
 
@@ -95,37 +101,6 @@ export const kTic80EffectCommand = defineEnum({
 
 export type Tic80EffectCommand = typeof kTic80EffectCommand.$key;
 
-// export enum Tic80EffectCommand {
-//    // NOTE: these correspond with our 0-based pattern editor, NOT TIC-80's 1-based effect commands.
-//    M = 0,
-//    C = 1,
-//    J = 2,
-//    S = 3,
-//    P = 4,
-//    V = 5,
-//    D = 6,
-// }
-
-// export const TIC80_EFFECT_LETTERS: Record<Tic80EffectCommand, string> = {
-//    [Tic80EffectCommand.M]: "M",
-//    [Tic80EffectCommand.C]: "C",
-//    [Tic80EffectCommand.J]: "J",
-//    [Tic80EffectCommand.S]: "S",
-//    [Tic80EffectCommand.P]: "P",
-//    [Tic80EffectCommand.V]: "V",
-//    [Tic80EffectCommand.D]: "D",
-// };
-
-// export const TIC80_EFFECT_DESCRIPTIONS: Record<Tic80EffectCommand, string> = {
-//    [Tic80EffectCommand.M]: "Master volume",
-//    [Tic80EffectCommand.C]: "Chord",
-//    [Tic80EffectCommand.J]: "Jump (not supported in Somatic)",
-//    [Tic80EffectCommand.S]: "Slide",
-//    [Tic80EffectCommand.P]: "Pitch",
-//    [Tic80EffectCommand.V]: "Vibrato",
-//    [Tic80EffectCommand.D]: "Delay",
-// };
-
 export const kSomaticPatternCommand = defineEnum({
    EffectStrengthScale: {
       value: 0,
@@ -155,30 +130,6 @@ export const kSomaticPatternCommand = defineEnum({
 
 export type SomaticPatternCommand = typeof kSomaticPatternCommand.$key;
 
-// export enum SomaticPatternCommand {
-//    EffectStrengthScale = 0, // 'E'
-//    SetLFOPhase = 1,         // 'L'
-//    FilterFrequency = 2,     // 'F'
-// }
-
-// export const SOMATIC_PATTERN_COMMAND_KEYS: Record<string, SomaticPatternCommand> = {
-//    "e": SomaticPatternCommand.EffectStrengthScale,
-//    "f": SomaticPatternCommand.FilterFrequency,
-//    "l": SomaticPatternCommand.SetLFOPhase,
-// };
-
-// export const SOMATIC_PATTERN_COMMAND_LETTERS: Record<SomaticPatternCommand, string> = {
-//    [SomaticPatternCommand.EffectStrengthScale]: "E",
-//    [SomaticPatternCommand.FilterFrequency]: "F",
-//    [SomaticPatternCommand.SetLFOPhase]: "L",
-// };
-
-// export const SOMATIC_PATTERN_COMMAND_DESCRIPTIONS: Record<SomaticPatternCommand, string> = {
-//    [SomaticPatternCommand.EffectStrengthScale]: "Effect strength scale (00=bypass, FF=max)",
-//    [SomaticPatternCommand.FilterFrequency]: "Lowpass strength scale (00=bypass, FF=max)",
-//    [SomaticPatternCommand.SetLFOPhase]: "Set LFO phase (00 - FF)",
-// };
-
 export const Tic80Caps = {
    frameRate: 60,
 
@@ -202,6 +153,10 @@ export const Tic80Caps = {
    pattern: {
       count: 60, // MUSIC_PATTERNS
       //minRows: 1,
+
+      minMidiNote: MIN_PATTERN_MIDI, // C0
+      maxMidiNote: MAX_PATTERN_MIDI, // B7
+
       maxRows: 64, // MUSIC_PATTERN_ROWS
       octaveCount: 8,
       memory: {

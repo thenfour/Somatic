@@ -18,16 +18,6 @@ export type PatternCell = {
    somaticParam?: number;
 };
 
-
-// Re-export TIC-80 and Somatic command metadata from tic80Capabilities for convenience
-// export {
-//    TIC80_EFFECT_LETTERS,
-//    TIC80_EFFECT_DESCRIPTIONS,
-//    SOMATIC_PATTERN_COMMAND_LETTERS,
-//    SOMATIC_PATTERN_COMMAND_DESCRIPTIONS as SOMATIC_EFFECT_DESCRIPTIONS
-// };
-
-
 export const MakeEmptyPatternCell = (): PatternCell => ({});
 
 export function isNoteCut(cell: PatternCell): boolean {
@@ -75,52 +65,64 @@ export class PatternChannel implements PatternChannelDto {
 
 //////////////////////////////////////////////////////////////////////////////////
 export type PatternDto = {
-   name: string; channels: [PatternChannelDto, PatternChannelDto, PatternChannelDto, PatternChannelDto];
+   name: string; //
+   channels: PatternChannelDto[];
 };
 
-export class Pattern implements PatternDto {
+export class Pattern {
    name: string;
-   channels: [PatternChannel, PatternChannel, PatternChannel, PatternChannel];
+
+   // private so that we can enforce channel counts / creations via accessors
+   private channels: PatternChannel[];
 
    constructor(data?: PatternDto) {
       if (data) {
-         assert(data.channels.length === Tic80Caps.song.audioChannels);
+         //assert(data.channels.length === Tic80Caps.song.audioChannelsXXX);
          this.name = data.name ?? "";
-         this.channels = [
-            new PatternChannel(data.channels[0]),
-            new PatternChannel(data.channels[1]),
-            new PatternChannel(data.channels[2]),
-            new PatternChannel(data.channels[3]),
-         ];
+         this.channels = data.channels.map((ch) => new PatternChannel(ch));
+         // this.channels = [
+         //    new PatternChannel(data.channels[0]),
+         //    new PatternChannel(data.channels[1]),
+         //    new PatternChannel(data.channels[2]),
+         //    new PatternChannel(data.channels[3]),
+         // ];
       } else {
          this.name = "";
-         this.channels = [
-            new PatternChannel(),
-            new PatternChannel(),
-            new PatternChannel(),
-            new PatternChannel(),
-         ];
+         this.channels = [];
       }
    }
 
    toData(): PatternDto {
       return {
-         name: this.name, channels: [
-            this.channels[0].toData(),
-            this.channels[1].toData(),
-            this.channels[2].toData(),
-            this.channels[3].toData(),
-         ]
+         name: this.name, //
+            channels: this.channels.map(ch => ch.toData()),
+         // this.channels[0].toData(),
+         // this.channels[1].toData(),
+         // this.channels[2].toData(),
+         // this.channels[3].toData(),
+         //]
       }
    }
 
+   private ensureChannelCount(count: number) {
+      while (this.channels.length < count) {
+         this.channels.push(new PatternChannel());
+      }
+   }
+
+   getChannel(channelIndex: number): PatternChannel {
+      this.ensureChannelCount(channelIndex + 1);
+      return this.channels[channelIndex];
+   }
+
    setCell(channelIndex: number, rowIndex: number, cellValue: PatternCell) {
-      this.channels[channelIndex].setRow(rowIndex, cellValue);
+      this.getChannel(channelIndex).setRow(rowIndex, cellValue);
    }
 
    getCell(channelIndex: number, rowIndex: number): PatternCell {
-      this.channels[channelIndex].ensureRows(rowIndex + 1);
-      return this.channels[channelIndex].rows[rowIndex];
+      const channel = this.getChannel(channelIndex);
+      channel.ensureRows(rowIndex + 1);
+      return channel.rows[rowIndex];
    }
 
    static fromData(data: PatternDto): Pattern {
@@ -138,6 +140,9 @@ export class Pattern implements PatternDto {
 
    contentSignatureForColumn(channelIndex: number): string {
       const dto = this.toData();
+      assert(
+         channelIndex >= 0 && channelIndex < dto.channels.length,
+         `contentSignatureForColumn: channelIndex out of range: ${channelIndex}`);
       return JSON.stringify({channel: dto.channels[channelIndex]});
    }
 }
@@ -170,7 +175,7 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
    const safePatternIndex = clamp(patternIndex | 0, 0, song.patterns.length - 1);
    const pattern = song.patterns[safePatternIndex];
    const rowCount = song.rowsPerPattern;
-   const channelCount = pattern.channels.length;
+   const channelCount = song.subsystem.channelCount;
 
    // Precompute which instruments will actually render into a k-rate waveform slot during playback.
    // array indexed by instrument index -> slot index or null.
@@ -194,10 +199,6 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
                                                {paramU8: number}>(),
                                          }));
 
-   // Somatic command semantics
-   // const SOMATIC_CMD_EFFECT_STRENGTH_SCALE_NOMINAL = 0xff;
-   // const SOMATIC_CMD_FILTER_FREQUENCY_NOMINAL = 0xff;
-
    // init k-rate render slot per channel (for sustaining notes).
    const activeKRateSlotByChannel: (number|null)[] = Array.from({length: channelCount}, () => null);
    const kRateRenderSlotConflictByRow: boolean[] = Array.from({length: rowCount}, () => false);
@@ -207,7 +208,7 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
       const slotCounts = new Map<number, number>();
 
       for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
-         const cell = pattern.channels[channelIndex].rows[rowIndex] ?? {};
+         const cell = pattern.getCell(channelIndex, rowIndex);
 
          // Effect carry
          //if (cell.tic80Effect !== undefined && cell.tic80Effect !== null) {

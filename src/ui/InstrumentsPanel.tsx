@@ -39,8 +39,10 @@ const makeDefaultInstrumentForIndex = (instrumentIndex: number): SomaticInstrume
 // todo: prob move this to song
 const swapInstrumentIndicesInPatterns = (song: Song, a: number, b: number) => {
     const maxInstrumentIndex = Math.max(song.instruments.length - 1, 0);
+    const channelCount = song.subsystem.channelCount;
     for (const pattern of song.patterns) {
-        for (const channel of pattern.channels) {
+        for (let ch = 0; ch < channelCount; ch++) {
+            const channel = pattern.getChannel(ch);
             for (const cell of channel.rows) {
                 if (cell.instrumentIndex === undefined || cell.instrumentIndex === null) continue;
                 const clamped = clamp(cell.instrumentIndex, 0, maxInstrumentIndex);
@@ -70,8 +72,10 @@ const insertInstrumentSlotAtIndex = (song: Song, insertIndex: number) => {
     // We intentionally do NOT remap references to the last slot, because the caller
     // must ensure that slot is unused (otherwise we'd lose an instrument).
     const maxInstrumentIndex = Math.max(song.instruments.length - 1, 0);
+    const channelCount = song.subsystem.channelCount;
     for (const pattern of song.patterns) {
-        for (const channel of pattern.channels) {
+        for (let ch = 0; ch < channelCount; ch++) {
+            const channel = pattern.getChannel(ch);
             for (const cell of channel.rows) {
                 if (cell.instrumentIndex === undefined || cell.instrumentIndex === null) continue;
                 const clamped = clamp(cell.instrumentIndex, 0, maxInstrumentIndex);

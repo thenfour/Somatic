@@ -1,10 +1,9 @@
-
 // create a new Song object from a tic80 cart.
 
 import {decodeTempo, decodeRowsPerPattern, decodeTrackSpeed, decodeWaveformSamplesFromBytes16, decodeInstrumentFromBytes66, parseTicCartChunks, TicChunkType, unpackTrackFrame, type TicCartChunk} from "./tic80_serialization";
 import {decodePatternChannelBytes} from "./pattern_encoding";
 import {Song} from "../models/song";
-import {Pattern, PatternChannel} from "../models/pattern";
+import {Pattern, PatternChannel, PatternDto} from "../models/pattern";
 import {SomaticInstrument} from "../models/instruments";
 import {Tic80Waveform} from "../models/waveform";
 import {SomaticCaps, Tic80Caps} from "../models/tic80Capabilities";
@@ -116,7 +115,10 @@ export function importSongFromTicCartBytes(
       const key = `${p0},${p1},${p2},${p3}`;
       let combinedIndex = comboToPatternIndex.get(key);
       if (combinedIndex === undefined) {
-         const pat = new Pattern();
+         const pat: PatternDto = {
+            channels: [],
+            name: "",
+         }
          // the tic80 patterns are single-channel; combine into our multi-channel pattern.
          // tic80 also refers to them 1-based, where 0 means empty.
          if (p0 > 0) {
@@ -132,7 +134,7 @@ export function importSongFromTicCartBytes(
             pat.channels[3] = singleChannelPatterns[p3 - 1];
          }
          combinedIndex = combinedPatterns.length;
-         combinedPatterns.push(pat);
+         combinedPatterns.push(new Pattern(pat));
          comboToPatternIndex.set(key, combinedIndex);
       }
       songOrder.push(combinedIndex);

@@ -5,12 +5,9 @@ import {clamp, CoalesceBoolean, SanitizeFilename} from "../utils/utils";
 import {SomaticInstrument, SomaticInstrumentDto} from "./instruments";
 import {isNoteCut, Pattern, PatternDto} from "./pattern";
 import {SongOrderDto, SongOrderItem} from "./songOrder";
-//import {Tic80Caps} from "./tic80Capabilities";
 import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
 
 // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#music-tracks
-// export type InstrumentData = ReturnType<Tic80Instrument['toData']>;
-// export type PatternData = ReturnType<Pattern['toData']>;
 
 export type SongDto = {
    subsystemType: SubsystemTypeKey; name: string; //
@@ -130,8 +127,10 @@ export class Song {
       const rowLimit = this.rowsPerPattern;
       let count = 0;
 
-      for (let ch = 0; ch < pattern.channels.length; ch += 1) {
-         const rows = pattern.channels[ch].rows;
+      const channelCount = this.subsystem.channelCount;
+
+      for (let ch = 0; ch < channelCount; ch += 1) {
+         const rows = pattern.getChannel(ch).rows;
          const limit = Math.min(rows.length, rowLimit);
          for (let r = 0; r < limit; r += 1) {
             const cell = rows[r] || {};
@@ -170,8 +169,9 @@ export class Song {
          const patternIndex = clamp(orderItem.patternIndex ?? 0, 0, this.patterns.length - 1);
          const pattern = this.patterns[patternIndex];
          const rowLimit = this.rowsPerPattern;
-         for (let ch = 0; ch < pattern.channels.length; ch += 1) {
-            const rows = pattern.channels[ch].rows;
+         const channelCount = this.subsystem.channelCount;
+         for (let ch = 0; ch < channelCount; ch += 1) {
+            const rows = pattern.getChannel(ch).rows;
             const limit = Math.min(rows.length, rowLimit);
             for (let r = 0; r < limit; r += 1) {
                const cell = rows[r] || {};
@@ -229,3 +229,5 @@ export class Song {
 
 
 export const formatPatternIndex = (index: number) => index.toString().padStart(2, "0");
+
+export type SubsystemBackend = SomaticSubsystemBackend<Song, SongDto>;

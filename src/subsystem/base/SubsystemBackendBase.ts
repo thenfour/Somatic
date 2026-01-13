@@ -39,6 +39,11 @@ export interface SomaticSubsystemBackend<TSong, TSongDto> {
    maxSongTempo: number;
    defaultSongTempo: number;
 
+   minPatternMidiNote: number;
+   maxPatternMidiNote: number;
+
+   maxInstruments: number;
+
    initWaveformsAndInstruments(song: TSong, data: Partial<TSongDto>): void;
    onInitOrSubsystemTypeChange(song: TSong): void;
 

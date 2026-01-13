@@ -74,7 +74,7 @@ export const renderThumbnail = (
 
     const rects: React.ReactNode[] = [];
 
-    for (let ch = 0; ch < 4; ch += 1) {
+    for (let ch = 0; ch < channelCount; ch += 1) {
         for (let block = 0; block < blocks; block += 1) {
             const rowStart = block * quantPx * ROWS_PER_PIXEL;
             const rowEnd = Math.min(rowsPerPattern, rowStart + (quantPx * ROWS_PER_PIXEL));
@@ -82,7 +82,7 @@ export const renderThumbnail = (
             let isHighlighted = false;
 
             for (let row = rowStart; row < rowEnd; row += 1) {
-                const cell = pattern.channels[ch]?.rows[row] ?? {};
+                const cell = pattern.getCell(ch, row);
                 const notePresent = !!cell.midiNote && !isNoteCut(cell);
                 if (!notePresent) continue;
                 hasNote = true;

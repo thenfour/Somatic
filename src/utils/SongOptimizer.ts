@@ -1,3 +1,5 @@
+// TIC80 specific
+
 import {gSomaticLZDefaultConfig, lzCompress} from "../audio/encoding";
 import {encodePatternChannelDirect} from "../audio/pattern_encoding";
 import {prepareSongColumns} from "../audio/prepared_song";
@@ -25,6 +27,7 @@ export function calculateSongUsage(song: Song): SongUsage {
    const usedPatterns = new Set<number>();
    const usedInstruments = new Set<number>();
    const usedWaveforms = new Set<number>();
+   const channelCount = song.subsystem.channelCount;
 
    // patterns that appear in the order list
    const maxPatternIndex = Math.max(song.patterns.length - 1, 0);
@@ -39,14 +42,15 @@ export function calculateSongUsage(song: Song): SongUsage {
       const pat = song.patterns[patIdx];
       if (!pat)
          return;
-      pat.channels.forEach((channel) => {
+      for (let ch = 0; ch < channelCount; ch++) {
+         const channel = pat.getChannel(ch);
          channel.rows.forEach((cell) => {
             if (cell.instrumentIndex === undefined || cell.instrumentIndex === null)
                return;
             const instIdx = clamp(cell.instrumentIndex, 0, maxInstrumentIndex);
             usedInstruments.add(instIdx);
          });
-      });
+      }
    });
 
    // waveforms referenced by used instruments
@@ -207,6 +211,7 @@ export function OptimizeSong(song: Song): OptimizeResult {
    const working = song.clone();
    const changeLog: string[] = [];
    const featureUsage = makeFeatureUsage();
+   const channelCount = working.subsystem.channelCount;
 
    const patternSignature = (pattern: Pattern): string => pattern.contentSignature();
 
@@ -267,14 +272,15 @@ export function OptimizeSong(song: Song): OptimizeResult {
    const usedInstrumentSet = new Set<number>([0, 1]);
    usedPatternSet.forEach((patternIdx) => {
       const pat = working.patterns[newPatternIndex.get(patternIdx) ?? patternIdx];
-      pat.channels.forEach((channel) => {
+      for (let ch = 0; ch < channelCount; ch++) {
+         const channel = pat.getChannel(ch);
          channel.rows.forEach((cell) => {
             if (cell.instrumentIndex !== undefined && cell.instrumentIndex !== null) {
                const inst = clamp(cell.instrumentIndex, 0, working.instruments.length - 1);
                usedInstrumentSet.add(inst);
             }
          });
-      });
+      }
    });
 
    const newInstruments: SomaticInstrument[] = [];
@@ -297,7 +303,8 @@ export function OptimizeSong(song: Song): OptimizeResult {
 
    // update pattern cells with new instrument indexes across all patterns (used + unused) to keep data consistent.
    working.patterns.forEach((pattern) => {
-      pattern.channels.forEach((channel) => {
+      for (let ch = 0; ch < channelCount; ch++) {
+         const channel = pattern.getChannel(ch);
          channel.rows.forEach((cell) => {
             if (cell.instrumentIndex !== undefined && cell.instrumentIndex !== null) {
                const clamped = clamp(cell.instrumentIndex, 0, newInstruments.length - 1);
@@ -305,7 +312,7 @@ export function OptimizeSong(song: Song): OptimizeResult {
                cell.instrumentIndex = mapped;
             }
          });
-      });
+      }
    });
 
    working.instruments = newInstruments;
