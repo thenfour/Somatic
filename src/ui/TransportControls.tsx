@@ -4,13 +4,13 @@ import { GlobalActionId } from "../keyb/ActionIds";
 import { useShortcutManager } from "../keyb/KeyboardShortcutManager";
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
-import { calculateSongPositionInSeconds, Tic80Caps } from "../models/tic80Capabilities";
+import { Tic80Caps } from "../models/tic80Capabilities";
 import { CharMap } from "../utils/utils";
-import { Tooltip } from "./basic/tooltip";
 import { Dropdown } from "./basic/Dropdown";
-import { TransportTime } from "./transportTime";
+import { Tooltip } from "./basic/tooltip";
 import { ButtonGroup } from "./Buttons/ButtonGroup";
 import { Button } from "./Buttons/PushButton";
+import { TransportTime } from "./transportTime";
 
 interface TransportControlsProps {
     song: Song;
@@ -90,20 +90,20 @@ export const TransportControls: React.FC<TransportControlsProps> = ({ bridgeRead
     mgr.useActionHandler("ToggleLoopModeOff", handleToggleLoop);
 
     const currentAbsRow = song.rowsPerPattern * editorState.activeSongPosition + editorState.patternEditRow;
-    const cursorPositionSeconds = calculateSongPositionInSeconds({
+    const cursorPositionSeconds = song.subsystem.calculateSongPositionInSeconds({
         songTempo: song.tempo,
         songSpeed: song.speed,
         rowIndex: currentAbsRow,
     });
 
     const currentAbsPlayheadRow = song.rowsPerPattern * (somaticTransportState.currentSomaticSongPosition || 0) + (somaticTransportState.currentSomaticRowIndex || 0);
-    const playheadPositionSeconds = calculateSongPositionInSeconds({
+    const playheadPositionSeconds = song.subsystem.calculateSongPositionInSeconds({
         songTempo: song.tempo,
         songSpeed: song.speed,
         rowIndex: currentAbsPlayheadRow,
     });
 
-    const totalSongSeconds = calculateSongPositionInSeconds({
+    const totalSongSeconds = song.subsystem.calculateSongPositionInSeconds({
         songTempo: song.tempo,
         songSpeed: song.speed,
         rowIndex: song.songOrder.length * song.rowsPerPattern,

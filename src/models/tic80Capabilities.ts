@@ -201,7 +201,7 @@ export const Tic80Caps = {
    // pattern
    pattern: {
       count: 60, // MUSIC_PATTERNS
-      minRows: 1,
+      //minRows: 1,
       maxRows: 64, // MUSIC_PATTERN_ROWS
       octaveCount: 8,
       memory: {
@@ -322,22 +322,3 @@ export const TicBridge = {
    CMD_PLAY_SFX_OFF: bridgeConfig.inboxCommands.PLAY_SFX_OFF,
 
 } as const;
-
-export function calculateBpm(
-   {songTempo, songSpeed, rowsPerBeat}: {songTempo: number, songSpeed: number, rowsPerBeat: number}): number {
-   // https://itch.io/t/197936/music-editor-how-spd-relates-to-tempo-beats-per-minute
-   // that formula assumes 4 rows per beat.
-   // so for arbitrary rows per beat,
-   // bpm = 24 * T / S L
-   return (24 * songTempo) / (songSpeed * rowsPerBeat);
-};
-
-// calculates the song position in seconds at a given row index (assume row 0 = 0 seconds)
-export function calculateSongPositionInSeconds(args: {songTempo: number; songSpeed: number; rowIndex: number;}):
-   number {
-   const {songTempo, songSpeed, rowIndex} = args;
-   const bpm = calculateBpm({songTempo, songSpeed, rowsPerBeat: 4});
-   const beatsPerSecond = bpm / 60;
-   const rowsPerSecond = beatsPerSecond * 4;
-   return rowIndex / rowsPerSecond;
-};

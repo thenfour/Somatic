@@ -1,11 +1,9 @@
-import React, { useCallback, useState } from "react";
-import { SomaticTransportState, Tic80TransportState } from "../audio/backend";
-import { Tooltip } from "./basic/tooltip";
+import React, { useState } from "react";
+import { SomaticTransportState } from "../audio/backend";
 import { AudioController } from "../audio/controller";
 import { Song } from "../models/song";
-import { calculateSongPositionInSeconds } from "../models/tic80Capabilities";
-import { TransportTime } from "./transportTime";
 import { KeyValueTable } from "./basic/KeyValueTable";
+import { Tooltip } from "./basic/tooltip";
 
 const FPS_UPDATE_INTERVAL_MS = 500;
 const FPS_WARNING_THRESHOLD = 45; // below this and we show a warning

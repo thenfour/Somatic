@@ -5,12 +5,12 @@ import { EditorState } from '../models/editor_state';
 import { Song } from '../models/song';
 //import { PositionList } from './position_list';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
-import { calculateBpm, SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
+import type { ArrangementThumbnailSize } from '../models/song';
+import { SomaticCaps } from '../models/tic80Capabilities';
 import { IntegerUpDown } from './basic/NumericUpDown';
 import { Tooltip } from './basic/tooltip';
-import { CheckboxButton } from './Buttons/CheckboxButton';
-import type { ArrangementThumbnailSize } from '../models/song';
 import { ButtonGroup } from './Buttons/ButtonGroup';
+import { CheckboxButton } from './Buttons/CheckboxButton';
 
 type SongEditorProps = {
     song: Song;
@@ -37,7 +37,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
         onSongChange({ description: 'Set rows per pattern', undoable: true, mutator: (s) => s.setRowsPerPattern(val) });
     };
 
-    const bpm = calculateBpm({ songTempo: song.tempo, songSpeed: song.speed, rowsPerBeat: 4 });
+    const bpm = song.subsystem.calculateBpm({ songTempo: song.tempo, songSpeed: song.speed, rowsPerBeat: 4 });
 
     const thumbnailSize: ArrangementThumbnailSize = song.arrangementThumbnailSize ?? "normal";
 
@@ -63,8 +63,8 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 <div className="field-row">
                     <label htmlFor="song-tempo">Tempo</label>
                     <IntegerUpDown
-                        min={Tic80Caps.song.minTempo}
-                        max={Tic80Caps.song.maxTempo}
+                        min={song.subsystem.minSongTempo}
+                        max={song.subsystem.maxSongTempo}
                         value={song.tempo}
                         onChange={onTempoChange}
                     />
@@ -74,8 +74,8 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 <div className="field-row">
                     <label htmlFor="song-speed">Speed</label>
                     <IntegerUpDown
-                        min={Tic80Caps.song.songSpeedMin}
-                        max={Tic80Caps.song.songSpeedMax}
+                        min={song.subsystem.minSongSpeed}
+                        max={song.subsystem.maxSongSpeed}
                         value={song.speed}
                         onChange={onSpeedChange}
                     />
@@ -86,8 +86,8 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
 
                     <label htmlFor="song-rows-per-pattern">Pattern Len</label>
                     <IntegerUpDown
-                        min={Tic80Caps.pattern.minRows}
-                        max={Tic80Caps.pattern.maxRows}
+                        min={1}
+                        max={song.subsystem.maxRowsPerPattern}
                         value={song.rowsPerPattern}
                         onChange={onRowsPerPatternChange}
                     />

@@ -31,6 +31,20 @@ export interface SomaticSubsystemBackend<TSong, TSongDto> {
    maxRowsPerPattern: number;
    defaultRowsPerPattern: number;
 
+   minSongSpeed: number;
+   maxSongSpeed: number;
+   defaultSongSpeed: number;
+
+   minSongTempo: number;
+   maxSongTempo: number;
+   defaultSongTempo: number;
+
    initWaveformsAndInstruments(song: TSong, data: Partial<TSongDto>): void;
    onInitOrSubsystemTypeChange(song: TSong): void;
+
+   calculateBpm({songTempo, songSpeed, rowsPerBeat}: {songTempo: number, songSpeed: number, rowsPerBeat: number}):
+      number;
+
+   // calculates the song position in seconds at a given row index (assume row 0 = 0 seconds)
+   calculateSongPositionInSeconds(args: {songTempo: number; songSpeed: number; rowIndex: number;}): number;
 }

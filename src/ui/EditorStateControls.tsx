@@ -6,16 +6,14 @@ import { Song } from '../models/song';
 //import { PositionList } from './position_list';
 import { GlobalActionId } from '../keyb/ActionIds';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
-import { calculateBpm, SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
-import { CharMap, TryParseInt } from '../utils/utils';
-import { Tooltip } from './basic/tooltip';
+import { Tic80Caps } from '../models/tic80Capabilities';
+import { CharMap } from '../utils/utils';
 import { Dropdown } from './basic/Dropdown';
-import { InstrumentChip } from './InstrumentChip';
-import { Button } from './Buttons/PushButton';
-import { IconButton } from './Buttons/IconButton';
-import { mdiMenuLeft, mdiMenuRight } from '@mdi/js';
 import { IntegerUpDown } from './basic/NumericUpDown';
+import { Tooltip } from './basic/tooltip';
 import { ButtonGroup } from './Buttons/ButtonGroup';
+import { IconButton } from './Buttons/IconButton';
+import { InstrumentChip } from './InstrumentChip';
 
 type EditorStateControlsProps = {
     song: Song;
@@ -46,7 +44,7 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
         return mgr.getActionBindingLabel(actionId) || "Unbound";
     };
 
-    const bpm = calculateBpm({ songTempo: song.tempo, songSpeed: song.speed, rowsPerBeat: 4 });
+    const bpm = song.subsystem.calculateBpm({ songTempo: song.tempo, songSpeed: song.speed, rowsPerBeat: 4 });
 
     const instrumentOptions = React.useMemo(() => {
         return Array.from({ length: Tic80Caps.sfx.count }, (_, i) => ({
