@@ -1540,7 +1540,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                             </tr>
                         </thead>
                         <tbody>
-                            {channelsArray.map((_, rowIndex) => {
+                            {numericRange(0, song.rowsPerPattern).map((_, rowIndex) => {
                                 const chunkSize = Math.max(song.highlightRowCount || 1, 1);
                                 const sectionIndex = Math.floor(rowIndex / chunkSize) % 2;
                                 const rowClass = `${sectionIndex === 0 ? 'row-section-a' : 'row-section-b'}${activeRow === rowIndex ? ' active-row' : ''}`;
