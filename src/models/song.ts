@@ -1,9 +1,11 @@
-import {clamp, CoalesceBoolean, IsNullOrWhitespace, SanitizeFilename} from "../utils/utils";
+import {kSubsystem, SomaticSubsystem, SubsystemTypeKey} from "../subsystem/base/SubsystemBase";
+import {Tic80Subsystem} from "../subsystem/tic80/tic80Subsystem";
+import {clamp, CoalesceBoolean, SanitizeFilename} from "../utils/utils";
 
 import {Tic80Instrument, Tic80InstrumentDto} from "./instruments";
-import {Pattern, PatternDto, isNoteCut} from "./pattern";
+import {isNoteCut, Pattern, PatternDto} from "./pattern";
 import {SongOrderDto, SongOrderItem} from "./songOrder";
-import {Tic80Caps} from "./tic80Capabilities";
+//import {Tic80Caps} from "./tic80Capabilities";
 import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
 
 // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#music-tracks
@@ -11,7 +13,7 @@ import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
 // export type PatternData = ReturnType<Pattern['toData']>;
 
 export type SongDto = {
-   name: string; //
+   subsystemType: SubsystemTypeKey; name: string; //
 
    tempo: number; //
    speed: number;
@@ -33,58 +35,6 @@ export type SongDto = {
 };
 
 export type ArrangementThumbnailSize = "off"|"small"|"normal"|"large";
-
-const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {
-   const ret = Array.from({length: Tic80Caps.waveform.count}, (_, i) => {
-      const waveData = data[i];
-      const ret = new Tic80Waveform(waveData);
-      if (IsNullOrWhitespace(ret.name))
-         ret.name = `WAVE ${i}`;
-      return ret;
-   });
-
-   if (data.length === 0) {
-      // new song; populate waveforms. the waveforms exist and amplitude arrays exist but are zero'd.
-      // populate with triangle waves.
-      for (let i = 0; i < Tic80Caps.waveform.count; i++) {
-         const wave = ret[i]!;
-         for (let p = 0; p < Tic80Caps.waveform.pointCount; p++) {
-            const amp = Math.floor(
-               (Tic80Caps.waveform.amplitudeRange - 1) *
-               (p < Tic80Caps.waveform.pointCount / 2 ?
-                   (p / (Tic80Caps.waveform.pointCount / 2)) :
-                   (1 - (p - Tic80Caps.waveform.pointCount / 2) / (Tic80Caps.waveform.pointCount / 2))));
-            wave.amplitudes[p] = amp;
-         }
-      }
-   }
-   return ret;
-};
-
-const makeInstrumentList = (data: Tic80InstrumentDto[]): Tic80Instrument[] => {
-   //const length =  INSTRUMENT_COUNT + 1; // index 0 unused, indexes 1..INSTRUMENT_COUNT
-   const list = Array.from({length: Tic80Caps.sfx.count}, (_, i) => {
-      const instData = data[i]!;
-      const ret = new Tic80Instrument(instData);
-      if (IsNullOrWhitespace(ret.name)) {
-         if (i === 0) {
-            ret.name = "dontuse";
-         } else if (i === 1) {
-            ret.name = "off";
-         } else {
-            ret.name = `new inst ${i.toString(16).toUpperCase().padStart(2, "0")}`;
-         }
-      }
-      return ret;
-   });
-
-   // ensure the "off" instrument at 1 is configured properly. really it just needs
-   // to have a zero'd volume envelope.
-   const offInst = list[1];
-   offInst.volumeFrames.fill(0);
-
-   return list;
-};
 
 const makePatternList = (data: PatternDto[]): Pattern[] => {
    const ret = data.map((patternData) => Pattern.fromData(patternData));
@@ -108,6 +58,8 @@ export class Song {
    speed: number;
 
    // editor-specific
+   subsystemType: SubsystemTypeKey;
+   subsystem: SomaticSubsystem<Song, SongDto>;
    name: string;
    highlightRowCount: number;
    patternEditStep: number;
@@ -118,11 +70,27 @@ export class Song {
    arrangementThumbnailSize: ArrangementThumbnailSize;
 
    constructor(data: Partial<SongDto> = {}) {
-      this.instruments = makeInstrumentList(data.instruments || []);
+      this.subsystemType = data.subsystemType || kSubsystem.key.TIC80;
+      this.subsystem = (() => {
+         switch (this.subsystemType) {
+            case kSubsystem.key.TIC80:
+               return new Tic80Subsystem();
+            case kSubsystem.key.AMIGAMOD:
+            default:
+               throw new Error(`Unsupported subsystem type: ${this.subsystemType}`);
+         }
+      })();
+
+      this.instruments = [];
+      this.waveforms = [];
+      this.subsystem.initWaveformsAndInstruments(this, data);
+
       this.patterns = makePatternList(data.patterns || []);
       this.songOrder = (data.songOrder || [0]).map((item) => new SongOrderItem(item)); // default to first pattern
-      this.waveforms = makeWaveformList(data.waveforms || []);
-      this.rowsPerPattern = clamp(data.rowsPerPattern ?? Tic80Caps.pattern.maxRows, 1, Tic80Caps.pattern.maxRows);
+      // this.instruments = makeInstrumentList(data.instruments || []);
+      // this.waveforms = makeWaveformList(data.waveforms || []);
+      this.rowsPerPattern =
+         clamp(data.rowsPerPattern ?? this.subsystem.defaultRowsPerPattern, 1, this.subsystem.maxRowsPerPattern);
       this.tempo = clamp(data.tempo ?? 120, 1, 255);
       this.speed = clamp(data.speed ?? 6, 1, 31);
       this.name = data.name ?? "New song";
@@ -133,6 +101,8 @@ export class Song {
 
       // Default to showing thumbnails (matches previous behavior).
       this.arrangementThumbnailSize = (data.arrangementThumbnailSize as ArrangementThumbnailSize) ?? "normal";
+
+      this.subsystem.onInitOrSubsystemTypeChange(this);
    }
 
    setTempo(value: number) {
@@ -152,12 +122,12 @@ export class Song {
    }
 
    setRowsPerPattern(value: number) {
-      this.rowsPerPattern = clamp(value, 1, Tic80Caps.pattern.maxRows);
+      this.rowsPerPattern = clamp(value, 1, this.subsystem.maxRowsPerPattern);
    }
 
    countInstrumentNotesInPattern(patternIndex: number, instrumentIndex: number): number {
       const pattern = this.patterns[patternIndex];
-      const rowLimit = clamp(this.rowsPerPattern, 0, Tic80Caps.pattern.maxRows);
+      const rowLimit = this.rowsPerPattern;
       let count = 0;
 
       for (let ch = 0; ch < pattern.channels.length; ch += 1) {
@@ -199,7 +169,7 @@ export class Song {
       for (const orderItem of this.songOrder) {
          const patternIndex = clamp(orderItem.patternIndex ?? 0, 0, this.patterns.length - 1);
          const pattern = this.patterns[patternIndex];
-         const rowLimit = clamp(this.rowsPerPattern, 0, Tic80Caps.pattern.maxRows);
+         const rowLimit = this.rowsPerPattern;
          for (let ch = 0; ch < pattern.channels.length; ch += 1) {
             const rows = pattern.channels[ch].rows;
             const limit = Math.min(rows.length, rowLimit);
@@ -216,6 +186,7 @@ export class Song {
 
    toData(): Required<SongDto> {
       return {
+         subsystemType: this.subsystemType,
          instruments: this.instruments.map((inst) => inst.toData()),
          patterns: this.patterns.map((pattern) => pattern.toData()),
          waveforms: this.waveforms.map((wave) => wave.toData()),

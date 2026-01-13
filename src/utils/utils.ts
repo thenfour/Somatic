@@ -1,6 +1,6 @@
 export const kNullKey = "__NULL__";
 
-
+// result stuff
 export type Ok<T> = {
    ok: true; value: T
 };
