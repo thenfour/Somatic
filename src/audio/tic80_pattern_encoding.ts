@@ -1,4 +1,4 @@
-import {NoteRegistry} from "../defs";
+import {NoteRegistry} from "../utils/music/noteRegistry";
 import {Pattern, PatternCell, PatternChannel} from "../models/pattern";
 import {kTic80EffectCommand, Tic80Caps} from "../models/tic80Capabilities";
 

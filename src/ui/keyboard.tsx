@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NoteRegistry } from "../defs";
+import { NoteRegistry } from "../utils/music/noteRegistry";
 import './keyboard.css';
 
 const KEY_POSITIONS = [0, 0.5, 1, 1.5, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6];

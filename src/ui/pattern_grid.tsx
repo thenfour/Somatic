@@ -1,7 +1,7 @@
 import React, { forwardRef, KeyboardEvent, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { SomaticTransportState } from '../audio/backend';
 import { Tic80AudioController } from '../audio/controller';
-import { NoteRegistry } from '../defs';
+import { NoteRegistry } from '../utils/music/noteRegistry';
 import { useCellRefsGrid } from '../hooks/useCellRefsGrid';
 import { useClipboard } from '../hooks/useClipboard';
 import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D';

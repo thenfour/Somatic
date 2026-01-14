@@ -1,6 +1,6 @@
 // TIC80 specific
 
-import {NoteRegistry} from "../defs";
+import {NoteRegistry} from "../utils/music/noteRegistry";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {SomaticInstrument} from "../models/instruments";
 import type {Pattern} from "../models/pattern";
