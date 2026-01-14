@@ -38,7 +38,7 @@ const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {
 
 const makeInstrumentList = (data: SomaticInstrumentDto[]): SomaticInstrument[] => {
    // POC: reuse current instrument structure for now.
-   const list = Array.from({length: Tic80Caps.sfx.count}, (_, i) => {
+   const list = Array.from({length: Tic80Caps.sfx.maxSupported}, (_, i) => {
       const instData = data[i]!;
       const inst = new SomaticInstrument(instData);
       if (IsNullOrWhitespace(inst.name)) {
@@ -77,7 +77,7 @@ export class SidSubsystemBackend implements SomaticSubsystemBackend<Song, SongDt
    maxPatternMidiNote: number = 127;
 
    // POC: keep the existing instrument count so panels don't need to change yet.
-   maxInstruments: number = Tic80Caps.sfx.count;
+   maxInstruments: number = Tic80Caps.sfx.maxSupported;
 
    initWaveformsAndInstruments(song: Song, data: Partial<SongDto>): void {
       song.instruments = makeInstrumentList(data.instruments || []);

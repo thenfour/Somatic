@@ -53,7 +53,7 @@ export class EditorState {
    }: Partial<EditorStateDto> = {}) {
       this.octave = clamp(octave, 1, Tic80Caps.pattern.octaveCount);
       this.activeSongPosition = clamp(activeSongPosition, 0, 255);
-      this.currentInstrument = clamp(currentInstrument, 0, Tic80Caps.sfx.count - 1);
+      this.currentInstrument = clamp(currentInstrument, 0, Tic80Caps.sfx.maxSupported - 1);
       this.editingEnabled = CoalesceBoolean(editingEnabled, true);
       this.patternEditRow = clamp(patternEditRow, 0, 63);
       this.patternEditChannel = ToTic80ChannelIndex(patternEditChannel);
@@ -76,7 +76,7 @@ export class EditorState {
    }
 
    setCurrentInstrument(nextInstrument: number) {
-      this.currentInstrument = clamp(nextInstrument, 0, Tic80Caps.sfx.count - 1);
+      this.currentInstrument = clamp(nextInstrument, 0, Tic80Caps.sfx.maxSupported - 1);
    }
 
    setEditingEnabled(enabled: boolean) {

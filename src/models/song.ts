@@ -35,7 +35,7 @@ function upgradeSongDtoToLatest(input: SongDto): SongDto {
    if (next.subsystemType === kSubsystem.key.TIC80) {
       // Strip reserved instruments 0/1 from the instrument list.
       const legacyInstruments = Array.isArray(next.instruments) ? next.instruments : [];
-      const somaticMax = Math.max(0, Tic80Caps.sfx.count - 2);
+      const somaticMax = Math.max(0, Tic80Caps.sfx.maxSupported);
       next.instruments = legacyInstruments.slice(2, 2 + somaticMax);
 
       // Remap pattern cell instrument indices and legacy note-cut encoding.

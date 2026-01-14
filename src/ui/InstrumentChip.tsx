@@ -19,6 +19,12 @@ export const InstrumentChip: React.FC<InstrumentChipProps> = ({ className, style
         moreStyle.width = width;
     }
 
+    if (!instrument) {
+        return <div className={`chip instrument-chip instrument-chip--missing ${className ?? ''}`} style={moreStyle} onClick={onClick}>
+            <span className="instrument-chip-missing-text">Missing Instrument {instrumentIndex}</span>
+        </div>;
+    }
+
     const classes = ['chip instrument-chip '];
     if (className) {
         classes.push(className);

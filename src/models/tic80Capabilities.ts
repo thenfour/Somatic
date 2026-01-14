@@ -177,7 +177,7 @@ export const Tic80Caps = {
 
    // sfx
    sfx: {
-      count: 64,
+      //count: 64,
       maxSupported: 62, // 0/1 are reserved for 0 and 1 (note-cut)
       envelopeFrameCount: 30,
       speedMax: 7,

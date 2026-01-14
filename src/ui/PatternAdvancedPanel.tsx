@@ -95,7 +95,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     const advancedEditPanelKeyshortcut = mgr.getActionBindingLabel("ToggleAdvancedEditPanel") || "Unbound";
 
     const instrumentOptions = React.useMemo(() => {
-        return Array.from({ length: Tic80Caps.sfx.count }, (_, i) => ({
+        return Array.from({ length: Tic80Caps.sfx.maxSupported }, (_, i) => ({
             value: i,
             label: <InstrumentChip
                 instrumentIndex={i}
