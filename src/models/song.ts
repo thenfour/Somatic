@@ -9,7 +9,10 @@ import {isNoteCut, Pattern, PatternDto} from "./pattern";
 import {SongOrderDto, SongOrderItem} from "./songOrder";
 import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
 import {Tic80Caps} from "./tic80Capabilities";
+import {buildInfo} from "../buildInfo";
+import {getSomaticVersionString} from "../utils/versionString";
 
+// changing this, document in readme which changes occurred, create a upgrade fn from previous
 const kSomaticSchemaVersion = 1;
 
 function upgradeSongDtoToLatest(input: SongDto): SongDto {
@@ -62,13 +65,23 @@ function upgradeSongDtoToLatest(input: SongDto): SongDto {
       }
    }
 
+   // no matter what, this song is now been created by this build.
+   next.somaticBuild = getSomaticBuildMetadataForSongSave();
+
    return next;
 }
 
-// https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#music-tracks
+export type SomaticBuildMetadata = {
+   gitCommit: string|null; //
+   versionString: string;  //
+   utcDate: string;
+   url: string | null;
+};
 
 export type SongDto = {
-   schemaVersion: number;           //
+   schemaVersion: number; //
+   somaticBuild: SomaticBuildMetadata;
+
    subsystemType: SubsystemTypeKey; //
    name: string;                    //
 
@@ -90,6 +103,16 @@ export type SongDto = {
 
    arrangementThumbnailSize: ArrangementThumbnailSize;
 };
+
+function getSomaticBuildMetadataForSongSave(): SomaticBuildMetadata {
+   const url = (typeof window !== "undefined" && window?.location?.href) ? String(window.location.href) : null;
+   return {
+      gitCommit: buildInfo.commitHash ?? null,
+      versionString: getSomaticVersionString(buildInfo, "Somatic"),
+      utcDate: new Date().toISOString(),
+      url,
+   };
+}
 
 export type ArrangementThumbnailSize = "off"|"small"|"normal"|"large";
 
@@ -302,9 +325,12 @@ export class Song {
    };
 
 
-   toData(): Required<SongDto> {
+   toData(): SongDto {
+      const buildInfo = getSomaticBuildMetadataForSongSave();
+      console.log("Saving song with build info:", buildInfo);
       return {
          schemaVersion: kSomaticSchemaVersion,
+         somaticBuild: buildInfo,
          subsystemType: this.subsystemType,
          instruments: this.instruments.map((inst) => inst.toData()),
          patterns: this.patterns.map((pattern) => pattern.toData()),
