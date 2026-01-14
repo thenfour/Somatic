@@ -85,6 +85,8 @@ export class AmigaModSubsystemBackend implements SomaticSubsystemBackend<Song, S
    // POC: keep the existing instrument count so panels don't need to change yet.
    maxInstruments: number = Tic80Caps.sfx.maxSupported;
 
+   maxSongOrder: number = 16; // todo
+
    initWaveformsAndInstruments(song: Song, data: Partial<SongDto>): void {
       song.instruments = makeInstrumentList(data.instruments || []);
       song.waveforms = makeWaveformList(data.waveforms || []);
@@ -93,8 +95,8 @@ export class AmigaModSubsystemBackend implements SomaticSubsystemBackend<Song, S
    onInitOrSubsystemTypeChange(_song: Song): void {
    }
 
-   calculateBpm({songTempo, songSpeed, rowsPerBeat}: {songTempo: number; songSpeed: number; rowsPerBeat: number;}):
-      number {
+   calculateBpm({songTempo, songSpeed, rowsPerBeat}: {songTempo: number; songSpeed: number; rowsPerBeat: number;}) //
+      : number {
       return (24 * songTempo) / (songSpeed * rowsPerBeat);
    }
 

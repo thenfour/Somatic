@@ -83,6 +83,8 @@ export class SidSubsystemBackend implements SomaticSubsystemBackend<Song, SongDt
    // POC: keep the existing instrument count so panels don't need to change yet.
    maxInstruments: number = Tic80Caps.sfx.maxSupported;
 
+   maxSongOrder: number = 16; // todo
+
    initWaveformsAndInstruments(song: Song, data: Partial<SongDto>): void {
       song.instruments = makeInstrumentList(data.instruments || []);
       song.waveforms = makeWaveformList(data.waveforms || []);

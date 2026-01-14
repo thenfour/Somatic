@@ -7,8 +7,8 @@ import './somatic.css';
 
 import { LoopMode, SomaticTransportState } from './audio/backend';
 import { Tic80AudioController } from './audio/controller';
-import { importSongFromTicCartBytes } from './audio/tic80_import';
 import { serializeSongToCart } from './audio/tic80_cart_serializer';
+import { importSongFromTicCartBytes } from './audio/tic80_import';
 import { useAppInstancePresence } from './hooks/useAppPresence';
 import { useClipboard } from './hooks/useClipboard';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -340,7 +340,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             });
             setEditorState((prev) => {
                 const next = prev.clone();
-                next.advancePatternEditRow(patternEditStep, rowsPerPattern);
+                next.advancePatternEditRow(s, patternEditStep);
                 patternGridRef.current?.focusCellAdvancedToRow(next.patternEditRow);
                 return next;
             });
@@ -434,9 +434,10 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
         if (!confirmed) return;
 
-        setSong(new Song());
+        const newSong = new Song();
+        setSong(newSong);
         updateEditorState((s) => {
-            s.setActiveSongPosition(0);
+            s.setActiveSongPosition(newSong, 0);
         });
         undoStackRef.current?.clear();
         pushToast({ message: 'New song created.', variant: 'success' });
@@ -451,7 +452,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         const loaded = Song.fromJSON(text);
         setSong(loaded);
         updateEditorState((s) => {
-            s.setActiveSongPosition(0);
+            s.setActiveSongPosition(loaded, 0);
         });
         undoStackRef.current?.clear();
     };
@@ -468,7 +469,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
             setSong(importedSong);
             updateEditorState((s) => {
-                s.setActiveSongPosition(0);
+                s.setActiveSongPosition(importedSong, 0);
             });
             undoStackRef.current?.clear();
 
@@ -534,7 +535,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             ensureUndoSnapshot('Paste song JSON');
             setSong(loaded);
             updateEditorState((s) => {
-                s.setActiveSongPosition(0);
+                s.setActiveSongPosition(loaded, 0);
             });
         } catch (err) {
             console.error('Paste failed', err);
@@ -605,10 +606,10 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("PlayFromPosition", onPlayFromPosition);
     useActionHandler("PlayPattern", onPlayPattern);
     useActionHandler("ToggleEditMode", toggleEditingEnabled);
-    useActionHandler("DecreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave - 1)));
-    useActionHandler("IncreaseOctave", () => updateEditorState((s) => s.setOctave(s.octave + 1)));
-    useActionHandler("DecreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument - 1)));
-    useActionHandler("IncreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(s.currentInstrument + 1)));
+    useActionHandler("DecreaseOctave", () => updateEditorState((s) => s.setOctave(songRef.current, s.octave - 1)));
+    useActionHandler("IncreaseOctave", () => updateEditorState((s) => s.setOctave(songRef.current, s.octave + 1)));
+    useActionHandler("DecreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(songRef.current, s.currentInstrument - 1)));
+    useActionHandler("IncreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(songRef.current, s.currentInstrument + 1)));
     useActionHandler("IncreaseEditStep", () => updateSong({
         description: 'Increase edit step',//
         undoable: true,
@@ -641,11 +642,11 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     }));
     useActionHandler("NextSongOrder", () => {
         const nextPos = Math.min(song.songOrder.length - 1, editorState.activeSongPosition + 1);
-        updateEditorState((s) => s.setActiveSongPosition(nextPos));
+        updateEditorState((s) => s.setActiveSongPosition(song, nextPos));
     });
     useActionHandler("PreviousSongOrder", () => {
         const prevPos = Math.max(0, editorState.activeSongPosition - 1);
-        updateEditorState((s) => s.setActiveSongPosition(prevPos));
+        updateEditorState((s) => s.setActiveSongPosition(song, prevPos));
     });
     useActionHandler("ToggleKeyboardNoteInput", toggleKeyboardEnabled);
     useActionHandler("ToggleMidiNoteInput", toggleMidiEnabled);

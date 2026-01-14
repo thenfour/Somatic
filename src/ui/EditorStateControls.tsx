@@ -1,11 +1,9 @@
 import React from 'react';
 import { Tic80AudioController } from '../audio/controller';
-//import { INSTRUMENT_COUNT, OCTAVE_COUNT, PATTERN_COUNT } from '../defs';
-import { EditorState } from '../models/editor_state';
-import { Song } from '../models/song';
-//import { PositionList } from './position_list';
 import { GlobalActionId } from '../keyb/ActionIds';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
+import { EditorState } from '../models/editor_state';
+import { Song } from '../models/song';
 import { CharMap } from '../utils/utils';
 import { Dropdown } from './basic/Dropdown';
 import { IntegerUpDown } from './basic/NumericUpDown';
@@ -26,7 +24,7 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
     const mgr = useShortcutManager();
 
     const onOctaveChange = (val: number) => {
-        onEditorStateChange((state) => state.setOctave(val));
+        onEditorStateChange((state) => state.setOctave(song, val));
     };
 
     const onHighlightRowCountChange = (val: number) => {
@@ -89,7 +87,7 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
                         value={editorState.currentInstrument}
                         showCaret={false}
                         onChange={(newInstr) => {
-                            onEditorStateChange((state) => state.setCurrentInstrument(newInstr));
+                            onEditorStateChange((state) => state.setCurrentInstrument(song, newInstr));
                         }}
                         options={instrumentOptions}
                     />
@@ -100,7 +98,7 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
                         onClick={() => {
                             onEditorStateChange((state) => {
                                 const newInstr = (state.currentInstrument - 1 + song.subsystem.maxInstruments) % song.subsystem.maxInstruments;
-                                state.setCurrentInstrument(newInstr);
+                                state.setCurrentInstrument(song, newInstr);
                             });
                         }}
                     >{CharMap.LeftTriangle}</IconButton>
@@ -111,28 +109,12 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
                         onClick={() => {
                             onEditorStateChange((state) => {
                                 const newInstr = (state.currentInstrument + 1) % song.subsystem.maxInstruments;
-                                state.setCurrentInstrument(newInstr);
+                                state.setCurrentInstrument(song, newInstr);
                             });
                         }}
                     >{CharMap.RightTriangle}</IconButton>
                 </Tooltip>
             </ButtonGroup>
-            {/* <label>
-                Song title
-                <input
-                    type="text"
-                    className='song-title-input'
-                    maxLength={SomaticCaps.maxSongTitleLength}
-                    value={song.name}
-                    onChange={(e) => onSongChange({
-                        description: 'Set song title',
-                        undoable: true,
-                        mutator: (s) => {
-                            s.name = e.target.value;
-                        },
-                    })}
-                />
-            </label> */}
         </div>
     );
 };

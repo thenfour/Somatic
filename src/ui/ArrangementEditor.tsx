@@ -152,12 +152,12 @@ export const ArrangementEditor: React.FC<{
             },
         });
         onEditorStateChange((state) => {
-            state.setActiveSongPosition(positionIndex);
+            state.setActiveSongPosition(song, positionIndex);
         });
     };
 
     const handleRowMouseDown = (e: React.MouseEvent, positionIndex: number) => {
-        onEditorStateChange((state) => state.setActiveSongPosition(positionIndex));
+        onEditorStateChange((state) => state.setActiveSongPosition(song, positionIndex));
         selection2d.onCellMouseDown(e, { x: 0, y: positionIndex });
         focusRow(positionIndex);
     };
@@ -174,7 +174,7 @@ export const ArrangementEditor: React.FC<{
         });
         onEditorStateChange((state) => {
             if (state.activeSongPosition >= positionIndex && state.activeSongPosition > 0) {
-                state.setActiveSongPosition(state.activeSongPosition - 1);
+                state.setActiveSongPosition(song, state.activeSongPosition - 1);
             }
         });
     };
@@ -278,7 +278,7 @@ export const ArrangementEditor: React.FC<{
         onEditorStateChange((state) => {
             const newLength = song.songOrder.length - selection.length;
             if (state.activeSongPosition >= newLength) {
-                state.setActiveSongPosition(Math.max(0, newLength - 1));
+                state.setActiveSongPosition(song, Math.max(0, newLength - 1));
             }
         });
     };
@@ -489,7 +489,7 @@ export const ArrangementEditor: React.FC<{
         }));
 
         onEditorStateChange((state) => {
-            state.setActiveSongPosition(next);
+            state.setActiveSongPosition(song, next);
         });
 
         focusRow(next);
@@ -512,7 +512,7 @@ export const ArrangementEditor: React.FC<{
                     }));
                 }
                 onEditorStateChange((state) => {
-                    state.setActiveSongPosition(next);
+                    state.setActiveSongPosition(song, next);
                 });
                 focusRow(next);
                 break;
@@ -531,7 +531,7 @@ export const ArrangementEditor: React.FC<{
                     }));
                 }
                 onEditorStateChange((state) => {
-                    state.setActiveSongPosition(next);
+                    state.setActiveSongPosition(song, next);
                 });
                 focusRow(next);
                 break;

@@ -3,7 +3,6 @@ import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {clamp, CoalesceBoolean, numericRange, Rect2D} from "../utils/utils";
 import {Pattern, PatternCell} from "./pattern";
 import {Song} from "./song";
-import {Tic80Caps, ToTic80ChannelIndex} from "./tic80Capabilities";
 
 export interface EditorStateDto {
    octave: number;
@@ -38,9 +37,9 @@ export class EditorState {
    lastNonOffLoopMode: LoopMode;
 
    constructor({
-      octave = Math.floor(Tic80Caps.pattern.octaveCount / 2),
+      octave = 4,
       activeSongPosition = 0,
-      currentInstrument = 2, // 0 = reserved, 1 = off
+      currentInstrument = 0,
       editingEnabled = false,
       patternEditRow = 0,
       patternEditChannel = 0,
@@ -51,12 +50,12 @@ export class EditorState {
       loopMode = "off",
       lastNonOffLoopMode = "pattern",
    }: Partial<EditorStateDto> = {}) {
-      this.octave = clamp(octave, 1, Tic80Caps.pattern.octaveCount);
+      this.octave = octave;
       this.activeSongPosition = clamp(activeSongPosition, 0, 255);
-      this.currentInstrument = clamp(currentInstrument, 0, Tic80Caps.sfx.maxSupported - 1);
+      this.currentInstrument = currentInstrument;
       this.editingEnabled = CoalesceBoolean(editingEnabled, true);
       this.patternEditRow = clamp(patternEditRow, 0, 63);
-      this.patternEditChannel = ToTic80ChannelIndex(patternEditChannel);
+      this.patternEditChannel = patternEditChannel;
       this.patternEditColumnType = "note"; // default
       this.selectedArrangementPositions =
          selectedArrangementPositions ? new SelectionRect2D(selectedArrangementPositions) : null;
@@ -67,24 +66,24 @@ export class EditorState {
       this.lastNonOffLoopMode = lastNonOffLoopMode;
    }
 
-   setOctave(nextOctave: number) {
-      this.octave = clamp(nextOctave, 1, Tic80Caps.pattern.octaveCount);
+   setOctave(song: Song, nextOctave: number) {
+      this.octave = clamp(nextOctave, song.subsystem.minEditorOctave, song.subsystem.maxEditorOctave);
    }
 
-   setActiveSongPosition(newPosition: number) {
-      this.activeSongPosition = clamp(newPosition, 0, 255);
+   setActiveSongPosition(song: Song, newPosition: number) {
+      this.activeSongPosition = clamp(newPosition, 0, song.subsystem.maxSongOrder - 1);
    }
 
-   setCurrentInstrument(nextInstrument: number) {
-      this.currentInstrument = clamp(nextInstrument, 0, Tic80Caps.sfx.maxSupported - 1);
+   setCurrentInstrument(song: Song, nextInstrument: number) {
+      this.currentInstrument = clamp(nextInstrument, 0, song.subsystem.maxInstruments - 1);
    }
 
    setEditingEnabled(enabled: boolean) {
       this.editingEnabled = Boolean(enabled);
    }
 
-   setPatternEditTarget({rowIndex, channelIndex}: {rowIndex: number, channelIndex: number}) {
-      this.patternEditRow = clamp(rowIndex, 0, Tic80Caps.pattern.maxRows - 1);
+   setPatternEditTarget({song, rowIndex, channelIndex}: {song: Song, rowIndex: number, channelIndex: number}) {
+      this.patternEditRow = clamp(rowIndex, 0, song.rowsPerPattern - 1);
       this.patternEditChannel = channelIndex;
    }
 
@@ -107,10 +106,10 @@ export class EditorState {
       this.loopMode = mode;
    }
 
-   advancePatternEditRow(step: number, rowsPerPattern: number = Tic80Caps.pattern.maxRows) {
-      const maxRow = clamp(rowsPerPattern - 1, 0, Tic80Caps.pattern.maxRows - 1);
-      const safeStep = clamp(step, -Tic80Caps.pattern.maxRows, Tic80Caps.pattern.maxRows);
-      this.patternEditRow = clamp(this.patternEditRow + safeStep, 0, maxRow);
+   advancePatternEditRow(song: Song, step: number) {
+      const maxRow = song.rowsPerPattern - 1;
+      //const safeStep = clamp(step, -Tic80Caps.pattern.maxRows, Tic80Caps.pattern.maxRows);
+      this.patternEditRow = clamp(this.patternEditRow + step, 0, maxRow);
    }
 
    getEditingPattern(song: Song): Pattern|null {

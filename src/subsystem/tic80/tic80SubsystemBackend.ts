@@ -70,6 +70,8 @@ export class Tic80SubsystemBackend implements SomaticSubsystemBackend<Song, Song
    maxEditorOctave: number = 8;
    defaultEditorOctave: number = 4;
 
+   maxSongOrder: number = 16; // todo
+
    initWaveformsAndInstruments(song: Song, data: Partial<SongDto>): void {
       song.instruments = makeInstrumentList(data.instruments || []);
       song.waveforms = makeWaveformList(data.waveforms || []);

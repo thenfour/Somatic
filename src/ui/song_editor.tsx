@@ -1,11 +1,9 @@
 import React from 'react';
 import { Tic80AudioController } from '../audio/controller';
-//import { INSTRUMENT_COUNT, OCTAVE_COUNT, PATTERN_COUNT } from '../defs';
-import { EditorState } from '../models/editor_state';
-import { Song } from '../models/song';
-//import { PositionList } from './position_list';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
+import { EditorState } from '../models/editor_state';
 import type { ArrangementThumbnailSize } from '../models/song';
+import { Song } from '../models/song';
 import { SomaticCaps } from '../models/tic80Capabilities';
 import { kSubsystem, SubsystemTypeKey } from '../subsystem/base/SubsystemBackendBase';
 import { clamp } from '../utils/utils';
@@ -64,7 +62,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
 
             const safeChannel = clamp(st.patternEditChannel ?? 0, 0, song.subsystem.channelCount - 1);
             const safeRow = clamp(st.patternEditRow ?? 0, 0, song.rowsPerPattern - 1);
-            st.setPatternEditTarget({ rowIndex: safeRow, channelIndex: safeChannel });
+            st.setPatternEditTarget({ rowIndex: safeRow, channelIndex: safeChannel, song });
 
             for (const ch of [...st.mutedChannels]) {
                 if (ch < 0 || ch >= song.subsystem.channelCount) st.mutedChannels.delete(ch);

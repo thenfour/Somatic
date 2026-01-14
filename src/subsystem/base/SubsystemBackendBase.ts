@@ -51,6 +51,8 @@ export interface SomaticSubsystemBackend<TSong, TSongDto> {
    maxEditorOctave: number;
    defaultEditorOctave: number;
 
+   maxSongOrder: number;
+
    initWaveformsAndInstruments(song: TSong, data: Partial<TSongDto>): void;
    onInitOrSubsystemTypeChange(song: TSong): void;
 

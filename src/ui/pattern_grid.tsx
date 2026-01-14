@@ -2,8 +2,8 @@ import React, { forwardRef, KeyboardEvent, useCallback, useEffect, useImperative
 import type { SomaticTransportState } from '../audio/backend';
 import { Tic80AudioController } from '../audio/controller';
 import { midiToName } from '../defs';
-import { useClipboard } from '../hooks/useClipboard';
 import { useCellRefsGrid } from '../hooks/useCellRefsGrid';
+import { useClipboard } from '../hooks/useClipboard';
 import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D';
 import { useRenderAlarm } from '../hooks/useRenderAlarm';
 import { GlobalActionId } from '../keyb/ActionIds';
@@ -12,8 +12,8 @@ import { useActionHandler } from '../keyb/useActionHandler';
 import { EditorState } from '../models/editor_state';
 import { analyzePatternPlaybackForGrid, isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { formatPatternIndex, Song } from '../models/song';
-import { kSomaticPatternCommand, kTic80EffectCommand, SomaticCaps, SomaticPatternCommand, Tic80EffectCommand, ToTic80ChannelIndex } from '../models/tic80Capabilities';
-import { changeInstrumentInPattern, interpolatePatternValues, nudgeInstrumentInPattern, RowRange, setInstrumentInPattern, transposeCellsInPattern } from '../utils/advancedPatternEdit';
+import { kSomaticPatternCommand, kTic80EffectCommand, SomaticPatternCommand, Tic80EffectCommand } from '../models/tic80Capabilities';
+import { interpolatePatternValues, nudgeInstrumentInPattern, RowRange, setInstrumentInPattern, transposeCellsInPattern } from '../utils/advancedPatternEdit';
 import { CharMap, clamp, Coord2D, includesOf, numericRange } from '../utils/utils';
 import { Tooltip } from './basic/tooltip';
 import './pattern_grid.css';
@@ -511,7 +511,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 const sourceRow = rowStart + rowOffset;
                 return Array.from({ length: channels }, (_, channelOffset) => {
                     const sourceChannel = channelStart + channelOffset;
-                    const cell = pattern.getCell(ToTic80ChannelIndex(sourceChannel), sourceRow);
+                    const cell = pattern.getCell(sourceChannel, sourceRow);
                     return { ...cell };
                 });
             });
@@ -548,7 +548,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     const allSelectedCells = bounds.getAllCells();
                     for (const cellCoord of allSelectedCells) {
                         if (cellCoord.y > maxRow || cellCoord.x > maxChannel) continue;
-                        pat.setCell(ToTic80ChannelIndex(cellCoord.x), cellCoord.y, {});
+                        pat.setCell(cellCoord.x, cellCoord.y, {});
                     }
                 },
             });
@@ -602,7 +602,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                             if (destChannel > maxChannel) break;
                             const cell = sourceRow[channelOffset];
                             if (!cell) continue;
-                            pat.setCell(ToTic80ChannelIndex(destChannel), destRow, { ...cell });
+                            pat.setCell(destChannel, destRow, { ...cell });
                         }
                     }
                 },
@@ -899,7 +899,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             if (step <= 0) return;
             const rowCount = song.rowsPerPattern;
             onEditorStateChange((state) => {
-                state.advancePatternEditRow(step, rowCount);
+                state.advancePatternEditRow(song, step);
             });
             const nextRow = clamp(rowIndex + step, 0, Math.max(0, rowCount - 1));
             //if (nextRow !== rowIndex) {
@@ -927,7 +927,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const updateEditTarget = ({ rowIndex, channelIndex }: { rowIndex: number, channelIndex: number }) => {
             //const channelIndex = Math.floor(col / 4);
-            onEditorStateChange((s) => s.setPatternEditTarget({ rowIndex, channelIndex }));
+            onEditorStateChange((s) => s.setPatternEditTarget({ rowIndex, channelIndex, song }));
         };
 
         const jumpSize = Math.max(song.highlightRowCount, 1);
@@ -941,7 +941,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             if (targetRow < 0) {
                 // Navigate to previous song order position
                 if (currentPosition > 0) {
-                    onEditorStateChange((s) => s.setActiveSongPosition(currentPosition - 1));
+                    onEditorStateChange((s) => s.setActiveSongPosition(song, currentPosition - 1));
                     const blocksInPattern = Math.ceil(rowCount / jumpSize);
                     const newTargetRow = (blocksInPattern + targetBlock) * jumpSize;
                     return { y: Math.max(0, newTargetRow), x: col };
@@ -960,7 +960,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     if (targetRow < 0) {
                         // Navigate to previous song order position
                         if (currentPosition > 0) {
-                            onEditorStateChange((s) => s.setActiveSongPosition(currentPosition - 1));
+                            onEditorStateChange((s) => s.setActiveSongPosition(song, currentPosition - 1));
                             return [rowCount + targetRow, col] as const;
                         }
                         // At the beginning of the song, clamp to top
@@ -972,7 +972,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 if (targetRow < 0) {
                     // Navigate to previous song order position
                     if (currentPosition > 0) {
-                        onEditorStateChange((s) => s.setActiveSongPosition(currentPosition - 1));
+                        onEditorStateChange((s) => s.setActiveSongPosition(song, currentPosition - 1));
                         return [rowCount - 1, col] as const;
                     }
                     // At the beginning of the song, clamp to top
@@ -986,7 +986,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     if (targetRow >= rowCount) {
                         // Navigate to next song order position
                         if (currentPosition < song.songOrder.length - 1) {
-                            onEditorStateChange((s) => s.setActiveSongPosition(currentPosition + 1));
+                            onEditorStateChange((s) => s.setActiveSongPosition(song, currentPosition + 1));
                             return [targetRow - rowCount, col] as const;
                         }
                         // At the end of the song, clamp to bottom
@@ -998,7 +998,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 if (targetRow >= rowCount) {
                     // Navigate to next song order position
                     if (currentPosition < song.songOrder.length - 1) {
-                        onEditorStateChange((s) => s.setActiveSongPosition(currentPosition + 1));
+                        onEditorStateChange((s) => s.setActiveSongPosition(song, currentPosition + 1));
                         return [0, col] as const;
                     }
                     // At the end of the song, clamp to bottom
@@ -1045,7 +1045,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 if (targetRow >= rowCount) {
                     // Navigate to next song order position
                     if (currentPosition < song.songOrder.length - 1) {
-                        onEditorStateChange((s) => s.setActiveSongPosition(currentPosition + 1));
+                        onEditorStateChange((s) => s.setActiveSongPosition(song, currentPosition + 1));
                         const overshoot = targetRow - rowCount;
                         return [overshoot, col] as const;
                     }
@@ -1206,8 +1206,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             if (navTarget) {
                 clearPendingInstrumentEntry();
                 const [targetRow, targetCol] = navTarget;
-                const targetChannel = ToTic80ChannelIndex(Math.floor(targetCol / CELLS_PER_CHANNEL));
-                onEditorStateChange((state) => state.setPatternEditTarget({ rowIndex: targetRow, channelIndex: targetChannel }));
+                const targetChannel = Math.floor(targetCol / CELLS_PER_CHANNEL);
+                onEditorStateChange((state) => state.setPatternEditTarget({ rowIndex: targetRow, channelIndex: targetChannel, song }));
                 focusCell(targetRow, targetCol);
                 e.preventDefault();
                 return;
@@ -1305,7 +1305,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 if (cell.instrumentIndex != null) {
                     onEditorStateChange((s) => {
                         //s.setSelectedInstrumentIndex(cell.instrumentIndex!);
-                        s.setCurrentInstrument(cell.instrumentIndex!);
+                        s.setCurrentInstrument(song, cell.instrumentIndex!);
                         const inst = song.getInstrument(cell.instrumentIndex!)!;
                         pushToast({ message: `Selected instrument ${inst.getCaption(cell.instrumentIndex!)}.`, variant: 'info' });
                     });

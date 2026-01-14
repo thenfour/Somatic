@@ -42,7 +42,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
     }, []);
 
     const setCurrentInstrument = useCallback((idx: number) => {
-        onEditorStateChange((st) => st.setCurrentInstrument(idx));
+        onEditorStateChange((st) => st.setCurrentInstrument(song, idx));
     }, [onEditorStateChange]);
 
 
@@ -78,7 +78,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
         });
 
         // Keep selection on the same instrument "identity" as it moves.
-        onEditorStateChange((st) => st.setCurrentInstrument(b));
+        onEditorStateChange((st) => st.setCurrentInstrument(song, b));
     };
 
     const clearSelected = () => {
@@ -121,7 +121,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                 s.insertInstrumentSlotAtIndex(insertIndex);
             },
         });
-        onEditorStateChange((st) => st.setCurrentInstrument(insertIndex));
+        onEditorStateChange((st) => st.setCurrentInstrument(song, insertIndex));
     };
 
     const handleRowKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
