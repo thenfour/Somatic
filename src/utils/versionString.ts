@@ -1,3 +1,5 @@
+import {buildInfo} from "../buildInfo";
+
 export type BuildInfoLike = {
    gitTag: string|null; commitsSinceTag: number | null; dirty: boolean | null;
    commitHash?: string | null;
@@ -26,6 +28,11 @@ export function getBuildVersionTag(info: BuildInfoLike): string {
 
 // Hash input / display string.
 // Example: "Somatic v1+290(!)"
-export function getSomaticVersionString(info: BuildInfoLike, appName = "Somatic"): string {
-   return `${appName} ${getBuildVersionTag(info)}`;
+export function getSomaticVersionString(info: BuildInfoLike): string {
+   return `Somatic ${getBuildVersionTag(info)}`;
+}
+
+// Example: "Somatic v1+290(!) (abcdef1234)"
+export function getSomaticVersionAndCommitString(): string {
+   return `Somatic ${getBuildVersionTag(buildInfo)} (${buildInfo.commitHash ?? "unknown"})`;
 }

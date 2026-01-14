@@ -108,7 +108,7 @@ function getSomaticBuildMetadataForSongSave(): SomaticBuildMetadata {
    const url = (typeof window !== "undefined" && window?.location?.href) ? String(window.location.href) : null;
    return {
       gitCommit: buildInfo.commitHash ?? null,
-      versionString: getSomaticVersionString(buildInfo, "Somatic"),
+      versionString: getSomaticVersionString(buildInfo),
       utcDate: new Date().toISOString(),
       url,
    };
@@ -327,7 +327,7 @@ export class Song {
 
    toData(): SongDto {
       const buildInfo = getSomaticBuildMetadataForSongSave();
-      console.log("Saving song with build info:", buildInfo);
+      //console.log("Saving song with build info:", buildInfo);
       return {
          schemaVersion: kSomaticSchemaVersion,
          somaticBuild: buildInfo,

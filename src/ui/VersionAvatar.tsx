@@ -14,7 +14,7 @@ export const VersionAvatar: React.FC<VersionAvatarProps> = ({ onClick, resolutio
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     //const [n, setN] = React.useState(0);
 
-    const versionString = useMemo(() => getSomaticVersionString(buildInfo, 'Somatic'), []);
+    const versionString = useMemo(() => getSomaticVersionString(buildInfo), []);
     //console.log('Version string:', versionString);
 
     const draw = useMemo(() => {

@@ -6,19 +6,20 @@ import {modSourceToU8, SomaticEffectKind, SomaticInstrumentWaveEngine, ToWaveEng
 import bridgeConfig from "../../../bridge/bridge_config";
 import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../../../bridge/memory_layout";
 import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec, WaveformMorphGradientCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked,} from "../../../bridge/morphSchema";
+import {LoopMode} from "../../audio/backend";
 import type {Song} from "../../models/song";
 import {gTic80AllChannelsAudible, kSomaticPatternCommand, SomaticCaps, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
-import {BakedSong, BakeSong} from "./bakeSong";
 import {emitLuaBitpackPrelude, emitLuaDecoder} from "../../utils/bitpack/emitLuaDecoder";
 import {MemoryRegion} from "../../utils/bitpack/MemoryRegion";
-import {OptimizationRuleOptions, processLua} from "../../utils/lua/lua_processor";
-import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "./SongOptimizer";
-import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../../utils/utils";
-import {LoopMode} from "../../audio/backend";
 import {base85Plus1Encode, gSomaticLZDefaultConfig, lzCompress} from "../../utils/encoding";
+import {OptimizationRuleOptions, processLua} from "../../utils/lua/lua_processor";
+import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../../utils/utils";
+import {getSomaticVersionAndCommitString} from "../../utils/versionString";
+import {BakedSong, BakeSong} from "./bakeSong";
+import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "./SongOptimizer";
+import {encodePatternChannelDirect} from "./tic80_pattern_encoding";
 import {PreparedSong, prepareSongColumns} from "./tic80_prepared_song";
 import {createChunk, encodeSfx, encodeTempo, encodeTrackSpeed, encodeWaveforms, packTrackFrame, packWaveformSamplesToBytes16, removeTrailingZerosFn, stringToAsciiPayload, TicChunkType} from "./tic80_serialization";
-import {encodePatternChannelDirect} from "./tic80_pattern_encoding";
 
 
 const releaseOptions: OptimizationRuleOptions = {
@@ -757,6 +758,10 @@ ${emitLuaDecoder(WaveformMorphGradientCodec, {
    // optimize code
    const optimizationRuleOptions: OptimizationRuleOptions = variant === "release" ? releaseOptions : debugOptions;
    code = processLua(code, optimizationRuleOptions);
+
+   // show build info in a comment.
+   code = `-- ${getSomaticVersionAndCommitString()}\n` +
+      `-- Generated on ${new Date().toISOString()}\n` + code;
 
    return {
       code,

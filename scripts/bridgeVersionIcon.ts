@@ -6,7 +6,7 @@ export function emitBridgeVersionIconLua(
    info: BuildInfoLike, opts?: {resolution?: {w: number; h: number}}): {versionString: string; lua: string;} {
    const resolution = opts?.resolution ?? {w: 8, h: 8};
 
-   const versionString = getSomaticVersionString(info, "Somatic");
+   const versionString = getSomaticVersionString(info);
    const icon = generateIdenticonDrawList(versionString, resolution.w, resolution.h);
 
    const lines: string[] = [];
