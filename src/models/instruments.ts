@@ -2,7 +2,7 @@
 import {defineEnum} from "../utils/enum";
 import {clamp, CoalesceBoolean} from "../utils/utils";
 import {Tic80Caps} from "./tic80Capabilities";
-import {WaveformBaseDto} from "./waveform";
+import {Tic80WaveformBaseDto} from "./waveform";
 
 
 export const kModSource = defineEnum({
@@ -31,7 +31,7 @@ export function modSourceToU8(src: ModSource|undefined|null): number {
    return kModSource.coerceByValueOrKey(src, "envelope").value;
 }
 
-export interface WaveformMorphGradientNodeDto extends WaveformBaseDto {
+export interface WaveformMorphGradientNodeDto extends Tic80WaveformBaseDto {
    durationSeconds: number;
    curveN11: number; // -1..+1
 }

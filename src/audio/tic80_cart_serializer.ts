@@ -17,7 +17,7 @@ import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toL
 import {LoopMode} from "./backend";
 import {base85Plus1Encode, gSomaticLZDefaultConfig, lzCompress} from "../utils/encoding";
 import {encodePatternChannelDirect} from "./tic80_pattern_encoding";
-import {PreparedSong, prepareSongColumns} from "./prepared_song";
+import {PreparedSong, prepareSongColumns} from "./tic80_prepared_song";
 import {createChunk, encodeSfx, encodeTempo, encodeTrackSpeed, encodeWaveforms, packTrackFrame, packWaveformSamplesToBytes16, removeTrailingZerosFn, stringToAsciiPayload, TicChunkType} from "./tic80_serialization";
 
 

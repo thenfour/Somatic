@@ -2,7 +2,7 @@
 
 import {gSomaticLZDefaultConfig, lzCompress} from "./encoding";
 import {encodePatternChannelDirect} from "../audio/tic80_pattern_encoding";
-import {prepareSongColumns} from "../audio/prepared_song";
+import {prepareSongColumns} from "../audio/tic80_prepared_song";
 import {SomaticEffectKind, SomaticInstrument} from "../models/instruments";
 import {Pattern} from "../models/pattern";
 import {Song} from "../models/song";
