@@ -1,7 +1,5 @@
 import {isNoteCut, Pattern, PatternCell} from "../models/pattern";
 import {SubsystemBackend} from "../models/song";
-import {SomaticCaps, Tic80Caps} from "../models/tic80Capabilities";
-import {SomaticSubsystemBackend} from "../subsystem/base/SubsystemBackendBase";
 import {InterpolateTarget} from "../ui/PatternAdvancedPanel";
 import {clamp, lerp} from "./utils";
 
@@ -80,9 +78,9 @@ export const setInstrumentInPattern = (
    instrumentValue: number,
    instrumentIndex?: number|null,
    ): boolean => mutatePatternCells(subsystem, pattern, channels, rowRange, rowsPerPattern, instrumentIndex, (cell) => {
-   if (cell.instrumentIndex === undefined)
+   if (cell.instrumentIndex == null)
       return null;
-   if (cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex)
+   if (isNoteCut(cell))
       return null;
    if (cell.instrumentIndex === instrumentValue)
       return null;
@@ -99,9 +97,9 @@ export const changeInstrumentInPattern = (
    toInstrument: number,
    instrumentIndex?: number|null,
    ): boolean => mutatePatternCells(subsystem, pattern, channels, rowRange, rowsPerPattern, instrumentIndex, (cell) => {
-   if (cell.instrumentIndex === undefined)
+   if (cell.instrumentIndex == null)
       return null;
-   if (cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex)
+   if (isNoteCut(cell))
       return null;
    if (cell.instrumentIndex !== fromInstrument)
       return null;
@@ -119,13 +117,11 @@ export const nudgeInstrumentInPattern = (
    amount: number,
    instrumentIndex?: number|null,
    ): boolean => mutatePatternCells(subsystem, pattern, channels, rowRange, rowsPerPattern, instrumentIndex, (cell) => {
-   if (cell.instrumentIndex === undefined)
+   if (cell.instrumentIndex == null)
       return null;
-   if (cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex)
+   if (isNoteCut(cell))
       return null;
-   const nextInstrument = clamp(cell.instrumentIndex + amount, 0, Tic80Caps.sfx.count - 1);
-   if (nextInstrument === SomaticCaps.noteCutInstrumentIndex)
-      return null;
+   const nextInstrument = clamp(cell.instrumentIndex + amount, 0, Math.max(0, subsystem.maxInstruments - 1));
    if (nextInstrument === cell.instrumentIndex)
       return null;
    return {...cell, instrumentIndex: nextInstrument};

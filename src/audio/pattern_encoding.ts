@@ -1,6 +1,6 @@
 import {NOTE_INFOS} from "../defs";
 import {Pattern, PatternCell, PatternChannel} from "../models/pattern";
-import {kTic80EffectCommand, SomaticCaps, Tic80Caps} from "../models/tic80Capabilities";
+import {kTic80EffectCommand, Tic80Caps} from "../models/tic80Capabilities";
 
 function encodePatternNote(midiNoteValue: number|undefined): {noteNibble: number; octave: number} {
    if (midiNoteValue === undefined) {
@@ -52,18 +52,33 @@ function decodePatternCellTriplet(byte0: number, byte1: number, byte2: number): 
       return {};
    }
    if (noteNibble < 4) {
-      // Map TIC-80 stops to Somatic's explicit note cut.
+      // Map TIC-80 stops to Somatic's explicit note-off.
       return {
-         instrumentIndex: SomaticCaps.noteCutInstrumentIndex,
+         noteOff: true,
+         instrumentIndex: undefined,
       };
    }
 
    const midiNote = decodeTicPitch(noteNibble, octave);
    const effect =
       kTic80EffectCommand.infos.find(info => info.tic80EncodedValue === command); // clamp(command - 1, 0, 7);
+
+   // Somatic instruments are 0-based and exclude TIC-80 reserved indices 0 and 1.
+   // We decode reserved instruments to Somatic semantics:
+   // - 0 => no instrument
+   // - 1 => note off (Somatic-exported carts use instrument 1 as silent off)
+   let somaticInstrumentIndex: number|undefined = undefined;
+   let noteOff = false;
+   if (instrument === 0) {
+      somaticInstrumentIndex = undefined;
+   } else {
+      somaticInstrumentIndex = instrument - 1; // - 2;
+   }
+
    return {
       midiNote,
-      instrumentIndex: instrument,
+      instrumentIndex: somaticInstrumentIndex,
+      noteOff,
       tic80Effect: effect ? effect.key : undefined,
       tic80EffectX: argX,
       tic80EffectY: argY,
@@ -95,13 +110,22 @@ function encodePatternChannelRows(
 
    for (let row = 0; row < Tic80Caps.pattern.maxRows; row++) {
       const cellData = getCell(row);
-      const inst = cellData.instrumentIndex ?? 0;
+
+      // Map Somatic instrument index -> TIC-80 SFX index:
+      // - noteOff => instrument 1 (silent off)
+      // - null/undefined => instrument 0 (no instrument)
+      // - N => N+2 (leave room for reserved 0/1)
+      const inst = cellData.noteOff ? 1 : (cellData.instrumentIndex == null ? 0 : ((cellData.instrumentIndex | 0) + 2));
+
       const commandArgX = cellData.tic80EffectX ?? 0;
       const commandArgY = cellData.tic80EffectY ?? 0;
       //const command = cellData.effect === undefined ? 0 : clamp(cellData.effect + 1, 0, 7);
       const command = kTic80EffectCommand.coerceByKey(cellData.tic80Effect);
+      // For noteOff cells, ensure we emit a note so it actually retriggers and cuts.
+      const noteForEncoding =
+         cellData.noteOff ? (cellData.midiNote ?? Tic80Caps.pattern.minMidiNote) : cellData.midiNote;
       const [b0, b1, b2] = encodePatternCellTriplet(
-         cellData.midiNote, inst, command ? command.tic80EncodedValue : 0, commandArgX, commandArgY);
+         noteForEncoding, inst, command ? command.tic80EncodedValue : 0, commandArgX, commandArgY);
       const base = 3 * row;
       buf[base + 0] = b0;
       buf[base + 1] = b1;
@@ -112,9 +136,9 @@ function encodePatternChannelRows(
    return buf;
 }
 
-export function encodePatternChannel(pattern: Pattern, channelIndex: number): Uint8Array {
-   return encodePatternChannelRows((rowIndex) => pattern.getCell(channelIndex, rowIndex));
-}
+// function encodePatternChannel(pattern: Pattern, channelIndex: number): Uint8Array {
+//    return encodePatternChannelRows((rowIndex) => pattern.getCell(channelIndex, rowIndex));
+// }
 
 export function encodePatternChannelDirect(channel: PatternChannel): Uint8Array {
    //const rows = channel.rows;
@@ -130,10 +154,6 @@ export function decodePatternChannelBytes(bytes: Uint8Array, startOffset = 0): P
       const b1 = bytes[base + 1] ?? 0;
       const b2 = bytes[base + 2] ?? 0;
       rows[row] = decodePatternCellTriplet(b0, b1, b2);
-      if (rows[row].instrumentIndex != null) {
-         const r = rows[row];
-         r.instrumentIndex! += 2; // account for note cut and no instrument
-      }
 
       // now if there's no effect, remove the param if they are 0.
       if (rows[row].tic80Effect === undefined && rows[row].tic80EffectX === 0 && rows[row].tic80EffectY === 0) {
@@ -144,24 +164,24 @@ export function decodePatternChannelBytes(bytes: Uint8Array, startOffset = 0): P
    return new PatternChannel({rows});
 }
 
-export function encodePattern(pattern: Pattern): [Uint8Array, Uint8Array, Uint8Array, Uint8Array] {
-   const encoded0 = encodePatternChannel(pattern, 0);
-   const encoded1 = encodePatternChannel(pattern, 1);
-   const encoded2 = encodePatternChannel(pattern, 2);
-   const encoded3 = encodePatternChannel(pattern, 3);
-   return [encoded0, encoded1, encoded2, encoded3];
-};
+// function encodePattern(pattern: Pattern): [Uint8Array, Uint8Array, Uint8Array, Uint8Array] {
+//    const encoded0 = encodePatternChannel(pattern, 0);
+//    const encoded1 = encodePatternChannel(pattern, 1);
+//    const encoded2 = encodePatternChannel(pattern, 2);
+//    const encoded3 = encodePatternChannel(pattern, 3);
+//    return [encoded0, encoded1, encoded2, encoded3];
+// };
 
-export function encodePatternCombined(pattern: Pattern): Uint8Array {
-   const [encoded0, encoded1, encoded2, encoded3] = encodePattern(pattern);
-   const combined = new Uint8Array(encoded0.length + encoded1.length + encoded2.length + encoded3.length);
-   let offset = 0;
-   combined.set(encoded0, offset);
-   offset += encoded0.length;
-   combined.set(encoded1, offset);
-   offset += encoded1.length;
-   combined.set(encoded2, offset);
-   offset += encoded2.length;
-   combined.set(encoded3, offset);
-   return combined;
-};
+// function encodePatternCombined(pattern: Pattern): Uint8Array {
+//    const [encoded0, encoded1, encoded2, encoded3] = encodePattern(pattern);
+//    const combined = new Uint8Array(encoded0.length + encoded1.length + encoded2.length + encoded3.length);
+//    let offset = 0;
+//    combined.set(encoded0, offset);
+//    offset += encoded0.length;
+//    combined.set(encoded1, offset);
+//    offset += encoded1.length;
+//    combined.set(encoded2, offset);
+//    offset += encoded2.length;
+//    combined.set(encoded3, offset);
+//    return combined;
+// };

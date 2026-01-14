@@ -299,10 +299,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const handleSetInstrument = useCallback((rawInstrument: number, scope: AdvancedEditScope) => {
             const instrumentValue = normalizeInstrumentValue(rawInstrument);
-            if (instrumentValue === SomaticCaps.noteCutInstrumentIndex) {
-                pushToast({ message: 'Instrument 1 is reserved for note cuts.', variant: 'error' });
-                return;
-            }
             runInstrumentMutationInScope(
                 scope,
                 (pattern, channels, rowRange, rowsPerPattern, instrumentIndex) =>
@@ -314,10 +310,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const handleChangeInstrument = useCallback((rawFrom: number, rawTo: number, scope: AdvancedEditScope) => {
             const fromInstrument = normalizeInstrumentValue(rawFrom);
             const toInstrument = normalizeInstrumentValue(rawTo);
-            if (fromInstrument === SomaticCaps.noteCutInstrumentIndex || toInstrument === SomaticCaps.noteCutInstrumentIndex) {
-                pushToast({ message: 'Instrument 1 is reserved for note cuts.', variant: 'error' });
-                return;
-            }
             if (fromInstrument === toInstrument) {
                 pushToast({ message: 'Choose different instruments to change.', variant: 'info' });
                 return;
@@ -432,8 +424,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 scope,
                 'Clear notes',
                 (cell) => {
-                    if (cell.midiNote === undefined) return cell;
-                    return { ...cell, midiNote: undefined };
+                    if (cell.midiNote === undefined && !cell.noteOff) return cell;
+                    return { ...cell, midiNote: undefined, noteOff: undefined };
                 },
                 'No notes were found to clear in that scope.',
             );
@@ -678,8 +670,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     const oldCell = pat.getCell(channelIndex, rowIndex);
                     pat.setCell(channelIndex, rowIndex, {
                         ...oldCell,
-                        midiNote: 69,
-                        instrumentIndex: SomaticCaps.noteCutInstrumentIndex,
+                        midiNote: oldCell.midiNote ?? 69,
+                        noteOff: true,
+                        instrumentIndex: undefined,
                     });
                 },
             });
@@ -698,6 +691,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     pat.setCell(channelIndex, rowIndex, {
                         midiNote: undefined,
                         instrumentIndex: undefined,
+                        noteOff: undefined,
                         tic80Effect: undefined,
                         tic80EffectX: undefined,
                         tic80EffectY: undefined,
@@ -731,7 +725,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     const oldCell = pat.getCell(channelIndex, rowIndex);
 
                     if (cellType === 'note') {
-                        pat.setCell(channelIndex, rowIndex, { ...oldCell, midiNote: undefined });
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, midiNote: undefined, noteOff: undefined });
                     } else if (cellType === 'instrument') {
                         pat.setCell(channelIndex, rowIndex, { ...oldCell, instrumentIndex: undefined });
                     } else if (cellType === 'command') {
@@ -1584,7 +1578,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const paramCol = channelIndex * CELLS_PER_CHANNEL + 3;
                                             const somCmdCol = channelIndex * CELLS_PER_CHANNEL + 4;
                                             const somParamCol = channelIndex * CELLS_PER_CHANNEL + 5;
-                                            const isEmpty = !row.midiNote && row.tic80Effect === undefined && row.instrumentIndex == null && row.tic80EffectX === undefined && row.tic80EffectY === undefined && row.somaticEffect === undefined && row.somaticParam === undefined;
+                                            const isEmpty = !row.midiNote && !row.noteOff && row.tic80Effect === undefined && row.instrumentIndex == null && row.tic80EffectX === undefined && row.tic80EffectY === undefined && row.somaticEffect === undefined && row.somaticParam === undefined;
                                             const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
                                             const channelSelected = editorState.isPatternChannelSelected(channelIndex);
                                             const isCellSelected = isRowInSelection && channelSelected;
@@ -1618,10 +1612,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                 errorText = "The 'J' command is not supported in Somatic patterns.";
                                             }
                                             // usage of instrument 0 is an error (reserved)
-                                            if (row.midiNote !== undefined && row.instrumentIndex === 0) {
-                                                errorInRow = true;
-                                                errorText = "Instrument 0 is reserved and should not be used.";
-                                            }
+                                            // if (row.midiNote !== undefined && row.instrumentIndex === 0) {
+                                            //     errorInRow = true;
+                                            //     errorText = "Instrument 0 is reserved and should not be used.";
+                                            // }
                                             if (row.tic80Effect === undefined && (row.tic80EffectX !== undefined || row.tic80EffectY !== undefined)) {
                                                 errorInRow = true;
                                                 errorText = "Effect parameter set without an effect command.";

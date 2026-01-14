@@ -3,9 +3,8 @@
 import React, { useCallback, useMemo, useRef } from "react";
 
 import { EditorState } from "../models/editor_state";
-import { isReservedInstrument, makeDefaultInstrumentForIndex, SomaticInstrument } from "../models/instruments";
+import { makeDefaultInstrumentForIndex, SomaticInstrument } from "../models/instruments";
 import { Song } from "../models/song";
-import { SomaticCaps } from "../models/tic80Capabilities";
 import { clamp } from "../utils/utils";
 import { AppPanelShell } from "./AppPanelShell";
 import { ButtonGroup } from "./Buttons/ButtonGroup";
@@ -49,25 +48,22 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
 
     const canMoveUp = useMemo(() => {
         if (selectedInstrument <= 0) return false;
-        const target = selectedInstrument - 1;
-        return !isReservedInstrument(selectedInstrument) && !isReservedInstrument(target);
+        return true;
     }, [selectedInstrument]);
 
     const canMoveDown = useMemo(() => {
         if (selectedInstrument >= instrumentCount - 1) return false;
-        const target = selectedInstrument + 1;
-        return !isReservedInstrument(selectedInstrument) && !isReservedInstrument(target);
+        return true;
     }, [selectedInstrument, instrumentCount]);
 
     const canClear = useMemo(() => {
-        return !isReservedInstrument(selectedInstrument);
+        return true;
     }, [selectedInstrument]);
 
     const moveSelected = (delta: -1 | 1) => {
         const a = selectedInstrument;
         const b = a + delta;
         if (b < 0 || b >= instrumentCount) return;
-        if (isReservedInstrument(a) || isReservedInstrument(b)) return;
 
         onSongChange({
             description: delta < 0 ? "Move instrument up" : "Move instrument down",
@@ -86,8 +82,6 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
     };
 
     const clearSelected = () => {
-        if (isReservedInstrument(selectedInstrument)) return;
-
         onSongChange({
             description: "Clear instrument",
             undoable: true,
@@ -106,22 +100,19 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
 
     const canInsertAbove = useMemo(() => {
         if (lastInstrumentIsUsed) return false;
-        if (isReservedInstrument(selectedInstrument)) return false;
-        return selectedInstrument > SomaticCaps.noteCutInstrumentIndex;
+        return true;
     }, [lastInstrumentIsUsed, selectedInstrument]);
 
     const canInsertBelow = useMemo(() => {
         if (lastInstrumentIsUsed) return false;
-        if (isReservedInstrument(selectedInstrument)) return false;
         const insertIndex = selectedInstrument + 1;
         if (insertIndex >= instrumentCount) return false;
-        return insertIndex > SomaticCaps.noteCutInstrumentIndex;
+        return true;
     }, [instrumentCount, lastInstrumentIsUsed, selectedInstrument]);
 
     const insertAt = (insertIndex: number) => {
         if (lastInstrumentIsUsed) return;
         if (insertIndex < 0 || insertIndex >= instrumentCount) return;
-        if (insertIndex <= SomaticCaps.noteCutInstrumentIndex) return;
 
         onSongChange({
             description: insertIndex === selectedInstrument ? "Insert instrument above" : "Insert instrument below",
@@ -170,7 +161,6 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                     {Array.from({ length: instrumentCount }, (_, idx) => {
                         const inst = song.instruments[idx]!;
                         const isSelected = idx === selectedInstrument;
-                        const isReserved = isReservedInstrument(idx);
                         const isUsed = usageMap.has(idx);
                         return (
                             <button
@@ -182,7 +172,6 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                                 className={[
                                     "instruments-panel__row",
                                     isSelected ? "instruments-panel__row--selected" : "",
-                                    isReserved ? "instruments-panel__row--reserved" : "",
                                     isUsed ? "instruments-panel__row--used" : "instruments-panel__row--unused",
                                 ]
                                     .filter(Boolean)

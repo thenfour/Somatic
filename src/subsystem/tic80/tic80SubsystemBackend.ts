@@ -34,28 +34,15 @@ const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {
 
 
 const makeInstrumentList = (data: SomaticInstrumentDto[]): SomaticInstrument[] => {
-   //const length =  INSTRUMENT_COUNT + 1; // index 0 unused, indexes 1..INSTRUMENT_COUNT
-   const list = Array.from({length: Tic80Caps.sfx.count}, (_, i) => {
+   const somaticCount = Math.max(0, Tic80Caps.sfx.maxSupported);
+   return Array.from({length: somaticCount}, (_, i) => {
       const instData = data[i]!;
       const ret = new SomaticInstrument(instData);
       if (IsNullOrWhitespace(ret.name)) {
-         if (i === 0) {
-            ret.name = "dontuse";
-         } else if (i === 1) {
-            ret.name = "off";
-         } else {
-            ret.name = `new inst ${i.toString(16).toUpperCase().padStart(2, "0")}`;
-         }
+         ret.name = `new inst ${i.toString(16).toUpperCase().padStart(2, "0")}`;
       }
       return ret;
    });
-
-   // ensure the "off" instrument at 1 is configured properly. really it just needs
-   // to have a zero'd volume envelope.
-   const offInst = list[1];
-   offInst.volumeFrames.fill(0);
-
-   return list;
 };
 
 
@@ -77,7 +64,7 @@ export class Tic80SubsystemBackend implements SomaticSubsystemBackend<Song, Song
    minPatternMidiNote: number = Tic80Caps.pattern.minMidiNote;
    maxPatternMidiNote: number = Tic80Caps.pattern.maxMidiNote;
 
-   maxInstruments: number = Tic80Caps.sfx.count;
+   maxInstruments: number = Tic80Caps.sfx.maxSupported;
 
    initWaveformsAndInstruments(song: Song, data: Partial<SongDto>): void {
       song.instruments = makeInstrumentList(data.instruments || []);

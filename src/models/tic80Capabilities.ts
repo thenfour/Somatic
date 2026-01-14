@@ -18,7 +18,6 @@ const mem = bridgeConfig.memory;
 export const SomaticCaps = {
    maxPatternCount: 256,
    maxSongLength: 256,
-   noteCutInstrumentIndex: 1, // 0 = reserved
    maxPatternLengthToBridge: 40000,
    maxSongTitleLength: 200,
    maxMorphGradientNodes: 16,
@@ -179,6 +178,7 @@ export const Tic80Caps = {
    // sfx
    sfx: {
       count: 64,
+      maxSupported: 62, // 0/1 are reserved for 0 and 1 (note-cut)
       envelopeFrameCount: 30,
       speedMax: 7,
       volumeMax: 15,

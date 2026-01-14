@@ -4,7 +4,7 @@ import {Tic80Constants} from "../../bridge/memory_layout";
 import {SomaticInstrument, type SomaticInstrumentDto} from "../models/instruments";
 import {Song} from "../models/song";
 import {Tic80Caps} from "../models/tic80Capabilities";
-import {clamp} from "../utils/utils";
+import {assert, clamp} from "../utils/utils";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 export const TicChunkType = {
@@ -356,15 +356,37 @@ export const encodeInstrument = (inst: SomaticInstrument): Uint8Array => {
    return out;
 };
 
+function makeTic80ReservedInstrument0(): SomaticInstrument {
+   const inst = new SomaticInstrument();
+   inst.name = "dontuse";
+   return inst;
+}
+
+function makeTic80NoteOffInstrument1(): SomaticInstrument {
+   const inst = new SomaticInstrument();
+   inst.name = "off";
+   inst.volumeFrames.fill(0);
+   return inst;
+}
+
 
 export function encodeSfx(song: Song, count: number): Uint8Array {
-   // 66 bytes per SFX (up to 64 entries in RAM). We only fill instruments (1..INSTRUMENT_COUNT).
-   //const sfxCount = getMaxSfxUsedIndex(song);
-   const buf = new Uint8Array(count * Tic80Constants.BYTES_PER_SFX);
+   // 66 bytes per SFX (up to 64 entries in RAM).
+   // Somatic instruments are serialized with a +2 offset to leave room for TIC-80 reserved instruments:
+   //   0 = reserved (unused)
+   //   1 = reserved silent instrument used for note offs
+   //   2.. = Somatic instruments 0..
+   const realCount = count + 2;
+   const buf = new Uint8Array(realCount * Tic80Constants.BYTES_PER_SFX);
 
-   for (let i = 1; i < count; i++) {
-      const encoded = encodeInstrument(song.instruments?.[i]);
-      buf.set(encoded, i * Tic80Constants.BYTES_PER_SFX);
+   const inst0 = makeTic80ReservedInstrument0();
+   const inst1 = makeTic80NoteOffInstrument1();
+
+   for (let ticIndex = 0; ticIndex < realCount; ticIndex++) {
+      const inst = ticIndex === 0 ? inst0 : ticIndex === 1 ? inst1 : song.instruments[ticIndex - 2];
+      assert(!!inst, `Missing instrument for TIC-80 SFX index ${ticIndex}`);
+      const encoded = encodeInstrument(inst);
+      buf.set(encoded, ticIndex * Tic80Constants.BYTES_PER_SFX);
    }
 
    return buf;

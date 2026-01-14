@@ -90,8 +90,8 @@ export function getMaxWaveformUsedIndex(song: Song): number {
    return calculateSongUsage(song).maxWaveform;
 }
 export function getMaxSfxUsedIndex(song: Song): number {
-   //return Tic80Caps.sfx.count - 1;
-   return calculateSongUsage(song).maxInstrument;
+   const usage = calculateSongUsage(song);
+   return usage.maxInstrument;
 }
 export function getMaxPatternUsedIndex(song: Song): number {
    //return Tic80Caps.pattern.count - 1;
@@ -158,7 +158,6 @@ export interface OptimizeResult {
    optimizedSong: Song;
    usedPatternColumnCount: number;
    usedWaveformCount: number;
-   // includes 0 and 1 sfx so this will always be at least 1 for instrument#0, and 2 if you only have a note cut in your whole song (weird), and >=3 for normal cases.
    usedSfxCount: number;
    featureUsage: PlaybackFeatureUsage;
 

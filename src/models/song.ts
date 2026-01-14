@@ -8,12 +8,69 @@ import {makeDefaultInstrumentForIndex, SomaticInstrument, SomaticInstrumentDto} 
 import {isNoteCut, Pattern, PatternDto} from "./pattern";
 import {SongOrderDto, SongOrderItem} from "./songOrder";
 import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
-import {SomaticCaps} from "./tic80Capabilities";
+import {Tic80Caps} from "./tic80Capabilities";
+
+const kSomaticSchemaVersion = 1;
+
+function upgradeSongDtoToLatest(input: SongDto): SongDto {
+   const schemaVersion = (input as any).schemaVersion ?? 0;
+   if (schemaVersion >= kSomaticSchemaVersion)
+      return input;
+
+   // v0 -> v1 migration:
+   // - Instrument indices become Somatic-owned (0..N-1), excluding TIC-80 reserved 0/1.
+   // - Note cut/off becomes an explicit boolean flag (noteOff).
+   // - Legacy instrument 1 (off) becomes noteOff=true.
+   // - Legacy instrument indices >=2 are shifted down by 2.
+   // - Legacy instrument 0 becomes null (no instrument).
+
+   const next: SongDto = {
+      ...input,
+      schemaVersion: kSomaticSchemaVersion,
+   };
+
+   // legacy may not specify subsystem.
+   next.subsystemType = input.subsystemType || kSubsystem.key.TIC80;
+
+   if (next.subsystemType === kSubsystem.key.TIC80) {
+      // Strip reserved instruments 0/1 from the instrument list.
+      const legacyInstruments = Array.isArray(next.instruments) ? next.instruments : [];
+      const somaticMax = Math.max(0, Tic80Caps.sfx.count - 2);
+      next.instruments = legacyInstruments.slice(2, 2 + somaticMax);
+
+      // Remap pattern cell instrument indices and legacy note-cut encoding.
+      for (const pat of next.patterns ?? []) {
+         for (const ch of pat.channels ?? []) {
+            const rows: any[] = (ch as any).rows ?? [];
+            for (const cell of rows) {
+               if (!cell || typeof cell !== "object")
+                  continue;
+               const inst = (cell as any).instrumentIndex;
+
+               if (inst === 1) {
+                  (cell as any).noteOff = true;
+                  (cell as any).instrumentIndex = undefined;
+               } else if (inst === 0) {
+                  (cell as any).instrumentIndex = undefined;
+               } else if (typeof inst === "number" && Number.isFinite(inst) && inst >= 2) {
+                  (cell as any).instrumentIndex = inst - 2;
+               }
+
+               // we could also correct other stuff like effect vs. tic80Effect here; it's handled elsewhere for now.
+            }
+         }
+      }
+   }
+
+   return next;
+}
 
 // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format#music-tracks
 
 export type SongDto = {
-   subsystemType: SubsystemTypeKey; name: string; //
+   schemaVersion: number;           //
+   subsystemType: SubsystemTypeKey; //
+   name: string;                    //
 
    tempo: number; //
    speed: number;
@@ -215,8 +272,6 @@ export class Song {
       const lastIndex = this.instruments.length - 1;
       if (insertIndex < 0 || insertIndex > lastIndex)
          return;
-      if (insertIndex <= SomaticCaps.noteCutInstrumentIndex)
-         return;
 
       // Shift instruments down, dropping the last.
       for (let i = lastIndex; i > insertIndex; i -= 1) {
@@ -249,6 +304,7 @@ export class Song {
 
    toData(): Required<SongDto> {
       return {
+         schemaVersion: kSomaticSchemaVersion,
          subsystemType: this.subsystemType,
          instruments: this.instruments.map((inst) => inst.toData()),
          patterns: this.patterns.map((pattern) => pattern.toData()),
@@ -272,7 +328,9 @@ export class Song {
    }
 
    static fromData(data?: SongDto|null): Song {
-      return new Song(data || {});
+      const raw = (data || {}) as SongDto;
+      const upgraded = upgradeSongDtoToLatest(raw);
+      return new Song(upgraded);
    }
 
    static fromJSON(json: string): Song {

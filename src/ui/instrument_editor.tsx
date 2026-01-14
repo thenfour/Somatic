@@ -798,10 +798,7 @@ show render slot if there are k-rate effects enabled
                     ? `Used ${instrumentUsageCount} ${instrumentUsageCount === 1 ? "time" : "times"} in the song.`
                     : "Not used in the song."}
             </div>
-            <div>
-                {instrumentIndex === 0 && <div className='alertPanel'>!! instrument 0 is weird and should not be used.</div>}
-                {instrumentIndex === SomaticCaps.noteCutInstrumentIndex && <div className='alertPanel'>!! This is the note-off sfx and should not be edited.</div>}
-            </div>
+
 
             <div className="field-row">
                 <ButtonGroup>

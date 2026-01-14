@@ -109,6 +109,15 @@ Somatic has 2 main goals:
 1. be an ultra-ergonomic UX. to be "the ultimate tracker UX"
 2. provide reasonably-musical playroutine that augments the built-in TIC-80 music routine.
 
+
+## Song schema versioning
+
+Somatic song JSON includes a top-level `schemaVersion` number.
+
+- `schemaVersion = 1` (current):
+   - pattern cells represent note-off as a boolean flag (`noteOff: true`) and instrument indices are Somatic-owned (`instrumentIndex` is 0-based and may be `null`). TIC-80 reserved instruments (0 and 1) are injected only during TIC-80 serialization.
+
+
 ## issues / limitations
 
 this was made like, yesterday. it has bugs. file them @ https://github.com/thenfour/Somatic/issues
@@ -217,7 +226,6 @@ TIC-80 does patterns)
 ### waveform editor
 
 ![waveform editor](.attachments/image-5.png)
-
 
 ### SFX (Instrument) editor
 

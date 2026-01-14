@@ -1,11 +1,8 @@
 // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
 import {defineEnum} from "../utils/enum";
 import {clamp, CoalesceBoolean} from "../utils/utils";
-import {SomaticCaps, Tic80Caps} from "./tic80Capabilities";
+import {Tic80Caps} from "./tic80Capabilities";
 import {WaveformBaseDto} from "./waveform";
-
-export const isReservedInstrument = (myIndex: number) =>
-   myIndex === 0 || myIndex === SomaticCaps.noteCutInstrumentIndex;
 
 
 export const kModSource = defineEnum({
@@ -602,16 +599,8 @@ export class SomaticInstrument {
    }
 }
 
-// todo: dedupe built-in instrument creation.
 export const makeDefaultInstrumentForIndex = (instrumentIndex: number): SomaticInstrument => {
    const inst = new SomaticInstrument();
-   if (instrumentIndex === 0) {
-      inst.name = "dontuse";
-   } else if (instrumentIndex === SomaticCaps.noteCutInstrumentIndex) {
-      inst.name = "off";
-      inst.volumeFrames.fill(0);
-   } else {
-      inst.name = `new inst ${instrumentIndex.toString(16).toUpperCase().padStart(2, "0")}`;
-   }
+   inst.name = `new inst ${instrumentIndex.toString(16).toUpperCase().padStart(2, "0")}`;
    return inst;
 };

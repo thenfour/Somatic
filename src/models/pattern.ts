@@ -1,15 +1,20 @@
 import {assert, clamp} from "../utils/utils";
 import type {Song} from "./song";
-import {kSomaticPatternCommand, kTic80EffectCommand, SomaticCaps, SomaticPatternCommand, Tic80EffectCommand} from "./tic80Capabilities";
+import {kSomaticPatternCommand, kTic80EffectCommand, SomaticPatternCommand, Tic80EffectCommand} from "./tic80Capabilities";
 
 
 export type PatternCell = {
    midiNote?: number; // (when serializde to tic80, N is the note number (4-15 for notes and <4 for stops))
-   instrumentIndex?:
-      number; // 0-based internal instrument index. When serialized to tic80, this is +1 (1-based; 0 means no instrument).
-   tic80Effect?: Tic80EffectCommand; // 0-7. 0 is the same as null / no effect. 1-7 = MCJSPVD
-   tic80EffectX?: number;            // 0-15
-   tic80EffectY?: number;            // 0-15
+
+   // 0-based Somatic instrument index, or undefined for no instrument.
+   instrumentIndex?: number | undefined;
+
+   // When true, this cell represents a note-off / note-cut event.
+   // This is Somatic-level and platform-agnostic.
+   noteOff?: boolean;
+   tic80Effect?: Tic80EffectCommand | undefined; // 0-7. 0 is the same as null / no effect. 1-7 = MCJSPVD
+   tic80EffectX?: number | undefined;            // 0-15
+   tic80EffectY?: number | undefined;            // 0-15
 
    // Somatic-specific pattern effects (not part of TIC-80's native playroutine).
    // Stored as a 0-based command index (similar to `effect`), or undefined for no command.
@@ -29,7 +34,7 @@ type PatternCellLegacy = {
 export const MakeEmptyPatternCell = (): PatternCell => ({});
 
 export function isNoteCut(cell: PatternCell): boolean {
-   return cell.instrumentIndex === SomaticCaps.noteCutInstrumentIndex;
+   return !!cell.noteOff;
 }
 
 // DTO = Data Transfer Object; the serializable representation of the class.

@@ -6,8 +6,9 @@ import {Song} from "../models/song";
 import {Pattern, PatternChannel, PatternDto} from "../models/pattern";
 import {SomaticInstrument} from "../models/instruments";
 import {Tic80Waveform} from "../models/waveform";
-import {SomaticCaps, Tic80Caps} from "../models/tic80Capabilities";
+import {Tic80Caps} from "../models/tic80Capabilities";
 import {SongOrderItem} from "../models/songOrder";
+import {Tic80Constants} from "../../bridge/memory_layout";
 
 export type Tic80ImportWarning = {
    message: string;
@@ -53,16 +54,13 @@ function decodeWaveforms(payload: Uint8Array): Tic80Waveform[] {
 }
 
 function decodeSfx(payload: Uint8Array): SomaticInstrument[] {
-   // +2 because instrument 0 is "no instrument" and 1 is "note cut"
-   const instruments: SomaticInstrument[] = new Array(Tic80Caps.sfx.count + 2);
-   instruments[0] = new SomaticInstrument({name: "No Instrument"});
-   instruments[1] = new SomaticInstrument({name: "Note Cut"});
-   for (let i = 0; i < Tic80Caps.sfx.count; i++) {
-      const partial = decodeInstrumentFromBytes66(payload, i * 66);
-      instruments[i + 2] = new SomaticInstrument(partial);
+   const somaticCount = Math.max(0, Tic80Caps.sfx.maxSupported);
+   const instruments: SomaticInstrument[] = new Array(somaticCount);
+   for (let i = 0; i < somaticCount; i++) {
+      const ticIndex = i; // + 2;
+      const partial = decodeInstrumentFromBytes66(payload, ticIndex * Tic80Constants.BYTES_PER_SFX);
+      instruments[i] = new SomaticInstrument(partial);
    }
-   // Ensure note-cut instrument stays correct.
-   instruments[SomaticCaps.noteCutInstrumentIndex]?.volumeFrames?.fill(0);
    return instruments;
 }
 

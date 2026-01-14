@@ -137,8 +137,9 @@ function getMorphMap(song: Song): MorphEntryInput[] {
       const effectCurveS6 = curveN11ToS6(inst.effectCurveN11);
       const effectAmtU8 = effectKind === SomaticEffectKind.hardSync ? hardSyncStrengthToU8(inst.effectAmount) :
                                                                       clamp(inst.effectAmount | 0, 0, 255);
+      // Somatic instrument indices are 0-based; TIC-80 serialization uses +2.
       entries.push({
-         instrumentId,
+         instrumentId: instrumentId + 2,
          cfg: {
             sourceWaveformIndex: clamp(inst.sourceWaveformIndex | 0, 0, Tic80Caps.waveform.count - 1),
             renderWaveformSlot: clamp(inst.renderWaveformSlot | 0, 0, Tic80Caps.waveform.count - 1),
@@ -351,6 +352,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
    // but we are free to optimize pattern data, because it gets ALWAYS updated whenever it's invoked from the playroutine.
    //const optimizeResult = OptimizeSong(song);
    //song = optimizeResult.optimizedSong;
+   assert(bakedSong.bakedSong.instruments.length === args.song.instruments.length);
 
    const waveformData = encodeWaveforms(
       bakedSong.bakedSong, bakedSong.bakedSong.waveforms.length); // always send all waveforms even if unused
