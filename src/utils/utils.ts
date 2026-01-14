@@ -652,3 +652,7 @@ export function pcmF32FromI8(pcmI8: Int8Array): Float32Array {
 export function stripExtension(fileName: string): string {
    return fileName.replace(/\.[^./\\]+$/, "");
 }
+
+export function pow2(x: number): number {
+   return 2 ** x;
+}

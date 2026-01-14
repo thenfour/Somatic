@@ -1,5 +1,5 @@
 
-import {decodeModPeriod, MOD_FINETUNES, ModDecodedPitch, modMidiFromPeriod, modPeriodFromMidi, PROTRACKER_BASE_PERIODS_FT0, PROTRACKER_MIN_MIDI, PROTRACKER_NOTE_COUNT, PROTRACKER_PERIOD_TABLES, ProtrackerFinetune} from "./modMusic";
+import {decodeModPeriod, MOD_FINETUNES, ModDecodedPitch, modMidiFromPeriod, modPeriodFromMidi, PROTRACKER_MIN_MIDI, PROTRACKER_NOTE_COUNT, PROTRACKER_PERIOD_TABLES, ProtrackerFinetune} from "./modMusic";
 import {kPitchClasses, PitchClassInfo} from "./pitchClass";
 import {defaultTicNoteConfig, TicPitch, ticPitchFromMidi} from "./tic80Music";
 
@@ -107,7 +107,7 @@ export const NoteRegistry = (() => {
          FINETUNES: MOD_FINETUNES,
          PROTRACKER_MIN_MIDI,                                                  // C-1 in your naming
          PROTRACKER_MAX_MIDI: PROTRACKER_MIN_MIDI + PROTRACKER_NOTE_COUNT - 1, // B-3
-         BASE_PERIODS_FT0: PROTRACKER_BASE_PERIODS_FT0,
+         //BASE_PERIODS_FT0: PROTRACKER_BASE_PERIODS_FT0,
          PERIOD_TABLES: PROTRACKER_PERIOD_TABLES,
 
          // returns protracker period for given midi note and finetune

@@ -1,23 +1,22 @@
 // ------------------------------------------------------------------------------------------------
 // MOD / ProTracker periods
 
-// ProTracker playable note labels are commonly C-1 .. B-3 (3 octaves = 36 notes).
+import {pow2} from "../utils";
+
+// ProTracker playable note labels are originally C-1 .. B-3 (3 octaves = 36 notes).
 // align those names with existing naming scheme where "C-1" means octave 1 (MIDI 24).
+// note slides and finetune clamp to this range as well and players typically enforce it.
 export const PROTRACKER_MIN_MIDI = 24;   // C-1 in your naming
 export const PROTRACKER_NOTE_COUNT = 36; // C-1..B-3
 
-// Base (finetune=0) period table for C-1..B-3.
-// This is the canonical set most players/builders start from.
-export const PROTRACKER_BASE_PERIODS_FT0: readonly number[] = Object.freeze([
-   // clang-format off
-      // C-1 .. B-1
-      856, 808, 762, 720, 678, 640, 604, 570, 538, 508, 480, 453,
-      // C-2 .. B-2
-      428, 404, 381, 360, 339, 320, 302, 285, 269, 254, 240, 226,
-      // C-3 .. B-3
-      214, 202, 190, 180, 170, 160, 151, 143, 135, 127, 120, 113,
-   // clang-format on
-]);
+// NOTE: OpenMPT calls "C-4" "C-7". Maybe it does this to avoid negative or 0 octave numbers?
+// but i think Somatic is doing the right thing.
+
+// The on-disk MOD period field is 12-bit (0 means "no note"). 1-4095 are valid period values.
+// In practice, classic ProTracker modules use a smaller subset, but supporting the full range
+// is useful for conversion/UI and for modules created by other trackers.
+const MOD_PERIOD_MIN = 1;
+const MOD_PERIOD_MAX = 0x0fff;
 
 export type ProtrackerFinetune = -8|- 7|- 6|- 5|- 4|- 3|- 2|- 1|0|1|2|3|4|5|6|7;
 
@@ -32,31 +31,79 @@ export function protrackerFinetuneIndex(ft: ProtrackerFinetune): number {
    return ft + 8; // -8..7 -> 0..15
 }
 
-// Generate period tables for finetune -8..+7.
-// We use the standard scaling: period * 2^(-ft / (12*8)) == period * 2^(-ft/96),
-// then round to nearest int.
+// Generate the canonical 16×36 ProTracker period table -- ported from
+// https://resources.openmpt.org/documents/PTGenerator.c
 //
-// Note: some historical tables differ by ±1 on a couple of entries depending on rounding quirks.
-// For *stable editing*, you’ll preserve raw periods on import when not an exact table hit,
-// and only quantize to table values when the user explicitly enters/edits notes.
-function generateFinetuneTables(): ReadonlyArray<ReadonlyArray<number>> {
+// preserves ProTracker's quirks:
+// - UST/AHRM superimposition for certain entries
+// - octave doubling for the extended range
+// - the manual mystery corrections
+
+function getPTPeriod(note: number, tune: ProtrackerFinetune): number {
+   // Port of PTGenerator.c / getPTPeriod(note=0..35, tune=-8..+7)
+   const NTSC_CLK = 3579545.0;
+   const REF_PERIOD_PT = 856.0;
+   const REF_PERIOD_UST = NTSC_CLK / 523.3 / 8;
+
+   // Convert note and tune into a more helpful representation
+   const note2 = note + Math.floor((tune + 8) / 8);
+   const tune2 = (tune + 8) & 7;
+
+   // normalized period
+   let period = pow2((-tune / 8.0) * (1.0 / 12.0));
+   period *= pow2((-note) * (1.0 / 12.0));
+
+   // Select between PT and UST for the wanted entry
+   if (tune2 === 0 && note2 !== 0) {
+      period *= REF_PERIOD_UST;
+
+      // Equivalent of taking resulting entry "period/2" and multiplying by 2 for periods above 508
+      if (note2 < 10) {
+         period = Math.floor((period + 1.0) / 2.0) * 2.0;
+      }
+   } else {
+      period *= REF_PERIOD_PT;
+
+      // Manual correction of the "evil nine"
+      if (tune === -7 && note === 6)
+         period -= 1;
+      if (tune === -7 && note === 26)
+         period -= 1;
+      if (tune === -4 && note === 34)
+         period -= 1;
+      if (tune === 1 && note === 4)
+         period -= 1;
+      if (tune === 1 && note === 22)
+         period += 1;
+      if (tune === 1 && note === 24)
+         period += 1;
+      if (tune === 2 && note === 23)
+         period += 1;
+      if (tune === 4 && note === 9)
+         period += 1;
+      if (tune === 7 && note === 24)
+         period += 1;
+   }
+
+   return Math.floor(period + 0.5);
+}
+
+function generateProtrackerPeriodTablesOpenMPT(): ReadonlyArray<ReadonlyArray<number>> {
    const tables: number[][] = [];
    for (const ft of MOD_FINETUNES) {
-      const mul = 2 ** (-ft / 96);
       const row: number[] = new Array(PROTRACKER_NOTE_COUNT);
-      for (let i = 0; i < PROTRACKER_NOTE_COUNT; i++) {
-         const p0 = PROTRACKER_BASE_PERIODS_FT0[i];
-         row[i] = (p0 * mul + 0.5) | 0; // fast round-to-nearest int
+      for (let note = 0; note < PROTRACKER_NOTE_COUNT; note++) {
+         row[note] = getPTPeriod(note, ft);
       }
       tables.push(row);
    }
-   return Object.freeze(tables.map((r) => r.slice()));
+   return Object.freeze(tables.map((r) => Object.freeze(r.slice())));
 }
 
-export const PROTRACKER_PERIOD_TABLES = generateFinetuneTables();
+export const PROTRACKER_PERIOD_TABLES = generateProtrackerPeriodTablesOpenMPT();
 
 // Fast lookup maps built once:
-// - midi -> period (array indexed by midi, sparse outside C-1..B-3)
+// - midi -> period (array indexed by midi, may be undefined if out of representable range)
 // - period -> midi (Map for exact match)
 type ProtrackerLookup = Readonly<{
    periodByMidi: ReadonlyArray<number|undefined>; // length 256
@@ -70,11 +117,39 @@ function buildLookupsForFinetune(ft: ProtrackerFinetune): ProtrackerLookup {
    const periodByMidi: Array<number|undefined> = new Array(256).fill(undefined);
    const midiByPeriod = new Map<number, number>();
 
-   for (let i = 0; i < PROTRACKER_NOTE_COUNT; i++) {
-      const midi = PROTRACKER_MIN_MIDI + i;
-      const period = table[i];
+   // ProTracker's canonical table covers 36 notes (C-1..B-3), but the "period" concept itself
+   // naturally extends across octaves by halving/doubling. We extend by taking the first octave
+   // (C-1..B-1) as a base and applying exact octave scaling.
+   //
+   // This keeps the original table values for the canonical range, and provides reasonable
+   // values outside it. (There is no single universally-correct "ProTracker" table outside
+   // the classic 3-octave range.)
+   const baseOctaveSemitones = 12;
+   const basePeriodsC1ToB1 = table.slice(0, baseOctaveSemitones);
+
+   for (let midi = 0; midi < 256; midi++) {
+      const delta = midi - PROTRACKER_MIN_MIDI;
+      // For negative numbers, JS % keeps the sign; normalize to 0..11.
+      const semitone = ((delta % 12) + 12) % 12;
+      const octaveOffset = Math.floor(delta / 12);
+
+      const p0 = basePeriodsC1ToB1[semitone];
+      if (p0 === undefined) {
+         continue;
+      }
+
+      const scale = 2 ** (-octaveOffset);
+      const period = (p0 * scale + 0.5) | 0;
+
+      if (period < MOD_PERIOD_MIN || period > MOD_PERIOD_MAX) {
+         continue;
+      }
+
       periodByMidi[midi] = period;
-      midiByPeriod.set(period, midi);
+      // Avoid unstable overwrites if rounding collisions happen.
+      if (!midiByPeriod.has(period)) {
+         midiByPeriod.set(period, midi);
+      }
    }
 
    // dump for verification

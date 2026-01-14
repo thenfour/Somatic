@@ -77,6 +77,9 @@ end
         }));
     }, [allowedTableKeyRenames]);
 
+    const decodedMidiFromPeriod = NoteRegistry.mod.decodePeriod(modPeriod);
+    const periodFromMidi = NoteRegistry.mod.periodFromMidi(midiNote);
+
     return (
         <AppPanelShell
             title="Debug Panel"
@@ -94,9 +97,10 @@ end
                             step={1}
                             onChange={setMidiNote}
                             value={midiNote}
+                            formatValue={(midiNote => `${NoteRegistry.get(midiNote)?.labelUnicode ?? "???"} (${midiNote})`)}
                         />
                         <span>
-                            Period: {NoteRegistry.mod.periodFromMidi(midiNote)}
+                            Period: {periodFromMidi ?? "N/A"}
                         </span>
                     </ButtonGroup>
                 </div>
@@ -104,14 +108,15 @@ end
                     <ButtonGroup>
                         <Knob
                             label="MOD Period"
-                            min={113}
-                            max={856}
+                            min={1}
+                            max={4095}
                             step={1}
                             onChange={setModPeriod}
                             value={modPeriod}
                         />
                         <span>
-                            MIDI Note: {NoteRegistry.mod.decodePeriod(modPeriod).midi ?? "N/A"}
+                            MIDI Note: {decodedMidiFromPeriod.midi ? (NoteRegistry.get(decodedMidiFromPeriod.midi)?.labelUnicode ?? "???") : "!!!"} {decodedMidiFromPeriod.midi ?? "N/A"}
+                            FT: {decodedMidiFromPeriod.finetune ?? "N/A"}
                         </span>
                     </ButtonGroup>
                 </div>                <div className="debug-panel-options">
