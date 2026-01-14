@@ -1,4 +1,4 @@
-import {compareBuffers} from "../utils/utils";
+import {compareBuffers} from "./utils";
 
 // Run-length encode the input data; return shortened output.
 export function RLEncode(input: Uint8Array): Uint8Array {

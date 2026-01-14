@@ -1,7 +1,7 @@
 // TIC-80 specific
 
 import React, { useEffect, useMemo, useState } from "react";
-import { lzCompress, lzDecompress } from "../audio/encoding";
+import { lzCompress, lzDecompress } from "../utils/encoding";
 import { serializeSongForTic80Bridge, serializeSongToCartDetailed, SongCartDetails, Tic80SerializedSong } from "../audio/tic80_cart_serializer";
 import { useClipboard } from "../hooks/useClipboard";
 import { useRenderAlarm } from "../hooks/useRenderAlarm";

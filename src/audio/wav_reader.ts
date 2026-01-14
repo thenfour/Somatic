@@ -1,4 +1,4 @@
-import {fromBase64, toBase64} from "./encoding";
+import {fromBase64, toBase64} from "../utils/encoding";
 import {MorphSamplePcmDto} from "../models/instruments";
 import {SomaticCaps} from "../models/tic80Capabilities";
 

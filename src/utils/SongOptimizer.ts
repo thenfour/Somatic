@@ -1,7 +1,7 @@
 // TIC80 specific
 
-import {gSomaticLZDefaultConfig, lzCompress} from "../audio/encoding";
-import {encodePatternChannelDirect} from "../audio/pattern_encoding";
+import {gSomaticLZDefaultConfig, lzCompress} from "./encoding";
+import {encodePatternChannelDirect} from "../audio/tic80_pattern_encoding";
 import {prepareSongColumns} from "../audio/prepared_song";
 import {SomaticEffectKind, SomaticInstrument} from "../models/instruments";
 import {Pattern} from "../models/pattern";

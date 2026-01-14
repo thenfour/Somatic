@@ -15,8 +15,8 @@ import {OptimizationRuleOptions, processLua} from "../utils/lua/lua_processor";
 import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "../utils/SongOptimizer";
 import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../utils/utils";
 import {LoopMode} from "./backend";
-import {base85Plus1Encode, gSomaticLZDefaultConfig, lzCompress} from "./encoding";
-import {encodePatternChannelDirect} from "./pattern_encoding";
+import {base85Plus1Encode, gSomaticLZDefaultConfig, lzCompress} from "../utils/encoding";
+import {encodePatternChannelDirect} from "./tic80_pattern_encoding";
 import {PreparedSong, prepareSongColumns} from "./prepared_song";
 import {createChunk, encodeSfx, encodeTempo, encodeTrackSpeed, encodeWaveforms, packTrackFrame, packWaveformSamplesToBytes16, removeTrailingZerosFn, stringToAsciiPayload, TicChunkType} from "./tic80_serialization";
 

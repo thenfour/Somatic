@@ -7,7 +7,7 @@ import './somatic.css';
 
 import { LoopMode, SomaticTransportState } from './audio/backend';
 import { Tic80AudioController } from './audio/controller';
-import { importSongFromTicCartBytes } from './audio/import';
+import { importSongFromTicCartBytes } from './audio/tic80_import';
 import { serializeSongToCart } from './audio/tic80_cart_serializer';
 import { useAppInstancePresence } from './hooks/useAppPresence';
 import { useClipboard } from './hooks/useClipboard';

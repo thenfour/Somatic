@@ -1,7 +1,7 @@
 // create a new Song object from a tic80 cart.
 
 import {decodeTempo, decodeRowsPerPattern, decodeTrackSpeed, decodeWaveformSamplesFromBytes16, decodeInstrumentFromBytes66, parseTicCartChunks, TicChunkType, unpackTrackFrame, type TicCartChunk} from "./tic80_serialization";
-import {decodePatternChannelBytes} from "./pattern_encoding";
+import {decodePatternChannelBytes} from "./tic80_pattern_encoding";
 import {Song} from "../models/song";
 import {Pattern, PatternChannel, PatternDto} from "../models/pattern";
 import {SomaticInstrument} from "../models/instruments";
