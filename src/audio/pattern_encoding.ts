@@ -69,11 +69,11 @@ function decodePatternCellTriplet(byte0: number, byte1: number, byte2: number): 
    // - 1 => note off (Somatic-exported carts use instrument 1 as silent off)
    let somaticInstrumentIndex: number|undefined = undefined;
    let noteOff = false;
-   if (instrument === 0) {
-      somaticInstrumentIndex = undefined;
-   } else {
-      somaticInstrumentIndex = instrument - 1; // - 2;
-   }
+   // if (instrument === 0) {
+   //    somaticInstrumentIndex = undefined;
+   // } else {
+   somaticInstrumentIndex = instrument; // - 2;
+   //}
 
    return {
       midiNote,

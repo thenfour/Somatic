@@ -9,6 +9,7 @@ import {Tic80Waveform} from "../models/waveform";
 import {Tic80Caps} from "../models/tic80Capabilities";
 import {SongOrderItem} from "../models/songOrder";
 import {Tic80Constants} from "../../bridge/memory_layout";
+import {IsNullOrWhitespace} from "../utils/utils";
 
 export type Tic80ImportWarning = {
    message: string;
@@ -60,7 +61,12 @@ function decodeSfx(payload: Uint8Array): SomaticInstrument[] {
       const ticIndex = i; // + 2;
       const partial = decodeInstrumentFromBytes66(payload, ticIndex * Tic80Constants.BYTES_PER_SFX);
       instruments[i] = new SomaticInstrument(partial);
+      // give default name
+      if (IsNullOrWhitespace(instruments[i].name)) {
+         instruments[i].name = `new inst ${ticIndex.toString(16).toUpperCase().padStart(2, "0")}`;
+      }
    }
+
    return instruments;
 }
 
