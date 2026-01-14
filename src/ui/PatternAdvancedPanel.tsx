@@ -1,19 +1,17 @@
-import React, { useId, useState } from 'react';
-import { CharMap } from '../utils/utils';
-import { Tooltip } from './basic/tooltip';
-import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
-import { GlobalActionId } from '../keyb/ActionIds';
-import { Dropdown } from './basic/Dropdown';
-import { InstrumentChip } from './InstrumentChip';
-import { Tic80Caps } from '../models/tic80Capabilities';
-import { Song } from '../models/song';
-import { ButtonGroup } from './Buttons/ButtonGroup';
-import { Button } from './Buttons/PushButton';
-import { RadioButton } from './Buttons/RadioButton';
-import { CheckboxButton } from './Buttons/CheckboxButton';
-import { Divider } from './basic/Divider';
-import { IconButton } from './Buttons/IconButton';
 import { mdiSync } from '@mdi/js';
+import React, { useId, useState } from 'react';
+import { GlobalActionId } from '../keyb/ActionIds';
+import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
+import { Song } from '../models/song';
+import { CharMap } from '../utils/utils';
+import { Divider } from './basic/Divider';
+import { Dropdown } from './basic/Dropdown';
+import { Tooltip } from './basic/tooltip';
+import { ButtonGroup } from './Buttons/ButtonGroup';
+import { CheckboxButton } from './Buttons/CheckboxButton';
+import { IconButton } from './Buttons/IconButton';
+import { Button } from './Buttons/PushButton';
+import { InstrumentChip } from './InstrumentChip';
 
 export type PatternAdvancedPanelProps = {
     enabled?: boolean;
@@ -21,7 +19,6 @@ export type PatternAdvancedPanelProps = {
     currentInstrument: number;
     onTranspose: (amount: number, scope: AdvancedEditScope) => void;
     onSetInstrument: (instrument: number, scope: AdvancedEditScope) => void;
-    onChangeInstrument: (fromInstrument: number, toInstrument: number, scope: AdvancedEditScope) => void;
     onNudgeInstrument: (amount: number, scope: AdvancedEditScope) => void;
     onInterpolate: (target: InterpolateTarget, scope: AdvancedEditScope) => void;
 
@@ -69,7 +66,6 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     enabled = true,
     onTranspose,
     onSetInstrument,
-    onChangeInstrument,
     onNudgeInstrument,
     onInterpolate,
     onClearNotes,
@@ -82,26 +78,21 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     onClearSomaticParam,
     onClose,
 }) => {
-    const scopeGroupId = useId();
     const keyboardShortcutMgr = useShortcutManager<GlobalActionId>();
     const [scopeValue, setScopeValue] = useState<ScopeValue>('selection');
     const [scopeInstrumentIndex, setScopeInstrumentIndex] = useState<number | null>(null);
     const [setInstrumentValue, setSetInstrumentValue] = useState<number>(2);
-    const [changeInstrumentFrom, setChangeInstrumentFrom] = useState<number>(2);
-    const [changeInstrumentTo, setChangeInstrumentTo] = useState<number>(3);
-    const [interpolateTarget, setInterpolateTarget] = useState<InterpolateTarget>('notes');
     const mgr = useShortcutManager<GlobalActionId>();
 
     const advancedEditPanelKeyshortcut = mgr.getActionBindingLabel("ToggleAdvancedEditPanel") || "Unbound";
 
     const instrumentOptions = React.useMemo(() => {
-        return Array.from({ length: Tic80Caps.sfx.maxSupported }, (_, i) => ({
+        return song.instruments.map((instrument, i) => ({
             value: i,
             label: <InstrumentChip
                 instrumentIndex={i}
-                instrument={song.instruments[i]}
+                instrument={instrument}
                 showTooltip={false}
-            //width={200}
             />,
         }));
     }, [song.instruments]);
@@ -302,47 +293,6 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                                 </Tooltip>
                             </ButtonGroup>
                         </div>
-                        {/* <div className="pattern-advanced-panel__inputRow">
-                            <Dropdown
-                                value={changeInstrumentFrom}
-                                onChange={(inst) => setChangeInstrumentFrom(inst)}
-                                options={instrumentOptions}
-                                showCaret={false}
-                                renderTriggerLabel={(opt) => {
-                                    return <InstrumentChip
-                                        instrumentIndex={opt?.value ?? 0}
-                                        instrument={song.instruments[opt?.value ?? 0]}
-                                        //showTooltip={false}
-                                        width={40}
-                                    />
-                                }}
-                            />
-                            <span className="pattern-advanced-panel__arrow">{CharMap.RightTriangle}</span>
-                            <Dropdown
-                                value={changeInstrumentTo}
-                                onChange={(inst) => setChangeInstrumentTo(inst)}
-                                options={instrumentOptions}
-                                showCaret={false}
-                                renderTriggerLabel={(opt) => {
-                                    return <InstrumentChip
-                                        instrumentIndex={opt?.value ?? 0}
-                                        instrument={song.instruments[opt?.value ?? 0]}
-                                        //showTooltip={false}
-                                        width={40}
-                                    />
-                                }}
-                            />
-                            <Tooltip
-                                title={`Change instrument from ${changeInstrumentFrom} to ${changeInstrumentTo}`}
-                            >
-                                <Button
-                                    onClick={() => onChangeInstrument(changeInstrumentFrom, changeInstrumentTo, scope)}
-                                    disabled={!enabled}
-                                >
-                                    Repl.
-                                </Button>
-                            </Tooltip>
-                        </div> */}
                         <ButtonGroup>
                             <Tooltip
                                 title={`Dec instrument (${keyboardShortcutMgr.getActionBindingLabel("DecrementInstrumentInSelection")})`}
@@ -408,37 +358,6 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                     </ButtonGroup>
                 </fieldset>
 
-                {/* 
-                <section className="pattern-advanced-panel__section">
-                    <ButtonGroup>
-                        {interpolateOptions.map((option) => (
-                            <CheckboxButton
-                                //name={`${scopeGroupId}-interp`}
-                                //value={option.value}
-                                //checked={interpolateTarget === option.value}
-                                checked={interpolateTarget === option.value}
-                                key={option.value}
-                                onChange={() => setInterpolateTarget(option.value)}
-                            >
-                                <span>{option.label.toUpperCase()}</span>
-                            </CheckboxButton>
-                        ))}
-                    </ButtonGroup>
-                    <Button
-                        onClick={() => onInterpolate(interpolateTarget, scope)}
-                        disabled={!enabled}
-                    >
-                        Interpolate
-                    </Button>
-                </section> */}
-
-                {/* TODO:
-                <section className="pattern-advanced-panel__section">
-                    <div className="pattern-advanced-panel__buttonRow">
-                        <button type="button" className="pattern-advanced-panel__button pattern-advanced-panel__button--primary">Expand 2×</button>
-                        <button type="button" className="pattern-advanced-panel__button pattern-advanced-panel__button--primary">Shrink ½</button>
-                    </div>
-                </section> */}
             </div>
         </aside>
     );

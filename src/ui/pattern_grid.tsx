@@ -307,22 +307,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             );
         }, [pushToast, runInstrumentMutationInScope]);
 
-        const handleChangeInstrument = useCallback((rawFrom: number, rawTo: number, scope: AdvancedEditScope) => {
-            const fromInstrument = normalizeInstrumentValue(rawFrom);
-            const toInstrument = normalizeInstrumentValue(rawTo);
-            if (fromInstrument === toInstrument) {
-                pushToast({ message: 'Choose different instruments to change.', variant: 'info' });
-                return;
-            }
-            runInstrumentMutationInScope(
-                scope,
-                (pattern, channels, rowRange, rowsPerPattern, instrumentIndex) =>
-                    changeInstrumentInPattern(song.subsystem, pattern, channels, rowRange, rowsPerPattern, fromInstrument, toInstrument, instrumentIndex),
-                'No matching instruments were found to change.',
-            );
-        }, [pushToast, runInstrumentMutationInScope]);
-
-
         const nudgeInstrumentInSelection = useCallback((amount: number, scope: AdvancedEditScope) => {
             if (!amount) return;
             runInstrumentMutationInScope(
@@ -1428,7 +1412,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         currentInstrument={editorState.currentInstrument}
                         onTranspose={handleTranspose}
                         onSetInstrument={handleSetInstrument}
-                        onChangeInstrument={handleChangeInstrument}
                         onNudgeInstrument={nudgeInstrumentInSelection}
                         onInterpolate={handleInterpolate}
                         onClearNotes={handleClearNotes}

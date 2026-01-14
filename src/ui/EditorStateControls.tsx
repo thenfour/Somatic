@@ -6,7 +6,6 @@ import { Song } from '../models/song';
 //import { PositionList } from './position_list';
 import { GlobalActionId } from '../keyb/ActionIds';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
-import { Tic80Caps } from '../models/tic80Capabilities';
 import { CharMap } from '../utils/utils';
 import { Dropdown } from './basic/Dropdown';
 import { IntegerUpDown } from './basic/NumericUpDown';
@@ -44,12 +43,10 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
         return mgr.getActionBindingLabel(actionId) || "Unbound";
     };
 
-    const bpm = song.subsystem.calculateBpm({ songTempo: song.tempo, songSpeed: song.speed, rowsPerBeat: 4 });
-
     const instrumentOptions = React.useMemo(() => {
-        return Array.from({ length: Tic80Caps.sfx.maxSupported }, (_, i) => ({
+        return song.instruments.map((instrument, i) => ({
             value: i,
-            label: <InstrumentChip instrumentIndex={i} instrument={song.instruments[i]} showTooltip={false} width={300} />,
+            label: <InstrumentChip instrumentIndex={i} instrument={instrument} showTooltip={false} width={300} />,
         }));
     }, [song.instruments]);
 
@@ -79,8 +76,8 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
                 <label>
                     Octave
                     <IntegerUpDown
-                        min={1}
-                        max={Tic80Caps.pattern.octaveCount/* -1 + 1 for 1-baseddisplay */}
+                        min={song.subsystem.minEditorOctave}
+                        max={song.subsystem.maxEditorOctave}
                         value={editorState.octave}
                         onChange={onOctaveChange}
                     />
@@ -102,7 +99,7 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
                         // style={{ display: "inline-block", margin: 0, padding: 0 }}
                         onClick={() => {
                             onEditorStateChange((state) => {
-                                const newInstr = (state.currentInstrument - 1 + Tic80Caps.sfx.maxSupported) % Tic80Caps.sfx.maxSupported;
+                                const newInstr = (state.currentInstrument - 1 + song.subsystem.maxInstruments) % song.subsystem.maxInstruments;
                                 state.setCurrentInstrument(newInstr);
                             });
                         }}
@@ -113,7 +110,7 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
                         // style={{ display: "inline-block", margin: 0, padding: 0 }}
                         onClick={() => {
                             onEditorStateChange((state) => {
-                                const newInstr = (state.currentInstrument + 1) % Tic80Caps.sfx.maxSupported;
+                                const newInstr = (state.currentInstrument + 1) % song.subsystem.maxInstruments;
                                 state.setCurrentInstrument(newInstr);
                             });
                         }}

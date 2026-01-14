@@ -1,8 +1,6 @@
 
 
 // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
-import {clamp, CoalesceBoolean} from "../utils/utils";
-import {Tic80Caps} from "./tic80Capabilities";
 
 // these should be semi-semantic, not just random symbols.
 // NOTE: keep in sync with

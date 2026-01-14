@@ -76,6 +76,10 @@ export class SidSubsystemBackend implements SomaticSubsystemBackend<Song, SongDt
    minPatternMidiNote: number = 0;
    maxPatternMidiNote: number = 127;
 
+   minEditorOctave: number = 1;
+   maxEditorOctave: number = 8;
+   defaultEditorOctave: number = 4;
+
    // POC: keep the existing instrument count so panels don't need to change yet.
    maxInstruments: number = Tic80Caps.sfx.maxSupported;
 

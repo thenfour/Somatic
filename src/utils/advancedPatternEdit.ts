@@ -24,7 +24,6 @@ const mutatePatternCells = (
    if (rowStart > rowEnd)
       return false;
 
-   //const channelMax = Tic80Caps.song.audioChannelsXXX - 1;
    let mutated = false;
 
    for (let row = rowStart; row <= rowEnd; row++) {
@@ -243,7 +242,6 @@ export const interpolatePatternValues = (
    const rowStart = clamp(Math.min(rowRange.start, rowRange.end), 0, maxRow);
    const rowEnd = clamp(Math.max(rowRange.start, rowRange.end), 0, maxRow);
 
-   //const channelMax = Tic80Caps.song.audioChannelsXXX - 1;
    let mutated = false;
    let anchorPairs = 0;
 

@@ -1,15 +1,5 @@
 import { isNoteCut, Pattern } from "../models/pattern";
 import { ArrangementThumbnailSize } from "../models/song";
-//import { Tic80Caps } from "../models/tic80Capabilities";
-
-// const BASE_MAX_THUMB_SIZE = 32;
-// const BASE_CHANNEL_WIDTH = 6; // pixels per channel
-// const BASE_CHANNEL_GAP = 1; // pixels between channels
-// const BASE_ROWS_PER_PIXEL = 2;
-// Keeps the overall thumbnail height the same; only changes visual banding.
-//const THUMBNAIL_ROW_QUANT_PX = 1;
-
-//export type ThumbnailSize = "off" | "small" | "normal" | "large";
 
 type ThumbnailSizeSpec = {
     enabled: boolean;
@@ -45,13 +35,7 @@ const SIZE_SPECS: Record<ArrangementThumbnailSize, ThumbnailSizeSpec> = {
     },
 };
 
-
 export type ThumbnailMode = "notes" | "currentInstrument";
-
-// export type ThumbnailPrefs = {
-//     size: ArrangementThumbnailSize;
-//     mode: ThumbnailMode;
-// };
 
 export const renderThumbnail = (
     channelCount: number,

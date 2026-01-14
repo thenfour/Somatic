@@ -4,7 +4,6 @@ import { GlobalActionId } from "../keyb/ActionIds";
 import { useShortcutManager } from "../keyb/KeyboardShortcutManager";
 import { EditorState } from "../models/editor_state";
 import { Song } from "../models/song";
-import { Tic80Caps } from "../models/tic80Capabilities";
 import { CharMap } from "../utils/utils";
 import { Dropdown } from "./basic/Dropdown";
 import { Tooltip } from "./basic/tooltip";
@@ -145,7 +144,6 @@ export const TransportControls: React.FC<TransportControlsProps> = ({ bridgeRead
             <Tooltip title={(<div>
                 <div>Current position of {somaticTransportState.isPlaying ? "playhead" : "cursor"}.</div>
                 <div>Total song length: <TransportTime positionSeconds={totalSongSeconds} /></div>
-                <div>TIC-80 frames (i think something's borked in the calc): {Math.floor((somaticTransportState.isPlaying ? playheadPositionSeconds : cursorPositionSeconds) * Tic80Caps.frameRate)}</div>
             </div>)}
             >
                 <div>

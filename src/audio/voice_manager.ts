@@ -1,5 +1,3 @@
-//import {Tic80Caps, Tic80ChannelIndex} from "../models/tic80Capabilities";
-
 
 type VoiceState = {
    channel: number;                //

@@ -1,3 +1,5 @@
+// tic-80 specific
+
 import React, { useEffect, useState } from "react";
 import { useClipboard } from '../hooks/useClipboard';
 import { EditorState } from "../models/editor_state";
