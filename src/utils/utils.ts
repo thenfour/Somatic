@@ -596,3 +596,27 @@ export function secondsTo60HzFrames(seconds: number): number {
 export function frames60HzToSeconds(frames: number): number {
    return ticksToSeconds(frames, 60);
 }
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+export function clampByte(v: number): number {
+   return Math.max(0, Math.min(255, v | 0));
+}
+
+export function readAscii(bytes: Uint8Array, offset: number, length: number): string {
+   const end = Math.min(bytes.length, offset + length);
+   let s = "";
+   for (let i = offset; i < end; i++) {
+      const b = bytes[i] ?? 0;
+      if (b === 0)
+         break;
+      s += String.fromCharCode(b & 0x7f);
+   }
+   return s;
+}
+
+export function readU16BE(bytes: Uint8Array, offset: number): number {
+   const hi = bytes[offset] ?? 0;
+   const lo = bytes[offset + 1] ?? 0;
+   return ((hi & 0xff) << 8) | (lo & 0xff);
+}

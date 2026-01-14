@@ -18,6 +18,7 @@ export const kSubsystem = defineEnum({
    // PICO8
    // NES
    // GB
+   // SONIX
    // ...
 } as const);
 
