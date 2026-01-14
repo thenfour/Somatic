@@ -11,6 +11,7 @@ import { serializeSongToCart } from './audio/tic80_cart_serializer';
 import { importSongFromTicCartBytes } from './audio/tic80_import';
 import { useAppInstancePresence } from './hooks/useAppPresence';
 import { useClipboard } from './hooks/useClipboard';
+import { useDebugMode } from './hooks/useDebugMode';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useRenderAlarm } from './hooks/useRenderAlarm';
 import { useWriteBehindEffect } from './hooks/useWriteBehindEffect';
@@ -55,6 +56,7 @@ import { OptimizeSong } from './utils/SongOptimizer';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
 import { numericRange } from './utils/utils';
+import { decodeModFileWithSamples } from './subsystem/AmigaMod/ModFileModels';
 
 const TIC80_FRAME_SIZES = [
 
@@ -132,7 +134,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const [editorState, setEditorState] = useState(() => new EditorState(loopState));
 
-    const [debugMode, setDebugMode] = useLocalStorage("somatic-debugMode", false);
+    const { debugMode, setDebugMode } = useDebugMode();
 
     const [patternEditorOpen, setPatternEditorOpen] = useLocalStorage("somatic-patternEditorOpen", true);
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useLocalStorage("somatic-instrumentPanelOpen", false);
@@ -485,6 +487,26 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         }
     };
 
+    const importAmigaModFile = async () => {
+        const files = (await fileDialog({ accept: '.mod' })) as FileList | File[] | undefined;
+        const fileArray = files ? Array.from(files as any) : [];
+        const file = fileArray[0] as File | undefined;
+        if (!file) return;
+        try {
+            const buf = await file.arrayBuffer();
+            const modFile = decodeModFileWithSamples(new Uint8Array(buf));
+            console.log('Decoded MOD file:', modFile);
+            console.log("Sample names:");
+            modFile.samples.forEach((s, i) => {
+                console.log(`  [${i}] "${s.header.name}" length=${s.header.lengthBytes} finetune=${s.header.finetune} volume=${s.header.volume}`);
+            });
+        } catch (err) {
+            console.error('Import failed', err);
+            const msg = err instanceof Error ? err.message : 'Unknown error';
+            pushToast({ message: `Failed to import .mod: ${msg}`, variant: 'error' });
+        }
+    };
+
     const saveSongFile = () => {
         saveSync(song.toJSON(), song.getFilename(".somatic"));
     };
@@ -771,8 +793,14 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         onSelect={() => { void importTicCartFile(); }}
                                         shortcut={mgr.getActionBindingLabel("ImportTicCart")}
                                     >
-                                        Import...
+                                        Import TIC-80 cart...
                                     </DesktopMenu.Item>
+                                    {debugMode && <DesktopMenu.Item
+                                        onSelect={() => { void importAmigaModFile(); }}
+                                    //shortcut={mgr.getActionBindingLabel("ImportAmigaMod")}
+                                    >
+                                        Import Amiga MOD...
+                                    </DesktopMenu.Item>}
                                     <DesktopMenu.Item
                                         onSelect={saveSongFile}
                                         shortcut={mgr.getActionBindingLabel("SaveFile")}

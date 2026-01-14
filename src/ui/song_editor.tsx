@@ -11,6 +11,7 @@ import { IntegerUpDown } from './basic/NumericUpDown';
 import { Tooltip } from './basic/tooltip';
 import { ButtonGroup } from './Buttons/ButtonGroup';
 import { CheckboxButton } from './Buttons/CheckboxButton';
+import { DebugContainer } from './basic/DebugContainer';
 
 type SongEditorProps = {
     song: Song;
@@ -92,20 +93,22 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 />
             </label>
 
-            <div className="field-row">
-                <label htmlFor="song-subsystem">Subsystem</label>
-                <select
-                    id="song-subsystem"
-                    value={song.subsystemType}
-                    onChange={(e) => onSubsystemTypeChange(e.target.value as SubsystemTypeKey)}
-                >
-                    {kSubsystem.infos.map((info) => (
-                        <option key={info.key} value={info.key}>
-                            {info.title}
-                        </option>
-                    ))}
-                </select>
-            </div>
+            <DebugContainer>
+                <div className="field-row">
+                    <label htmlFor="song-subsystem">Subsystem</label>
+                    <select
+                        id="song-subsystem"
+                        value={song.subsystemType}
+                        onChange={(e) => onSubsystemTypeChange(e.target.value as SubsystemTypeKey)}
+                    >
+                        {kSubsystem.infos.map((info) => (
+                            <option key={info.key} value={info.key}>
+                                {info.title}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </DebugContainer>
             <Tooltip title={`Song tempo (${bpm} BPM); ${mgr.getActionBindingLabelAlways("IncreaseTempo")} / ${mgr.getActionBindingLabelAlways("DecreaseTempo")} to adjust.`}>
                 <div className="field-row">
                     <label htmlFor="song-tempo">Tempo</label>
