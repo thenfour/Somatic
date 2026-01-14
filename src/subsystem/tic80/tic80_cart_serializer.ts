@@ -1,5 +1,5 @@
-import playroutineTemplateTxt from "../../bridge/playroutine.lua";
-import playroutineSharedTemplateTxt from "../../bridge/playroutine_shared.inc.lua";
+import playroutineTemplateTxt from "../../../bridge/playroutine.lua";
+import playroutineSharedTemplateTxt from "../../../bridge/playroutine_shared.inc.lua";
 import {SelectionRect2D} from "../../hooks/useRectSelection2D";
 import {modSourceToU8, SomaticEffectKind, SomaticInstrumentWaveEngine, ToWaveEngineId} from "../../models/instruments";
 //import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
@@ -16,9 +16,9 @@ import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, Ma
 import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../../utils/utils";
 import {LoopMode} from "../../audio/backend";
 import {base85Plus1Encode, gSomaticLZDefaultConfig, lzCompress} from "../../utils/encoding";
-import {encodePatternChannelDirect} from "../../audio/tic80_pattern_encoding";
 import {PreparedSong, prepareSongColumns} from "./tic80_prepared_song";
 import {createChunk, encodeSfx, encodeTempo, encodeTrackSpeed, encodeWaveforms, packTrackFrame, packWaveformSamplesToBytes16, removeTrailingZerosFn, stringToAsciiPayload, TicChunkType} from "./tic80_serialization";
+import {encodePatternChannelDirect} from "./tic80_pattern_encoding";
 
 
 const releaseOptions: OptimizationRuleOptions = {
