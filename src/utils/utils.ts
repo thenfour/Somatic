@@ -620,3 +620,29 @@ export function readU16BE(bytes: Uint8Array, offset: number): number {
    const lo = bytes[offset + 1] ?? 0;
    return ((hi & 0xff) << 8) | (lo & 0xff);
 }
+
+
+export function pcmI8FromU8(pcmU8: Uint8Array, copy: boolean): Int8Array {
+   if (copy) {
+      // Copy into a fresh Int8Array, preserving the same bit pattern.
+      const i8 = new Int8Array(pcmU8.length);
+      for (let i = 0; i < pcmU8.length; i++) {
+         // reinterpret u8 byte as signed
+         const v = pcmU8[i] ?? 0;
+         i8[i] = (v << 24) >> 24;
+      }
+      return i8;
+   }
+
+   // View into the same underlying buffer. Safe as long as pcmU8 is backed by an ArrayBuffer.
+   return new Int8Array(pcmU8.buffer, pcmU8.byteOffset, pcmU8.byteLength);
+}
+
+export function pcmF32FromI8(pcmI8: Int8Array): Float32Array {
+   // Normalize signed 8-bit PCM to [-1, 1]. divide by 128 so that -128 maps to -1.
+   const f32 = new Float32Array(pcmI8.length);
+   for (let i = 0; i < pcmI8.length; i++) {
+      f32[i] = (pcmI8[i] ?? 0) / 128;
+   }
+   return f32;
+}

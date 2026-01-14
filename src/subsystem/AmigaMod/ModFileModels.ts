@@ -11,7 +11,7 @@
 
 
 import {defineEnum} from "../../utils/enum";
-import {clampByte, readAscii, readU16BE} from "../../utils/utils";
+import {clampByte, pcmF32FromI8, pcmI8FromU8, readAscii, readU16BE} from "../../utils/utils";
 
 
 export const ModConstants = {
@@ -602,4 +602,104 @@ export function decodeModFile(bytes: Uint8Array): ModFile {
    }
 
    return {header, patterns, sampleData};
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MOD sample data is 8-bit signed PCM (mono). sample rate is not stored in the
+// file; pitch is controlled by the "period" value and the Paula clock.
+
+export type ModSampleLoop = {
+   // All values are in samples (not bytes). For 8-bit PCM, bytes == samples.
+   start: number; length: number; endExclusive: number;
+};
+
+export type ModSample = {
+   // 0-based index into header.samples/sampleData (0..30). Equivalent to sampleIndex1b-1 when present.
+   sampleIndex0b: number;
+   // 1-based MOD sample index (1..31).
+   sampleIndex1b: number;
+   header: ModSampleHeader;
+
+   // Raw sample bytes from the file (length may be truncated if the file is malformed).
+   pcmU8: Uint8Array;
+   // Signed PCM view/copy of pcmU8.
+   pcmI8: Int8Array;
+   // Optional normalized PCM in [-1, 1]. This is often what WebAudio wants.
+   pcmF32?: Float32Array;
+
+   // Whether the sample declares a loop and it was valid after clamping.
+   isLooping: boolean;
+   loop: ModSampleLoop | null;
+};
+
+export type ExtractModSamplesOptions = {
+   // If true, generate Float32 PCM normalized to [-1, 1]. Default: true.
+   includeFloat32?: boolean;
+   // If true, copy PCM data into standalone buffers. Default: false.
+   // When false, pcmU8 and pcmI8 will share backing storage with ModFile.sampleData.
+   copy?: boolean;
+};
+
+function clampLoopToSampleLength(
+   loopStartBytes: number, loopLengthBytes: number, sampleLengthBytes: number): ModSampleLoop|null {
+   // MOD loop units are bytes (8-bit samples) but we'll expose in "samples" for clarity.
+   const start = Math.max(0, loopStartBytes | 0);
+   const length = Math.max(0, loopLengthBytes | 0);
+
+   // Most docs say: if loop length < 2 bytes, treat as no loop.
+   if (length < 2) {
+      return null;
+   }
+   if (sampleLengthBytes <= 0) {
+      return null;
+   }
+   if (start >= sampleLengthBytes) {
+      return null;
+   }
+
+   const maxLen = sampleLengthBytes - start;
+   const clampedLen = Math.min(length, maxLen);
+   if (clampedLen < 2) {
+      return null;
+   }
+   return {
+      start,
+      length: clampedLen,
+      endExclusive: start + clampedLen,
+   };
+}
+
+export function extractModSamples(modFile: ModFile, options?: ExtractModSamplesOptions): ModSample[] {
+   const includeFloat32 = options?.includeFloat32 ?? true;
+   const copy = options?.copy ?? false;
+
+   const samples: ModSample[] = new Array(ModConstants.sampleCount);
+   for (let i = 0; i < ModConstants.sampleCount; i++) {
+      const header = modFile.header.samples[i]!;
+      const pcmU8Source = modFile.sampleData[i] ?? new Uint8Array();
+      const pcmU8 = copy ? new Uint8Array(pcmU8Source) : pcmU8Source;
+      const pcmI8 = pcmI8FromU8(pcmU8, copy);
+
+      const loop = clampLoopToSampleLength(header.loopStartBytes, header.loopLengthBytes, pcmU8.length);
+      const isLooping = loop != null;
+
+      samples[i] = {
+         sampleIndex0b: i,
+         sampleIndex1b: i + 1,
+         header,
+         pcmU8,
+         pcmI8,
+         pcmF32: includeFloat32 ? pcmF32FromI8(pcmI8) : undefined,
+         isLooping,
+         loop,
+      };
+   }
+   return samples;
+}
+
+export function decodeModFileWithSamples(
+   bytes: Uint8Array, options?: ExtractModSamplesOptions): {modFile: ModFile; samples: ModSample[]} {
+   const modFile = decodeModFile(bytes);
+   const samples = extractModSamples(modFile, options);
+   return {modFile, samples};
 }
