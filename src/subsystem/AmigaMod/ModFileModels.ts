@@ -3,7 +3,7 @@
 // Format described in: https://www.aes.id.au/modformat.html
 // also see https://wiki.multimedia.cx/index.php?title=MOD
 // https://www.stef.be/bassoontracker/docs/ProtrackerCommandReference.pdf
-// https://moddingwiki.shikadi.net/wiki/ProTracker_Studio_Module
+// https://moddingwiki.shikadi.net/wiki/MOD_Format
 
 // - 15 or 31 samples? it's not straightforward to tell if it's a soundtracer 15-sample mod,
 //   so just assume 31.
@@ -39,43 +39,325 @@ export const kModSignature = {
 export type ModSignature = (typeof kModSignature)[keyof typeof kModSignature]|string;
 
 export const kModEffectCommand = defineEnum({
-   Arpeggio: {value: 0x0, title: "Arpeggio"},
-   PortaUp: {value: 0x1, title: "Portamento Up"},
-   PortaDown: {value: 0x2, title: "Portamento Down"},
-   TonePorta: {value: 0x3, title: "Tone Portamento"},
-   Vibrato: {value: 0x4, title: "Vibrato"},
-   TonePortaVolSlide: {value: 0x5, title: "Tone Portamento + Volume Slide"},
-   VibratoVolSlide: {value: 0x6, title: "Vibrato + Volume Slide"},
-   Tremolo: {value: 0x7, title: "Tremolo"},
-   Pan: {value: 0x8, title: "Pan (rare/implementation-defined)"},
-   SampleOffset: {value: 0x9, title: "Sample Offset"},
-   VolumeSlide: {value: 0xA, title: "Volume Slide"},
-   PositionJump: {value: 0xB, title: "Position Jump"},
-   SetVolume: {value: 0xC, title: "Set Volume"},
-   PatternBreak: {value: 0xD, title: "Pattern Break"},
-   // see extended effects; has subcommands specified by the high nibble of param, and then a 4-bit param value.
-   Extended: {value: 0xE, title: "Extended"},
-   SetSpeed: {value: 0xF, title: "Set Speed/Tempo"},
+   // TODO(mod-playback): many commands have tracker-specific edge cases and "memory" behavior
+   // (e.g. param=0 meaning reuse previous param). This file intentionally documents those
+   // quirks, but Somatic's MOD playback engine may implement a strict subset initially.
+
+   Arpeggio: {
+      value: 0x0,
+      title: "Arpeggio",
+      patternChar: "0",
+      keyboardShortcut: "0",
+      // 0xy: add semitone offsets x and y in a cycle. Commonly has "memory" if xy=00.
+      description: "Arpeggio (0xy): cycle base note, +x, +y semitone offsets",
+      paramFormat: "xy_nibbles",
+      nominalX: 3,
+      nominalY: 7,
+   },
+   PortaUp: {
+      value: 0x1,
+      title: "Portamento Up",
+      patternChar: "1",
+      keyboardShortcut: "1",
+      // 1xx: slide pitch up by xx per tick. Often: xx=00 means reuse previous speed.
+      description: "Pitch slide up (1xx): period decreases by xx per tick",
+      paramFormat: "u8",
+      nominalParamU8: 0x04,
+   },
+   PortaDown: {
+      value: 0x2,
+      title: "Portamento Down",
+      patternChar: "2",
+      keyboardShortcut: "2",
+      description: "Pitch slide down (2xx): period increases by xx per tick",
+      paramFormat: "u8",
+      nominalParamU8: 0x04,
+   },
+   TonePorta: {
+      value: 0x3,
+      title: "Tone Portamento",
+      patternChar: "3",
+      keyboardShortcut: "3",
+      // 3xx: slide towards the target note (period) at speed xx per tick.
+      // Important nuance: the "target" comes from the note value in the same cell.
+      // Many trackers treat "note+3xx" as setting a new target without retriggering the sample.
+      description: "Tone portamento (3xx): slide towards target note at speed xx",
+      paramFormat: "u8",
+      nominalParamU8: 0x04,
+   },
+   Vibrato: {
+      value: 0x4,
+      title: "Vibrato",
+      patternChar: "4",
+      keyboardShortcut: "4",
+      // 4xy: x=speed, y=depth (nibbles). Often supports memory for x or y if nibble is 0.
+      description: "Vibrato (4xy): oscillate pitch with speed x and depth y",
+      paramFormat: "xy_nibbles",
+      nominalX: 4,
+      nominalY: 4,
+   },
+   TonePortaVolSlide: {
+      value: 0x5,
+      title: "Tone Portamento + Volume Slide",
+      patternChar: "5",
+      keyboardShortcut: "5",
+      // 5xy: continue tone porta (3xx) + apply volume slide Axy (same tick rules).
+      // Typically: you omit the 3xx speed and rely on memory.
+      description: "Tone porta + volume slide (5xy): 3xx + Axy combined",
+      paramFormat: "xy_nibbles",
+      nominalX: 1,
+      nominalY: 0,
+   },
+   VibratoVolSlide: {
+      value: 0x6,
+      title: "Vibrato + Volume Slide",
+      patternChar: "6",
+      keyboardShortcut: "6",
+      description: "Vibrato + volume slide (6xy): 4xy + Axy combined",
+      paramFormat: "xy_nibbles",
+      nominalX: 1,
+      nominalY: 0,
+   },
+   Tremolo: {
+      value: 0x7,
+      title: "Tremolo",
+      patternChar: "7",
+      keyboardShortcut: "7",
+      // 7xy: x=speed, y=depth, but affects volume instead of pitch.
+      description: "Tremolo (7xy): oscillate volume with speed x and depth y",
+      paramFormat: "xy_nibbles",
+      nominalX: 4,
+      nominalY: 4,
+   },
+   Pan: {
+      value: 0x8,
+      title: "Pan (rare/implementation-defined)",
+      patternChar: "8",
+      keyboardShortcut: "8",
+      // 8xx: In many classic 4-channel ProTracker players, this is unused or implementation-defined.
+      // Some later players treat 8xx as panning (often 00..FF). Others treat it as "sync".
+      // TODO(mod-playback): decide whether to support panning, and which range mapping to use.
+      description: "Pan (8xx): implementation-defined; often panning 00..FF in later players",
+      paramFormat: "u8",
+      nominalParamU8: 0x80,
+   },
+   SampleOffset: {
+      value: 0x9,
+      title: "Sample Offset",
+      patternChar: "9",
+      keyboardShortcut: "9",
+      // 9xx: sample start offset. In many players, xx is in 256-byte steps.
+      // Important nuance: behavior if offset is beyond sample length varies.
+      description: "Sample offset (9xx): start sample at offset xx (commonly 256-byte steps)",
+      paramFormat: "u8",
+      nominalParamU8: 0x01,
+   },
+   VolumeSlide: {
+      value: 0xA,
+      title: "Volume Slide",
+      patternChar: "A",
+      keyboardShortcut: "a",
+      // Axy: if x>0 slide up by x, else slide down by y; applied on ticks (not row-only).
+      // Note: some trackers treat both-nonzero as "up" or prioritize one nibble.
+      description: "Volume slide (Axy): slide volume up x or down y per tick",
+      paramFormat: "xy_nibbles",
+      nominalX: 1,
+      nominalY: 0,
+   },
+   PositionJump: {
+      value: 0xB,
+      title: "Position Jump",
+      patternChar: "B",
+      keyboardShortcut: "b",
+      // Bxx: jump to song position xx (pattern order index). Typically executed at row end.
+      // TODO(mod-playback): also consider interaction with pattern break and loop.
+      description: "Position jump (Bxx): set next order position to xx",
+      paramFormat: "u8",
+      nominalParamU8: 0x00,
+   },
+   SetVolume: {
+      value: 0xC,
+      title: "Set Volume",
+      patternChar: "C",
+      keyboardShortcut: "c",
+      // Cxx: set channel volume 0..64 (40h=64). Values above 64 are typically clamped.
+      description: "Set volume (Cxx): set channel volume (00..40 = 0..64)",
+      paramFormat: "u8",
+      nominalParamU8: 0x40,
+   },
+   PatternBreak: {
+      value: 0xD,
+      title: "Pattern Break",
+      patternChar: "D",
+      keyboardShortcut: "d",
+      // Dxx: break to next position, row = BCD(xx) (e.g. 1A = row 26).
+      // Nuance: BCD decoding and clamping differ across players.
+      description: "Pattern break (Dxx): go to next position at row BCD(xx)",
+      paramFormat: "bcd_u8",
+      nominalParamU8: 0x00,
+   },
+   Extended: {
+      value: 0xE,
+      title: "Extended",
+      patternChar: "E",
+      keyboardShortcut: "e",
+      // E?x: subcommand = high nibble, param = low nibble (4-bit).
+      // see kModExtendedEffectCommand.
+      description: "Extended (Eyx): y selects subcommand; x is 4-bit parameter",
+      paramFormat: "extended_nibbles",
+      nominalX: 0,
+      nominalY: 0,
+   },
+   SetSpeed: {
+      value: 0xF,
+      title: "Set Speed/Tempo",
+      patternChar: "F",
+      keyboardShortcut: "f",
+      // Fxx: ProTracker convention: xx <= 1F => set speed (ticks per row), else set tempo (BPM-ish).
+      // Nuance: interpretation differs in some trackers/players.
+      description: "Set speed/tempo (Fxx): <=1F speed (ticks/row), else tempo",
+      paramFormat: "speed_or_tempo_u8",
+      nominalParamU8: 0x06,
+   },
 } as const);
 
 export type ModEffectCommand = typeof kModEffectCommand.$key;
 
 export const kModExtendedEffectCommand = defineEnum({
-   FilterOnOff: {value: 0x0, title: "Set Filter On/Off"},
-   FinePitchSlideUp: {value: 0x1, title: "Fine Pitch Slide Up"},
-   FinePitchSlideDown: {value: 0x2, title: "Fine Pitch Slide Down"},
-   GlissandoControl: {value: 0x3, title: "Glissando Control"},
-   VibratoControl: {value: 0x4, title: "Vibrato Control"},
-   SetFineTune: {value: 0x5, title: "Set Fine Tune"},
-   PatternLoop: {value: 0x6, title: "Pattern Loop"},
-   TremoloControl: {value: 0x7, title: "Tremolo Control"},
-   RetriggerNote: {value: 0x9, title: "Retrigger Note"},
-   FineVolumeSlideUp: {value: 0xA, title: "Fine Volume Slide Up"},
-   FineVolumeSlideDown: {value: 0xB, title: "Fine Volume Slide Down"},
-   NoteCut: {value: 0xC, title: "Note Cut"},
-   NoteDelay: {value: 0xD, title: "Note Delay"},
-   PatternDelay: {value: 0xE, title: "Pattern Delay"},
-   InvertLoop: {value: 0xF, title: "Invert Loop"},
+   // These are the E-command subcommands (Eyx): y selects the subcommand, x is 0..15.
+   // Some are widely supported (E1/E2/EC/ED/EE), others are much more tracker/player-specific.
+
+   FilterOnOff: {
+      value: 0x0,
+      title: "Set Filter On/Off",
+      patternChar: "E0",
+      // E0x: classic Amiga lowpass filter toggle (hardware/Paula). Many modern players ignore.
+      description: "E0x: toggle Amiga LED filter (x=0 off, x=1 on; often ignored)",
+      paramFormat: "x_nibble",
+      nominalX: 0,
+   },
+   FinePitchSlideUp: {
+      value: 0x1,
+      title: "Fine Pitch Slide Up",
+      patternChar: "E1",
+      description: "E1x: fine pitch slide up by x (row-only)",
+      paramFormat: "x_nibble",
+      nominalX: 1,
+   },
+   FinePitchSlideDown: {
+      value: 0x2,
+      title: "Fine Pitch Slide Down",
+      patternChar: "E2",
+      description: "E2x: fine pitch slide down by x (row-only)",
+      paramFormat: "x_nibble",
+      nominalX: 1,
+   },
+   GlissandoControl: {
+      value: 0x3,
+      title: "Glissando Control",
+      patternChar: "E3",
+      // E3x: if x=1, tone porta uses semitone steps; if x=0, continuous.
+      description: "E3x: glissando control (0=continuous, 1=semitone steps)",
+      paramFormat: "x_nibble",
+      nominalX: 0,
+   },
+   VibratoControl: {
+      value: 0x4,
+      title: "Vibrato Control",
+      patternChar: "E4",
+      // E4x: select vibrato waveform (and sometimes retrig mode). Details vary.
+      description: "E4x: set vibrato waveform/control (implementation-defined)",
+      paramFormat: "x_nibble",
+      nominalX: 0,
+   },
+   SetFineTune: {
+      value: 0x5,
+      title: "Set Fine Tune",
+      patternChar: "E5",
+      // E5x: set channel finetune. Some trackers map x 0..15 to -8..7.
+      description: "E5x: set channel finetune (often x 0..15 maps to -8..7)",
+      paramFormat: "x_nibble",
+      nominalX: 8,
+   },
+   PatternLoop: {
+      value: 0x6,
+      title: "Pattern Loop",
+      patternChar: "E6",
+      // E60 sets loop start at current row; E6x (x>0) decrements loop counter and jumps.
+      description: "E6x: pattern loop (0=set loop start, x=loop count)",
+      paramFormat: "x_nibble",
+      nominalX: 2,
+   },
+   TremoloControl: {
+      value: 0x7,
+      title: "Tremolo Control",
+      patternChar: "E7",
+      description: "E7x: set tremolo waveform/control (implementation-defined)",
+      paramFormat: "x_nibble",
+      nominalX: 0,
+   },
+   RetriggerNote: {
+      value: 0x9,
+      title: "Retrigger Note",
+      patternChar: "E9",
+      description: "E9x: retrigger note every x ticks (x=0 often means no-op)",
+      paramFormat: "x_nibble",
+      nominalX: 3,
+   },
+   FineVolumeSlideUp: {
+      value: 0xA,
+      title: "Fine Volume Slide Up",
+      patternChar: "EA",
+      // EAx: fine slide occurs on row only (tick 0) in many implementations.
+      description: "EAx: fine volume slide up by x (row-only)",
+      paramFormat: "x_nibble",
+      nominalX: 1,
+   },
+   FineVolumeSlideDown: {
+      value: 0xB,
+      title: "Fine Volume Slide Down",
+      patternChar: "EB",
+      description: "EBx: fine volume slide down by x (row-only)",
+      paramFormat: "x_nibble",
+      nominalX: 1,
+   },
+   NoteCut: {
+      value: 0xC,
+      title: "Note Cut",
+      patternChar: "EC",
+      // ECx: cut note after x ticks (x=0 often immediate cut at tick 0).
+      description: "ECx: note cut after x ticks",
+      paramFormat: "x_nibble",
+      nominalX: 0,
+   },
+   NoteDelay: {
+      value: 0xD,
+      title: "Note Delay",
+      patternChar: "ED",
+      // EDx: delay note start by x ticks.
+      description: "EDx: note delay by x ticks",
+      paramFormat: "x_nibble",
+      nominalX: 1,
+   },
+   PatternDelay: {
+      value: 0xE,
+      title: "Pattern Delay",
+      patternChar: "EE",
+      // EEx: delay the next pattern advance by x rows (or repeat current row group).
+      // TODO(mod-playback): confirm exact semantics for the intended player.
+      description: "EEx: pattern delay (repeat/delay pattern advance by x)",
+      paramFormat: "x_nibble",
+      nominalX: 1,
+   },
+   InvertLoop: {
+      value: 0xF,
+      title: "Invert Loop",
+      patternChar: "EF",
+      // EFx: extremely player-specific ("funk"/invert loop). Many modern players ignore.
+      description: "EFx: invert loop / funk (rare; player-specific)",
+      paramFormat: "x_nibble",
+      nominalX: 0,
+   },
 });
 
 export type ModExtendedEffectCommand = typeof kModExtendedEffectCommand.$key;
