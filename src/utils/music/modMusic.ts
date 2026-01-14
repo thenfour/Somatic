@@ -78,8 +78,8 @@ function buildLookupsForFinetune(ft: ProtrackerFinetune): ProtrackerLookup {
    }
 
    // dump for verification
-   console.log(`ProTracker finetune ${ft} lookup:`);
-   console.table(periodByMidi.map((p, midi) => p !== undefined ? {midi, period: p} : null).filter((x) => x !== null));
+   //console.log(`ProTracker finetune ${ft} lookup:`);
+   //console.table(periodByMidi.map((p, midi) => p !== undefined ? {midi, period: p} : null).filter((x) => x !== null));
 
    return Object.freeze({
       periodByMidi: Object.freeze(periodByMidi),

@@ -83,7 +83,7 @@ export class PatternChannel {
    }
 
    setCell(index: number, cellValue: PatternCell) {
-      if (index < 0 || index >= this.rows.length)
+      if (index < 0)
          return;
       this.ensureRows(index + 1);
       this.rows[index] = {...cellValue};

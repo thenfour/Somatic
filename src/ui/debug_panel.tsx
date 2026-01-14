@@ -13,9 +13,13 @@ import { CheckboxButton } from './Buttons/CheckboxButton';
 import { IntegerUpDown } from './basic/NumericUpDown';
 import { Dropdown } from './basic/Dropdown';
 import { GlobalActions } from '../keyb/ActionIds';
+import { Knob } from './basic/Knob2';
+import { NoteRegistry } from '../utils/music/noteRegistry';
 
 export const DebugPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const clipboard = useClipboard();
+    const [midiNote, setMidiNote] = useState<number>(60); // range: 0-127
+    const [modPeriod, setModPeriod] = useState<number>(428);
     const [functionNamesToKeeps, setFunctionNamesToKeep] = useState<string[]>([]);
     const [allowedTableKeyRenames, setAllowedTableKeyRenames] = useState<string>("");
     const [inputLua, setInputLua] = useState<string>(`-- Test repeated expressions and literals
@@ -82,60 +86,73 @@ end
         >
             <div className="debug-panel-content">
                 <div className="debug-panel-options">
-                    <div className="debug-panel-option-group">
+                    <ButtonGroup>
+                        <Knob
+                            label="MIDI Note"
+                            min={0}
+                            max={127}
+                            step={1}
+                            onChange={setMidiNote}
+                            value={midiNote}
+                        />
+                        <span>
+                            Period: {NoteRegistry.mod.periodFromMidi(midiNote)}
+                        </span>
+                    </ButtonGroup>
+                </div>
+                <div className="debug-panel-options">
+                    <ButtonGroup>
+                        <Knob
+                            label="MOD Period"
+                            min={113}
+                            max={856}
+                            step={1}
+                            onChange={setModPeriod}
+                            value={modPeriod}
+                        />
+                        <span>
+                            MIDI Note: {NoteRegistry.mod.decodePeriod(modPeriod).midi ?? "N/A"}
+                        </span>
+                    </ButtonGroup>
+                </div>                <div className="debug-panel-options">
+                    <ButtonGroup orientation='vertical'>
                         <CheckboxButton
                             checked={options.stripComments}
                             onChange={() => handleOptionChange('stripComments')}
                         >Strip Comments</CheckboxButton>
-                    </div>
-                    <div className="debug-panel-option-group">
                         <CheckboxButton
                             checked={options.stripDebugBlocks}
                             onChange={() => handleOptionChange('stripDebugBlocks')}
                         >Strip Debug Blocks</CheckboxButton>
-                    </div>
-                    <div className="debug-panel-option-group">
                         <CheckboxButton
                             checked={options.aliasRepeatedExpressions}
                             onChange={() => handleOptionChange('aliasRepeatedExpressions')}
                         >Alias Repeated Expressions</CheckboxButton>
-                    </div>
-                    <div className="debug-panel-option-group">
                         <CheckboxButton
                             checked={options.aliasLiterals}
                             onChange={() => handleOptionChange('aliasLiterals')}
                         >Alias Literals</CheckboxButton>
-                    </div>
-                    <div className="debug-panel-option-group">
                         <CheckboxButton
                             checked={options.renameLocalVariables}
                             onChange={() => handleOptionChange('renameLocalVariables')}
                         >Rename Local Variables</CheckboxButton>
-                    </div>
-                    <div className="debug-panel-option-group">
                         <CheckboxButton
                             checked={options.packLocalDeclarations}
                             onChange={() => handleOptionChange('packLocalDeclarations')}
                         >Pack Local Declarations</CheckboxButton>
-                    </div>
-                    <div className="debug-panel-option-group">
                         <CheckboxButton
                             checked={options.simplifyExpressions}
                             onChange={() => handleOptionChange('simplifyExpressions')}
                         >Simplify Expressions</CheckboxButton>
-                    </div>
-                    <div className="debug-panel-option-group">
                         <CheckboxButton
                             checked={options.removeUnusedLocals}
                             onChange={() => handleOptionChange('removeUnusedLocals')}
                         >Remove Unused Locals</CheckboxButton>
-                    </div>
-                    <div className="debug-panel-option-group">
                         <CheckboxButton
                             checked={options.removeUnusedFunctions}
                             onChange={() => handleOptionChange('removeUnusedFunctions')}
                         >Remove Unused Functions</CheckboxButton>
-                    </div>
+                    </ButtonGroup>
                     <div className="debug-panel-option-group">
                         <label>
                             Function Names to Keep (comma-separated):

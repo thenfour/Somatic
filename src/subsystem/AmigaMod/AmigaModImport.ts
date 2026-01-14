@@ -1,8 +1,3 @@
-// Create a new Song object from a ProTracker/Amiga 4-channel MOD file.
-// Initial import scope:
-// - pattern sequence (order table)
-// - pattern notes + instruments (no effects yet)
-// - instrument names (no sample data)
 
 import {Song} from "../../models/song";
 import {Pattern, type PatternCell} from "../../models/pattern";
@@ -29,7 +24,8 @@ function coerceFinetune(finetune: number): ProtrackerFinetune {
 
 function importPatterns(modFile: ModFile, warnings: AmigaModImportWarning[]): Pattern[] {
    const patterns: Pattern[] = [];
-   const pitches: Set<string> = new Set();
+
+   const sample1bToInstrumentIndex = (sampleIndex1b: number) => (sampleIndex1b | 0) - 1;
 
    for (let patIndex = 0; patIndex < modFile.patterns.length; patIndex++) {
       const modPattern = modFile.patterns[patIndex]!;
@@ -48,20 +44,17 @@ function importPatterns(modFile: ModFile, warnings: AmigaModImportWarning[]): Pa
             const cell: PatternCell = {};
 
             if (modCell.sampleIndex1b != null && modCell.sampleIndex1b > 0) {
-               cell.instrumentIndex = modCell.sampleIndex1b; // TODO: zero-based?
+               cell.instrumentIndex = sample1bToInstrumentIndex(modCell.sampleIndex1b);
             }
 
             if (modCell.period != null && modCell.period > 0) {
-               const finetune = 0;
-               const decoded = NoteRegistry.mod.decodePeriod(modCell.period, coerceFinetune(finetune));
-               pitches.add(`[${modCell.period}, ${finetune}] => kind=${decoded.kind} midi=${decoded.midi ?? "(none)"}`);
-               console.log(
-                  `Pattern ${patIndex} row ${row} ch ${ch}: MOD period ${modCell.period} finetune ${finetune} =>`,
-                  decoded);
+               // fine tune is relevant for playback not note entry.
+               const decoded = NoteRegistry.mod.decodePeriod(modCell.period, coerceFinetune(0));
 
-               if (decoded.kind === "table") {
-                  cell.midiNote = decoded.midi;
-                  cell.modPeriod = decoded.period;
+               cell.midiNote = decoded.midi;
+               cell.modPeriod = decoded.period;
+
+               if (decoded.kind === "table" || decoded.kind === "raw") {
                } else {
                   warnings.push({
                      message: `Pattern ${patIndex} row ${row} ch ${ch}: unsupported MOD period ${modCell.period}`,
@@ -69,7 +62,8 @@ function importPatterns(modFile: ModFile, warnings: AmigaModImportWarning[]): Pa
                }
             }
 
-            //if (cell.midiNote !== undefined || cell.instrumentIndex !== undefined) {
+            // Only write cells that contain meaningful data.
+            //if (cell.midiNote !== undefined || cell.instrumentIndex !== undefined || cell.noteOff) {
             pat.setCell(ch, row, cell);
             //}
          }
@@ -78,21 +72,21 @@ function importPatterns(modFile: ModFile, warnings: AmigaModImportWarning[]): Pa
       patterns.push(pat);
    }
 
-   console.log("Imported MOD pitches used:", Array.from(pitches));
-   console.log(`Imported ${patterns.length} patterns from MOD file.`, patterns);
-
    return patterns.length > 0 ? patterns : [new Pattern()];
 }
 
 // TODO: instruments + samples
 function importInstruments(song: Song, modFile: ModFile) {
+   // Map MOD sample index 1..31 to Somatic instrument index 0..31.
+   const sample1bToInstrumentIndex = (sampleIndex1b: number) => (sampleIndex1b | 0) - 1;
+
    for (let i = 0; i < modFile.header.samples.length; i++) {
       const sampleHeader = modFile.header.samples[i]!;
       if (IsNullOrWhitespace(sampleHeader.name))
          continue;
 
-      const sampleIndex0b = i;
-      const instIndex = sampleIndex0b;
+      const sampleIndex1b = i + 1;
+      const instIndex = sample1bToInstrumentIndex(sampleIndex1b);
       const inst = song.instruments[instIndex];
       if (!inst)
          continue;

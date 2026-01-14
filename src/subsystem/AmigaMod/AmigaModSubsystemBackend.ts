@@ -3,39 +3,13 @@ import {SomaticInstrument, SomaticInstrumentDto} from "../../models/instruments"
 import {Song, SongDto} from "../../models/song";
 import {Tic80Caps} from "../../models/tic80Capabilities";
 import {Tic80Waveform, Tic80WaveformDto} from "../../models/waveform";
-import {IsNullOrWhitespace} from "../../utils/utils";
 import {kSubsystem, SomaticSubsystemBackend, SubsystemTypeKey} from "../base/SubsystemBackendBase";
 
 const DEFAULT_CHANNEL_COUNT = 4;
 const DEFAULT_MAX_ROWS_PER_PATTERN = 64;
 
 const makeWaveformList = (data: Tic80WaveformDto[]): Tic80Waveform[] => {
-   // POC: reuse existing waveform data model so existing UI continues to work.
-   const list = Array.from({length: Tic80Caps.waveform.count}, (_, i) => {
-      const waveData = data[i];
-      const wave = new Tic80Waveform(waveData);
-      if (IsNullOrWhitespace(wave.name))
-         wave.name = `WAVE ${i}`;
-      return wave;
-   });
-
-   if (data.length === 0) {
-      // New song: populate with a simple triangle-ish default.
-      for (let i = 0; i < Tic80Caps.waveform.count; i++) {
-         const wave = list[i]!;
-         for (let p = 0; p < Tic80Caps.waveform.pointCount; p++) {
-            const amp = Math.floor(
-               (Tic80Caps.waveform.amplitudeRange - 1) *
-                  (p < Tic80Caps.waveform.pointCount / 2 ?
-                      (p / (Tic80Caps.waveform.pointCount / 2)) :
-                      (1 - (p - Tic80Caps.waveform.pointCount / 2) / (Tic80Caps.waveform.pointCount / 2))),
-            );
-            wave.amplitudes[p] = amp;
-         }
-      }
-   }
-
-   return list;
+   return [new Tic80Waveform()];
 };
 
 const makeInstrumentList = (data: SomaticInstrumentDto[]): SomaticInstrument[] => {
@@ -43,14 +17,7 @@ const makeInstrumentList = (data: SomaticInstrumentDto[]): SomaticInstrument[] =
    const list = Array.from({length: Tic80Caps.sfx.maxSupported}, (_, i) => {
       const instData = data[i]!;
       const inst = new SomaticInstrument(instData);
-      if (IsNullOrWhitespace(inst.name)) {
-         if (i === 0)
-            inst.name = "dontuse";
-         else if (i === 1)
-            inst.name = "off";
-         else
-            inst.name = `new inst ${i.toString(16).toUpperCase().padStart(2, "0")}`;
-      }
+      inst.name = `new inst ${i.toString(16).toUpperCase().padStart(2, "0")}`;
       return inst;
    });
 
