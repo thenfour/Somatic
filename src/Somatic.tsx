@@ -56,7 +56,7 @@ import { OptimizeSong } from './subsystem/tic80/SongOptimizer';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
 import { numericRange } from './utils/utils';
-import { decodeModFileWithSamples } from './subsystem/AmigaMod/ModFileModels';
+import { importSongFromAmigaModBytes } from './subsystem/AmigaMod/AmigaModImport';
 
 const TIC80_FRAME_SIZES = [
 
@@ -494,12 +494,20 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         if (!file) return;
         try {
             const buf = await file.arrayBuffer();
-            const modFile = decodeModFileWithSamples(new Uint8Array(buf));
-            console.log('Decoded MOD file:', modFile);
-            console.log("Sample names:");
-            modFile.samples.forEach((s, i) => {
-                console.log(`  [${i}] "${s.header.name}" length=${s.header.lengthBytes} finetune=${s.header.finetune} volume=${s.header.volume}`);
+
+            const { song: importedSong, warnings } = importSongFromAmigaModBytes(new Uint8Array(buf), { fileName: file.name });
+
+            setSong(importedSong);
+            updateEditorState((s) => {
+                s.setActiveSongPosition(importedSong, 0);
             });
+            undoStackRef.current?.clear();
+
+            pushToast({ message: 'Amiga MOD imported.', variant: 'success' });
+            if (warnings.length > 0) {
+                console.warn('MOD import warnings:', warnings);
+                pushToast({ message: `Imported with ${warnings.length} warning(s). See console.`, variant: 'info' });
+            }
         } catch (err) {
             console.error('Import failed', err);
             const msg = err instanceof Error ? err.message : 'Unknown error';

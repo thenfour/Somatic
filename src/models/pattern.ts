@@ -4,7 +4,13 @@ import {kSomaticPatternCommand, kTic80EffectCommand, SomaticPatternCommand, Tic8
 
 
 export type PatternCell = {
+
    midiNote?: number; // (when serializde to tic80, N is the note number (4-15 for notes and <4 for stops))
+
+   // for MOD, the raw period value. period is more fundamental than midi note in MOD format.
+   // so when importing, this preserves the value for proper round-tripping.
+   // midiNote and period are populated both together for MOD subsystem (never just 1)
+   modPeriod?: number;
 
    // 0-based Somatic instrument index, or undefined for no instrument.
    instrumentIndex?: number | undefined;

@@ -646,3 +646,9 @@ export function pcmF32FromI8(pcmI8: Int8Array): Float32Array {
    }
    return f32;
 }
+
+// Remove the extension from a filename string.
+// example: "myfile.txt" => "myfile"
+export function stripExtension(fileName: string): string {
+   return fileName.replace(/\.[^./\\]+$/, "");
+}

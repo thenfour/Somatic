@@ -77,6 +77,10 @@ function buildLookupsForFinetune(ft: ProtrackerFinetune): ProtrackerLookup {
       midiByPeriod.set(period, midi);
    }
 
+   // dump for verification
+   console.log(`ProTracker finetune ${ft} lookup:`);
+   console.table(periodByMidi.map((p, midi) => p !== undefined ? {midi, period: p} : null).filter((x) => x !== null));
+
    return Object.freeze({
       periodByMidi: Object.freeze(periodByMidi),
       midiByPeriod: midiByPeriod,
@@ -100,10 +104,13 @@ export type ModDecodedPitch = //
       kind: "raw"; //
       finetune: ProtrackerFinetune;
       period: number;
-      nearestMidi?: number; //
+      midi?: number; // if undefined, no possible match. otherwise it can be nearest or exact.
       //nearestName?: NoteName //
    }>;
 
+// Decode a MOD period value with given finetune into either:
+// - exact table match (kind="table")
+// - raw unmatched value with optional nearest table note (kind="raw")
 export function decodeModPeriod(period: number, finetune: ProtrackerFinetune): ModDecodedPitch {
    const lk = PROTRACKER_LOOKUPS[protrackerFinetuneIndex(finetune)];
    const midi = lk.midiByPeriod.get(period);
@@ -125,7 +132,7 @@ export function decodeModPeriod(period: number, finetune: ProtrackerFinetune): M
       kind: "raw",
       finetune,
       period,
-      nearestMidi: bestMidi,
+      midi: bestMidi,
       //nearestName: bestMidi !== undefined ? nameOf(bestMidi) : undefined,
    });
 }

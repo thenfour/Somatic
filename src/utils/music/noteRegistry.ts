@@ -110,14 +110,17 @@ export const NoteRegistry = (() => {
          BASE_PERIODS_FT0: PROTRACKER_BASE_PERIODS_FT0,
          PERIOD_TABLES: PROTRACKER_PERIOD_TABLES,
 
+         // returns protracker period for given midi note and finetune
          periodFromMidi(midi: number, finetune: ProtrackerFinetune = 0): number |
             undefined {
                return modPeriodFromMidi(midi, finetune);
             },
+         // returns midi note for given protracker period and finetune, or undefined if not exact match
          midiFromPeriod(period: number, finetune: ProtrackerFinetune = 0): number |
             undefined {
                return modMidiFromPeriod(period, finetune);
             },
+         // decodes a MOD period into either exact table match or raw unmatched value
          decodePeriod(period: number, finetune: ProtrackerFinetune = 0): ModDecodedPitch {
             return decodeModPeriod(period, finetune);
          },

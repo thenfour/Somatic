@@ -8,7 +8,7 @@ import {Tic80Waveform} from "../../models/waveform";
 import {Tic80Caps} from "../../models/tic80Capabilities";
 import {SongOrderItem} from "../../models/songOrder";
 import {Tic80Constants} from "../../../bridge/memory_layout";
-import {IsNullOrWhitespace} from "../../utils/utils";
+import {IsNullOrWhitespace, stripExtension} from "../../utils/utils";
 import {decodePatternChannelBytes} from "./tic80_pattern_encoding";
 
 export type Tic80ImportWarning = {
@@ -18,10 +18,6 @@ export type Tic80ImportWarning = {
 export type ImportTicCartResult = {
    song: Song; warnings: Tic80ImportWarning[];
 };
-
-function stripExtension(fileName: string): string {
-   return fileName.replace(/\.[^./\\]+$/, "");
-}
 
 function getChunkBank0OrThrow(
    chunks: TicCartChunk[],
