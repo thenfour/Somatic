@@ -1,105 +1,128 @@
-import {typedEntries} from "./utils/utils";
 
-export const NOTE_NAMES = ["C-", "C#", "D-", "D#", "E-", "F-", "F#", "G-", "G#", "A-", "A#", "B-"] as const;
-export type NoteName = (typeof NOTE_NAMES)[number];
+import {decodeModPeriod, MOD_FINETUNES, ModDecodedPitch, modMidiFromPeriod, modPeriodFromMidi, PROTRACKER_BASE_PERIODS_FT0, PROTRACKER_MIN_MIDI, PROTRACKER_NOTE_COUNT, PROTRACKER_PERIOD_TABLES, ProtrackerFinetune} from "./utils/music/modMusic";
+import {kPitchClasses, PitchClassInfo} from "./utils/music/pitchClass";
+import {defaultTicNoteConfig, TicPitch, ticPitchFromMidi} from "./utils/music/tic80Music";
 
-export const OCTAVE_COUNT = 8;
-export const MIN_MIDI_NOTE = 0;
-export const MAX_MIDI_NOTE = 255; // full MIDI byte range for registry completeness
 
-// Tracker/UI range (aligned to TIC-80 0..95)
-// choose mapping: MIDI 12 (C0) -> TIC note index 0 (C-0)
-const MIDI_FOR_TIC_NOTE0 = 12; // C0
-const MIN_TIC_NOTE = 0;
-const MAX_TIC_NOTE = 95;
-// const MIN_PATTERN_NOTE = MIDI_FOR_TIC_NOTE0 + MIN_TIC_NOTE; // 12
-// const MAX_PATTERN_NOTE = MIDI_FOR_TIC_NOTE0 + MAX_TIC_NOTE; // 107
+type NoteInfo = {
+   midi: number; // 0..255
+   frequencyHz: number;
+   octave: number; // MIDI-standard display octave (C4=60)
+   pitchClass: PitchClassInfo;
 
-// export const MIN_PATTERN_NOTE = 0;
-// export const MAX_PATTERN_NOTE = 95;
-// export const MAX_NOTE_NUM = MAX_PATTERN_NOTE; // backwards compatibility alias
+   label: string;           // e.g. "C#4", "B4"
+   labelUnicode: string;    // e.g. "C♯4", "B4"
+   labelFixedWidth: string; // e.g. "C#4", "B-4"
 
-export type NoteInfo = {
-   midi: number; // 0..127 absolute MIDI note number
-   name: string;
-   frequency: number;
-   semitone: number;             // 0..11 within octave (C=0)
-   octave: number;               // MIDI-standard display octave (C4 = 60)
-   ticAbsoluteNoteIndex: number; // 0..95 used by sfx()
-   ticOctave: number;            // 0..7 used by TIC-80 pattern encoding (-1 if not representable)
-   ticNoteNibble: number;        // 4..15 used by TIC-80 pattern encoding (0 if not representable)
-   isAvailableInPattern: boolean;
+   tic: TicPitch;
 };
 
-const calcFrequency = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
+export const NoteRegistry = (() => {
+   // Full byte range for full 8-bit registry completeness.
+   const MIN_NOTE_NUM = 0;
+   const MAX_NOTE_NUM = 255;
 
-const NOTE_REGISTRY: Record<number, NoteInfo> = {};
-const NOTE_NAME_MAP: Record<string, NoteInfo> = {};
-export const NOTE_INFOS: NoteInfo[] = [];
-
-for (let midi = MIN_MIDI_NOTE; midi <= MAX_MIDI_NOTE; midi++) {
-   const semitone = ((midi % 12) + 12) % 12; // 0..11
-   const octave = Math.floor(midi / 12) - 1; // MIDI standard: 60 -> C4
-
-   const noteName = `${NOTE_NAMES[semitone]}${octave}`;
-   const frequency = calcFrequency(midi);
-
-   // Map MIDI -> TIC note index (0..95), then to (O, N)
-   const ticNoteIndex = midi - MIDI_FOR_TIC_NOTE0;
-   const isAvailableInPattern = ticNoteIndex >= MIN_TIC_NOTE && ticNoteIndex <= MAX_TIC_NOTE;
-
-   let ticOctave = -1;
-   let ticNoteNibble = 0;
-
-   if (isAvailableInPattern) {
-      ticOctave = Math.floor(ticNoteIndex / 12); // 0..7
-      const noteInOctave = ticNoteIndex % 12;    // 0..11
-      ticNoteNibble = noteInOctave + 4;          // 4..15 (pattern N nibble)
+   // takes midi note and returns semitone offset in octave.
+   function semitoneOf(midiNote: number): number {
+      return ((midiNote % 12) + 12) % 12;
    }
 
-   const info: NoteInfo = {
-      midi,
-      name: noteName,
-      frequency,
-      semitone,
-      octave,
-      ticOctave,
-      ticNoteNibble,
-      isAvailableInPattern,
-      ticAbsoluteNoteIndex: ticNoteIndex,
-   };
+   // MIDI-standard display octave: C4 = 60, C0 = 12
+   function octaveOf(midiNote: number): number {
+      return Math.floor(midiNote / 12) - 1;
+   }
 
-   NOTE_REGISTRY[midi] = info;
-   NOTE_NAME_MAP[noteName] = info;
-   NOTE_INFOS.push(info);
-}
+   function pitchClassInfoOf(semitoneOrMidiNote: number): PitchClassInfo {
+      return kPitchClasses.infoByValue.get((semitoneOrMidiNote % 12) as any)!;
+   }
 
-export const NOTES_BY_NUM: Record<number, NoteInfo> = NOTE_REGISTRY;
-export const NOTE_NUMS_BY_NAME: Record<string, number> = Object.fromEntries(
-   typedEntries(NOTE_NAME_MAP).map(([k, v]) => [k, v.midi]),
-);
+   function frequencyOf(midiNote: number, a4Hz = 440, a4NoteNumber = 69): number {
+      return a4Hz * 2 ** ((midiNote - a4NoteNumber) / 12);
+   }
 
-export function getNoteInfo(midi: number): NoteInfo|undefined {
-   return NOTE_REGISTRY[midi];
-}
+   function noteInfoOfMidiNote(midiNote: number): NoteInfo {
+      const s = semitoneOf(midiNote);
+      const o = octaveOf(midiNote);
+      return {
+         pitchClass: pitchClassInfoOf(s),
+         midi: midiNote,
+         frequencyHz: frequencyOf(midiNote),
+         octave: o,
+         tic: ticPitchFromMidi(midiNote),
+         label: `${pitchClassInfoOf(s).label}${o}`,
+         labelUnicode: `${pitchClassInfoOf(s).labelUnicode}${o}`,
+         labelFixedWidth: `${pitchClassInfoOf(s).labelFixedWidth}${o}`,
+      };
+   }
 
-export function midiToFrequency(midi: number): number|undefined {
-   return NOTE_REGISTRY[midi]?.frequency;
-}
+   // build the registry
+   // midi note = index
+   const notesByMidi: Array<NoteInfo> = [];
 
-export function midiToName(midi: number): string|undefined {
-   return NOTE_REGISTRY[midi]?.name;
-}
+   for (let midi = MIN_NOTE_NUM; midi <= MAX_NOTE_NUM; midi++) {
+      const info: NoteInfo = noteInfoOfMidiNote(midi);
+      notesByMidi[midi] = info;
+   }
 
-export function nameToMidi(name: string): number|undefined {
-   return NOTE_NAME_MAP[name]?.midi;
-}
+   // Public API
+   const api = Object.freeze({
 
-export function midiToTicPitch(
-   midi: number,
-   ): {octave: number; noteNibble: number}|null {
-   const info = NOTE_REGISTRY[midi];
-   if (!info || !info.isAvailableInPattern)
-      return null;
-   return {octave: info.ticOctave, noteNibble: info.ticNoteNibble};
-}
+      all: Object.freeze(notesByMidi.slice()),
+      get(midi: number): NoteInfo |
+         undefined {
+            if (!Number.isFinite(midi))
+               return undefined;
+            midi = midi | 0;
+            if (midi < MIN_NOTE_NUM || midi > MAX_NOTE_NUM)
+               return undefined;
+            return notesByMidi[midi];
+         },
+      frequencyFromMidi(midi: number): number |
+         undefined {
+            return api.get(midi)?.frequencyHz;
+         },
+
+      // TIC-80 API
+      tic: Object.freeze({
+         config: defaultTicNoteConfig,
+         ticPitchFromMidi(midi: number): TicPitch {
+            return ticPitchFromMidi(midi);
+         },
+         // midiFromTicPitch(octave: number, noteNibble: number): number |
+         //    undefined {
+         //       return midiFromTicPitch(octave, noteNibble);
+         //    },
+         pitchForPatternOrNull(midi: number): {octave: number; noteNibble: number} |
+            null {
+               const info = api.get(midi);
+               if (!info || !info.tic.isPatternEncodable)
+                  return null;
+               return {octave: info.tic.octave, noteNibble: info.tic.noteNibble};
+            },
+      }),
+
+      // MOD / ProTracker API
+      mod: Object.freeze({
+         // finetune values as stored in MOD samples are -8..+7 (signed nibble).
+         FINETUNES: MOD_FINETUNES,
+         PROTRACKER_MIN_MIDI,                                                  // C-1 in your naming
+         PROTRACKER_MAX_MIDI: PROTRACKER_MIN_MIDI + PROTRACKER_NOTE_COUNT - 1, // B-3
+         BASE_PERIODS_FT0: PROTRACKER_BASE_PERIODS_FT0,
+         PERIOD_TABLES: PROTRACKER_PERIOD_TABLES,
+
+         periodFromMidi(midi: number, finetune: ProtrackerFinetune = 0): number |
+            undefined {
+               return modPeriodFromMidi(midi, finetune);
+            },
+         midiFromPeriod(period: number, finetune: ProtrackerFinetune = 0): number |
+            undefined {
+               return modMidiFromPeriod(period, finetune);
+            },
+         decodePeriod(period: number, finetune: ProtrackerFinetune = 0): ModDecodedPitch {
+            return decodeModPeriod(period, finetune);
+         },
+      }),
+   });
+
+   return api;
+})();

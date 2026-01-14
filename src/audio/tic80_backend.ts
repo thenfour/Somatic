@@ -1,6 +1,6 @@
 // TIC80 specific
 
-import {getNoteInfo} from "../defs";
+import {NoteRegistry} from "../defs";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {SomaticInstrument} from "../models/instruments";
 import type {Pattern} from "../models/pattern";
@@ -44,7 +44,10 @@ export class Tic80Backend {
          return;
 
       await b.invokeExclusive("sfxNoteOn", async (tx) => {
-         const note = getNoteInfo(midiNote)!.ticAbsoluteNoteIndex;
+         const noteInfo = NoteRegistry.get(midiNote);
+         if (!noteInfo)
+            return;
+         const note = noteInfo.tic.absoluteNoteIndex;
          const speed = instrument.speed;
 
          await tx.playSfx({sfxId: instrumentIndex, tic80Note: note, channel, speed}).catch((err) => {
@@ -80,7 +83,7 @@ export class Tic80Backend {
             continue;
          }
 
-         const noteInfo = getNoteInfo(cell.midiNote);
+         const noteInfo = NoteRegistry.get(cell.midiNote);
          if (!noteInfo) {
             continue;
          }
@@ -98,7 +101,7 @@ export class Tic80Backend {
          requests.push({
             channel: channelIndex,
             sfxId: clampedInstrumentIndex,
-            tic80Note: noteInfo.ticAbsoluteNoteIndex,
+            tic80Note: noteInfo.tic.absoluteNoteIndex,
             speed,
          });
       }

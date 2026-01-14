@@ -1,7 +1,7 @@
 import React, { forwardRef, KeyboardEvent, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { SomaticTransportState } from '../audio/backend';
 import { Tic80AudioController } from '../audio/controller';
-import { midiToName } from '../defs';
+import { NoteRegistry } from '../defs';
 import { useCellRefsGrid } from '../hooks/useCellRefsGrid';
 import { useClipboard } from '../hooks/useClipboard';
 import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D';
@@ -37,7 +37,8 @@ const somaticParamKeyMap = instrumentKeyMap;
 
 
 const formatMidiNote = (midiNote: number | undefined | null) => {
-    return !midiNote ? '---' : midiToName(midiNote);
+    if (!midiNote) return '---';
+    return NoteRegistry.get(midiNote)?.labelFixedWidth ?? '---';
 };
 
 const formatInstrumentLabel = (val: number | undefined | null): string => {

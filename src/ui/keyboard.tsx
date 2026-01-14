@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Tic80AudioController } from "../audio/controller";
-import { NOTE_INFOS } from "../defs";
+import { NoteRegistry } from "../defs";
 import './keyboard.css';
 
 const KEY_POSITIONS = [0, 0.5, 1, 1.5, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6];
@@ -17,14 +16,15 @@ export const Keyboard: React.FC<KeyboardProps> = ({ onNoteOn, onNoteOff }) => {
     // track active notes
     const [activeNotes, setActiveNotes] = useState<Set<number>>(new Set());
 
-    const keys = NOTE_INFOS.filter((info) => info.isAvailableInPattern).map((info) => {
-        const isBlack = [1, 3, 6, 8, 10].includes(info.semitone);
+    const keys = NoteRegistry.all.filter((info) => info.tic.isPatternEncodable).map((info) => {
+        const semitone = info.pitchClass.value;
+        const isBlack = [1, 3, 6, 8, 10].includes(semitone);
         return {
-            id: `${info.octave}-${info.semitone}`,
-            noteName: info.name,
+            id: `${info.octave}-${semitone}`,
+            noteName: info.labelFixedWidth,
             midiNoteValue: info.midi,
             className: `key ${isBlack ? 'black' : 'white'} ${activeNotes.has(info.midi) ? 'active' : ''}`,
-            left: ((info.octave - 1) * 7 + KEY_POSITIONS[info.semitone]) * 32,
+            left: ((info.octave - 1) * 7 + KEY_POSITIONS[semitone]) * 32,
         };
     });
 

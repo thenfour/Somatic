@@ -1048,8 +1048,7 @@ function tf_music_tick()
 	local destPointer = getBufferPointer()
 	local orderCount = getSongOrderCount()
 
-	log("tick: Advancing to song order " .. tostring(currentSongOrder))
-	log("             : Song order count is " .. tostring(orderCount))
+	log("tick: Advancing to seq " .. tostring(currentSongOrder))
 
 	if orderCount == 0 then
 		clearPatternBuffer(destPointer)

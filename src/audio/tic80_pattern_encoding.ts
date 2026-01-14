@@ -1,4 +1,4 @@
-import {NOTE_INFOS} from "../defs";
+import {NoteRegistry} from "../defs";
 import {Pattern, PatternCell, PatternChannel} from "../models/pattern";
 import {kTic80EffectCommand, Tic80Caps} from "../models/tic80Capabilities";
 
@@ -6,10 +6,10 @@ function encodePatternNote(midiNoteValue: number|undefined): {noteNibble: number
    if (midiNoteValue === undefined) {
       return {noteNibble: 0, octave: 0};
    }
-   const noteInfo = NOTE_INFOS[midiNoteValue]!;
-   return {
-      noteNibble: noteInfo.ticNoteNibble, octave: noteInfo.octave,
-   }
+   const pitch = NoteRegistry.tic.pitchForPatternOrNull(midiNoteValue);
+   if (!pitch)
+      return {noteNibble: 0, octave: 0};
+   return {noteNibble: pitch.noteNibble, octave: pitch.octave};
 };
 
 function encodePatternCellTriplet(
@@ -26,15 +26,8 @@ function encodePatternCellTriplet(
 function decodeTicPitch(noteNibble: number, octave: number): number|undefined {
    // See defs.ts mapping: MIDI 12 (C0) -> TIC note index 0.
    // noteNibble is 4..15 for actual notes.
-   if (noteNibble < 4)
-      return undefined;
-   const noteInOctave = (noteNibble - 4) & 0x0f;
-   const ticNoteIndex = (octave * 12) + noteInOctave;
-   const midi = 12 + ticNoteIndex;
-   // This should always land in 12..107, but be conservative.
-   if (midi < 0 || midi >= NOTE_INFOS.length)
-      return undefined;
-   return midi;
+   const midi = NoteRegistry.tic.config.midiForTicNote0 + (octave * 12) + ((noteNibble - 4) & 0x0f);
+   return NoteRegistry.get(midi) ? midi : undefined;
 }
 
 function decodePatternCellTriplet(byte0: number, byte1: number, byte2: number): PatternCell {
