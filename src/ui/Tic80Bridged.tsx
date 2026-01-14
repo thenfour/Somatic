@@ -7,7 +7,7 @@ import React, {
     useRef,
     useState,
 } from "react";
-import { Tic80SerializedSong } from "../audio/tic80_cart_serializer";
+import { Tic80SerializedSong } from "../subsystem/tic80/tic80_cart_serializer";
 import { buildInfo } from "../buildInfo";
 import { TicBridge, TicMemoryMap } from "../models/tic80Capabilities";
 import { AsyncMutex } from "../utils/async_mutex";

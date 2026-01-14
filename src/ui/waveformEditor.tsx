@@ -11,7 +11,7 @@ import '/src/waveform.css';
 import { WaveformSwatch, WaveformSwatchDisplayStyle } from "./waveformSwatch";
 import './waveformEditor.css';
 import { AppPanelShell } from './AppPanelShell';
-import { calculateSongUsage, getMaxWaveformUsedIndex, SongUsage } from "../utils/SongOptimizer";
+import { calculateSongUsage, getMaxWaveformUsedIndex, SongUsage } from "../subsystem/tic80/SongOptimizer";
 import { Button } from "./Buttons/PushButton";
 import { ButtonGroup } from "./Buttons/ButtonGroup";
 import { IconButton } from "./Buttons/IconButton";

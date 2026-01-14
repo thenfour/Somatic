@@ -1,10 +1,10 @@
 // low level tic-80 cart serialization utils
 // nothing somatic-specific here.
-import {Tic80Constants} from "../../bridge/memory_layout";
-import {SomaticInstrument, type SomaticInstrumentDto} from "../models/instruments";
-import {Song} from "../models/song";
-import {Tic80Caps} from "../models/tic80Capabilities";
-import {assert, clamp} from "../utils/utils";
+import {Tic80Constants} from "../../../bridge/memory_layout";
+import {SomaticInstrument, type SomaticInstrumentDto} from "../../models/instruments";
+import {Song} from "../../models/song";
+import {Tic80Caps} from "../../models/tic80Capabilities";
+import {assert, clamp} from "../../utils/utils";
 
 /** Chunk type IDs from https://github.com/nesbox/TIC-80/wiki/.tic-File-Format */
 export const TicChunkType = {

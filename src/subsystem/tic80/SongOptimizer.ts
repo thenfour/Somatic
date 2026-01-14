@@ -1,15 +1,15 @@
 // TIC80 specific
 
-import {gSomaticLZDefaultConfig, lzCompress} from "./encoding";
-import {encodePatternChannelDirect} from "../audio/tic80_pattern_encoding";
-import {prepareSongColumns} from "../audio/tic80_prepared_song";
-import {SomaticEffectKind, SomaticInstrument} from "../models/instruments";
-import {Pattern} from "../models/pattern";
-import {Song} from "../models/song";
-import {SongOrderItem} from "../models/songOrder";
-import {Tic80Caps} from "../models/tic80Capabilities";
-import {Tic80Waveform} from "../models/waveform";
-import {clamp} from "./utils";
+import {gSomaticLZDefaultConfig, lzCompress} from "../../utils/encoding";
+import {encodePatternChannelDirect} from "./tic80_pattern_encoding";
+import {prepareSongColumns} from "./tic80_prepared_song";
+import {SomaticEffectKind, SomaticInstrument} from "../../models/instruments";
+import {Pattern} from "../../models/pattern";
+import {Song} from "../../models/song";
+import {SongOrderItem} from "../../models/songOrder";
+import {Tic80Caps} from "../../models/tic80Capabilities";
+import {Tic80Waveform} from "../../models/waveform";
+import {clamp} from "../../utils/utils";
 
 export type SongUsage = {
    usedPatterns: Set<number>;       // whole-pattern usage

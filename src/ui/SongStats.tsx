@@ -2,12 +2,12 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { lzCompress, lzDecompress } from "../utils/encoding";
-import { serializeSongForTic80Bridge, serializeSongToCartDetailed, SongCartDetails, Tic80SerializedSong } from "../audio/tic80_cart_serializer";
+import { serializeSongForTic80Bridge, serializeSongToCartDetailed, SongCartDetails, Tic80SerializedSong } from "../subsystem/tic80/tic80_cart_serializer";
 import { useClipboard } from "../hooks/useClipboard";
 import { useRenderAlarm } from "../hooks/useRenderAlarm";
 import { useWriteBehindEffect } from "../hooks/useWriteBehindEffect";
 import { Song } from "../models/song";
-import { analyzePatternColumns, OptimizeSong, PatternColumnAnalysisResult } from "../utils/SongOptimizer";
+import { analyzePatternColumns, OptimizeSong, PatternColumnAnalysisResult } from "../subsystem/tic80/SongOptimizer";
 import { compareBuffers, formatBytes } from "../utils/utils";
 //import { generateAllMemoryMaps } from "../utils/memoryMapStats";
 import { Tic80MemoryMap } from "../../bridge/memory_layout";

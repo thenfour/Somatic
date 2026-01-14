@@ -1,11 +1,11 @@
 // tic-80 specific
 
-import {LoopMode, SomaticTransportState, Tic80TransportState} from "../audio/backend";
-import {SelectionRect2D} from "../hooks/useRectSelection2D";
-import {Pattern, PatternCell} from "../models/pattern";
-import {Song} from "../models/song";
-import {SongOrderItem} from "../models/songOrder";
-import {gTic80ChannelsArray, Tic80Caps} from "../models/tic80Capabilities";
+import {LoopMode, SomaticTransportState, Tic80TransportState} from "../../audio/backend";
+import {SelectionRect2D} from "../../hooks/useRectSelection2D";
+import {Pattern, PatternCell} from "../../models/pattern";
+import {Song} from "../../models/song";
+import {SongOrderItem} from "../../models/songOrder";
+import {gTic80ChannelsArray, Tic80Caps} from "../../models/tic80Capabilities";
 
 export interface BakeSongArgs {
    song: Song;              // the full song being edited

@@ -1,9 +1,9 @@
 // TIC80 specific
 
-import {PatternChannel} from "../models/pattern";
-import {Song} from "../models/song";
-import {SomaticCaps, Tic80Caps} from "../models/tic80Capabilities";
-import {clamp} from "../utils/utils";
+import {PatternChannel} from "../../models/pattern";
+import {Song} from "../../models/song";
+import {SomaticCaps, Tic80Caps} from "../../models/tic80Capabilities";
+import {clamp} from "../../utils/utils";
 
 export type PreparedPatternColumn = {
    sourcePatternIndex: number; //

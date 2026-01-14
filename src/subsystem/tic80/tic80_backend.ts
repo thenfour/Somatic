@@ -1,15 +1,15 @@
 // TIC80 specific
 
-import {NoteRegistry} from "../utils/music/noteRegistry";
-import {SelectionRect2D} from "../hooks/useRectSelection2D";
-import {SomaticInstrument} from "../models/instruments";
-import type {Pattern} from "../models/pattern";
-import type {Song} from "../models/song";
-import {gTic80ChannelsArray, Tic80Caps, TicMemoryMap} from "../models/tic80Capabilities";
-import type {Tic80BridgeHandle} from "../ui/Tic80Bridged";
-import {convertTic80MusicStateToSomatic} from "../utils/bakeSong";
-import {LoopMode, MakeEmptySomaticTransportState, SomaticTransportState, Tic80TransportState} from "./backend";
-import {serializeSongForTic80Bridge, Tic80SerializedSong} from "./tic80_cart_serializer";
+import {NoteRegistry} from "../../utils/music/noteRegistry";
+import {SelectionRect2D} from "../../hooks/useRectSelection2D";
+import {SomaticInstrument} from "../../models/instruments";
+import type {Pattern} from "../../models/pattern";
+import type {Song} from "../../models/song";
+import {gTic80ChannelsArray, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
+import type {Tic80BridgeHandle} from "../../ui/Tic80Bridged";
+import {convertTic80MusicStateToSomatic} from "./bakeSong";
+import {LoopMode, MakeEmptySomaticTransportState, SomaticTransportState, Tic80TransportState} from "../../audio/backend";
+import {serializeSongForTic80Bridge, Tic80SerializedSong} from "../../audio/tic80_cart_serializer";
 
 export type BackendPlaySongArgs = {
    reason: string;                           //

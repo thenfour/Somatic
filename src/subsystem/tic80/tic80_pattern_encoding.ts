@@ -1,6 +1,6 @@
-import {NoteRegistry} from "../utils/music/noteRegistry";
-import {Pattern, PatternCell, PatternChannel} from "../models/pattern";
-import {kTic80EffectCommand, Tic80Caps} from "../models/tic80Capabilities";
+import {NoteRegistry} from "../../utils/music/noteRegistry";
+import {Pattern, PatternCell, PatternChannel} from "../../models/pattern";
+import {kTic80EffectCommand, Tic80Caps} from "../../models/tic80Capabilities";
 
 function encodePatternNote(midiNoteValue: number|undefined): {noteNibble: number; octave: number} {
    if (midiNoteValue === undefined) {

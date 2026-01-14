@@ -1,15 +1,15 @@
 // create a new Song object from a tic80 cart.
 
 import {decodeTempo, decodeRowsPerPattern, decodeTrackSpeed, decodeWaveformSamplesFromBytes16, decodeInstrumentFromBytes66, parseTicCartChunks, TicChunkType, unpackTrackFrame, type TicCartChunk} from "./tic80_serialization";
-import {decodePatternChannelBytes} from "./tic80_pattern_encoding";
-import {Song} from "../models/song";
-import {Pattern, PatternChannel, PatternDto} from "../models/pattern";
-import {SomaticInstrument} from "../models/instruments";
-import {Tic80Waveform} from "../models/waveform";
-import {Tic80Caps} from "../models/tic80Capabilities";
-import {SongOrderItem} from "../models/songOrder";
-import {Tic80Constants} from "../../bridge/memory_layout";
-import {IsNullOrWhitespace} from "../utils/utils";
+import {decodePatternChannelBytes} from "../../audio/tic80_pattern_encoding";
+import {Song} from "../../models/song";
+import {Pattern, PatternChannel, PatternDto} from "../../models/pattern";
+import {SomaticInstrument} from "../../models/instruments";
+import {Tic80Waveform} from "../../models/waveform";
+import {Tic80Caps} from "../../models/tic80Capabilities";
+import {SongOrderItem} from "../../models/songOrder";
+import {Tic80Constants} from "../../../bridge/memory_layout";
+import {IsNullOrWhitespace} from "../../utils/utils";
 
 export type Tic80ImportWarning = {
    message: string;
