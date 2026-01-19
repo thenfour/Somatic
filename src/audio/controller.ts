@@ -1,7 +1,7 @@
 import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {Tic80Caps} from "../models/tic80Capabilities";
-import {Tic80BridgeHandle} from "../ui/Tic80Bridged";
+import {Tic80BridgeHandle} from "../subsystem/tic80/Tic80Bridged";
 import {BackendPlaySongArgs, Tic80Backend} from "../subsystem/tic80/tic80_backend";
 import {VoiceManager} from "./voice_manager";
 

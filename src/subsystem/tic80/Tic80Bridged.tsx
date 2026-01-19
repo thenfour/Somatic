@@ -7,11 +7,11 @@ import React, {
     useRef,
     useState,
 } from "react";
-import { Tic80SerializedSong } from "../subsystem/tic80/tic80_cart_serializer";
-import { buildInfo } from "../buildInfo";
-import { TicBridge, TicMemoryMap } from "../models/tic80Capabilities";
-import { AsyncMutex } from "../utils/async_mutex";
-import { gLog } from "../utils/logger";
+import { Tic80SerializedSong } from "./tic80_cart_serializer";
+import { buildInfo } from "../../buildInfo";
+import { TicBridge, TicMemoryMap } from "../../models/tic80Capabilities";
+import { AsyncMutex } from "../../utils/async_mutex";
+import { gLog } from "../../utils/logger";
 import { Tic80Iframe, Tic80IframeHandle } from "./Tic80EmbedIframe";
 //import { Tic80TopLevel, Tic80TopLevelHandle } from "./Tic80TopLevel";
 

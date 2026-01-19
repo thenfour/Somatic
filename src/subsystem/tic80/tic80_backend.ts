@@ -6,7 +6,7 @@ import {SomaticInstrument} from "../../models/instruments";
 import type {Pattern} from "../../models/pattern";
 import type {Song} from "../../models/song";
 import {gTic80ChannelsArray, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
-import type {Tic80BridgeHandle} from "../../ui/Tic80Bridged";
+import type {Tic80BridgeHandle} from "./Tic80Bridged";
 import {convertTic80MusicStateToSomatic} from "./bakeSong";
 import {LoopMode, MakeEmptySomaticTransportState, SomaticTransportState, Tic80TransportState} from "../../audio/backend";
 import {serializeSongForTic80Bridge, Tic80SerializedSong} from "./tic80_cart_serializer";

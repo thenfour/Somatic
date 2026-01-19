@@ -46,7 +46,7 @@ import { SongSettingsPanel } from './ui/SongSettingsPanel';
 import { SongStatsAppPanel, useSongStatsData } from './ui/SongStats';
 import { StatusChips } from './ui/StatusChips';
 import { Theme, ThemeEditorPanel } from './ui/theme_editor_panel';
-import { Tic80Bridge, Tic80BridgeHandle } from './ui/Tic80Bridged';
+import { Tic80Bridge, Tic80BridgeHandle } from './subsystem/tic80/Tic80Bridged';
 import { useToasts } from './ui/toast_provider';
 import { TransportControls } from './ui/TransportControls';
 import { VersionAvatar } from './ui/VersionAvatar';
