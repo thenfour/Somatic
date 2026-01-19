@@ -105,18 +105,15 @@ function RateInHzToTicks60HzAllowZero(rateHz: number): number {
 // Extract the wave-morphing instrument config from the song.
 function getMorphMap(song: Song): MorphEntryInput[] {
    const entries: MorphEntryInput[] = [];
-   for (let instrumentId = 0; instrumentId < (song.instruments?.length ?? 0); instrumentId++) {
+   for (let instrumentId = 0; instrumentId < (song.instruments.length ?? 0); instrumentId++) {
       const inst = song.instruments[instrumentId];
-      if (!inst)
-         continue;
 
       // Only include instruments that require bridge-side runtime config.
       // This prevents overwriting the bridge marker/mailboxes in RAM.
-      const waveEngine: SomaticInstrumentWaveEngine = inst.waveEngine ?? "native";
+      const waveEngine: SomaticInstrumentWaveEngine = inst.waveEngine;
       const lowpassEnabled = !!inst.lowpassEnabled;
       const effectKind: SomaticEffectKind = inst.effectKind ?? SomaticEffectKind.none;
-      const needsRuntimeConfig = waveEngine !== "native" || lowpassEnabled || effectKind !== SomaticEffectKind.none;
-      if (!needsRuntimeConfig)
+      if (!inst.isKRateProcessing())
          continue;
 
       let morphGradientNodes: WaveformMorphGradientNodePacked[]|undefined;

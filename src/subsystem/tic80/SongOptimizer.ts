@@ -46,7 +46,7 @@ export function calculateSongUsage(song: Song): SongUsage {
          for (let r = 0; r < song.rowsPerPattern; ++r) {
             const cell = pat.getCell(ch, r);
             if (cell.instrumentIndex === undefined || cell.instrumentIndex === null)
-               return;
+               continue;
             const instIdx = clamp(cell.instrumentIndex, 0, maxInstrumentIndex);
             usedInstruments.add(instIdx);
          }
