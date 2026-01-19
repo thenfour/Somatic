@@ -10,7 +10,7 @@ export const PROTRACKER_MIN_MIDI = 24;   // C-1 in your naming
 export const PROTRACKER_NOTE_COUNT = 36; // C-1..B-3
 
 // NOTE: OpenMPT calls "C-4" "C-7". Maybe it does this to avoid negative or 0 octave numbers?
-// but i think Somatic is doing the right thing.
+// but i think Somatic is doing the right thing. yes i confirmed protracker uses the same octave naming as Somatic.
 
 // The on-disk MOD period field is 12-bit (0 means "no note"). 1-4095 are valid period values.
 // In practice, classic ProTracker modules use a smaller subset, but supporting the full range

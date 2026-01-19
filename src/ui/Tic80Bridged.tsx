@@ -385,7 +385,11 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
 
         async function playSfxRaw(opts: { sfxId: number; tic80Note: number; channel: number; speed: number }) {
             const channel = (opts.channel ?? 0) & 0xff;
-            const sfxId = opts.sfxId & 0xff;
+
+            // sfxId passed in is the somatic-facing instrument id (0-based).
+            // but the TIC-80 SFX ids reserve 0 and 1 for special purposes,
+            // handled by serialization. When playing a sfx live, we need to account for that.
+            const sfxId = (opts.sfxId + 2) & 0xff;
             const note = opts.tic80Note & 0xff;
             const speed = opts.speed & 0xff;
             const cmd = TicBridge.CMD_PLAY_SFX_ON;
