@@ -13,6 +13,7 @@ import { EditorState } from '../models/editor_state';
 import { analyzePatternPlaybackForGrid, isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { formatPatternIndex, Song } from '../models/song';
 import { kSomaticPatternCommand, kTic80EffectCommand, SomaticPatternCommand, Tic80EffectCommand } from '../models/tic80Capabilities';
+import { PatternGridHighlightStyle, kPatternGridHighlightStyle } from '../models/patternGridHighlightStyle';
 import { interpolatePatternValues, nudgeInstrumentInPattern, RowRange, setInstrumentInPattern, transposeCellsInPattern } from '../utils/advancedPatternEdit';
 import { CharMap, clamp, Coord2D, includesOf, numericRange } from '../utils/utils';
 import { Tooltip } from './basic/tooltip';
@@ -82,6 +83,7 @@ type PatternGridProps = {
     advancedEditPanelOpen: boolean;
     onSetAdvancedEditPanelOpen: (open: boolean) => void;
     highlightSelectedInstrument: boolean;
+    highlightStyle: PatternGridHighlightStyle;
 };
 
 export type PatternGridHandle = {
@@ -108,7 +110,7 @@ type ScopeTargets = {
 };
 
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
-    ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange, advancedEditPanelOpen, onSetAdvancedEditPanelOpen, highlightSelectedInstrument }, ref) => {
+    ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange, advancedEditPanelOpen, onSetAdvancedEditPanelOpen, highlightSelectedInstrument, highlightStyle }, ref) => {
         const mgr = useShortcutManager<GlobalActionId>();
         const currentPosition = clamp(editorState.activeSongPosition ?? 0, 0, song.songOrder.length - 1); // Math.max(0, Math.min(song.songOrder.length - 1, editorState.activeSongPosition || 0));
         const currentSongOrderItem = song.songOrder[currentPosition] ?? null;
@@ -1521,7 +1523,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                             {numericRange(0, song.rowsPerPattern).map((_, rowIndex) => {
                                 const chunkSize = Math.max(song.highlightRowCount || 1, 1);
                                 const sectionIndex = Math.floor(rowIndex / chunkSize) % 2;
-                                const rowClass = `${sectionIndex === 0 ? 'row-section-a' : 'row-section-b'}${activeRow === rowIndex ? ' active-row' : ''}`;
+                                const isSectionStart = (rowIndex % chunkSize) === 0;
+                                const resolvedHighlightStyle = kPatternGridHighlightStyle.coerceByValue(highlightStyle, kPatternGridHighlightStyle.key.alternating)?.value ?? kPatternGridHighlightStyle.valueByKey.alternating;
+                                const rowSectionClass = resolvedHighlightStyle === kPatternGridHighlightStyle.valueByKey.sectionHeader
+                                    ? (isSectionStart ? 'row-section-b' : 'row-section-a')
+                                    : (sectionIndex === 0 ? 'row-section-a' : 'row-section-b');
+                                const rowClass = `${rowSectionClass}${activeRow === rowIndex ? ' active-row' : ''}`;
                                 const isRowInSelection = editorState.isPatternRowSelected(rowIndex);
                                 const rowNumberClass = `row-number${isRowInSelection ? ' row-number--selected' : ''}`;
                                 const hasWaveformRenderConflict = kRateRenderSlotConflictByRow[rowIndex];
@@ -1533,7 +1540,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             onMouseDown={(e) => handleRowHeaderMouseDown(e, rowIndex)}
                                         >
                                             <div className="row-number-inner">
-                                                <span className="row-number-index">{rowIndex}</span>
+                                                <span className="row-number-index">{rowIndex.toString().padStart(2, '0')}</span>
                                                 {hasWaveformRenderConflict ? (
                                                     <Tooltip title="Two or more channels render to the same waveform slot on this row">
                                                         <div className="row-number-warning-dot"></div>

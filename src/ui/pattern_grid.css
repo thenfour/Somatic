@@ -52,6 +52,8 @@
     font-family: var(--ff-mono);
     border-collapse: collapse;
     margin: 15px;
+    --row-color-mix: 60%;
+    --row-number-color-mix: 50%;
 }
 
 .pattern-grid-shell {
@@ -252,11 +254,23 @@
 }
 
 .pattern-grid tr.row-section-a:not(.active-row) {
-    background-color: var(--row-a);
+    /* normally we use tic colors directly and unaltered. but the pattern editor has a lot of modes,
+    so we make an exception. here we blend --row-a and --bg. */
+    background-color: color-mix(in lab, var(--row-a) var(--row-color-mix), var(--bg) calc(100% - var(--row-color-mix)));
+    /* background-color: var(--row-a); */
 }
 
 .pattern-grid tr.row-section-b:not(.active-row) {
-    background-color: var(--row-b);
+    background-color: color-mix(in lab, var(--row-b) var(--row-color-mix), var(--bg) calc(100% - var(--row-color-mix)));
+    /* background-color: var(--row-b); */
+}
+
+.pattern-grid tr.row-section-a:not(.active-row) .row-number {
+    background-color: color-mix(in lab, var(--row-number-a) var(--row-number-color-mix), var(--bg) calc(100% - var(--row-number-color-mix)));
+}
+
+.pattern-grid tr.row-section-b:not(.active-row) .row-number {
+    background-color: color-mix(in lab, var(--row-number-b) var(--row-number-color-mix), var(--bg) calc(100% - var(--row-number-color-mix)));
 }
 
 .pattern-grid td {
@@ -476,7 +490,7 @@
 }
 
 .pattern-grid .row-number {
-    background-color: var(--bg);
+    /* background-color: var(--bg); */
     color: var(--muted);
     cursor: pointer;
 }
@@ -514,6 +528,8 @@
     padding-bottom: 20vh;
     position: relative;
     overflow: auto;
+    border: 3px solid var(--bg);
+    box-sizing: border-box;
 }
 
 /* Keep the advanced panel toggle visible while scrolling the grid */
@@ -536,7 +552,7 @@
 }
 
 .pattern-grid-container--editMode {
-    box-shadow: 0 0 0 3px var(--edit-border) inset;
+    border: 3px solid var(--edit-border);
 }
 
 .pattern-grid tfoot .pattern-grid-carry-row th {

@@ -29,6 +29,8 @@
     --accent-strong: #3b5dc9;
     --row-a: #f4f4f4;
     --row-b: #73eff7;
+    --row-number-a: #94b0c2;
+    --row-number-b: #73eff7;
     --row-active: #38b764;
     --tooltip-bg: #1a1c2c;
     --tooltip-text: #f4f4f4;
@@ -110,8 +112,6 @@
     --dot-indicator-warning: #ef7d57;
     --dot-indicator-disabled: #566c86;
     --dot-indicator-error: #ef7d57;
-
-
 }
 
 .theme-dark {
@@ -124,8 +124,10 @@
     --border-strong: #566c86;
     --accent: #41a6f6;
     --accent-strong: #73eff7;
-    --row-a: #5d275d;
-    --row-b: #333c57;
+    --row-a: #333c57;
+    --row-b: #5d275d;
+    --row-number-a: #1a1c2c;
+    --row-number-b: #5d275d;
     --row-active: #38b764;
     --tooltip-bg: #1a1c2c;
     --tooltip-text: #f4f4f4;

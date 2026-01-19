@@ -57,15 +57,15 @@ import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
 import { numericRange } from './utils/utils';
 import { importSongFromAmigaModBytes } from './subsystem/AmigaMod/AmigaModImport';
+import { kPatternGridHighlightStyle, PatternGridHighlightStyle } from './models/patternGridHighlightStyle';
 
 const TIC80_FRAME_SIZES = [
-
     { id: 'small', label: 'Small', width: '256px', height: '144px' },// smaller than this and it disappears
     { id: 'medium', label: 'Medium', width: '512px', height: '288px' },
     { id: 'large', label: 'Large', width: '768px', height: '432px' },
 ] as const;
 
-const TIC80_FRAME_DEFAULT_INDEX = 1;
+const TIC80_FRAME_DEFAULT_INDEX = 0; // it's actually just not useful to see this; it's more of a debugging tool.
 
 type SongMutator = (song: Song) => void;
 type SongChangeArgs = {
@@ -148,6 +148,10 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [songStatsPanelOpen, setSongStatsPanelOpen] = useLocalStorage("somatic-songStatsPanelOpen", false);
     const [songSettingsPanelOpen, setSongSettingsPanelOpen] = useLocalStorage("somatic-songSettingsPanelOpen", false);
     const [encodingUtilsPanelOpen, setEncodingUtilsPanelOpen] = useLocalStorage("somatic-encodingUtilsPanelOpen", false);
+    const [patternGridHighlightStyle, setPatternGridHighlightStyle] = useLocalStorage<PatternGridHighlightStyle>(
+        "somatic-patternGridHighlightStyle",
+        kPatternGridHighlightStyle.valueByKey.sectionHeader,
+    );
 
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
@@ -1100,6 +1104,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         advancedEditPanelOpen={advancedEditPanelOpen}
                         onSetAdvancedEditPanelOpen={open => setAdvancedEditPanelOpen(open)}
                         highlightSelectedInstrument={highlightSelectedInstrumentInPatternGrid}
+                        highlightStyle={patternGridHighlightStyle}
                     />)}
                 {songSettingsPanelOpen && (
                     <SongSettingsPanel
@@ -1157,6 +1162,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         onEnableMidiDevice={handleEnableMidiDevice}
                         highlightSelectedInstrumentInPatternGrid={highlightSelectedInstrumentInPatternGrid}
                         onSetHighlightSelectedInstrumentInPatternGrid={setHighlightSelectedInstrumentInPatternGrid}
+                        patternGridHighlightStyle={patternGridHighlightStyle}
+                        onSetPatternGridHighlightStyle={setPatternGridHighlightStyle}
                     />
                 )}
                 {themePanelOpen && (

@@ -6,6 +6,8 @@ import { Button } from './Buttons/PushButton';
 import { ButtonGroup } from './Buttons/ButtonGroup';
 import { CheckboxButton } from './Buttons/CheckboxButton';
 import { GlobalActions } from '../keyb/ActionIds';
+import { Dropdown } from './basic/Dropdown';
+import { kPatternGridHighlightStyle, PatternGridHighlightStyle } from '../models/patternGridHighlightStyle';
 
 interface MidiDeviceChipProps {
     device: MidiDevice;
@@ -51,10 +53,23 @@ type PreferencesPanelProps = {
     onEnableMidiDevice: (device: MidiDevice) => void;
     highlightSelectedInstrumentInPatternGrid: boolean;
     onSetHighlightSelectedInstrumentInPatternGrid: (enabled: boolean) => void;
+    patternGridHighlightStyle: PatternGridHighlightStyle;
+    onSetPatternGridHighlightStyle: (style: PatternGridHighlightStyle) => void;
 };
 
 
-export const PreferencesPanel: React.FC<PreferencesPanelProps> = ({ midiStatus, midiDevices, disabledMidiDeviceIds, onClose, onDisconnectMidiDevice, onEnableMidiDevice, highlightSelectedInstrumentInPatternGrid, onSetHighlightSelectedInstrumentInPatternGrid }) => (
+export const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
+    midiStatus,
+    midiDevices,
+    disabledMidiDeviceIds,
+    onClose,
+    onDisconnectMidiDevice,
+    onEnableMidiDevice,
+    highlightSelectedInstrumentInPatternGrid,
+    onSetHighlightSelectedInstrumentInPatternGrid,
+    patternGridHighlightStyle,
+    onSetPatternGridHighlightStyle,
+}) => (
     <AppPanelShell
         className="preferences-panel"
         onClose={onClose}
@@ -76,6 +91,17 @@ export const PreferencesPanel: React.FC<PreferencesPanelProps> = ({ midiStatus, 
                     Highlight selected instrument in pattern editor
                 </CheckboxButton>
             </ButtonGroup>
+            <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 12, marginBottom: 6 }}>Pattern row highlighting</div>
+                <Dropdown<PatternGridHighlightStyle>
+                    value={patternGridHighlightStyle}
+                    onChange={onSetPatternGridHighlightStyle}
+                    options={kPatternGridHighlightStyle.infos.map((info) => ({
+                        value: info.value,
+                        label: info.label,
+                    }))}
+                />
+            </div>
         </fieldset>
         <section>
             <h3>MIDI</h3>

@@ -19,9 +19,6 @@ const THEME_VARS = {
         '--border-strong',
         '--accent',
         '--accent-strong',
-        '--row-a',
-        '--row-b',
-        '--row-active',
         '--tooltip-bg',
         '--tooltip-text',
         '--success-accent',
@@ -29,6 +26,13 @@ const THEME_VARS = {
         '--error-surface-bg',
         '--error-surface-text',
         '--error-surface-border',
+    ],
+    "Pattern grid": [
+        '--row-a',
+        '--row-b',
+        '--row-number-a',
+        '--row-number-b',
+        '--row-active',
         '--edit-border',
         '--cell-note',
         '--cell-instrument',
@@ -36,6 +40,7 @@ const THEME_VARS = {
         '--cell-param',
         '--cell-somatic-command',
         '--cell-somatic-param',
+
     ],
     "Keyboard": [
         '--keyboard-white-key',
