@@ -1140,6 +1140,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         editorState={editorState}
                         onSongChange={updateSong}
                         onEditorStateChange={updateEditorState}
+                        onOpenInstrumentEditor={() => setInstrumentPanelOpen(true)}
                         onClose={() => setInstrumentsPanelOpen(false)}
                     />
                 )}

@@ -18,6 +18,7 @@ export type InstrumentsPanelProps = {
     editorState: EditorState;
     onSongChange: (args: { mutator: (song: Song) => void; description: string; undoable: boolean }) => void;
     onEditorStateChange: (mutator: (state: EditorState) => void) => void;
+    onOpenInstrumentEditor: () => void;
     onClose: () => void;
 };
 
@@ -26,6 +27,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
     editorState,
     onSongChange,
     onEditorStateChange,
+    onOpenInstrumentEditor,
     onClose,
 }) => {
     const instrumentCount = song.instruments.length;
@@ -180,6 +182,12 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                                 data-focus-bookmark="true"
                                 aria-selected={isSelected}
                                 onClick={() => setCurrentInstrument(idx)}
+                                onDoubleClick={() => {
+                                    if (idx !== selectedInstrument) {
+                                        setCurrentInstrument(idx);
+                                    }
+                                    onOpenInstrumentEditor();
+                                }}
                                 onFocus={() => {
                                     if (idx !== selectedInstrument) {
                                         setCurrentInstrument(idx);
