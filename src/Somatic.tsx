@@ -1181,6 +1181,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 {showingOnScreenKeyboard && <Keyboard
                     onNoteOn={handleNoteOn}
                     onNoteOff={handleNoteOff}
+                    onClose={() => setShowingOnScreenKeyboard(false)}
                 />}
 
                 <AppStatusBar

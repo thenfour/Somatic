@@ -1,11 +1,20 @@
 /* On-Screen Keyboard Component Styles */
 
+.on-screen-keyboard {
+    /* position: relative; */
+    display: flex;
+}
+
+.on-screen-keyboard__close {}
+
 #keyboard {
     position: relative;
     /* allow vert size for a horiz scroll bar */
     height: 115px;
     overflow: auto;
     margin: 0;
+    /* fill available width */
+    flex: 1;
 }
 
 #keyboard .key {
