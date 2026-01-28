@@ -69,6 +69,11 @@
     font-size: var(--ff-size-1x);
     color: var(--text);
     cursor: pointer;
+    text-decoration: none;
+}
+
+.desktop-menu-link-item:hover {
+    text-decoration: underline;
 }
 
 .desktop-menu-item:hover:not(.desktop-menu-item--disabled) {

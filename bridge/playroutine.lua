@@ -613,6 +613,8 @@ end -- do
 -- BEGIN_DISABLE_MINIFICATION
 -- (end Somatic playroutine)
 
+--#if false -- when importing into ticbuild, exclude the example entrypoint
+
 -- BEGIN_CUSTOM_ENTRYPOINT
 -- example main loop...
 local lastKnownOrder = 0
@@ -684,4 +686,7 @@ function TIC()
 	-- END_DEBUG_ONLY
 end
 -- END_CUSTOM_ENTRYPOINT
+
+--#endif
+
 -- END_DISABLE_MINIFICATION

@@ -6,72 +6,71 @@ Live @ https://somatic.tenfourmusic.net
 
 ## Main features
 
-* MIDI device support
-* export as `.tic` cartridge
-* ability to import music from existing tic carts
-* Guaranteed sound accuracy because it uses a real TIC-80 as the sound engine.
-* supports long songs (255 frames)
-* Saves your current workspace locally so you always start where you left off.
-* Dynamic instrument waveform rendering (tick-based "K-rate" rendering)
-  * PWM synthesis
-  * Lowpass filter automation
-  * Waveform crossfading ("gradients")
-  * wavefolding shaper
-  * Hard sync
-  * LFO & envelope modulation
-  * Sample import & slicing
-* Tracker ergonomics
-  * show carried-over effect status at end of pattern
-  * show usage of patterns / instruments
-  * highlighting current instrument
-  * Pattern thumbnails shown on the song order to get a complete "minimap" of the song, with highlighting of the current instrument.
-  * warnings on pattern editor
-  * allow highlight color for specific instruments
-  * allow naming patterns, instruments
-  * allow markers for song order
-* Light/dark mode themes
-* Keyboard support
-  * keyboard note input should be more keyboard-layout-agnostic
-  * all keyboard shortcuts can be configurable and saved to localstorage / exported
-  * tooltips over most commands revealing shortcut
-  * almost every command can be configured with a keyboard shortcut
-* transport
-  * Mute/Solo per channel
-  * looping modes
-* pattern editing features
-  * block operations
-  * transpose, instrument, command interpolation
-  * Copy/paste supported everywhere
-  * arranger editing
-  * Undo/redo support
-  * box selection in song order + operations like duplicate, move selection
-* Song optimizations
-  * Show unused waveforms, sfx, and patterns don't become part of the exported cart.
-  * Show compression journey: pattern data is bloaty and gets optimized and compressed
-  * Live insights about the size of the song (size of resulting code, playroutine, song data, cart size...)
-* Extras
-  * Tools for encoding/decoding base64, hex-encoded, base85 and LZ-compressed Lua strings.
-  * a built-in Lua minifier
+- MIDI device support
+- export as `.tic` cartridge
+- ability to import music from existing tic carts
+- Guaranteed sound accuracy because it uses a real TIC-80 as the sound engine.
+- supports long songs (255 frames)
+- Saves your current workspace locally so you always start where you left off.
+- Dynamic instrument waveform rendering (tick-based "K-rate" rendering)
+  - PWM synthesis
+  - Lowpass filter automation
+  - Waveform crossfading ("gradients")
+  - wavefolding shaper
+  - Hard sync
+  - LFO & envelope modulation
+  - Sample import & slicing
+- Tracker ergonomics
+  - show carried-over effect status at end of pattern
+  - show usage of patterns / instruments
+  - highlighting current instrument
+  - Pattern thumbnails shown on the song order to get a complete "minimap" of the song, with highlighting of the current instrument.
+  - warnings on pattern editor
+  - allow highlight color for specific instruments
+  - allow naming patterns, instruments
+  - allow markers for song order
+- Light/dark mode themes
+- Keyboard support
+  - keyboard note input should be more keyboard-layout-agnostic
+  - all keyboard shortcuts can be configurable and saved to localstorage / exported
+  - tooltips over most commands revealing shortcut
+  - almost every command can be configured with a keyboard shortcut
+- transport
+  - Mute/Solo per channel
+  - looping modes
+- pattern editing features
+  - block operations
+  - transpose, instrument, command interpolation
+  - Copy/paste supported everywhere
+  - arranger editing
+  - Undo/redo support
+  - box selection in song order + operations like duplicate, move selection
+- Song optimizations
+  - Show unused waveforms, sfx, and patterns don't become part of the exported cart.
+  - Show compression journey: pattern data is bloaty and gets optimized and compressed
+  - Live insights about the size of the song (size of resulting code, playroutine, song data, cart size...)
+- Extras
+  - Tools for encoding/decoding base64, hex-encoded, base85 and LZ-compressed Lua strings.
+  - a built-in Lua minifier
 
-## Features that aren't obvious
+## Features that are less obvious
 
-* <kbd>Esc</kbd> enables keyboard editing in the pattern grid.
-* <kbd>Shift+Backspace</kbd> inserts a note-off in the pattern grid.
-* <kbd>Ctrl+Click</kbd> on a note or instrument column to select that instrument.
-* holding <kbd>Shift+drag</kbd> while drawing on the waveform editor canvas draws straight lines
-* <kbd>Ctrl+Click</kbd> on a knob will reset it to default value
-* <kbd>Shift+drag</kbd> on a knob for fine control
-
+- <kbd>Esc</kbd> enables keyboard editing in the pattern grid.
+- <kbd>Shift+Backspace</kbd> inserts a note-off in the pattern grid.
+- <kbd>Ctrl+Click</kbd> on a note or instrument column to select that instrument.
+- holding <kbd>Shift+drag</kbd> while drawing on the waveform editor canvas draws straight lines
+- <kbd>Ctrl+Click</kbd> on a knob will reset it to default value
+- <kbd>Shift+drag</kbd> on a knob for fine control
 
 ## Somatic pattern commands
 
 additional per-pattern effect columns that do Somatic-specific things
 
-* **E**: Effect strength scale (00=bypass, FF=max)
-* **L**: Set LFO phase (00-FF)
-* **F**: set filter strength (00-FF, only if LP is enabled on the instrument)
+- **E**: Effect strength scale (00=bypass, FF=max)
+- **L**: Set LFO phase (00-FF)
+- **F**: set filter strength (00-FF, only if LP is enabled on the instrument)
 
-## export procedure / how to use in a demo
+## How to export / how to use in a demo
 
 To use a Somatic track in your demo,
 
@@ -99,6 +98,55 @@ local track, currentFrame, currentRow = somatic_get_state()
 print(string.format("t:%d f:%d r:%d", track, currentFrame, currentRow), 0, 0)
 ```
 
+## How to use with ticbuild build system
+
+[ticbuild](https://github.com/thenfour/ticbuild) is a multi-file asset manager and build system
+for TIC-80. It's easy to import a Somatic song into a `ticbuild` project.
+
+For an example, install ticbuild and initialize a new project using the `piggybossa` template.
+
+```bash
+> npm i -g ticbuild
+> ticbuild init c:\myprojects\projectname --template-name piggybossa
+
+```
+
+Importing is just a matter of importing chunks from the Somatic-exported `.tic` file,
+and call `somatic_tick()` from your `TIC()` function.
+
+In your `ticbuild` project manifest
+
+```jsonc
+{
+  "imports": [
+    // import the song cartridge like this:
+    {
+      "name": "song",
+      "path": "path_to_your_song.tic",
+    },
+  ],
+  "assembly": {
+    "blocks": [
+      // Add this to import the non-code Somatic music data
+      {
+        "asset": "song",
+        "chunks": ["MUSIC_PATTERNS", "MUSIC_TRACKS", "WAVEFORMS", "SFX"],
+      },
+    ],
+  },
+}
+```
+
+And in your Lua code,
+
+```Lua
+--#include "asset:song:CODE" -- include music routines
+
+function TIC()
+  somatic_tick() -- music update per frame
+end
+```
+
 ## motivations / history
 
 This started as a fork of https://reverietracker.github.io/chromatic/. However, Somatic has basically nothing related to the original anymore. Sound engine, UI, pattern, playroutine have all been
@@ -109,14 +157,12 @@ Somatic has 2 main goals:
 1. be an ultra-ergonomic UX. to be "the ultimate tracker UX"
 2. provide reasonably-musical playroutine that augments the built-in TIC-80 music routine.
 
-
 ## Song schema versioning
 
 Somatic song JSON includes a top-level `schemaVersion` number.
 
 - `schemaVersion = 1` (current):
-   - pattern cells represent note-off as a boolean flag (`noteOff: true`) and instrument indices are Somatic-owned (`instrumentIndex` is 0-based and may be `null`). TIC-80 reserved instruments (0 and 1) are injected only during TIC-80 serialization.
-
+  - pattern cells represent note-off as a boolean flag (`noteOff: true`) and instrument indices are Somatic-owned (`instrumentIndex` is 0-based and may be `null`). TIC-80 reserved instruments (0 and 1) are injected only during TIC-80 serialization.
 
 ## issues / limitations
 
@@ -124,9 +170,9 @@ this was made like, yesterday. it has bugs. file them @ https://github.com/thenf
 
 Other stuff worth metioning:
 
-* Mobile: Absolutely will not be a good experience on mobile / small screens. This thing works like a 
+- Mobile: Absolutely will not be a good experience on mobile / small screens. This thing works like a
   desktop app and wants mouse + keyboard.
-* There are quirks due to using the embedded TIC-80, and the goofy playroutine. Instrument/waveform
+- There are quirks due to using the embedded TIC-80, and the goofy playroutine. Instrument/waveform
   updates tend to be updated in real-time, but pattern/order changes, or changing looping mode
   requires stopping / playing again to hear the change.
 
@@ -135,8 +181,6 @@ Other stuff worth metioning:
 A TIC-80 lives in an `<iframe>`, and Somatic establishes 2-way communication with it
 through a custom cart called "bridge.tic" (source of bridge is @ `/bridge/bridge.lua`).
 Based on that, Somatic can write to TIC-80 memory, and tell the bridge to do things like play, stop, etc.
-
-
 
 ### Why an `<iframe>`?
 
@@ -159,7 +203,7 @@ npx serve
 ### bridge.lua and playroutine.lua
 
 The tracker's embedded TIC-80 loads a cart that's built as part of the project build process.
-The `build-bridge` webpack plugin, `bridge.lua`, gets injected with a bunch of stuff (constants 
+The `build-bridge` webpack plugin, `bridge.lua`, gets injected with a bunch of stuff (constants
 from memory map / TIC-80 constants / shared playback Lua routines), and built into a .tic cart.
 
 `build-bridge` is also run automatically at runtime when relevant files are changed. It's finnicky though.
@@ -176,7 +220,7 @@ conversion that goes on between Somatic and the exported cartridge.
 
 - **Baking**: your play options (channel muting, looping, selection) change the song that gets played by the TIC-80. For example if you choose to loop a 4-row bit of song, it gets converted to a song with only those 4 rows, looped.
 - **Optimization**: detecting which instruments, waveforms, patterns are unused or duplicates, removing them and sliding them to be together. We also break Somatic patterns into 4 individual channels (the way
-TIC-80 does patterns)
+  TIC-80 does patterns)
 - **Transmission**:
   - For Somatic tracker's live web play, we `POKE` it into the TIC-80's memory in a way that the runtime playroutine can use.
     - Waveform and sfx are placed directly in the standard WAVEFORM and SFX memory locations
@@ -193,43 +237,41 @@ TIC-80 does patterns)
 
 ![pattern editor](.attachments/image-2.png)
 
-* Set pattern names
-* See if this pattern is used in the song (& how many times)
-* Mute/Solo controls
-* Columns: Note, instrument, effect, param XY, somatic command, somatic param
-* Current instrument is highlighted with an orange box
-* Instruments can be configured to display with different colors (18 and 07 are blue for drums)
-* Effect carry-over is displayed at the bottom of the pattern
-* shows other useful tech data; in this case some waveform rendering info is displayed
+- Set pattern names
+- See if this pattern is used in the song (& how many times)
+- Mute/Solo controls
+- Columns: Note, instrument, effect, param XY, somatic command, somatic param
+- Current instrument is highlighted with an orange box
+- Instruments can be configured to display with different colors (18 and 07 are blue for drums)
+- Effect carry-over is displayed at the bottom of the pattern
+- shows other useful tech data; in this case some waveform rendering info is displayed
 
 ![pattern editor - warnings](.attachments/image-3.png)
 
-* Box-selection and block operations
-* Warnings are shown when tech conflicts are detected
+- Box-selection and block operations
+- Warnings are shown when tech conflicts are detected
 
 ### pattern advanced edit panel
 
 ![pattern advanced edit panel](.attachments/image-4.png)
 
-* Select where thes block ops will be applied (you can make whole-song adjustments here)
-* You can also choose to apply edits to a single instrument.
-* Sync button sets the value to the current instrument
-* Transpose notes by octave or semitone
-* Interpolate notes (select a region, this will fill in all notes between with a ramp)
-* Clear note column
-* Set to instrument
-* increment / decrement instrument
-* Clear instrument column
-* Clear effect column or Somatic FX column
-* Clear or interpolate the effect param columns (X only, Y only, or XY together)
+- Select where thes block ops will be applied (you can make whole-song adjustments here)
+- You can also choose to apply edits to a single instrument.
+- Sync button sets the value to the current instrument
+- Transpose notes by octave or semitone
+- Interpolate notes (select a region, this will fill in all notes between with a ramp)
+- Clear note column
+- Set to instrument
+- increment / decrement instrument
+- Clear instrument column
+- Clear effect column or Somatic FX column
+- Clear or interpolate the effect param columns (X only, Y only, or XY together)
 
 ### waveform editor
 
 ![waveform editor](.attachments/image-5.png)
 
 ### SFX (Instrument) editor
-
-
 
 ### arrangement editor ("song order" / "frames"...)
 
@@ -242,4 +284,3 @@ TIC-80 does patterns)
 ### export cart / song stats
 
 ![Song stats](.attachments/image-8.png)
-

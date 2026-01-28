@@ -686,6 +686,83 @@ const MenuItem = React.forwardRef<HTMLDivElement, MenuItemProps>(({ children, di
 });
 MenuItem.displayName = 'DesktopMenuItem';
 
+type MenuLinkItemProps = {
+    children: ReactNode;
+    href: string;
+    target?: React.HTMLAttributeAnchorTarget;
+    rel?: string;
+    download?: string;
+    disabled?: boolean;
+    onSelect?: (event: React.MouseEvent | React.KeyboardEvent) => void;
+    shortcut?: string;
+    icon?: ReactNode;
+    checked?: boolean;
+    closeOnSelect?: boolean;
+    inset?: boolean;
+};
+
+const MenuLinkItem = React.forwardRef<HTMLAnchorElement, MenuLinkItemProps>(
+    ({
+        children,
+        href,
+        target,
+        rel,
+        download,
+        disabled,
+        onSelect,
+        shortcut,
+        icon,
+        checked,
+        closeOnSelect = true,
+        inset,
+    }, forwardedRef) => {
+        const ctx = useMenuContext('DesktopMenu.LinkItem');
+        const combinedRef = composeRefs<HTMLAnchorElement>(forwardedRef);
+
+        const handleActivate = (event: React.MouseEvent | React.KeyboardEvent) => {
+            if (disabled) {
+                event.preventDefault();
+                return;
+            }
+            onSelect?.(event);
+            if (closeOnSelect) ctx.closeTree();
+        };
+
+        const handleClick: React.MouseEventHandler<HTMLAnchorElement> = (event) => {
+            event.stopPropagation();
+            handleActivate(event);
+        };
+
+        const classes = ['desktop-menu-item', 'desktop-menu-link-item'];
+        if (disabled) classes.push('desktop-menu-item--disabled');
+        if (inset) classes.push('desktop-menu-item--inset');
+
+        const leading = checked ? CharMap.Check : icon;
+        const resolvedRel = target === '_blank' ? (rel ?? 'noopener noreferrer') : rel;
+
+        return (
+            <a
+                role="menuitem"
+                tabIndex={-1}
+                aria-disabled={disabled || undefined}
+                className={classes.join(' ')}
+                onClick={handleClick}
+                ref={combinedRef}
+                data-menu-item="true"
+                href={disabled ? undefined : href}
+                target={target}
+                rel={resolvedRel}
+                download={download}
+            >
+                <span className="desktop-menu-item__leading">{leading}</span>
+                <span className="desktop-menu-item__label">{children}</span>
+                {shortcut && <span className="desktop-menu-item__shortcut">{shortcut}</span>}
+            </a>
+        );
+    },
+);
+MenuLinkItem.displayName = 'DesktopMenuLinkItem';
+
 type MenuDividerProps = {
     inset?: boolean;
 };
@@ -842,6 +919,7 @@ export const DesktopMenu = {
     Trigger: MenuTrigger,
     Content: MenuContent,
     Item: MenuItem,
+    LinkItem: MenuLinkItem,
     Divider: MenuDivider,
     Label: MenuLabel,
     Sub: MenuSub,

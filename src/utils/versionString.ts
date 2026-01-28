@@ -1,7 +1,9 @@
 import {buildInfo} from "../buildInfo";
 
 export type BuildInfoLike = {
-   gitTag: string|null; commitsSinceTag: number | null; dirty: boolean | null;
+   gitTag: string|null; //
+   commitsSinceTag: number | null;
+   dirty: boolean | null;
    commitHash?: string | null;
    buildDate?: string;
    lastCommitDate?: string | null;
