@@ -125,9 +125,9 @@ export function importSongFromTicCartBytes(
          let combinedIndex = comboToPatternIndex.get(key);
          if (combinedIndex === undefined) {
             const pat: PatternDto = {
-               channels: [],
+               channels: Array.from({length: Tic80Caps.song.audioChannels}, () => ({rows: []})),
                name: "",
-            };
+            }
             // the tic80 patterns are single-channel; combine into our multi-channel pattern.
             // tic80 also refers to them 1-based, where 0 means empty.
             if (p0 > 0) {

@@ -1,6 +1,6 @@
-import {NoteRegistry} from "../../utils/music/noteRegistry";
-import {Pattern, PatternCell, PatternChannel} from "../../models/pattern";
+import {PatternCell, PatternChannel} from "../../models/pattern";
 import {kTic80EffectCommand, Tic80Caps} from "../../models/tic80Capabilities";
+import {NoteRegistry} from "../../utils/music/noteRegistry";
 
 function encodePatternNote(midiNoteValue: number|undefined): {noteNibble: number; octave: number} {
    if (midiNoteValue === undefined) {
@@ -12,14 +12,18 @@ function encodePatternNote(midiNoteValue: number|undefined): {noteNibble: number
    return {noteNibble: pitch.noteNibble, octave: pitch.octave};
 };
 
-function encodePatternCellTriplet(
+function encodePatternCellTriplet(isNoteOff: boolean,
    midiNoteValue: number|undefined, instrument: number, command: number, argX: number, argY: number):
    [number, number, number] {
-   const ticPitch = encodePatternNote(midiNoteValue);
-
-   const byte0 = ((argX & 0xf) << 4) | (ticPitch.noteNibble & 0x0f);
+   let byte0 = 1; // noteNibble = 1 for note off; from testing TIC-80 behavior.
+   let octave = 0; // note-off default val
+   if (!isNoteOff) {
+      const ticPitch = encodePatternNote(midiNoteValue);
+      byte0 = ((argX & 0xf) << 4) | (ticPitch.noteNibble & 0x0f);
+      octave = ticPitch.octave;
+   }
    const byte1 = ((instrument >> 5) & 0x01) << 7 | ((command & 0x07) << 4) | (argY & 0x0f);
-   const byte2 = ((ticPitch.octave & 0x07) << 5) | (instrument & 0x1f);
+   const byte2 = ((octave & 0x07) << 5) | (instrument & 0x1f);
    return [byte0, byte1, byte2];
 }
 
@@ -31,6 +35,7 @@ function decodeTicPitch(noteNibble: number, octave: number): number|undefined {
 }
 
 function decodePatternCellTriplet(byte0: number, byte1: number, byte2: number): PatternCell {
+
    // XXXXNNNN SCCCYYYY OOOSSSSS
    const argX = (byte0 >> 4) & 0x0f;
    const noteNibble = byte0 & 0x0f;
@@ -40,21 +45,33 @@ function decodePatternCellTriplet(byte0: number, byte1: number, byte2: number): 
    const argY = byte1 & 0x0f;
    const octave = (byte2 >> 5) & 0x07;
 
+   // console.log(`Decoding pattern cell: byte0=${byte0} byte1=${byte1} byte2=${byte2}
+   //    => noteNibble=${noteNibble} octave=${octave} instrument=${instrument} command=${command}
+   //    argX=${argX} argY=${argY}`);
+
+   const effect =
+      kTic80EffectCommand.infos.find(info => info.tic80EncodedValue === command); // clamp(command - 1, 0, 7);
+
    // noteNibble: 0 = empty; 1..3 = stops; 4..15 = notes
    if (noteNibble === 0) {
-      return {};
+      return {
+         tic80Effect: effect ? effect.key : undefined,
+         tic80EffectX: argX,
+         tic80EffectY: argY,
+      };
    }
    if (noteNibble < 4) {
       // Map TIC-80 stops to Somatic's explicit note-off.
       return {
          noteOff: true,
          instrumentIndex: undefined,
+         tic80Effect: effect ? effect.key : undefined,
+         tic80EffectX: argX,
+         tic80EffectY: argY,
       };
    }
 
    const midiNote = decodeTicPitch(noteNibble, octave);
-   const effect =
-      kTic80EffectCommand.infos.find(info => info.tic80EncodedValue === command); // clamp(command - 1, 0, 7);
 
    // Somatic instruments are 0-based and exclude TIC-80 reserved indices 0 and 1.
    // We decode reserved instruments to Somatic semantics:
@@ -105,10 +122,10 @@ function encodePatternChannelRows(
       const cellData = getCell(row);
 
       // Map Somatic instrument index -> TIC-80 SFX index:
-      // - noteOff => instrument 1 (silent off)
+      // - noteOff => instrument 0 (silent off)
       // - null/undefined => instrument 0 (no instrument)
       // - N => N+2 (leave room for reserved 0/1)
-      const inst = cellData.noteOff ? 1 : (cellData.instrumentIndex == null ? 0 : ((cellData.instrumentIndex | 0) + 2));
+      const inst = cellData.noteOff ? 0 : (cellData.instrumentIndex == null ? 0 : ((cellData.instrumentIndex | 0) + 2));
 
       const commandArgX = cellData.tic80EffectX ?? 0;
       const commandArgY = cellData.tic80EffectY ?? 0;
@@ -116,8 +133,9 @@ function encodePatternChannelRows(
       const command = kTic80EffectCommand.coerceByKey(cellData.tic80Effect);
       // For noteOff cells, ensure we emit a note so it actually retriggers and cuts.
       const noteForEncoding =
-         cellData.noteOff ? (cellData.midiNote ?? Tic80Caps.pattern.minMidiNote) : cellData.midiNote;
+         cellData.noteOff ? 1 : cellData.midiNote;
       const [b0, b1, b2] = encodePatternCellTriplet(
+         !!cellData.noteOff,
          noteForEncoding, inst, command ? command.tic80EncodedValue : 0, commandArgX, commandArgY);
       const base = 3 * row;
       buf[base + 0] = b0;
@@ -128,10 +146,6 @@ function encodePatternChannelRows(
 
    return buf;
 }
-
-// function encodePatternChannel(pattern: Pattern, channelIndex: number): Uint8Array {
-//    return encodePatternChannelRows((rowIndex) => pattern.getCell(channelIndex, rowIndex));
-// }
 
 export function encodePatternChannelDirect(channel: PatternChannel): Uint8Array {
    //const rows = channel.rows;
@@ -156,25 +170,3 @@ export function decodePatternChannelBytes(bytes: Uint8Array, startOffset = 0): P
    }
    return new PatternChannel({rows});
 }
-
-// function encodePattern(pattern: Pattern): [Uint8Array, Uint8Array, Uint8Array, Uint8Array] {
-//    const encoded0 = encodePatternChannel(pattern, 0);
-//    const encoded1 = encodePatternChannel(pattern, 1);
-//    const encoded2 = encodePatternChannel(pattern, 2);
-//    const encoded3 = encodePatternChannel(pattern, 3);
-//    return [encoded0, encoded1, encoded2, encoded3];
-// };
-
-// function encodePatternCombined(pattern: Pattern): Uint8Array {
-//    const [encoded0, encoded1, encoded2, encoded3] = encodePattern(pattern);
-//    const combined = new Uint8Array(encoded0.length + encoded1.length + encoded2.length + encoded3.length);
-//    let offset = 0;
-//    combined.set(encoded0, offset);
-//    offset += encoded0.length;
-//    combined.set(encoded1, offset);
-//    offset += encoded1.length;
-//    combined.set(encoded2, offset);
-//    offset += encoded2.length;
-//    combined.set(encoded3, offset);
-//    return combined;
-// };
