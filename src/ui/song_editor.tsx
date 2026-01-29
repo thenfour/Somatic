@@ -27,7 +27,11 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
     const mgr = useShortcutManager();
 
     const onSpeedChange = (val: number) => {
-        onSongChange({ description: 'Set song speed', undoable: true, mutator: (s) => s.setSpeed(val) });
+          onSongChange({
+            description: "Set song speed",
+            undoable: true,
+            mutator: (s) => s.setSpeed(val),
+          });
     };
 
     const onTempoChange = (val: number) => {

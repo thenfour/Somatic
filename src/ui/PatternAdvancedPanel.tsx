@@ -1,17 +1,17 @@
-import { mdiSync, mdiWindowClose } from '@mdi/js';
-import React, { useId, useState } from 'react';
-import { GlobalActionId } from '../keyb/ActionIds';
-import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
-import { Song } from '../models/song';
-import { CharMap } from '../utils/utils';
-import { Divider } from './basic/Divider';
-import { Dropdown } from './basic/Dropdown';
-import { Tooltip } from './basic/tooltip';
-import { ButtonGroup } from './Buttons/ButtonGroup';
-import { CheckboxButton } from './Buttons/CheckboxButton';
-import { IconButton } from './Buttons/IconButton';
-import { Button } from './Buttons/PushButton';
-import { InstrumentChip } from './InstrumentChip';
+import { mdiSync, mdiWindowClose } from "@mdi/js";
+import React, { useId, useState } from "react";
+import { GlobalActionId } from "../keyb/ActionIds";
+import { useShortcutManager } from "../keyb/KeyboardShortcutManager";
+import { Song } from "../models/song";
+import { CharMap } from "../utils/utils";
+import { Divider } from "./basic/Divider";
+import { Dropdown } from "./basic/Dropdown";
+import { Tooltip } from "./basic/tooltip";
+import { ButtonGroup } from "./Buttons/ButtonGroup";
+import { CheckboxButton } from "./Buttons/CheckboxButton";
+import { IconButton } from "./Buttons/IconButton";
+import { Button } from "./Buttons/PushButton";
+import { InstrumentChip } from "./InstrumentChip";
 
 export type PatternAdvancedPanelProps = {
     enabled?: boolean;
@@ -35,14 +35,14 @@ export type PatternAdvancedPanelProps = {
 };
 
 const scopeOptions = [
-    { value: 'selection', label: 'Selection' },
-    { value: 'channel-pattern', label: 'Column in pattern' },
-    { value: 'channel-song', label: 'Column in song' },
-    { value: 'pattern', label: 'Whole pattern' },
-    { value: 'song', label: 'Whole song' },
+    { value: "selection", label: "Selection" },
+    { value: "channel-pattern", label: "Column in pattern" },
+    { value: "channel-song", label: "Column in song" },
+    { value: "pattern", label: "Whole pattern" },
+    { value: "song", label: "Whole song" },
 ] as const;
 
-export type ScopeValue = (typeof scopeOptions)[number]['value'];
+export type ScopeValue = (typeof scopeOptions)[number]["value"];
 
 // Advanced edit operations can optionally be filtered to a specific instrument.
 // instrumentIndex === null means "all instruments".
@@ -51,14 +51,14 @@ export type AdvancedEditScope = {
     instrumentIndex: number | null;
 };
 const interpolateOptions = [
-    { value: 'notes', label: 'Notes' },
-    { value: 'paramX', label: 'X' },
-    { value: 'paramY', label: 'Y' },
-    { value: 'paramXY', label: 'XY' },
-    { value: 'somaticParamXY', label: 'SXY' },
+    { value: "notes", label: "Notes" },
+    { value: "paramX", label: "X" },
+    { value: "paramY", label: "Y" },
+    { value: "paramXY", label: "XY" },
+    { value: "somaticParamXY", label: "SXY" },
 ] as const;
 
-export type InterpolateTarget = (typeof interpolateOptions)[number]['value'];
+export type InterpolateTarget = (typeof interpolateOptions)[number]["value"];
 
 export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     song,
@@ -79,7 +79,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     onClose,
 }) => {
     const keyboardShortcutMgr = useShortcutManager<GlobalActionId>();
-    const [scopeValue, setScopeValue] = useState<ScopeValue>('selection');
+    const [scopeValue, setScopeValue] = useState<ScopeValue>("selection");
     const [scopeInstrumentIndex, setScopeInstrumentIndex] = useState<number | null>(null);
     const [setInstrumentValue, setSetInstrumentValue] = useState<number>(2);
     const mgr = useShortcutManager<GlobalActionId>();
@@ -89,11 +89,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     const instrumentOptions = React.useMemo(() => {
         return song.instruments.map((instrument, i) => ({
             value: i,
-            label: <InstrumentChip
-                instrumentIndex={i}
-                instrument={instrument}
-                showTooltip={false}
-            />,
+            label: <InstrumentChip instrumentIndex={i} instrument={instrument} showTooltip={false} />,
         }));
     }, [song.instruments]);
 
@@ -105,7 +101,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     }, [scopeInstrumentIndex, scopeValue]);
 
     const handleInterpolateNotes = () => {
-        onInterpolate('notes', scope);
+        onInterpolate("notes", scope);
     };
 
     const handleClearNotes = () => {
@@ -131,14 +127,14 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     };
 
     const handleInterpolateX = () => {
-        onInterpolate('paramX', scope);
+        onInterpolate("paramX", scope);
     };
 
     const handleInterpolateY = () => {
-        onInterpolate('paramY', scope);
+        onInterpolate("paramY", scope);
     };
     const handleInterpolateXY = () => {
-        onInterpolate('paramXY', scope);
+        onInterpolate("paramXY", scope);
     };
 
     const handleClearSFX = () => {
@@ -149,16 +145,11 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     };
 
     const handleInterpolateSParam = () => {
-        onInterpolate('somaticParamXY', scope);
+        onInterpolate("somaticParamXY", scope);
     };
 
-
-
     return (
-        <aside
-            id="pattern-advanced-panel"
-            className={`pattern-advanced-panel`}
-        >
+        <aside id="pattern-advanced-panel" className={`pattern-advanced-panel`}>
             <header className="pattern-advanced-panel__header">
                 <IconButton onClick={onClose} iconPath={mdiWindowClose} />
                 <span>Advanced Edit</span>
@@ -226,18 +217,18 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                         <ButtonGroup>
                             {[-12, -1, 1, 12].map((step) => {
                                 const actionId: GlobalActionId =
-                                    step === -12 ? "TransposeSelectionDownOctave" :
-                                        step === -1 ? "TransposeSelectionDownSemitone" :
-                                            step === 1 ? "TransposeSelectionUpSemitone" :
-                                                "TransposeSelectionUpOctave";
+                                    step === -12
+                                        ? "TransposeSelectionDownOctave"
+                                        : step === -1
+                                          ? "TransposeSelectionDownSemitone"
+                                          : step === 1
+                                            ? "TransposeSelectionUpSemitone"
+                                            : "TransposeSelectionUpOctave";
                                 const label = keyboardShortcutMgr.getActionBindingLabel(actionId);
                                 const title = label ? `Shortcut: ${label}` : undefined;
                                 return (
                                     <Tooltip key={step} title={title} disabled={!title}>
-                                        <Button
-                                            onClick={() => onTranspose(step, scope)}
-                                            disabled={!enabled}
-                                        >
+                                        <Button onClick={() => onTranspose(step, scope)} disabled={!enabled}>
                                             {step > 0 ? `+${step}` : step}
                                         </Button>
                                     </Tooltip>
@@ -249,7 +240,6 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                             <Button onClick={handleClearNotes}>Clear</Button>
                         </ButtonGroup>
                     </section>
-
                 </fieldset>
                 <fieldset>
                     <legend>Instrument</legend>
@@ -270,12 +260,14 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                                     showCaret={false}
                                     triggerClassName="div-row-grow"
                                     renderTriggerLabel={(opt) => {
-                                        return <InstrumentChip
-                                            instrumentIndex={opt?.value ?? 0}
-                                            instrument={song.instruments[opt?.value ?? 0]}
-                                            //showTooltip={false}
-                                            width={100}
-                                        />
+                                        return (
+                                            <InstrumentChip
+                                                instrumentIndex={opt?.value ?? 0}
+                                                instrument={song.instruments[opt?.value ?? 0]}
+                                                //showTooltip={false}
+                                                width={100}
+                                            />
+                                        );
                                     }}
                                 />
                                 <Tooltip title="Set to current instrument">
@@ -293,10 +285,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                                 title={`Dec instrument (${keyboardShortcutMgr.getActionBindingLabel("DecrementInstrumentInSelection")})`}
                                 disabled={!keyboardShortcutMgr.getActionBindingLabel("DecrementInstrumentInSelection")}
                             >
-                                <Button
-                                    onClick={() => onNudgeInstrument(-1, scope)}
-                                    disabled={!enabled}
-                                >
+                                <Button onClick={() => onNudgeInstrument(-1, scope)} disabled={!enabled}>
                                     -1
                                 </Button>
                             </Tooltip>
@@ -304,10 +293,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                                 title={`Inc instrument (${keyboardShortcutMgr.getActionBindingLabel("IncrementInstrumentInSelection")})`}
                                 disabled={!keyboardShortcutMgr.getActionBindingLabel("IncrementInstrumentInSelection")}
                             >
-                                <Button
-                                    onClick={() => onNudgeInstrument(1, scope)}
-                                    disabled={!enabled}
-                                >
+                                <Button onClick={() => onNudgeInstrument(1, scope)} disabled={!enabled}>
                                     +1
                                 </Button>
                             </Tooltip>
@@ -315,7 +301,6 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                             <Button onClick={handleClearInstrument}>Clear</Button>
                         </ButtonGroup>
                     </section>
-
                 </fieldset>
                 <fieldset>
                     <legend>Effect</legend>
@@ -352,7 +337,6 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                         <Button onClick={handleInterpolateSParam}>Interpolate</Button>
                     </ButtonGroup>
                 </fieldset>
-
             </div>
         </aside>
     );
