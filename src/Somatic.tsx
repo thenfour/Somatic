@@ -58,11 +58,15 @@ import { UndoStack } from './utils/UndoStack';
 import { numericRange } from './utils/utils';
 import { importSongFromAmigaModBytes } from './subsystem/AmigaMod/AmigaModImport';
 import { kPatternGridHighlightStyle, PatternGridHighlightStyle } from './models/patternGridHighlightStyle';
+import Icon from "@mdi/react";
+import { mdiCog } from "@mdi/js";
+import { ButtonGroup } from "./ui/Buttons/ButtonGroup";
+import { Button } from "./ui/Buttons/PushButton";
 
 const TIC80_FRAME_SIZES = [
-    { id: 'small', label: 'Small', width: '256px', height: '144px' },// smaller than this and it disappears
-    { id: 'medium', label: 'Medium', width: '512px', height: '288px' },
-    { id: 'large', label: 'Large', width: '768px', height: '432px' },
+    { id: "small", label: "Small", width: "256px", height: "144px" }, // smaller than this and it disappears
+    { id: "medium", label: "Medium", width: "512px", height: "288px" },
+    { id: "large", label: "Large", width: "768px", height: "432px" },
 ] as const;
 
 const TIC80_FRAME_DEFAULT_INDEX = 0; // it's actually just not useful to see this; it's more of a debugging tool.
@@ -78,8 +82,7 @@ type SongChangeArgs = {
     undoable: boolean;
 };
 type EditorStateMutator = (state: EditorState) => void;
-type PatternCellType = 'note' | 'instrument' | 'command' | 'param';
-
+type PatternCellType = "note" | "instrument" | "command" | "param";
 
 const DEFAULT_LOOP_STATE: { loopMode: LoopMode; lastNonOffLoopMode: LoopMode } = {
     loopMode: "off",
@@ -87,26 +90,31 @@ const DEFAULT_LOOP_STATE: { loopMode: LoopMode; lastNonOffLoopMode: LoopMode } =
 };
 
 const getActivePatternCellType = (): PatternCellType | null => {
-    if (typeof document === 'undefined') return null;
+    if (typeof document === "undefined") return null;
     const active = document.activeElement;
     if (!active || !(active instanceof HTMLElement)) return null;
-    const cellType = active.getAttribute('data-cell-type');
-    return cellType === 'note' || cellType === 'instrument' || cellType === 'command' || cellType === 'param'
+    const cellType = active.getAttribute("data-cell-type");
+    return cellType === "note" || cellType === "instrument" || cellType === "command" || cellType === "param"
         ? cellType
         : null;
 };
 
 const isEditingCommandOrParamCell = () => {
     const cellType = getActivePatternCellType();
-    return cellType === 'command' || cellType === 'param' || cellType === 'instrument';
+    return cellType === "command" || cellType === "param" || cellType === "instrument";
 };
-
 
 export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
     const mgr = useShortcutManager<GlobalActionId>();
     const bridgeRef = React.useRef<Tic80BridgeHandle>(null);
-    const [disabledMidiDeviceIds, setDisabledMidiDeviceIds] = useLocalStorage<string[]>("somatic-disabledMidiDeviceIds", []);
-    const [highlightSelectedInstrumentInPatternGrid, setHighlightSelectedInstrumentInPatternGrid] = useLocalStorage("somatic-highlightSelectedInstrumentInPatternGrid", true);
+    const [disabledMidiDeviceIds, setDisabledMidiDeviceIds] = useLocalStorage<string[]>(
+        "somatic-disabledMidiDeviceIds",
+        []
+    );
+    const [highlightSelectedInstrumentInPatternGrid, setHighlightSelectedInstrumentInPatternGrid] = useLocalStorage(
+        "somatic-highlightSelectedInstrumentInPatternGrid",
+        true
+    );
     const midiRef = React.useRef<MidiManager | null>(new MidiManager(disabledMidiDeviceIds));
     const keyboardNoteRef = React.useRef<KeyboardActionNoteInput | null>(null);
     const patternGridRef = React.useRef<PatternGridHandle | null>(null);
@@ -114,14 +122,10 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const audio = useMemo(() => new Tic80AudioController({ bridgeGetter: () => bridgeRef.current }), []);
     const { pushToast } = useToasts();
     const { confirm } = useConfirmDialog();
-    const [song, setSong] = useLocalStorage<Song>(
-        "somatic-song",
-        () => new Song(),
-        {
-            serialize: (s) => s.toJSON(),
-            deserialize: (raw) => Song.fromJSON(raw),
-        }
-    );
+    const [song, setSong] = useLocalStorage<Song>("somatic-song", () => new Song(), {
+        serialize: (s) => s.toJSON(),
+        deserialize: (raw) => Song.fromJSON(raw),
+    });
 
     const subsystemFrontendRef = React.useRef<SomaticSubsystemFrontend<Song> | null>(null);
 
@@ -129,7 +133,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const [loopState, setLoopState] = useLocalStorage<{ loopMode: LoopMode; lastNonOffLoopMode: LoopMode }>(
         "somatic-loopState",
-        DEFAULT_LOOP_STATE,
+        DEFAULT_LOOP_STATE
     );
 
     const [editorState, setEditorState] = useState(() => new EditorState(loopState));
@@ -139,27 +143,38 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [patternEditorOpen, setPatternEditorOpen] = useLocalStorage("somatic-patternEditorOpen", true);
     const [instrumentPanelOpen, setInstrumentPanelOpen] = useLocalStorage("somatic-instrumentPanelOpen", false);
     const [instrumentsPanelOpen, setInstrumentsPanelOpen] = useLocalStorage("somatic-instrumentsPanelOpen", true);
-    const [waveformEditorPanelOpen, setWaveformEditorPanelOpen] = useLocalStorage("somatic-waveformEditorPanelOpen", false);
-    const [tic80FrameSizeIndex, setTic80FrameSizeIndex] = useLocalStorage<number>("somatic-tic80FrameSizeIndex", TIC80_FRAME_DEFAULT_INDEX);
+    const [waveformEditorPanelOpen, setWaveformEditorPanelOpen] = useLocalStorage(
+        "somatic-waveformEditorPanelOpen",
+        false
+    );
+    const [tic80FrameSizeIndex, setTic80FrameSizeIndex] = useLocalStorage<number>(
+        "somatic-tic80FrameSizeIndex",
+        TIC80_FRAME_DEFAULT_INDEX
+    );
     const [showingOnScreenKeyboard, setShowingOnScreenKeyboard] = useLocalStorage("somatic-showOnScreenKeyboard", true);
     const [advancedEditPanelOpen, setAdvancedEditPanelOpen] = useLocalStorage("somatic-advancedEditPanelOpen", false);
     const [midiEnabled, setMidiEnabled] = useLocalStorage("somatic-midiEnabled", true);
     const [keyboardEnabled, setKeyboardEnabled] = useLocalStorage("somatic-keyboardEnabled", true);
     const [songStatsPanelOpen, setSongStatsPanelOpen] = useLocalStorage("somatic-songStatsPanelOpen", false);
     const [songSettingsPanelOpen, setSongSettingsPanelOpen] = useLocalStorage("somatic-songSettingsPanelOpen", false);
-    const [encodingUtilsPanelOpen, setEncodingUtilsPanelOpen] = useLocalStorage("somatic-encodingUtilsPanelOpen", false);
+    const [encodingUtilsPanelOpen, setEncodingUtilsPanelOpen] = useLocalStorage(
+        "somatic-encodingUtilsPanelOpen",
+        false
+    );
     const [patternGridHighlightStyle, setPatternGridHighlightStyle] = useLocalStorage<PatternGridHighlightStyle>(
         "somatic-patternGridHighlightStyle",
-        kPatternGridHighlightStyle.valueByKey.sectionHeader,
+        kPatternGridHighlightStyle.valueByKey.sectionHeader
     );
 
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
     const [debugPanelOpen, setDebugPanelOpen] = useState(false);
     const [songStatsVariant, setSongStatsVariant] = useState<"debug" | "release">("release");
-    const [midiStatus, setMidiStatus] = useState<MidiStatus>('pending');
+    const [midiStatus, setMidiStatus] = useState<MidiStatus>("pending");
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
-    const [somaticTransportState, setSomaticTransportState] = useState<SomaticTransportState>(() => audio.getSomaticTransportState());
+    const [somaticTransportState, setSomaticTransportState] = useState<SomaticTransportState>(() =>
+        audio.getSomaticTransportState()
+    );
     const [bridgeReady, setBridgeReady] = useState(false);
     const [aboutOpen, setAboutOpen] = useState(false);
     const clipboard = useClipboard();
@@ -183,7 +198,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 break;
             default:
                 throw new Error(`Unsupported subsystem type: ${song.subsystemType}`);
-        };
+        }
     }, [song.subsystemType]);
 
     useEffect(() => {
@@ -219,61 +234,76 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         return () => cancelAnimationFrame(animationFrameId);
     }, [audio]);
 
-    const getUndoSnapshot = useCallback(() => ({
-        song: songRef.current.toData(),
-        editor: editorRef.current.toData(),
-    }), []);
+    const getUndoSnapshot = useCallback(
+        () => ({
+            song: songRef.current.toData(),
+            editor: editorRef.current.toData(),
+        }),
+        []
+    );
 
     // auto-save to backend + localStorage
-    const autoSave = useWriteBehindEffect<Song>(async (doc, { signal }) => {
-        await audio.transmit({
-            song: doc,
-            reason: 'auto-save',
-            audibleChannels: editorState.getAudibleChannels(doc),
-            cursorChannelIndex: editorState.patternEditChannel,
-            cursorRowIndex: editorState.patternEditRow,
-            cursorSongOrder: editorState.activeSongPosition,
-            loopMode: editorState.loopMode,
-            patternSelection: editorState.patternSelection,
-            songOrderSelection: editorState.selectedArrangementPositions,
-            startPosition: editorState.activeSongPosition,
-            startRow: editorState.patternEditRow,
-        });
-        localStorage.setItem('somatic-song', doc.toJSON());
-    }, {
-        debounceMs: 1000,//
-        maxWaitMs: 2500,//
-    });
+    const autoSave = useWriteBehindEffect<Song>(
+        async (doc, { signal }) => {
+            await audio.transmit({
+                song: doc,
+                reason: "auto-save",
+                audibleChannels: editorState.getAudibleChannels(doc),
+                cursorChannelIndex: editorState.patternEditChannel,
+                cursorRowIndex: editorState.patternEditRow,
+                cursorSongOrder: editorState.activeSongPosition,
+                loopMode: editorState.loopMode,
+                patternSelection: editorState.patternSelection,
+                songOrderSelection: editorState.selectedArrangementPositions,
+                startPosition: editorState.activeSongPosition,
+                startRow: editorState.patternEditRow,
+            });
+            localStorage.setItem("somatic-song", doc.toJSON());
+        },
+        {
+            debounceMs: 1000, //
+            maxWaitMs: 2500, //
+        }
+    );
 
     useRenderAlarm({
-        name: 'App',
+        name: "App",
     });
 
-    const applyUndoSnapshot = useCallback((snapshot: UndoSnapshot) => {
-        autoSave.flush();
-        const nextSong = Song.fromData(snapshot.song);
-        const nextEditor = EditorState.fromData(snapshot.editor);
-        setSong(nextSong);
-        setEditorState(nextEditor);
-        setLoopState({
-            loopMode: nextEditor.loopMode,
-            lastNonOffLoopMode: nextEditor.lastNonOffLoopMode,
-        });
-    }, [autoSave, setLoopState]);
+    const applyUndoSnapshot = useCallback(
+        (snapshot: UndoSnapshot) => {
+            autoSave.flush();
+            const nextSong = Song.fromData(snapshot.song);
+            const nextEditor = EditorState.fromData(snapshot.editor);
+            setSong(nextSong);
+            setEditorState(nextEditor);
+            setLoopState({
+                loopMode: nextEditor.loopMode,
+                lastNonOffLoopMode: nextEditor.lastNonOffLoopMode,
+            });
+        },
+        [autoSave, setLoopState]
+    );
 
-    const ensureUndoSnapshot = useCallback((description: string) => {
-        undoStackRef.current?.record(description, getUndoSnapshot);
-    }, [getUndoSnapshot]);
-    const updateSong = useCallback(({ mutator, description, undoable = true }: SongChangeArgs) => {
-        if (undoable) {
-            ensureUndoSnapshot(description);
-        }
-        setSong((prev) => {
-            const next = prev.clone();
-            mutator(next);
-            return next;
-        });
-    }, [ensureUndoSnapshot]);
+    const ensureUndoSnapshot = useCallback(
+        (description: string) => {
+            undoStackRef.current?.record(description, getUndoSnapshot);
+        },
+        [getUndoSnapshot]
+    );
+    const updateSong = useCallback(
+        ({ mutator, description, undoable = true }: SongChangeArgs) => {
+            if (undoable) {
+                ensureUndoSnapshot(description);
+            }
+            setSong((prev) => {
+                const next = prev.clone();
+                mutator(next);
+                return next;
+            });
+        },
+        [ensureUndoSnapshot]
+    );
 
     const updateEditorState = useCallback((mutator: EditorStateMutator) => {
         setEditorState((prev) => {
@@ -288,7 +318,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         if (!stack) return;
         const entry = stack.undo(getUndoSnapshot);
         if (!entry) {
-            pushToast({ message: 'Nothing to undo.', variant: 'info' });
+            pushToast({ message: "Nothing to undo.", variant: "info" });
             return;
         }
         applyUndoSnapshot(entry.snapshot);
@@ -299,7 +329,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         if (!stack) return;
         const entry = stack.redo(getUndoSnapshot);
         if (!entry) {
-            pushToast({ message: 'Nothing to redo.', variant: 'info' });
+            pushToast({ message: "Nothing to redo.", variant: "info" });
             return;
         }
         applyUndoSnapshot(entry.snapshot);
@@ -317,46 +347,63 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const songRef = React.useRef(song);
     const editorRef = React.useRef(editorState);
 
-    useEffect(() => { songRef.current = song; }, [song]);
-    useEffect(() => { editorRef.current = editorState; }, [editorState]);
+    useEffect(() => {
+        songRef.current = song;
+    }, [song]);
+    useEffect(() => {
+        editorRef.current = editorState;
+    }, [editorState]);
 
-    const handleIncomingNoteOn = useCallback((note: number) => {
-        const s = songRef.current;
-        const ed = editorRef.current;
-        const channel = ed.patternEditChannel;
-        const skipNoteEntry = isEditingCommandOrParamCell();
-        autoSave.flush(); // immediately apply changes to instrument; user is playing a note maybe testing their tweaks.
-        audio.sfxNoteOn(s, ed.currentInstrument, note, ed.patternEditChannel);
+    const handleIncomingNoteOn = useCallback(
+        (note: number) => {
+            const s = songRef.current;
+            const ed = editorRef.current;
+            const channel = ed.patternEditChannel;
+            const skipNoteEntry = isEditingCommandOrParamCell();
+            autoSave.flush(); // immediately apply changes to instrument; user is playing a note maybe testing their tweaks.
+            audio.sfxNoteOn(s, ed.currentInstrument, note, ed.patternEditChannel);
 
-        if (ed.editingEnabled !== false && !skipNoteEntry) {
-            const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.activeSongPosition || 0));
-            const currentPatternIndex = s.songOrder[currentPosition].patternIndex ?? 0;
-            const rowsPerPattern = s.rowsPerPattern;
-            const patternEditStep = s.patternEditStep;
+            if (ed.editingEnabled !== false && !skipNoteEntry) {
+                const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.activeSongPosition || 0));
+                const currentPatternIndex = s.songOrder[currentPosition].patternIndex ?? 0;
+                const rowsPerPattern = s.rowsPerPattern;
+                const patternEditStep = s.patternEditStep;
 
-            updateSong({
-                description: 'Insert note',
-                undoable: true,
-                mutator: (newSong) => {
-                    const safePatternIndex = Math.max(0, Math.min(currentPatternIndex, newSong.patterns.length - 1));
-                    const pat = newSong.patterns[safePatternIndex];
-                    const existingCell = pat.getCell(channel, ed.patternEditRow);
-                    pat.setCell(channel, ed.patternEditRow, { ...existingCell, midiNote: note, instrumentIndex: ed.currentInstrument });
-                },
-            });
-            setEditorState((prev) => {
-                const next = prev.clone();
-                next.advancePatternEditRow(s, patternEditStep);
-                patternGridRef.current?.focusCellAdvancedToRow(next.patternEditRow);
-                return next;
-            });
-        }
-    }, [audio, autoSave, updateSong]);
+                updateSong({
+                    description: "Insert note",
+                    undoable: true,
+                    mutator: (newSong) => {
+                        const safePatternIndex = Math.max(
+                            0,
+                            Math.min(currentPatternIndex, newSong.patterns.length - 1)
+                        );
+                        const pat = newSong.patterns[safePatternIndex];
+                        const existingCell = pat.getCell(channel, ed.patternEditRow);
+                        pat.setCell(channel, ed.patternEditRow, {
+                            ...existingCell,
+                            midiNote: note,
+                            instrumentIndex: ed.currentInstrument,
+                        });
+                    },
+                });
+                setEditorState((prev) => {
+                    const next = prev.clone();
+                    next.advancePatternEditRow(s, patternEditStep);
+                    patternGridRef.current?.focusCellAdvancedToRow(next.patternEditRow);
+                    return next;
+                });
+            }
+        },
+        [audio, autoSave, updateSong]
+    );
 
-    const handleIncomingNoteOff = useCallback((note: number) => {
-        //autoSave.flush();
-        audio.sfxNoteOff(note);
-    }, [audio, autoSave]);
+    const handleIncomingNoteOff = useCallback(
+        (note: number) => {
+            //autoSave.flush();
+            audio.sfxNoteOff(note);
+        },
+        [audio, autoSave]
+    );
 
     // Register note handlers once for each source (MIDI + keyboard).
     useEffect(() => {
@@ -433,9 +480,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     <p>Make sure you've saved your work first!</p>
                 </div>
             ),
-            defaultAction: 'no',
-            yesLabel: 'Create New',
-            noLabel: 'Cancel',
+            defaultAction: "no",
+            yesLabel: "Create New",
+            noLabel: "Cancel",
         });
 
         if (!confirmed) return;
@@ -446,7 +493,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             s.setActiveSongPosition(newSong, 0);
         });
         undoStackRef.current?.clear();
-        pushToast({ message: 'New song created.', variant: 'success' });
+        pushToast({ message: "New song created.", variant: "success" });
     };
 
     const openSongFile = async () => {
@@ -464,14 +511,16 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     };
 
     const importTicCartFile = async () => {
-        const files = (await fileDialog({ accept: '.tic' })) as FileList | File[] | undefined;
+        const files = (await fileDialog({ accept: ".tic" })) as FileList | File[] | undefined;
         const fileArray = files ? Array.from(files as any) : [];
         const file = fileArray[0] as File | undefined;
         if (!file) return;
 
         try {
             const buf = await file.arrayBuffer();
-            const { song: importedSong, warnings } = importSongFromTicCartBytes(new Uint8Array(buf), { fileName: file.name });
+            const { song: importedSong, warnings } = importSongFromTicCartBytes(new Uint8Array(buf), {
+                fileName: file.name,
+            });
 
             setSong(importedSong);
             updateEditorState((s) => {
@@ -479,27 +528,29 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             });
             undoStackRef.current?.clear();
 
-            pushToast({ message: 'TIC-80 cartridge imported.', variant: 'success' });
+            pushToast({ message: "TIC-80 cartridge imported.", variant: "success" });
             if (warnings.length > 0) {
-                console.warn('Import warnings:', warnings);
-                pushToast({ message: `Imported with ${warnings.length} warning(s). See console.`, variant: 'info' });
+                console.warn("Import warnings:", warnings);
+                pushToast({ message: `Imported with ${warnings.length} warning(s). See console.`, variant: "info" });
             }
         } catch (err) {
-            console.error('Import failed', err);
-            const msg = err instanceof Error ? err.message : 'Unknown error';
-            pushToast({ message: `Failed to import .tic: ${msg}`, variant: 'error' });
+            console.error("Import failed", err);
+            const msg = err instanceof Error ? err.message : "Unknown error";
+            pushToast({ message: `Failed to import .tic: ${msg}`, variant: "error" });
         }
     };
 
     const importAmigaModFile = async () => {
-        const files = (await fileDialog({ accept: '.mod' })) as FileList | File[] | undefined;
+        const files = (await fileDialog({ accept: ".mod" })) as FileList | File[] | undefined;
         const fileArray = files ? Array.from(files as any) : [];
         const file = fileArray[0] as File | undefined;
         if (!file) return;
         try {
             const buf = await file.arrayBuffer();
 
-            const { song: importedSong, warnings } = importSongFromAmigaModBytes(new Uint8Array(buf), { fileName: file.name });
+            const { song: importedSong, warnings } = importSongFromAmigaModBytes(new Uint8Array(buf), {
+                fileName: file.name,
+            });
 
             setSong(importedSong);
             updateEditorState((s) => {
@@ -507,15 +558,15 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             });
             undoStackRef.current?.clear();
 
-            pushToast({ message: 'Amiga MOD imported.', variant: 'success' });
+            pushToast({ message: "Amiga MOD imported.", variant: "success" });
             if (warnings.length > 0) {
-                console.warn('MOD import warnings:', warnings);
-                pushToast({ message: `Imported with ${warnings.length} warning(s). See console.`, variant: 'info' });
+                console.warn("MOD import warnings:", warnings);
+                pushToast({ message: `Imported with ${warnings.length} warning(s). See console.`, variant: "info" });
             }
         } catch (err) {
-            console.error('Import failed', err);
-            const msg = err instanceof Error ? err.message : 'Unknown error';
-            pushToast({ message: `Failed to import .mod: ${msg}`, variant: 'error' });
+            console.error("Import failed", err);
+            const msg = err instanceof Error ? err.message : "Unknown error";
+            pushToast({ message: `Failed to import .mod: ${msg}`, variant: "error" });
         }
     };
 
@@ -527,11 +578,13 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         const cartData = serializeSongToCart(song, true, variant, editorState.getAudibleChannels(song));
 
         // Create a Blob from the Uint8Array
-        const blob = new Blob([cartData as any /* workaround for Blob constructor typing */], { type: 'application/octet-stream' });
+        const blob = new Blob([cartData as any /* workaround for Blob constructor typing */], {
+            type: "application/octet-stream",
+        });
 
         // Create a temporary download link
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
+        const link = document.createElement("a");
         link.href = url;
         link.download = song.getFilename(".tic");
 
@@ -547,14 +600,16 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     };
 
     const optimizeSong = async () => {
-        if (!await confirm({
-            content: <p>Optimize the song to remove unused patterns, waveforms, and SFX?</p>,
-        })) {
+        if (
+            !(await confirm({
+                content: <p>Optimize the song to remove unused patterns, waveforms, and SFX?</p>,
+            }))
+        ) {
             return;
         }
         const result = OptimizeSong(song);
         console.log(result);
-        ensureUndoSnapshot('Optimize song');
+        ensureUndoSnapshot("Optimize song");
         setSong(result.optimizedSong.clone());
     };
 
@@ -566,14 +621,17 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         try {
             const text = await clipboard.readTextFromClipboard();
             const loaded = Song.fromJSON(text);
-            ensureUndoSnapshot('Paste song JSON');
+            ensureUndoSnapshot("Paste song JSON");
             setSong(loaded);
             updateEditorState((s) => {
                 s.setActiveSongPosition(loaded, 0);
             });
         } catch (err) {
-            console.error('Paste failed', err);
-            pushToast({ message: 'Failed to paste song from clipboard. Ensure it is valid song JSON.', variant: 'error' });
+            console.error("Paste failed", err);
+            pushToast({
+                message: "Failed to paste song from clipboard. Ensure it is valid song JSON.",
+                variant: "error",
+            });
         }
     };
 
@@ -582,26 +640,29 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         audio.panic();
     };
 
-    const playSongWithFlush = useCallback(async (reason: string, startPosition: number, startRow: number) => {
-        gLog.info(`playSongWithFlush: song is ${somaticTransportState.isPlaying ? 'playing' : 'stopped'}`);
-        if (somaticTransportState.isPlaying) {
-            audio.panic();
-        } else {
-            audio.transmitAndPlay({
-                reason,
-                song: songRef.current,
-                cursorSongOrder: editorRef.current.activeSongPosition,
-                cursorChannelIndex: editorRef.current.patternEditChannel,
-                cursorRowIndex: editorRef.current.patternEditRow,
-                patternSelection: editorRef.current.patternSelection,
-                audibleChannels: editorRef.current.getAudibleChannels(songRef.current),
-                startPosition,
-                startRow,
-                loopMode: editorRef.current.loopMode,
-                songOrderSelection: editorRef.current.selectedArrangementPositions,
-            });
-        }
-    }, [audio, somaticTransportState]);
+    const playSongWithFlush = useCallback(
+        async (reason: string, startPosition: number, startRow: number) => {
+            gLog.info(`playSongWithFlush: song is ${somaticTransportState.isPlaying ? "playing" : "stopped"}`);
+            if (somaticTransportState.isPlaying) {
+                audio.panic();
+            } else {
+                audio.transmitAndPlay({
+                    reason,
+                    song: songRef.current,
+                    cursorSongOrder: editorRef.current.activeSongPosition,
+                    cursorChannelIndex: editorRef.current.patternEditChannel,
+                    cursorRowIndex: editorRef.current.patternEditRow,
+                    patternSelection: editorRef.current.patternSelection,
+                    audibleChannels: editorRef.current.getAudibleChannels(songRef.current),
+                    startPosition,
+                    startRow,
+                    loopMode: editorRef.current.loopMode,
+                    songOrderSelection: editorRef.current.selectedArrangementPositions,
+                });
+            }
+        },
+        [audio, somaticTransportState]
+    );
 
     const onPlayPattern = () => {
         const ed = editorRef.current;
@@ -617,25 +678,27 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         void playSongWithFlush("play from position", ed.activeSongPosition, ed.patternEditRow);
     };
 
-    useActionHandler<GlobalActionId>("ToggleDebugMode", () => setDebugMode(d => !d));
+    useActionHandler<GlobalActionId>("ToggleDebugMode", () => setDebugMode((d) => !d));
     useActionHandler("Panic", onPanic);
     useActionHandler("Undo", handleUndo);
     useActionHandler("Redo", handleRedo);
-    useActionHandler("TogglePreferencesPanel", () => setPreferencesPanelOpen(open => !open));
-    useActionHandler("ToggleDebugPanel", () => setDebugPanelOpen(open => !open));
+    useActionHandler("TogglePreferencesPanel", () => setPreferencesPanelOpen((open) => !open));
+    useActionHandler("ToggleDebugPanel", () => setDebugPanelOpen((open) => !open));
     useActionHandler("FocusPattern", () => patternGridRef.current?.focusPattern());
-    useActionHandler("ToggleWaveformEditor", () => setWaveformEditorPanelOpen(open => !open));
-    useActionHandler("ToggleInstrumentPanel", () => setInstrumentPanelOpen(open => !open));
-    useActionHandler("ToggleInstrumentsPanel", () => setInstrumentsPanelOpen(open => !open));
+    useActionHandler("ToggleWaveformEditor", () => setWaveformEditorPanelOpen((open) => !open));
+    useActionHandler("ToggleInstrumentPanel", () => setInstrumentPanelOpen((open) => !open));
+    useActionHandler("ToggleInstrumentsPanel", () => setInstrumentsPanelOpen((open) => !open));
     useActionHandler("CycleTic80PanelSize", () => cycleTic80FrameSize());
-    useActionHandler("ToggleOnScreenKeyboard", () => setShowingOnScreenKeyboard(open => !open));
-    useActionHandler("ToggleAdvancedEditPanel", () => setAdvancedEditPanelOpen(open => !open));
-    useActionHandler("ToggleSomaticColumns", () => updateEditorState((s) => s.setShowSomaticColumns(!s.showSomaticColumns)));
+    useActionHandler("ToggleOnScreenKeyboard", () => setShowingOnScreenKeyboard((open) => !open));
+    useActionHandler("ToggleAdvancedEditPanel", () => setAdvancedEditPanelOpen((open) => !open));
+    useActionHandler("ToggleSomaticColumns", () =>
+        updateEditorState((s) => s.setShowSomaticColumns(!s.showSomaticColumns))
+    );
     mgr.useActionHandler("TogglePatternEditor", () => {
-        setPatternEditorOpen(open => !open);
+        setPatternEditorOpen((open) => !open);
     });
     mgr.useActionHandler("ToggleEncodingUtilsPanel", () => {
-        setEncodingUtilsPanelOpen(open => !open);
+        setEncodingUtilsPanelOpen((open) => !open);
     });
     useActionHandler("PlaySong", onPlayAll);
     useActionHandler("PlayFromPosition", onPlayFromPosition);
@@ -643,38 +706,54 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("ToggleEditMode", toggleEditingEnabled);
     useActionHandler("DecreaseOctave", () => updateEditorState((s) => s.setOctave(songRef.current, s.octave - 1)));
     useActionHandler("IncreaseOctave", () => updateEditorState((s) => s.setOctave(songRef.current, s.octave + 1)));
-    useActionHandler("DecreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(songRef.current, s.currentInstrument - 1)));
-    useActionHandler("IncreaseInstrument", () => updateEditorState((s) => s.setCurrentInstrument(songRef.current, s.currentInstrument + 1)));
-    useActionHandler("IncreaseEditStep", () => updateSong({
-        description: 'Increase edit step',//
-        undoable: true,
-        mutator: (s) => s.setPatternEditStep(s.patternEditStep + 1)
-    }));
-    useActionHandler("DecreaseEditStep", () => updateSong({
-        description: 'Decrease edit step',
-        undoable: true,
-        mutator: (s) => s.setPatternEditStep(Math.max(0, s.patternEditStep - 1))
-    }));
-    useActionHandler("IncreaseTempo", () => updateSong({
-        description: 'Increase tempo',
-        undoable: true,
-        mutator: (s) => s.setTempo(Math.min(240, s.tempo + 1))
-    }));
-    useActionHandler("DecreaseTempo", () => updateSong({
-        description: 'Decrease tempo',
-        undoable: true,
-        mutator: (s) => s.setTempo(Math.max(1, s.tempo - 1))
-    }));
-    useActionHandler("IncreaseSpeed", () => updateSong({
-        description: 'Increase speed',
-        undoable: true,
-        mutator: (s) => s.setSpeed(Math.min(31, s.speed + 1))
-    }));
-    useActionHandler("DecreaseSpeed", () => updateSong({
-        description: 'Decrease speed',
-        undoable: true,
-        mutator: (s) => s.setSpeed(Math.max(1, s.speed - 1))
-    }));
+    useActionHandler("DecreaseInstrument", () =>
+        updateEditorState((s) => s.setCurrentInstrument(songRef.current, s.currentInstrument - 1))
+    );
+    useActionHandler("IncreaseInstrument", () =>
+        updateEditorState((s) => s.setCurrentInstrument(songRef.current, s.currentInstrument + 1))
+    );
+    useActionHandler("IncreaseEditStep", () =>
+        updateSong({
+            description: "Increase edit step", //
+            undoable: true,
+            mutator: (s) => s.setPatternEditStep(s.patternEditStep + 1),
+        })
+    );
+    useActionHandler("DecreaseEditStep", () =>
+        updateSong({
+            description: "Decrease edit step",
+            undoable: true,
+            mutator: (s) => s.setPatternEditStep(Math.max(0, s.patternEditStep - 1)),
+        })
+    );
+    useActionHandler("IncreaseTempo", () =>
+        updateSong({
+            description: "Increase tempo",
+            undoable: true,
+            mutator: (s) => s.setTempo(Math.min(240, s.tempo + 1)),
+        })
+    );
+    useActionHandler("DecreaseTempo", () =>
+        updateSong({
+            description: "Decrease tempo",
+            undoable: true,
+            mutator: (s) => s.setTempo(Math.max(1, s.tempo - 1)),
+        })
+    );
+    useActionHandler("IncreaseSpeed", () =>
+        updateSong({
+            description: "Increase speed",
+            undoable: true,
+            mutator: (s) => s.setSpeed(Math.min(31, s.speed + 1)),
+        })
+    );
+    useActionHandler("DecreaseSpeed", () =>
+        updateSong({
+            description: "Decrease speed",
+            undoable: true,
+            mutator: (s) => s.setSpeed(Math.max(1, s.speed - 1)),
+        })
+    );
     useActionHandler("NextSongOrder", () => {
         const nextPos = Math.min(song.songOrder.length - 1, editorState.activeSongPosition + 1);
         updateEditorState((s) => s.setActiveSongPosition(song, nextPos));
@@ -719,36 +798,36 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             });
         });
     });
-    useActionHandler("ExportCartRelease", () => exportCart('release'));
+    useActionHandler("ExportCartRelease", () => exportCart("release"));
     useActionHandler("TransposeSelectionDownSemitone", () => {
         if (!patternGridRef.current) return;
-        patternGridRef.current?.transposeNotes(-1, { scope: 'selection', instrumentIndex: null });
+        patternGridRef.current?.transposeNotes(-1, { scope: "selection", instrumentIndex: null });
     });
     useActionHandler("TransposeSelectionUpSemitone", () => {
         if (!patternGridRef.current) return;
-        patternGridRef.current?.transposeNotes(1, { scope: 'selection', instrumentIndex: null });
+        patternGridRef.current?.transposeNotes(1, { scope: "selection", instrumentIndex: null });
     });
     useActionHandler("TransposeSelectionDownOctave", () => {
         if (!patternGridRef.current) return;
-        patternGridRef.current?.transposeNotes(-12, { scope: 'selection', instrumentIndex: null });
+        patternGridRef.current?.transposeNotes(-12, { scope: "selection", instrumentIndex: null });
     });
     useActionHandler("TransposeSelectionUpOctave", () => {
         if (!patternGridRef.current) return;
-        patternGridRef.current?.transposeNotes(12, { scope: 'selection', instrumentIndex: null });
+        patternGridRef.current?.transposeNotes(12, { scope: "selection", instrumentIndex: null });
     });
     useActionHandler("IncrementInstrumentInSelection", () => {
         if (!patternGridRef.current) return;
-        patternGridRef.current?.nudgeInstrumentInSelection(1, { scope: 'selection', instrumentIndex: null });
+        patternGridRef.current?.nudgeInstrumentInSelection(1, { scope: "selection", instrumentIndex: null });
     });
     useActionHandler("DecrementInstrumentInSelection", () => {
         if (!patternGridRef.current) return;
-        patternGridRef.current?.nudgeInstrumentInSelection(-1, { scope: 'selection', instrumentIndex: null });
+        patternGridRef.current?.nudgeInstrumentInSelection(-1, { scope: "selection", instrumentIndex: null });
     });
     mgr.useActionHandler("ToggleCartStatsPanel", () => {
-        setSongStatsPanelOpen(open => !open);
+        setSongStatsPanelOpen((open) => !open);
     });
     mgr.useActionHandler("ToggleSongSettingsPanel", () => {
-        setSongSettingsPanelOpen(open => !open);
+        setSongSettingsPanelOpen((open) => !open);
     });
     mgr.useActionHandler("ExportReleaseBuild", () => {
         exportCart("release");
@@ -758,17 +837,22 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     });
 
     useActionHandler("OpenFile", openSongFile);
-    useActionHandler("ImportTicCart", () => { void importTicCartFile(); });
+    useActionHandler("ImportTicCart", () => {
+        void importTicCartFile();
+    });
     useActionHandler("SaveFile", saveSongFile);
     useActionHandler("NewFile", createNewSong);
 
-    const handleBridgeReady = React.useCallback((handle: Tic80BridgeHandle) => {
-        // focus the pattern grid.
-        patternGridRef.current?.focusPattern();
-        setBridgeReady(true);
-        autoSave.enqueue(song);
-        autoSave.flush();
-    }, [audio, song]);
+    const handleBridgeReady = React.useCallback(
+        (handle: Tic80BridgeHandle) => {
+            // focus the pattern grid.
+            patternGridRef.current?.focusPattern();
+            setBridgeReady(true);
+            autoSave.enqueue(song);
+            autoSave.flush();
+        },
+        [audio, song]
+    );
 
     const handleDisconnectMidiDevice = (device: MidiDevice) => {
         setDisabledMidiDeviceIds((prev) => {
@@ -791,29 +875,39 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <DesktopMenu.Trigger caret={false}>File</DesktopMenu.Trigger>
                                 <DesktopMenu.Content>
                                     <DesktopMenu.Item
-                                        onSelect={() => { void createNewSong(); }}
+                                        onSelect={() => {
+                                            void createNewSong();
+                                        }}
                                         shortcut={mgr.getActionBindingLabel("NewFile")}
                                     >
                                         New Song...
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
-                                        onSelect={() => { void openSongFile(); }}
+                                        onSelect={() => {
+                                            void openSongFile();
+                                        }}
                                         shortcut={mgr.getActionBindingLabel("OpenFile")}
                                     >
                                         Open Song...
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
-                                        onSelect={() => { void importTicCartFile(); }}
+                                        onSelect={() => {
+                                            void importTicCartFile();
+                                        }}
                                         shortcut={mgr.getActionBindingLabel("ImportTicCart")}
                                     >
                                         Import TIC-80 cart...
                                     </DesktopMenu.Item>
-                                    {debugMode && <DesktopMenu.Item
-                                        onSelect={() => { void importAmigaModFile(); }}
-                                    //shortcut={mgr.getActionBindingLabel("ImportAmigaMod")}
-                                    >
-                                        Import Amiga MOD...
-                                    </DesktopMenu.Item>}
+                                    {debugMode && (
+                                        <DesktopMenu.Item
+                                            onSelect={() => {
+                                                void importAmigaModFile();
+                                            }}
+                                            //shortcut={mgr.getActionBindingLabel("ImportAmigaMod")}
+                                        >
+                                            Import Amiga MOD...
+                                        </DesktopMenu.Item>
+                                    )}
                                     <DesktopMenu.Item
                                         onSelect={saveSongFile}
                                         shortcut={mgr.getActionBindingLabel("SaveFile")}
@@ -821,20 +915,32 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         Save Song...
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Divider />
-                                    <DesktopMenu.Item onSelect={() => { void copyNative(); }}>Copy Song JSON</DesktopMenu.Item>
-                                    <DesktopMenu.Item onSelect={() => { void pasteSong(); }}>Paste Song JSON</DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        onSelect={() => {
+                                            void copyNative();
+                                        }}
+                                    >
+                                        Copy Song JSON
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        onSelect={() => {
+                                            void pasteSong();
+                                        }}
+                                    >
+                                        Paste Song JSON
+                                    </DesktopMenu.Item>
                                     <DesktopMenu.Divider />
                                     <DesktopMenu.Sub>
                                         <DesktopMenu.SubTrigger>Export Cart</DesktopMenu.SubTrigger>
                                         <DesktopMenu.SubContent>
                                             <DesktopMenu.Item
-                                                onSelect={() => exportCart('debug')}
+                                                onSelect={() => exportCart("debug")}
                                                 shortcut={mgr.getActionBindingLabel("ExportDebugBuild")}
                                             >
                                                 Debug Build
                                             </DesktopMenu.Item>
                                             <DesktopMenu.Item
-                                                onSelect={() => exportCart('release')}
+                                                onSelect={() => exportCart("release")}
                                                 shortcut={mgr.getActionBindingLabel("ExportReleaseBuild")}
                                             >
                                                 Release Build
@@ -854,7 +960,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         {(() => {
                                             const stack = undoStackRef.current;
                                             const entry = stack?.peekUndo();
-                                            return entry ? `Undo ${entry.description}` : 'Undo';
+                                            return entry ? `Undo ${entry.description}` : "Undo";
                                         })()}
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
@@ -865,11 +971,17 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         {(() => {
                                             const stack = undoStackRef.current;
                                             const entry = stack?.peekRedo();
-                                            return entry ? `Redo ${entry.description}` : 'Redo';
+                                            return entry ? `Redo ${entry.description}` : "Redo";
                                         })()}
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Divider />
-                                    <DesktopMenu.Item onSelect={() => { void optimizeSong(); }}>Optimize Song...</DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        onSelect={() => {
+                                            void optimizeSong();
+                                        }}
+                                    >
+                                        Optimize Song...
+                                    </DesktopMenu.Item>
                                     <DesktopMenu.Divider />
                                     <DesktopMenu.Item
                                         checked={editorState.editingEnabled}
@@ -893,49 +1005,51 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                 <DesktopMenu.Content>
                                     <DesktopMenu.Item
                                         checked={songSettingsPanelOpen}
-                                        onSelect={() => setSongSettingsPanelOpen(open => !open)}
+                                        onSelect={() => setSongSettingsPanelOpen((open) => !open)}
                                         shortcut={mgr.getActionBindingLabel("ToggleSongSettingsPanel")}
                                     >
                                         Song Settings
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={patternEditorOpen}
-                                        onSelect={() => setPatternEditorOpen(open => !open)}
+                                        onSelect={() => setPatternEditorOpen((open) => !open)}
                                         shortcut={mgr.getActionBindingLabel("TogglePatternEditor")}
                                     >
                                         Pattern Editor
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={advancedEditPanelOpen}
-                                        onSelect={() => setAdvancedEditPanelOpen(open => !open)}
+                                        onSelect={() => setAdvancedEditPanelOpen((open) => !open)}
                                         shortcut={mgr.getActionBindingLabel("ToggleAdvancedEditPanel")}
                                     >
                                         Advanced Edit Panel
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={editorState.showSomaticColumns}
-                                        onSelect={() => updateEditorState((s) => s.setShowSomaticColumns(!s.showSomaticColumns))}
+                                        onSelect={() =>
+                                            updateEditorState((s) => s.setShowSomaticColumns(!s.showSomaticColumns))
+                                        }
                                         shortcut={mgr.getActionBindingLabel("ToggleSomaticColumns")}
                                     >
                                         Somatic Columns
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={waveformEditorPanelOpen}
-                                        onSelect={() => setWaveformEditorPanelOpen(open => !open)}
+                                        onSelect={() => setWaveformEditorPanelOpen((open) => !open)}
                                         shortcut={mgr.getActionBindingLabel("ToggleWaveformEditor")}
                                     >
                                         Waveform Editor
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={instrumentPanelOpen}
-                                        onSelect={() => setInstrumentPanelOpen(open => !open)}
+                                        onSelect={() => setInstrumentPanelOpen((open) => !open)}
                                         shortcut={mgr.getActionBindingLabel("ToggleInstrumentPanel")}
                                     >
                                         Instrument Panel
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={instrumentsPanelOpen}
-                                        onSelect={() => setInstrumentsPanelOpen(open => !open)}
+                                        onSelect={() => setInstrumentsPanelOpen((open) => !open)}
                                         shortcut={mgr.getActionBindingLabel("ToggleInstrumentsPanel")}
                                     >
                                         Instruments
@@ -943,40 +1057,43 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     <DesktopMenu.Divider />
                                     <DesktopMenu.Item
                                         checked={showingOnScreenKeyboard}
-                                        onSelect={() => setShowingOnScreenKeyboard(open => !open)}
+                                        onSelect={() => setShowingOnScreenKeyboard((open) => !open)}
                                         shortcut={mgr.getActionBindingLabel("ToggleOnScreenKeyboard")}
                                     >
                                         On-Screen Keyboard
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={songStatsPanelOpen}
-                                        onSelect={() => setSongStatsPanelOpen(open => !open)}
+                                        onSelect={() => setSongStatsPanelOpen((open) => !open)}
                                         shortcut={mgr.getActionBindingLabel("ToggleCartStatsPanel")}
                                     >
                                         Export cartridge metrics
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={encodingUtilsPanelOpen}
-                                        onSelect={() => setEncodingUtilsPanelOpen(open => !open)}
+                                        onSelect={() => setEncodingUtilsPanelOpen((open) => !open)}
                                         shortcut={mgr.getActionBindingLabel("ToggleEncodingUtilsPanel")}
                                     >
                                         Encoding Utilities
                                     </DesktopMenu.Item>
-                                    {debugMode && <DesktopMenu.Divider />
-                                    }
-                                    {debugMode && <DesktopMenu.Item
-                                        checked={themePanelOpen}
-                                        onSelect={() => setThemePanelOpen((open) => !open)}
-                                    >
-                                        Theme Editor
-                                    </DesktopMenu.Item>}
-                                    {debugMode && <DesktopMenu.Item
-                                        checked={debugPanelOpen}
-                                        onSelect={() => setDebugPanelOpen((open) => !open)}
-                                        shortcut={mgr.getActionBindingLabel("ToggleDebugPanel")}
-                                    >
-                                        Debug Panel
-                                    </DesktopMenu.Item>}
+                                    {debugMode && <DesktopMenu.Divider />}
+                                    {debugMode && (
+                                        <DesktopMenu.Item
+                                            checked={themePanelOpen}
+                                            onSelect={() => setThemePanelOpen((open) => !open)}
+                                        >
+                                            Theme Editor
+                                        </DesktopMenu.Item>
+                                    )}
+                                    {debugMode && (
+                                        <DesktopMenu.Item
+                                            checked={debugPanelOpen}
+                                            onSelect={() => setDebugPanelOpen((open) => !open)}
+                                            shortcut={mgr.getActionBindingLabel("ToggleDebugPanel")}
+                                        >
+                                            Debug Panel
+                                        </DesktopMenu.Item>
+                                    )}
                                     <DesktopMenu.Item
                                         checked={tic80FrameSizeIndex !== 0}
                                         closeOnSelect={false}
@@ -986,10 +1103,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         TIC-80 Size
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Divider />
-                                    <DesktopMenu.Item
-                                        checked={theme === 'dark'}
-                                        onSelect={onToggleTheme}
-                                    >
+                                    <DesktopMenu.Item checked={theme === "dark"} onSelect={onToggleTheme}>
                                         Dark Theme
                                     </DesktopMenu.Item>
                                 </DesktopMenu.Content>
@@ -997,42 +1111,67 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             <DesktopMenu.Root>
                                 <DesktopMenu.Trigger caret={false}>Help</DesktopMenu.Trigger>
                                 <DesktopMenu.Content>
-                                    <DesktopMenu.LinkItem href="https://tic80.com/" target="_blank">TIC-80 Homepage</DesktopMenu.LinkItem>
-                                    <DesktopMenu.LinkItem href="https://github.com/nesbox/TIC-80/wiki/Music-Editor" target="_blank">TIC-80 Music Editor</DesktopMenu.LinkItem>
-                                    <DesktopMenu.LinkItem href="https://github.com/nesbox/TIC-80/wiki/ram" target="_blank">TIC-80 memory map</DesktopMenu.LinkItem>
+                                    <DesktopMenu.LinkItem href="https://tic80.com/" target="_blank">
+                                        TIC-80 Homepage
+                                    </DesktopMenu.LinkItem>
+                                    <DesktopMenu.LinkItem
+                                        href="https://github.com/nesbox/TIC-80/wiki/Music-Editor"
+                                        target="_blank"
+                                    >
+                                        TIC-80 Music Editor
+                                    </DesktopMenu.LinkItem>
+                                    <DesktopMenu.LinkItem
+                                        href="https://github.com/nesbox/TIC-80/wiki/ram"
+                                        target="_blank"
+                                    >
+                                        TIC-80 memory map
+                                    </DesktopMenu.LinkItem>
 
                                     <DesktopMenu.Divider />
 
-                                    <DesktopMenu.LinkItem href="https://github.com/nesbox/TIC-80/wiki/ram" target="_blank">Check out ticbuild</DesktopMenu.LinkItem>
+                                    <DesktopMenu.LinkItem
+                                        href="https://github.com/nesbox/TIC-80/wiki/ram"
+                                        target="_blank"
+                                    >
+                                        Check out ticbuild
+                                    </DesktopMenu.LinkItem>
 
                                     <DesktopMenu.Divider />
 
                                     <DesktopMenu.LinkItem href="https://github.com/thenfour/Somatic" target="_blank">
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                             Visit Project on GitHub
                                             <GithubLogo />
                                         </div>
                                     </DesktopMenu.LinkItem>
                                     <DesktopMenu.LinkItem href="https://discord.gg/kkf9gQfKAd" target="_blank">
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                             Discord
                                             <DiscordLogo />
                                         </div>
                                     </DesktopMenu.LinkItem>
 
                                     <DesktopMenu.LinkItem href="https://ko-fi.com/E1E71QVJ5Z" target="_blank">
-                                        <div style={{ maxWidth: 300, marginBottom: 8 }}>Somatic is free, a labor of love by tenfour; if you find it useful, please support by spreading the word or:</div>
-                                        <img height='36' style={{ border: 0, height: 36 }} src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' alt='Buy Me a Coffee at ko-fi.com' />
+                                        <div style={{ maxWidth: 300, marginBottom: 8 }}>
+                                            Somatic is free, a labor of love by tenfour; if you find it useful, please
+                                            support by spreading the word or:
+                                        </div>
+                                        <img
+                                            height="36"
+                                            style={{ border: 0, height: 36 }}
+                                            src="https://storage.ko-fi.com/cdn/kofi6.png?v=6"
+                                            alt="Buy Me a Coffee at ko-fi.com"
+                                        />
                                     </DesktopMenu.LinkItem>
 
                                     <DesktopMenu.Divider />
-                                    <DesktopMenu.Item onSelect={() => setAboutOpen(true)}>About Somatic...</DesktopMenu.Item>
-
+                                    <DesktopMenu.Item onSelect={() => setAboutOpen(true)}>
+                                        About Somatic...
+                                    </DesktopMenu.Item>
                                 </DesktopMenu.Content>
                             </DesktopMenu.Root>
                         </DesktopMenu.Bar>
                     </nav>
-
 
                     <TransportControls
                         song={song}
@@ -1047,15 +1186,27 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         somaticTransportState={somaticTransportState}
                     />
 
-                    <Tooltip title={`Click to edit song settings${mgr.getActionBindingLabelAsTooltipSuffix("ToggleSongSettingsPanel")}`}>
-                        <div className='raw-button header-song-title' onClick={() => setSongSettingsPanelOpen(x => !x)}>
-                            {song.name}
+                    <Tooltip
+                        title={`Click to edit song settings${mgr.getActionBindingLabelAsTooltipSuffix("ToggleSongSettingsPanel")}`}
+                    >
+                        <div
+                            className="raw-button header-song-title"
+                            onClick={() => setSongSettingsPanelOpen((x) => !x)}
+                        >
+                            <span>{song.name}</span>
+                            <div className='song-metadata-in-header'>
+                                <div>Tempo: {song.tempo}</div>
+                                <div>Speed: {song.speed}</div>
+                                <Icon path={mdiCog} className='song-metadata-in-header-gear-icon' />
+                            </div>
                         </div>
                     </Tooltip>
 
-                    {appPresence.otherInstanceActive && <div className="app-presence-contention-warning">
-                        ⚠️You have multiple tabs open; that can cause conflicts
-                    </div>}
+                    {appPresence.otherInstanceActive && (
+                        <div className="app-presence-contention-warning">
+                            ⚠️You have multiple tabs open; that can cause conflicts
+                        </div>
+                    )}
                 </div>
 
                 <div className="app-header-row">
@@ -1066,7 +1217,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         onSongChange={updateSong}
                         onEditorStateChange={updateEditorState}
                     />
-
                 </div>
 
                 {/* 
@@ -1080,7 +1230,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 */}
             </div>
             <div className="main-editor-area  appRow">
-                <div className='leftAsideStack'>
+                <div className="leftAsideStack">
                     <ArrangementEditor
                         song={song}
                         editorState={editorState}
@@ -1114,10 +1264,11 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         onEditorStateChange={updateEditorState}
                         onSongChange={updateSong}
                         advancedEditPanelOpen={advancedEditPanelOpen}
-                        onSetAdvancedEditPanelOpen={open => setAdvancedEditPanelOpen(open)}
+                        onSetAdvancedEditPanelOpen={(open) => setAdvancedEditPanelOpen(open)}
                         highlightSelectedInstrument={highlightSelectedInstrumentInPatternGrid}
                         highlightStyle={patternGridHighlightStyle}
-                    />)}
+                    />
+                )}
                 {songSettingsPanelOpen && (
                     <SongSettingsPanel
                         song={song}
@@ -1179,22 +1330,18 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                         onSetPatternGridHighlightStyle={setPatternGridHighlightStyle}
                     />
                 )}
-                {themePanelOpen && (
-                    <ThemeEditorPanel onClose={() => setThemePanelOpen(false)} />
-                )}
-                {encodingUtilsPanelOpen && (
-                    <EncodingUtilsPanel onClose={() => setEncodingUtilsPanelOpen(false)} />
-                )}
-                {debugPanelOpen && (
-                    <DebugPanel onClose={() => setDebugPanelOpen(false)} />
-                )}
+                {themePanelOpen && <ThemeEditorPanel onClose={() => setThemePanelOpen(false)} />}
+                {encodingUtilsPanelOpen && <EncodingUtilsPanel onClose={() => setEncodingUtilsPanelOpen(false)} />}
+                {debugPanelOpen && <DebugPanel onClose={() => setDebugPanelOpen(false)} />}
             </div>
             <div className="main-app-footer appRow">
-                {showingOnScreenKeyboard && <Keyboard
-                    onNoteOn={handleNoteOn}
-                    onNoteOff={handleNoteOff}
-                    onClose={() => setShowingOnScreenKeyboard(false)}
-                />}
+                {showingOnScreenKeyboard && (
+                    <Keyboard
+                        onNoteOn={handleNoteOn}
+                        onNoteOff={handleNoteOff}
+                        onClose={() => setShowingOnScreenKeyboard(false)}
+                    />
+                )}
 
                 <AppStatusBar
                     song={song}
@@ -1202,31 +1349,30 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     currentColumnType={editorState.patternEditColumnType}
                     onSongChange={updateSong}
                     onEditorStateChange={updateEditorState}
-                    rightContent={<>
-                        <StatusChips
-                            song={song}
-                            bridgeReady={bridgeReady}
-                            editorState={editorState}
-                            toggleEditingEnabled={() => updateEditorState(s => s.setEditingEnabled(!s.editingEnabled))}
-                            toggleSongStatsPanel={() => setSongStatsPanelOpen(open => !open)}
-                            keyboardEnabled={keyboardEnabled}
-                            toggleKeyboardEnabled={() => setKeyboardEnabled(enabled => !enabled)}
-                            somaticTransportState={somaticTransportState}
-                            songStatsData={songStatsData}
-                            midiStatus={midiStatus}
-                            midiDevices={midiDevices}
-                            midiEnabled={midiEnabled}
-                            disabledMidiDeviceIds={disabledMidiDeviceIds}
-                            toggleMidiEnabled={() => setMidiEnabled(enabled => !enabled)}
-                            audio={audio}
-                            autoSave={autoSave}
-                        />
-                        <VersionAvatar
-                            onClick={() => setAboutOpen(true)}
-                            resolution={{ w: 6, h: 6 }}
-                            scale={5}
-                        />
-                    </>
+                    rightContent={
+                        <>
+                            <StatusChips
+                                song={song}
+                                bridgeReady={bridgeReady}
+                                editorState={editorState}
+                                toggleEditingEnabled={() =>
+                                    updateEditorState((s) => s.setEditingEnabled(!s.editingEnabled))
+                                }
+                                toggleSongStatsPanel={() => setSongStatsPanelOpen((open) => !open)}
+                                keyboardEnabled={keyboardEnabled}
+                                toggleKeyboardEnabled={() => setKeyboardEnabled((enabled) => !enabled)}
+                                somaticTransportState={somaticTransportState}
+                                songStatsData={songStatsData}
+                                midiStatus={midiStatus}
+                                midiDevices={midiDevices}
+                                midiEnabled={midiEnabled}
+                                disabledMidiDeviceIds={disabledMidiDeviceIds}
+                                toggleMidiEnabled={() => setMidiEnabled((enabled) => !enabled)}
+                                audio={audio}
+                                autoSave={autoSave}
+                            />
+                            <VersionAvatar onClick={() => setAboutOpen(true)} resolution={{ w: 6, h: 6 }} scale={5} />
+                        </>
                     }
                 />
             </div>

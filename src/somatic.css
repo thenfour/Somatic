@@ -947,7 +947,31 @@ legend {
 .header-song-title {
     padding: 0 12px;
     font-size: 20px;
+    display:flex;
+    align-items: center;
+    gap: 8px;
 }
+
+.header-song-title .song-metadata-in-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: bold;
+}
+
+
+.header-song-title .song-metadata-in-header svg {
+    height:20px;
+    width:20px;
+}
+
+
+.header-song-title:hover .song-metadata-in-header svg {
+    color: var(--text);
+}
+
 
 .div-row {
     display: flex;
