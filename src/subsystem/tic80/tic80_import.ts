@@ -16,27 +16,10 @@ export type Tic80ImportWarning = {
 };
 
 export type ImportTicCartResult = {
-   song: Song; warnings: Tic80ImportWarning[];
+   song: Song; //
+   warnings: Tic80ImportWarning[];
+   importedChunkNames: string[];
 };
-
-function getChunkBank0OrThrow(
-   chunks: TicCartChunk[],
-   type: number,
-   requiredName: string,
-   warnings: Tic80ImportWarning[],
-   ): TicCartChunk {
-   const bank0 = chunks.find((c) => c.type === type && c.bank === 0);
-   if (!bank0) {
-      throw new Error(`Missing required chunk: ${requiredName} (type ${type}, bank 0)`);
-   }
-   const otherBanks = chunks.filter((c) => c.type === type && c.bank !== 0);
-   if (otherBanks.length > 0) {
-      warnings.push({
-         message: `Ignoring ${otherBanks.length} extra ${requiredName} chunk(s) from non-zero bank(s).`,
-      });
-   }
-   return bank0;
-}
 
 function decodeWaveforms(payload: Uint8Array): Tic80Waveform[] {
    const waves: Tic80Waveform[] = new Array(Tic80Caps.waveform.count);
@@ -68,20 +51,41 @@ function decodeSfx(payload: Uint8Array): SomaticInstrument[] {
 
 export function importSongFromTicCartBytes(
    cartBytes: Uint8Array,
-   opts?: {fileName?: string},
-   ): ImportTicCartResult {
+   opts?: {fileName?: string;},
+): ImportTicCartResult {
    const warnings: Tic80ImportWarning[] = [];
    const chunks = parseTicCartChunks(cartBytes);
+   const importedChunkNames: string[] = [];
 
-   const waveChunk = getChunkBank0OrThrow(chunks, TicChunkType.WAVEFORMS, "Waveforms", warnings);
-   const sfxChunk = getChunkBank0OrThrow(chunks, TicChunkType.SFX, "SFX", warnings);
-   const patternsChunk = getChunkBank0OrThrow(chunks, TicChunkType.MUSIC_PATTERNS, "Music Patterns", warnings);
-   const tracksChunk = getChunkBank0OrThrow(chunks, TicChunkType.MUSIC_TRACKS, "Music Tracks", warnings);
+   const bank = 0; // todo: allow specifying banks.
+   const waveChunk = chunks.find((c) => c.type === TicChunkType.WAVEFORMS && c.bank === bank);
+   const sfxChunk = chunks.find((c) => c.type === TicChunkType.SFX && c.bank === bank);
+   const patternsChunk = chunks.find((c) => c.type === TicChunkType.MUSIC_PATTERNS && c.bank === bank);
+   const tracksChunk = chunks.find((c) => c.type === TicChunkType.MUSIC_TRACKS && c.bank === bank);
+
+   // only import chunks that exist. tolerate missing chunks.
+   if (waveChunk) {
+      importedChunkNames.push("waveforms");
+   }
+   if (sfxChunk) {
+      importedChunkNames.push("sfx");
+   }
+   if (patternsChunk) {
+      importedChunkNames.push("patterns");
+   }
+   if (tracksChunk) {
+      importedChunkNames.push("tracks");
+   }
 
    // Decode global track params. Missing trailing bytes are treated as 0.
-   const tempo = decodeTempo(tracksChunk.payload[48] ?? 0);
-   const rowsPerPattern = decodeRowsPerPattern(tracksChunk.payload[49] ?? 0);
-   const speed = decodeTrackSpeed(tracksChunk.payload[50] ?? 0);
+   let tempo: number = Tic80Caps.song.defaultTempo;
+   let speed: number = Tic80Caps.song.defaultSpeed;
+   let rowsPerPattern: number = Tic80Caps.song.defaultRowsPerPattern;
+   if (tracksChunk) {
+      tempo = decodeTempo(tracksChunk.payload[48] ?? 0);
+      rowsPerPattern = decodeRowsPerPattern(tracksChunk.payload[49] ?? 0);
+      speed = decodeTrackSpeed(tracksChunk.payload[50] ?? 0);
+   }
 
    const song = new Song({
       name: opts?.fileName ? stripExtension(opts.fileName) : "Imported cart",
@@ -90,65 +94,71 @@ export function importSongFromTicCartBytes(
       rowsPerPattern,
    });
 
-   song.waveforms = decodeWaveforms(waveChunk.payload);
-   song.instruments = decodeSfx(sfxChunk.payload);
+   if (waveChunk) {
+      song.waveforms = decodeWaveforms(waveChunk.payload);
+   }
+   if (sfxChunk) {
+      song.instruments = decodeSfx(sfxChunk.payload);
+   }
 
    // Decode all 60 single-channel patterns.
-   const singleChannelPatterns = new Array<PatternChannel>(Tic80Caps.pattern.count);
-   for (let patIndex = 0; patIndex < Tic80Caps.pattern.count; patIndex++) {
-      singleChannelPatterns[patIndex] = decodePatternChannelBytes(patternsChunk.payload, patIndex * 192);
-   }
-
-   // Combine per-channel pattern indices from track frames into Somatic's multi-channel Pattern objects.
-   const comboToPatternIndex = new Map<string, number>();
-   const combinedPatterns: Pattern[] = [];
-   const songOrder: number[] = [];
-
-   for (let pos = 0; pos < Tic80Caps.song.maxSongLength; pos++) {
-      const [p0, p1, p2, p3] = unpackTrackFrame(tracksChunk.payload, pos * 3);
-      if (
-         p0 >= Tic80Caps.pattern.count || p1 >= Tic80Caps.pattern.count || p2 >= Tic80Caps.pattern.count ||
-         p3 >= Tic80Caps.pattern.count) {
-         throw new Error(`Track frame ${pos} references out-of-range pattern (got [${p0},${p1},${p2},${p3}])`);
+   if (patternsChunk && tracksChunk) {
+      const singleChannelPatterns = new Array<PatternChannel>(Tic80Caps.pattern.count);
+      for (let patIndex = 0; patIndex < Tic80Caps.pattern.count; patIndex++) {
+         singleChannelPatterns[patIndex] = decodePatternChannelBytes(patternsChunk.payload, patIndex * 192);
       }
 
-      const key = `${p0},${p1},${p2},${p3}`;
-      let combinedIndex = comboToPatternIndex.get(key);
-      if (combinedIndex === undefined) {
-         const pat: PatternDto = {
-            channels: [],
-            name: "",
+      // Combine per-channel pattern indices from track frames into Somatic's multi-channel Pattern objects.
+      const comboToPatternIndex = new Map<string, number>();
+      const combinedPatterns: Pattern[] = [];
+      const songOrder: number[] = [];
+
+      for (let pos = 0; pos < Tic80Caps.song.maxSongLength; pos++) {
+         const [p0, p1, p2, p3] = unpackTrackFrame(tracksChunk.payload, pos * 3);
+         if (
+            p0 >= Tic80Caps.pattern.count || p1 >= Tic80Caps.pattern.count || p2 >= Tic80Caps.pattern.count ||
+            p3 >= Tic80Caps.pattern.count) {
+            throw new Error(`Track frame ${pos} references out-of-range pattern (got [${p0},${p1},${p2},${p3}])`);
          }
-         // the tic80 patterns are single-channel; combine into our multi-channel pattern.
-         // tic80 also refers to them 1-based, where 0 means empty.
-         if (p0 > 0) {
-            pat.channels[0] = singleChannelPatterns[p0 - 1].toData();
+
+         const key = `${p0},${p1},${p2},${p3}`;
+         let combinedIndex = comboToPatternIndex.get(key);
+         if (combinedIndex === undefined) {
+            const pat: PatternDto = {
+               channels: [],
+               name: "",
+            };
+            // the tic80 patterns are single-channel; combine into our multi-channel pattern.
+            // tic80 also refers to them 1-based, where 0 means empty.
+            if (p0 > 0) {
+               pat.channels[0] = singleChannelPatterns[p0 - 1].toData();
+            }
+            if (p1 > 0) {
+               pat.channels[1] = singleChannelPatterns[p1 - 1].toData();
+            }
+            if (p2 > 0) {
+               pat.channels[2] = singleChannelPatterns[p2 - 1].toData();
+            }
+            if (p3 > 0) {
+               pat.channels[3] = singleChannelPatterns[p3 - 1].toData();
+            }
+            combinedIndex = combinedPatterns.length;
+            combinedPatterns.push(new Pattern(pat));
+            comboToPatternIndex.set(key, combinedIndex);
          }
-         if (p1 > 0) {
-            pat.channels[1] = singleChannelPatterns[p1 - 1].toData();
-         }
-         if (p2 > 0) {
-            pat.channels[2] = singleChannelPatterns[p2 - 1].toData();
-         }
-         if (p3 > 0) {
-            pat.channels[3] = singleChannelPatterns[p3 - 1].toData();
-         }
-         combinedIndex = combinedPatterns.length;
-         combinedPatterns.push(new Pattern(pat));
-         comboToPatternIndex.set(key, combinedIndex);
+         songOrder.push(combinedIndex);
       }
-      songOrder.push(combinedIndex);
+
+      song.patterns = combinedPatterns.length > 0 ? combinedPatterns : [new Pattern()];
+      song.songOrder = songOrder.map((idx) => new SongOrderItem(idx));
+
+      if (comboToPatternIndex.size < Tic80Caps.song.maxSongLength) {
+         warnings.push({
+            message: `Deduplicated ${Tic80Caps.song.maxSongLength - comboToPatternIndex.size} repeated track frame pattern combination(s).`,
+         });
+      }
+
    }
 
-   song.patterns = combinedPatterns.length > 0 ? combinedPatterns : [new Pattern()];
-   song.songOrder = songOrder.map((idx) => new SongOrderItem(idx));
-
-   if (comboToPatternIndex.size < Tic80Caps.song.maxSongLength) {
-      warnings.push({
-         message: `Deduplicated ${
-            Tic80Caps.song.maxSongLength - comboToPatternIndex.size} repeated track frame pattern combination(s).`,
-      });
-   }
-
-   return {song, warnings};
+   return {song, warnings, importedChunkNames};
 }

@@ -35,10 +35,12 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, []);
 
     const pushToast = useCallback((opts: ToastOptions | string) => {
+       const message = typeof opts === "string" ? opts : opts.message;
+       console.log(`toast: ${message}`);
         const id = `toast-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
         const toast: Toast = {
             id,
-            message: typeof opts === "string" ? opts : opts.message,
+           message,
             variant: typeof opts === "string" ? "info" : opts.variant ?? 'info',
             durationMs: typeof opts === "string" ? DEFAULT_DURATION : opts.durationMs ?? DEFAULT_DURATION,
         };

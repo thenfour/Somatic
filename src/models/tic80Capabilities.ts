@@ -140,6 +140,9 @@ export const Tic80Caps = {
       songSpeedMax: 7,   // todo: verify
       minTempo: 32,      // todo: verify
       maxTempo: 254,     // todo: verify
+      defaultTempo: 150,
+      defaultSpeed: 4,
+      defaultRowsPerPattern: 64,
    },
 
    // "track data"

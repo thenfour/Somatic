@@ -51,15 +51,15 @@ export class Tic80SubsystemBackend implements SomaticSubsystemBackend<Song, Song
    subsystemType: SubsystemTypeKey = kSubsystem.key.TIC80;
    channelCount: number = Tic80Caps.song.audioChannels;
    maxRowsPerPattern: number = Tic80Caps.pattern.maxRows;
-   defaultRowsPerPattern: number = 64;
+   defaultRowsPerPattern: number = Tic80Caps.song.defaultRowsPerPattern;
 
    minSongSpeed: number = Tic80Caps.song.songSpeedMin;
    maxSongSpeed: number = Tic80Caps.song.songSpeedMax;
-   defaultSongSpeed: number = 4;
+   defaultSongSpeed: number = Tic80Caps.song.defaultSpeed;
 
    minSongTempo: number = Tic80Caps.song.minTempo;
    maxSongTempo: number = Tic80Caps.song.maxTempo;
-   defaultSongTempo: number = 150;
+   defaultSongTempo: number = Tic80Caps.song.defaultTempo;
 
    minPatternMidiNote: number = Tic80Caps.pattern.minMidiNote;
    maxPatternMidiNote: number = Tic80Caps.pattern.maxMidiNote;

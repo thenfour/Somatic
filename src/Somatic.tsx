@@ -521,7 +521,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
         try {
             const buf = await file.arrayBuffer();
-            const { song: importedSong, warnings } = importSongFromTicCartBytes(new Uint8Array(buf), {
+           const {song: importedSong, warnings, importedChunkNames} = importSongFromTicCartBytes(new Uint8Array(buf), {
                 fileName: file.name,
             });
 
@@ -531,10 +531,10 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             });
             undoStackRef.current?.clear();
 
-            pushToast({ message: "TIC-80 cartridge imported.", variant: "success" });
+           pushToast({message: `TIC-80 cartridge imported (${importedChunkNames.join(", ")}).`, variant: "success"});
             if (warnings.length > 0) {
                 console.warn("Import warnings:", warnings);
-                pushToast({ message: `Imported with ${warnings.length} warning(s). See console.`, variant: "info" });
+               pushToast({message: `Imported (${importedChunkNames.join(", ")}) with ${warnings.length} warning(s). See console.`, variant: "info"});
             }
         } catch (err) {
             console.error("Import failed", err);
