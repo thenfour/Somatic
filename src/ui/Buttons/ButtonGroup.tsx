@@ -11,12 +11,14 @@ export type ButtonGroupProps = {
     className?: string;
     style?: React.CSSProperties;
     orientation?: ButtonGroupOrientation;
+    variant?: "default" | "subtle";
 };
 
-export const ButtonGroup: React.FC<ButtonGroupProps> = ({ children, className, style, orientation = "horizontal" }) => {
+export const ButtonGroup: React.FC<ButtonGroupProps> = ({ children, className, style, orientation = "horizontal", variant = "default" }) => {
     const orientationClass = orientation === "vertical" ? "somatic-button-group--vertical" : "somatic-button-group--horizontal";
+    const variantClass = variant === "subtle" ? "somatic-button-group--subtle" : "somatic-button-group--default";
     return (
-        <div className={`somatic-button-group ${orientationClass} ${className || ""}`} style={style}    >
+        <div className={`somatic-button-group ${orientationClass} ${variantClass} ${className || ""}`} style={style}    >
             {children}
         </div>
     );

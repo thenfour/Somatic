@@ -220,6 +220,16 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
       ],
    },
 
+   "ToggleSomaticColumns": {
+      id: "ToggleSomaticColumns",
+      title: "toggle Somatic columns",
+      description: "show or hide Somatic effect/param columns in the pattern grid.",
+      category: "View",
+      defaultBindings: [
+         {kind: "character", key: "\\", primary: true},
+      ],
+   },
+
    "TogglePatternEditor": {
       id: "TogglePatternEditor",
       title: "toggle pattern editor",

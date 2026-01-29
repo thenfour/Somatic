@@ -20,13 +20,18 @@ import { Tooltip } from './basic/tooltip';
 import './pattern_grid.css';
 import { AdvancedEditScope, InterpolateTarget, PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
 import { useToasts } from './toast_provider';
+import { ButtonGroup } from './Buttons/ButtonGroup';
+import { Button } from './Buttons/PushButton';
+import { CheckboxButton } from './Buttons/CheckboxButton';
 
 type CellType = 'note' | 'instrument' | 'command' | 'param';
 
 type ExtendedCellType = CellType | 'somaticCommand' | 'somaticParam';
 
-const CELLS_PER_CHANNEL = 6;
-const CELL_STRIDE_PER_CHANNEL = 7; // includes non-interactive cells between chans
+const FULL_CELLS_PER_CHANNEL = 6;
+const FULL_CELL_STRIDE_PER_CHANNEL = 7; // includes non-interactive cells between chans
+const COMPACT_CELLS_PER_CHANNEL = 4;
+const COMPACT_CELL_STRIDE_PER_CHANNEL = 5; // includes non-interactive cells between chans
 const CTRL_ARROW_JUMP_SIZE = 4;
 
 const instrumentKeyMap = '0123456789abcdef'.split('');
@@ -126,9 +131,13 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const fxCarryTooltip = `Effect command state at the end of this pattern (doesn't consider previous patterns)`;
 
+        const showSomaticColumns = editorState.showSomaticColumns !== false;
+        const cellsPerChannel = showSomaticColumns ? FULL_CELLS_PER_CHANNEL : COMPACT_CELLS_PER_CHANNEL;
+        const cellStridePerChannel = showSomaticColumns ? FULL_CELL_STRIDE_PER_CHANNEL : COMPACT_CELL_STRIDE_PER_CHANNEL;
+
         const cellRefs = useCellRefsGrid<HTMLTableCellElement>(
             song.subsystem.maxRowsPerPattern,
-            CELLS_PER_CHANNEL * song.subsystem.channelCount,
+            cellsPerChannel * song.subsystem.channelCount,
         );
 
         const editingEnabled = editorState.editingEnabled !== false;
@@ -150,6 +159,17 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 clearPendingInstrumentEntry();
             }
         }, [editingEnabled, clearPendingInstrumentEntry]);
+
+        useEffect(() => {
+            if (showSomaticColumns) return;
+            const channelIndex = Math.floor(currentColumnIndex / FULL_CELLS_PER_CHANNEL);
+            const offset = currentColumnIndex % FULL_CELLS_PER_CHANNEL;
+            const nextOffset = Math.min(offset, COMPACT_CELLS_PER_CHANNEL - 1);
+            const nextCol = channelIndex * COMPACT_CELLS_PER_CHANNEL + nextOffset;
+            if (nextCol !== currentColumnIndex) {
+                setCurrentColumnIndex(nextCol);
+            }
+        }, [showSomaticColumns, currentColumnIndex]);
 
         const channelsArray = numericRange(0, song.subsystem.channelCount);
 
@@ -618,7 +638,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 size: { width: Math.min(payload.channels, maxChannel - startChannel + 1), height: Math.min(payload.rows, maxRow - startRow + 1) },
             }));
 
-            focusCell(startRow, startChannel * CELLS_PER_CHANNEL);
+            focusCell(startRow, startChannel * cellsPerChannel);
         };
 
         const handlePasteSelection = async () => {
@@ -695,14 +715,15 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const rowIndex = editorState.patternEditRow;
             const channelIndex = editorState.patternEditChannel;
             const columnIndex = currentColumnIndex;
-            const cellTypeOffset = columnIndex % CELLS_PER_CHANNEL;
+            const cellTypeOffset = columnIndex % cellsPerChannel;
             const cellType: ExtendedCellType =
                 cellTypeOffset === 0 ? 'note' :
                     cellTypeOffset === 1 ? 'instrument' :
                         cellTypeOffset === 2 ? 'command' :
                             cellTypeOffset === 3 ? 'param' :
-                                cellTypeOffset === 4 ? 'somaticCommand' :
-                                    'somaticParam';
+                                !showSomaticColumns ? 'param' :
+                                    cellTypeOffset === 4 ? 'somaticCommand' :
+                                        'somaticParam';
             onSongChange({
                 description: 'Clear field under cursor',
                 undoable: true,
@@ -920,13 +941,13 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         useImperativeHandle(ref, () => ({
             focusPattern() {
                 const row = editorState.patternEditRow || 0;
-                const col = (editorState.patternEditChannel || 0) * CELLS_PER_CHANNEL;
+                const col = (editorState.patternEditChannel || 0) * cellsPerChannel;
                 focusCell(row, col);
             },
             focusCellAdvancedToRow,
             transposeNotes: handleTranspose,
             nudgeInstrumentInSelection,
-        }), [editorState.patternEditChannel, editorState.patternEditRow, focusCell, focusCellAdvancedToRow]);
+        }), [editorState.patternEditChannel, editorState.patternEditRow, focusCell, focusCellAdvancedToRow, cellsPerChannel]);
 
         const updateEditTarget = ({ rowIndex, channelIndex }: { rowIndex: number, channelIndex: number }) => {
             //const channelIndex = Math.floor(col / 4);
@@ -935,7 +956,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const jumpSize = Math.max(song.highlightRowCount, 1);
         const rowCount = song.rowsPerPattern;
-        const colCount = CELLS_PER_CHANNEL * song.subsystem.channelCount;
+        const colCount = cellsPerChannel * song.subsystem.channelCount;
 
         const getTargetCoordForPageUp = (row: number, col: number): Coord2D => {
             const currentBlock = Math.floor(row / jumpSize);
@@ -1014,14 +1035,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     // If not on the note column, snap to note column within the same channel.
                     // If already on the note column, move to previous channel (keeping note column).
                     const channelCount = song.subsystem.channelCount;
-                    const currentChannel = Math.floor(col / CELLS_PER_CHANNEL);
-                    const cellTypeOffset = col % CELLS_PER_CHANNEL;
+                    const currentChannel = Math.floor(col / cellsPerChannel);
+                    const cellTypeOffset = col % cellsPerChannel;
                     if (cellTypeOffset !== 0) {
-                        const targetCol = currentChannel * CELLS_PER_CHANNEL;
+                        const targetCol = currentChannel * cellsPerChannel;
                         return [row, targetCol] as const;
                     }
                     const targetChannel = (currentChannel + channelCount - 1) % channelCount;
-                    const targetCol = targetChannel * CELLS_PER_CHANNEL;
+                    const targetCol = targetChannel * cellsPerChannel;
                     return [row, targetCol] as const;
                 }
                 return [row, (col + colCount - 1) % colCount] as const;
@@ -1029,10 +1050,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             if (key === 'ArrowRight') {
                 if (ctrlKey) {
                     // Move to next channel (keep same cell type within channel)
-                    const currentChannel = Math.floor(col / CELLS_PER_CHANNEL);
-                    const cellTypeOffset = col % CELLS_PER_CHANNEL;
+                    const currentChannel = Math.floor(col / cellsPerChannel);
+                    const cellTypeOffset = col % cellsPerChannel;
                     const targetChannel = (currentChannel + 1) % song.subsystem.channelCount;
-                    const targetCol = targetChannel * CELLS_PER_CHANNEL + cellTypeOffset;
+                    const targetCol = targetChannel * cellsPerChannel + cellTypeOffset;
                     return [row, targetCol] as const;
                 }
                 return [row, (col + 1) % colCount] as const;
@@ -1209,7 +1230,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             if (navTarget) {
                 clearPendingInstrumentEntry();
                 const [targetRow, targetCol] = navTarget;
-                const targetChannel = Math.floor(targetCol / CELLS_PER_CHANNEL);
+                const targetChannel = Math.floor(targetCol / cellsPerChannel);
                 onEditorStateChange((state) => state.setPatternEditTarget({ rowIndex: targetRow, channelIndex: targetChannel, song }));
                 focusCell(targetRow, targetCol);
                 e.preventDefault();
@@ -1290,14 +1311,15 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             setCurrentColumnIndex(col);
 
             // Determine column type from column index
-            const cellTypeOffset = col % CELLS_PER_CHANNEL;
+            const cellTypeOffset = col % cellsPerChannel;
             const columnType =
                 cellTypeOffset === 0 ? 'note' :
                     cellTypeOffset === 1 ? 'instrument' :
                         cellTypeOffset === 2 ? 'command' :
                             cellTypeOffset === 3 ? 'param' :
-                                cellTypeOffset === 4 ? 'somaticCommand' :
-                                    'somaticParam';
+                                !showSomaticColumns ? 'param' :
+                                    cellTypeOffset === 4 ? 'somaticCommand' :
+                                        'somaticParam';
             onEditorStateChange((s) => s.setPatternEditColumnType(columnType));
         };
 
@@ -1378,7 +1400,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
         };
 
-        const advancedEditPanelKeyshortcut = mgr.getActionBindingLabel("ToggleAdvancedEditPanel") || "Unbound";
+        const somaticColumnsKeyshortcut = mgr.getActionBindingLabelAsTooltipSuffix("ToggleSomaticColumns") || "Unbound";
 
         const containerRef = useRef<HTMLDivElement | null>(null);
         const topControlsRef = useRef<HTMLDivElement | null>(null);
@@ -1433,20 +1455,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     className={`pattern-grid-container${editingEnabled ? ' pattern-grid-container--editMode' : ' pattern-grid-container--locked'}`}
                 >
                     <div ref={topControlsRef} className="pattern-grid-top-controls">
-                        {!advancedEditPanelOpen && (
-                            <Tooltip title={advancedEditPanelOpen ? `Hide advanced edit panel (${advancedEditPanelKeyshortcut})` : `Show advanced edit panel (${advancedEditPanelKeyshortcut})`} >
-                                <button
-                                    type="button"
-                                    className={`aside-toggle-button pattern-advanced-handle`}
-                                    onClick={() => onSetAdvancedEditPanelOpen(!advancedEditPanelOpen)}
-                                    aria-expanded={advancedEditPanelOpen}
-                                    aria-controls="pattern-advanced-panel"
-                                >
-                                    {advancedEditPanelOpen ? CharMap.LeftTriangle : CharMap.RightTriangle}
-                                </button>
-                            </Tooltip>
-                        )}
-                        <div>
+                        <div className='pattern-grid-top-controls-main'>
+                            <div style={{display: "flex" }}>
                             <label>
                                 <span className="label-pattern-name">Pattern{' '}
                                     <span className="label-pattern-index">{formatPatternIndex(safePatternIndex)}</span></span>
@@ -1467,6 +1477,20 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                     }}
                                 //disabled={!editingEnabled} always allow this.
                                 />
+                            </label>
+                            <ButtonGroup variant="subtle">
+                                <Tooltip title={`Toggle Advanced Edit Panel ${mgr.getActionBindingLabelAsTooltipSuffix('ToggleAdvancedEditPanel')}`}>
+                                <CheckboxButton onClick={() => onSetAdvancedEditPanelOpen(!advancedEditPanelOpen)} checked={advancedEditPanelOpen}>
+                                    adv
+                                </CheckboxButton>
+                                </Tooltip>
+                                <Tooltip title={`Toggle Show Somatic Columns ${somaticColumnsKeyshortcut}`}>
+                                <CheckboxButton onClick={() => onEditorStateChange((s) => s.setShowSomaticColumns(!s.showSomaticColumns))} checked={editorState.showSomaticColumns}>
+                                    som
+                                </CheckboxButton>
+                                </Tooltip>
+                            </ButtonGroup>
+                            </div>
                                 {(() => {
                                     const usageCount = song.songOrder.filter(item => item.patternIndex === safePatternIndex).length;
                                     const isMultiple = usageCount > 1;
@@ -1476,7 +1500,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         </span>
                                     );
                                 })()}
-                            </label>
                         </div>
                     </div>
                     <table className="pattern-grid">
@@ -1489,7 +1512,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                 {Array.from({ length: song.subsystem.channelCount }, (_, i) => {
                                     const headerClass = `channel-header${editorState.isPatternChannelSelected(i) ? ' channel-header--selected' : ''}`;
                                     return (
-                                        <th key={i} colSpan={CELL_STRIDE_PER_CHANNEL} className={headerClass}>
+                                        <th key={i} colSpan={cellStridePerChannel} className={headerClass}>
                                             <div className='channel-header-cell-contents'>
                                                 <div
                                                     className='channel-header-label'
@@ -1563,12 +1586,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const paramText = formatParams(row.tic80EffectX, row.tic80EffectY);
                                             const somCmdText = formatSomaticCommand(row.somaticEffect);
                                             const somParamText = formatSomaticParam(row.somaticParam);
-                                            const noteCol = channelIndex * CELLS_PER_CHANNEL;
-                                            const instCol = channelIndex * CELLS_PER_CHANNEL + 1;
-                                            const cmdCol = channelIndex * CELLS_PER_CHANNEL + 2;
-                                            const paramCol = channelIndex * CELLS_PER_CHANNEL + 3;
-                                            const somCmdCol = channelIndex * CELLS_PER_CHANNEL + 4;
-                                            const somParamCol = channelIndex * CELLS_PER_CHANNEL + 5;
+                                            const noteCol = channelIndex * cellsPerChannel;
+                                            const instCol = noteCol + 1;
+                                            const cmdCol = noteCol + 2;
+                                            const paramCol = noteCol + 3;
+                                            const somCmdCol = noteCol + 4;
+                                            const somParamCol = noteCol + 5;
                                             const isEmpty = !row.midiNote && !row.noteOff && row.tic80Effect === undefined && row.instrumentIndex == null && row.tic80EffectX === undefined && row.tic80EffectY === undefined && row.somaticEffect === undefined && row.somaticParam === undefined;
                                             const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
                                             const channelSelected = editorState.isPatternChannelSelected(channelIndex);
@@ -1581,6 +1604,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                 (cellStyle as any)['--instrument-highlight-fg'] = instrument.highlightFg;
                                             }
 
+                                            const selectionRightEdgeCellType: ExtendedCellType = showSomaticColumns ? 'somaticParam' : 'param';
                                             const getSelectionClasses = (cellType: ExtendedCellType) => {
                                                 let classes = '';
                                                 if (highlightSelectedInstrument && instrumentIsSelected) classes += ' pattern-cell--selected-instrument';
@@ -1591,7 +1615,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                 if (rowIndex === editorState.patternSelection.topInclusive()) classes += ' pattern-cell--selection-top';
                                                 if (rowIndex === editorState.patternSelection.bottomInclusive()) classes += ' pattern-cell--selection-bottom';
                                                 if (channelIndex === editorState.patternSelection.leftInclusive() && cellType === 'note') classes += ' pattern-cell--selection-left';
-                                                if ((channelIndex === editorState.patternSelection.rightInclusive()) && cellType === 'somaticParam') classes += ' pattern-cell--selection-right';
+                                                if ((channelIndex === editorState.patternSelection.rightInclusive()) && cellType === selectionRightEdgeCellType) classes += ' pattern-cell--selection-right';
                                                 return classes;
                                             };
 
@@ -1628,10 +1652,15 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const somCmdSelectionClass = getSelectionClasses('somaticCommand');
                                             const somParamSelectionClass = getSelectionClasses('somaticParam');
 
+                                            const hasHiddenSomaticData = !showSomaticColumns && (row.somaticEffect !== undefined || row.somaticParam !== undefined);
+                                            const collapsedSomaticClass = showSomaticColumns
+                                                ? ''
+                                                : ` pattern-grid-collapsed-somatic${hasHiddenSomaticData ? ' pattern-grid-collapsed-somatic--has-data' : ''}`;
+
                                             const noteClass = `note-cell${additionalClasses}${noteSelectionClass}`;
                                             const instClass = `instrument-cell${additionalClasses}${instSelectionClass}`;
                                             const cmdClass = `command-cell${additionalClasses}${cmdSelectionClass}`;
-                                            const paramClass = `param-cell${additionalClasses}${paramSelectionClass}`;
+                                            const paramClass = `param-cell${additionalClasses}${paramSelectionClass}${collapsedSomaticClass}`;
                                             const somCmdClass = `somatic-command-cell${additionalClasses}${somCmdSelectionClass}`;
                                             const somParamClass = `somatic-param-cell${additionalClasses}${somParamSelectionClass}`;
                                             return (
@@ -1714,42 +1743,46 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                     >
                                                         {paramText}
                                                     </td>
-                                                    <td
-                                                        tabIndex={0}
-                                                        data-focus-bookmark="true"
-                                                        ref={(el) => (cellRefs[rowIndex][somCmdCol] = el)}
-                                                        className={somCmdClass}
-                                                        style={cellStyle}
-                                                        onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
-                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
-                                                        onFocus={() => onCellFocus(rowIndex, channelIndex, somCmdCol)}
-                                                        data-row-index={rowIndex}
-                                                        data-channel-index={channelIndex}
-                                                        data-cell-type="somaticCommand"
-                                                        data-column-index={somCmdCol}
-                                                        data-cell-value={`[${JSON.stringify(row.somaticEffect)}]`}
-                                                    >
-                                                        {somCmdText}
-                                                    </td>
-                                                    <td
-                                                        tabIndex={0}
-                                                        data-focus-bookmark="true"
-                                                        ref={(el) => (cellRefs[rowIndex][somParamCol] = el)}
-                                                        className={somParamClass}
-                                                        style={cellStyle}
-                                                        onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
-                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
-                                                        onFocus={() => onCellFocus(rowIndex, channelIndex, somParamCol)}
-                                                        data-row-index={rowIndex}
-                                                        data-channel-index={channelIndex}
-                                                        data-cell-type="somaticParam"
-                                                        data-column-index={somParamCol}
-                                                        data-cell-value={`[${JSON.stringify(row.somaticParam)}]`}
-                                                    >
-                                                        {somParamText}
-                                                    </td>
+                                                    {showSomaticColumns && (
+                                                        <>
+                                                            <td
+                                                                tabIndex={0}
+                                                                data-focus-bookmark="true"
+                                                                ref={(el) => (cellRefs[rowIndex][somCmdCol] = el)}
+                                                                className={somCmdClass}
+                                                                style={cellStyle}
+                                                                onKeyDown={onCellKeyDown}
+                                                                onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
+                                                                onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
+                                                                onFocus={() => onCellFocus(rowIndex, channelIndex, somCmdCol)}
+                                                                data-row-index={rowIndex}
+                                                                data-channel-index={channelIndex}
+                                                                data-cell-type="somaticCommand"
+                                                                data-column-index={somCmdCol}
+                                                                data-cell-value={`[${JSON.stringify(row.somaticEffect)}]`}
+                                                            >
+                                                                {somCmdText}
+                                                            </td>
+                                                            <td
+                                                                tabIndex={0}
+                                                                data-focus-bookmark="true"
+                                                                ref={(el) => (cellRefs[rowIndex][somParamCol] = el)}
+                                                                className={somParamClass}
+                                                                style={cellStyle}
+                                                                onKeyDown={onCellKeyDown}
+                                                                onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
+                                                                onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
+                                                                onFocus={() => onCellFocus(rowIndex, channelIndex, somParamCol)}
+                                                                data-row-index={rowIndex}
+                                                                data-channel-index={channelIndex}
+                                                                data-cell-type="somaticParam"
+                                                                data-column-index={somParamCol}
+                                                                data-cell-value={`[${JSON.stringify(row.somaticParam)}]`}
+                                                            >
+                                                                {somParamText}
+                                                            </td>
+                                                        </>
+                                                    )}
                                                     <td className='pattern-grid-krate-render-slot-cell'>
                                                         {/* show which k-rate render slot if applicable */}
                                                         {krateRenderSlot === null ? "" : (
@@ -1791,7 +1824,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
                                     const label = entries.length === 0 ? '' : entries.join(' ');
                                     return (
-                                        <th key={channelIndex} colSpan={CELLS_PER_CHANNEL} className={`pattern-grid-carry-cell${entries.length ? ' pattern-grid-carry-cell--warn' : ''}`}>
+                                        <th key={channelIndex} colSpan={cellsPerChannel} className={`pattern-grid-carry-cell${entries.length ? ' pattern-grid-carry-cell--warn' : ''}`}>
                                             {label}
                                         </th>
                                     );

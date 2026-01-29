@@ -630,6 +630,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("CycleTic80PanelSize", () => cycleTic80FrameSize());
     useActionHandler("ToggleOnScreenKeyboard", () => setShowingOnScreenKeyboard(open => !open));
     useActionHandler("ToggleAdvancedEditPanel", () => setAdvancedEditPanelOpen(open => !open));
+    useActionHandler("ToggleSomaticColumns", () => updateEditorState((s) => s.setShowSomaticColumns(!s.showSomaticColumns)));
     mgr.useActionHandler("TogglePatternEditor", () => {
         setPatternEditorOpen(open => !open);
     });
@@ -910,6 +911,13 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         shortcut={mgr.getActionBindingLabel("ToggleAdvancedEditPanel")}
                                     >
                                         Advanced Edit Panel
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={editorState.showSomaticColumns}
+                                        onSelect={() => updateEditorState((s) => s.setShowSomaticColumns(!s.showSomaticColumns))}
+                                        shortcut={mgr.getActionBindingLabel("ToggleSomaticColumns")}
+                                    >
+                                        Somatic Columns
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={waveformEditorPanelOpen}

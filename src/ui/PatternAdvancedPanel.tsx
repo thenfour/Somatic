@@ -1,4 +1,4 @@
-import { mdiSync } from '@mdi/js';
+import { mdiSync, mdiWindowClose } from '@mdi/js';
 import React, { useId, useState } from 'react';
 import { GlobalActionId } from '../keyb/ActionIds';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
@@ -159,15 +159,10 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
             id="pattern-advanced-panel"
             className={`pattern-advanced-panel`}
         >
-            <header className="pattern-advanced-panel__header">Advanced Edit</header>
-            <Tooltip title={`Close (${advancedEditPanelKeyshortcut})`}>
-                <button
-                    className='aside-toggle-button pattern-advanced-panel-close-button'
-                    onClick={onClose}
-                >
-                    {CharMap.LeftTriangle}
-                </button>
-            </Tooltip>
+            <header className="pattern-advanced-panel__header">
+                <IconButton onClick={onClose} iconPath={mdiWindowClose} />
+                <span>Advanced Edit</span>
+            </header>
             <div className="pattern-advanced-panel__body">
                 <fieldset>
                     <legend>Apply to</legend>

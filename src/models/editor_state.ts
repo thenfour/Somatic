@@ -9,6 +9,7 @@ export interface EditorStateDto {
    activeSongPosition: number;
    currentInstrument: number;
    editingEnabled: boolean;
+   showSomaticColumns: boolean;
    patternEditRow: number;
    patternEditChannel: number;
    selectedArrangementPositions: Rect2D|null;
@@ -26,6 +27,7 @@ export class EditorState {
    activeSongPosition: number;
    currentInstrument: number;
    editingEnabled: boolean;
+   showSomaticColumns: boolean;
    patternEditRow: number;
    patternEditChannel: number;
    patternEditColumnType: SomaticEditorStateColumnType;
@@ -41,6 +43,7 @@ export class EditorState {
       activeSongPosition = 0,
       currentInstrument = 0,
       editingEnabled = false,
+      showSomaticColumns = true,
       patternEditRow = 0,
       patternEditChannel = 0,
       selectedArrangementPositions = null,
@@ -54,6 +57,7 @@ export class EditorState {
       this.activeSongPosition = clamp(activeSongPosition, 0, 255);
       this.currentInstrument = currentInstrument;
       this.editingEnabled = CoalesceBoolean(editingEnabled, true);
+      this.showSomaticColumns = CoalesceBoolean(showSomaticColumns, true);
       this.patternEditRow = clamp(patternEditRow, 0, 63);
       this.patternEditChannel = patternEditChannel;
       this.patternEditColumnType = "note"; // default
@@ -80,6 +84,15 @@ export class EditorState {
 
    setEditingEnabled(enabled: boolean) {
       this.editingEnabled = Boolean(enabled);
+   }
+
+   setShowSomaticColumns(enabled: boolean) {
+      this.showSomaticColumns = Boolean(enabled);
+      if (
+         !this.showSomaticColumns &&
+         (this.patternEditColumnType === "somaticCommand" || this.patternEditColumnType === "somaticParam")) {
+         this.patternEditColumnType = "param";
+      }
    }
 
    setPatternEditTarget({song, rowIndex, channelIndex}: {song: Song, rowIndex: number, channelIndex: number}) {
@@ -192,6 +205,7 @@ export class EditorState {
          activeSongPosition: this.activeSongPosition,
          currentInstrument: this.currentInstrument,
          editingEnabled: this.editingEnabled,
+         showSomaticColumns: this.showSomaticColumns,
          patternEditRow: this.patternEditRow,
          patternEditChannel: this.patternEditChannel,
          selectedArrangementPositions: this.selectedArrangementPositions ? this.selectedArrangementPositions.toData() :

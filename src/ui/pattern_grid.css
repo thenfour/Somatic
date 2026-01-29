@@ -1,5 +1,3 @@
-/* Pattern Grid Component Styles */
-
 .pattern-grid-top-controls {
     margin-top: 0;
     position: sticky;
@@ -8,11 +6,6 @@
     background: var(--bg);
     padding-top: 4px;
     display: flex;
-}
-
-.pattern-grid-top-controls>div {
-    /* avoid collision with edit mode border */
-    margin-left: 50px;
 }
 
 .pattern-grid-top-controls .label-pattern-index {
@@ -29,7 +22,7 @@
     padding: 4px 8px;
     border: 1px solid var(--border);
     color: var(--accent);
-    width: 400px;
+    width: 250px;
 }
 
 .pattern-grid-top-controls .pattern-usage-indicator {
@@ -63,9 +56,8 @@
     gap: 0;
 }
 
-.pattern-advanced-handle {
-    left: 0;
-    z-index: 100;
+.pattern-grid-top-controls-main {
+    margin-left: 14px;
 }
 
 .pattern-advanced-panel {
@@ -81,27 +73,52 @@
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
     position: relative;
 }
+/* 
+.aside-toggle-buttons-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width:24px;
 
-.aside-toggle-button {
     position: absolute;
     top: 0px;
-    height: 46px;
-    padding: 12px 6px;
+    left: 0;
+    z-index: 100;
+    position: sticky;
+} */
+/* 
+.pattern-advanced-panel .aside-toggle-buttons-group {
+    right:0;
+    left: unset;
+} */
+/* 
+.aside-toggle-button {
+    padding: 12px 4px;
     border: 1px solid var(--border);
     background: var(--accent);
     color: var(--border);
     cursor: pointer;
     font-size: 14px;
     border: 0;
+    width:24px;
+    border-radius: 1.5px;
+
+}
+
+
+.pattern-somatic-columns-toggle {
+    top: 48px;
 }
 
 .aside-toggle-button:hover {
     background: var(--panel-strong);
 }
+ */
 
+/* 
 .pattern-advanced-panel-close-button {
     right: 0px;
-}
+} */
 
 .pattern-advanced-panel--open {
     opacity: 1;
@@ -112,6 +129,9 @@
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 8px;
+    display:flex;
+    align-items: center;
+    gap:8px;
 }
 
 .pattern-advanced-panel__body {
@@ -158,7 +178,7 @@
     display: flex;
     gap: 8px;
 } */
-
+/* 
 .pattern-advanced-panel__button {
     background: var(--panel-strong);
     color: var(--text);
@@ -190,7 +210,7 @@
 .pattern-advanced-panel__button--primary:hover {
     background: var(--accent-strong);
     border-color: var(--accent-strong);
-}
+} */
 
 .pattern-advanced-panel__stacked {
     display: flex;
@@ -451,6 +471,14 @@
     white-space: nowrap;
 }
 
+.pattern-grid td.pattern-grid-collapsed-somatic {
+    border-right: 4px solid color-mix(in srgb, var(--text) 35%, transparent);
+}
+
+.pattern-grid td.pattern-grid-collapsed-somatic--has-data {
+    border-right-color: var(--accent);
+}
+
 .pattern-grid td.empty-cell {
     color: var(--muted);
 }
@@ -530,13 +558,6 @@
     overflow: auto;
     border: 3px solid var(--bg);
     box-sizing: border-box;
-}
-
-/* Keep the advanced panel toggle visible while scrolling the grid */
-.pattern-grid-container .aside-toggle-button {
-    position: sticky;
-    top: 0px;
-    z-index: 200;
 }
 
 /* Make the table header stick below the top controls */

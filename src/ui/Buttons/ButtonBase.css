@@ -151,3 +151,19 @@
     */
     justify-content: flex-start;
 }
+
+.somatic-button-group--subtle {
+    gap: 4px;
+}
+
+.somatic-button-group--subtle .somatic-button-base  {
+    font-size:11px;
+    text-transform: uppercase;
+    height:25px;
+    border-radius: 2px;
+    opacity: 80%;
+}
+
+.somatic-button-group.somatic-button-group--horizontal.somatic-button-group--subtle  {
+    align-items: center;
+}
