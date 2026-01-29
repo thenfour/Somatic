@@ -39,6 +39,7 @@ do
 	local lastPlayingFrame = -1
 	local backBufferIsA = false -- A means patterns 0,1,2,3; B = 4,5,6,7
 	local stopPlayingOnNextFrame = false
+	local loopSongForeverEnabled = false
 	local PATTERN_BUFFER_BYTES = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
 	local bufferALocation = __AUTOGEN_BUF_PTR_A -- pattern 46
 	local bufferBLocation = __AUTOGEN_BUF_PTR_B -- pattern 50
@@ -517,9 +518,10 @@ do
 	somatic_reset_state()
 
 	-- init state and begin playback. can be called multiple times.
-	somatic_init = function(songPosition, startRow)
+	somatic_init = function(songPosition, startRow, loopSongForever)
 		songPosition = songPosition or 0
 		startRow = startRow or 0
+		loopSongForeverEnabled = (loopSongForever == true)
 
 		log(string.format("somatic_init: pos=%d row=%d", songPosition, startRow)) -- DEBUG_ONLY
 
@@ -564,9 +566,9 @@ do
 		somatic_reset_state()
 	end
 
-	function somatic_tick()
+	function somatic_tick(initialSongPosition, initialStartRow, loopSongForever)
 		if not initialized then
-			somatic_init(0, 0)
+			somatic_init(initialSongPosition or 0, initialStartRow or 0, loopSongForever)
 		end
 		local track, _, currentFrame, row = somatic_get_state()
 		if track == -1 then
@@ -594,7 +596,7 @@ do
 
 			log(string.format("tick: advance to=%d count=%d", currentSongOrder, orderCount)) -- DEBUG_ONLY
 
-			if orderCount == 0 or currentSongOrder >= orderCount then
+			local function clearNextBufferAndStop()
 				-- No next entry to queue. Don't stop *immediately* (that would kill playback
 				-- when starting on the last order / length==1). Instead, clear the next buffer
 				-- so the next advance is silent, and stop on the following tick.
@@ -602,6 +604,17 @@ do
 					poke(destPointer + i, 0)
 				end
 				stopPlayingOnNextFrame = true
+			end
+
+			if orderCount == 0 then
+				clearNextBufferAndStop()
+			elseif currentSongOrder >= orderCount then
+				if loopSongForeverEnabled then
+					currentSongOrder = 0
+					swapInPlayorder(currentSongOrder, destPointer)
+				else
+					clearNextBufferAndStop()
+				end
 			else
 				swapInPlayorder(currentSongOrder, destPointer)
 			end
