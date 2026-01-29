@@ -149,6 +149,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             channelIndex: number;
             hiNibble: number;
         } | null>(null);
+        const prevShowSomaticColumnsRef = useRef(showSomaticColumns);
 
         const clearPendingInstrumentEntry = useCallback(() => {
             pendingInstrumentEntryRef.current = null;
@@ -161,15 +162,33 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         }, [editingEnabled, clearPendingInstrumentEntry]);
 
         useEffect(() => {
-            if (showSomaticColumns) return;
+            const prevShow = prevShowSomaticColumnsRef.current;
+            prevShowSomaticColumnsRef.current = showSomaticColumns;
+
+            // Only remap columns when transitioning from showing to hiding.
+            if (showSomaticColumns || !prevShow) return;
+
             const channelIndex = Math.floor(currentColumnIndex / FULL_CELLS_PER_CHANNEL);
             const offset = currentColumnIndex % FULL_CELLS_PER_CHANNEL;
             const nextOffset = Math.min(offset, COMPACT_CELLS_PER_CHANNEL - 1);
             const nextCol = channelIndex * COMPACT_CELLS_PER_CHANNEL + nextOffset;
-            if (nextCol !== currentColumnIndex) {
-                setCurrentColumnIndex(nextCol);
+
+            const isSomaticColumn = editorState.patternEditColumnType === "somaticCommand" || editorState.patternEditColumnType === "somaticParam";
+            const shouldForceParam = isSomaticColumn || offset >= COMPACT_CELLS_PER_CHANNEL;
+            const paramCol = channelIndex * COMPACT_CELLS_PER_CHANNEL + (COMPACT_CELLS_PER_CHANNEL - 1);
+            const targetCol = shouldForceParam ? paramCol : nextCol;
+
+            if (targetCol !== currentColumnIndex) {
+                setCurrentColumnIndex(targetCol);
             }
-        }, [showSomaticColumns, currentColumnIndex]);
+
+            if (shouldForceParam) {
+                onEditorStateChange((s) => s.setPatternEditColumnType("param"));
+                const rowIndex = editorState.patternEditRow ?? 0;
+                const rowTarget = cellRefs[rowIndex]?.[targetCol];
+                if (rowTarget) rowTarget.focus();
+            }
+        }, [showSomaticColumns, currentColumnIndex, editorState.patternEditColumnType, editorState.patternEditRow, onEditorStateChange, cellRefs]);
 
         const channelsArray = numericRange(0, song.subsystem.channelCount);
 

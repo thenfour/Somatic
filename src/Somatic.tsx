@@ -82,7 +82,7 @@ type SongChangeArgs = {
     undoable: boolean;
 };
 type EditorStateMutator = (state: EditorState) => void;
-type PatternCellType = "note" | "instrument" | "command" | "param";
+type PatternCellType = "note" | "instrument" | "command" | "param" | "somaticCommand" | "somaticParam";
 
 const DEFAULT_LOOP_STATE: { loopMode: LoopMode; lastNonOffLoopMode: LoopMode } = {
     loopMode: "off",
@@ -95,14 +95,17 @@ const getActivePatternCellType = (): PatternCellType | null => {
     if (!active || !(active instanceof HTMLElement)) return null;
     const cellType = active.getAttribute("data-cell-type");
     return cellType === "note" || cellType === "instrument" || cellType === "command" || cellType === "param"
+        || cellType === "somaticCommand" || cellType === "somaticParam"
         ? cellType
         : null;
 };
 
 const isEditingCommandOrParamCell = () => {
     const cellType = getActivePatternCellType();
-    return cellType === "command" || cellType === "param" || cellType === "instrument";
+    return cellType === "command" || cellType === "param" || cellType === "instrument" || cellType === "somaticCommand" || cellType === "somaticParam";
 };
+
+const isEditingNoteCell = () => getActivePatternCellType() === "note";
 
 export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ theme, onToggleTheme }) => {
     const mgr = useShortcutManager<GlobalActionId>();
@@ -359,11 +362,11 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             const s = songRef.current;
             const ed = editorRef.current;
             const channel = ed.patternEditChannel;
-            const skipNoteEntry = isEditingCommandOrParamCell();
+            const allowPatternNoteEntry = isEditingNoteCell();
             autoSave.flush(); // immediately apply changes to instrument; user is playing a note maybe testing their tweaks.
             audio.sfxNoteOn(s, ed.currentInstrument, note, ed.patternEditChannel);
 
-            if (ed.editingEnabled !== false && !skipNoteEntry) {
+            if (ed.editingEnabled !== false && allowPatternNoteEntry) {
                 const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.activeSongPosition || 0));
                 const currentPatternIndex = s.songOrder[currentPosition].patternIndex ?? 0;
                 const rowsPerPattern = s.rowsPerPattern;
