@@ -86,6 +86,7 @@
     display: inline-flex;
     gap: 8px;
     margin-left: auto;
+    position: relative;
 }
 
 .keyboard-binding-row__label {
@@ -185,6 +186,25 @@
     border-color: var(--accent);
     color: var(--tic-0);
     animation: pulse 0.7s ease-in-out infinite;
+}
+
+.keyboard-binding-row__capture-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: var(--panel-strong);
+    border: 1px solid var(--border);
+    padding: 6px;
+    z-index: 50;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+}
+
+.keyboard-binding-row__button--menu {
+    width: 100%;
+    text-align: left;
 }
 
 @keyframes pulse {
