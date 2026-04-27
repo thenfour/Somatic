@@ -40,6 +40,7 @@ do
 	local backBufferIsA = false -- A means patterns 0,1,2,3; B = 4,5,6,7
 	local stopPlayingOnNextFrame = false
 	local loopSongForeverEnabled = false
+	local playbackMuted = false
 	local PATTERN_BUFFER_BYTES = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
 	local bufferALocation = __AUTOGEN_BUF_PTR_A -- pattern 46
 	local bufferBLocation = __AUTOGEN_BUF_PTR_B -- pattern 50
@@ -499,8 +500,100 @@ do
 		end
 	end
 
+	local function clearPatternBuffer(destPointer)
+		for i = 0, PATTERN_BUFFER_BYTES - 1 do
+			poke(destPointer + i, 0)
+		end
+	end
+
+	local function writeMutedPatternBuffer(destPointer)
+		for i = 0, PATTERN_BUFFER_BYTES - 1, 3 do
+			poke(destPointer + i, 1) -- note cut
+			poke(destPointer + i + 1, 0)
+			poke(destPointer + i + 2, 0)
+		end
+	end
+
+	local function clearAllPlaybackBuffers()
+		writeMutedPatternBuffer(bufferALocation)
+		writeMutedPatternBuffer(bufferBLocation)
+	end
+
+	local function stopAllVoices()
+		for ch = 0, SFX_CHANNELS - 1 do
+			sfx(-1, 0, 0, ch)
+			ch_sfx_id[ch + 1] = -1
+			ch_sfx_ticks[ch + 1] = 0
+		end
+	end
+
+	local function queuePlaybackBuffer(songPosition0b, destPointer)
+		if playbackMuted then
+			writeMutedPatternBuffer(destPointer)
+		else
+			swapInPlayorder(songPosition0b, destPointer)
+		end
+	end
+
 	-- =========================
 	-- general playroutine support
+
+	-- Mute is implemented as zeroing out patterns. When unmuting, we need to re-queue them.
+	-- todo: unify a bit with tick logic because it's similar buffer mgmt
+	local function rebuildPlaybackBuffers()
+		local orderCount = somatic_get_song_order_count()
+		local frontPointer = backBufferIsA and bufferBLocation or bufferALocation
+		local backPointer = backBufferIsA and bufferALocation or bufferBLocation
+
+		if orderCount == 0 then
+			clearAllPlaybackBuffers()
+			return
+		end
+
+		if playingSongOrder0b >= 0 and playingSongOrder0b < orderCount then
+			swapInPlayorder(playingSongOrder0b, frontPointer)
+		else
+			clearPatternBuffer(frontPointer)
+		end
+
+		local nextSongOrder = currentSongOrder
+		if nextSongOrder >= orderCount then
+			if loopSongForeverEnabled then
+				nextSongOrder = 0
+			else
+				nextSongOrder = nil
+			end
+		end
+
+		if nextSongOrder == nil then
+			clearPatternBuffer(backPointer)
+		else
+			swapInPlayorder(nextSongOrder, backPointer)
+		end
+	end
+
+	function somatic_set_muted(muted)
+		local newMuted = (muted == true)
+		if playbackMuted == newMuted then
+			return
+		end
+
+		playbackMuted = newMuted
+		last_music_track = -2
+		last_music_frame = -1
+		last_music_row = -1
+
+		if playbackMuted then
+			clearAllPlaybackBuffers()
+			stopAllVoices()
+		else
+			rebuildPlaybackBuffers()
+		end
+	end
+
+	function somatic_get_muted()
+		return playbackMuted
+	end
 
 	somatic_reset_state = function()
 		currentSongOrder = 0
@@ -511,6 +604,9 @@ do
 		ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
 		ch_lowpass_strength_scale_u8 = { 255, 255, 255, 255 }
 		lfo_ticks_by_sfx = {}
+		if playbackMuted then
+			clearAllPlaybackBuffers()
+		end
 		log("somatic_reset_state") -- DEBUG_ONLY
 		--ch_set_playroutine_regs(0xFF)
 	end
@@ -531,8 +627,13 @@ do
 		backBufferIsA = true -- act like we came from buffer B so tick() will set it correctly on first pass.
 		lastPlayingFrame = -1 -- this means tick() will immediately seed the back buffer.
 		stopPlayingOnNextFrame = false
+		if playbackMuted then
+			clearAllPlaybackBuffers()
+		else
+			queuePlaybackBuffer(currentSongOrder, bufferALocation)
+		end
 
-		swapInPlayorder(currentSongOrder, bufferALocation)
+		stopAllVoices()
 
 		-- Seed LFO tick counters so per-tick advancement can be branch-free.
 		for i = 1, #morphIds do
@@ -600,9 +701,7 @@ do
 				-- No next entry to queue. Don't stop *immediately* (that would kill playback
 				-- when starting on the last order / length==1). Instead, clear the next buffer
 				-- so the next advance is silent, and stop on the following tick.
-				for i = 0, PATTERN_BUFFER_BYTES - 1 do
-					poke(destPointer + i, 0)
-				end
+				clearPatternBuffer(destPointer)
 				stopPlayingOnNextFrame = true
 			end
 
@@ -611,12 +710,12 @@ do
 			elseif currentSongOrder >= orderCount then
 				if loopSongForeverEnabled then
 					currentSongOrder = 0
-					swapInPlayorder(currentSongOrder, destPointer)
+					queuePlaybackBuffer(currentSongOrder, destPointer)
 				else
 					clearNextBufferAndStop()
 				end
 			else
-				swapInPlayorder(currentSongOrder, destPointer)
+				queuePlaybackBuffer(currentSongOrder, destPointer)
 			end
 		end
 
@@ -667,6 +766,9 @@ function TIC()
 			somatic_stop()
 		end
 	end
+	if keyp(13) then -- M
+		somatic_set_muted(not somatic_get_muted())
+	end
 
 	cls(0)
 	local y = 2
@@ -676,7 +778,20 @@ function TIC()
 	y = y + 8
 	print("Down = pause/resume", 0, y, 15)
 	y = y + 8
-	print(string.format("t:%d ord:%d r:%d", track, playingSongOrder, currentRow), 0, y, 6)
+	print("M = mute toggle", 0, y, 15)
+	y = y + 8
+	print(
+		string.format(
+			"muted:%s t:%d ord:%d r:%d",
+			somatic_get_muted() and "y" or "n",
+			track,
+			playingSongOrder,
+			currentRow
+		),
+		0,
+		y,
+		6
+	)
 
 	-- BEGIN_DEBUG_ONLY
 	-- Show logs
