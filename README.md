@@ -84,19 +84,81 @@ All your demo needs to do is
 
 ```lua
 function TIC()
-	somatic_tick()
-  ...
+	local state = somatic_tick()
+	-- drive visuals from state.demoBeats / state.demoPatternIndex / state.demoPatternRow
+	...
+	somatic_end_frame()
 end
 
 ```
 
-You can get realtime frame and row data from `somatic_get_state()`. See the default exported
-playroutine to see how it can be used for sync / playback control.
+`somatic_tick()` returns the current transport state. `demoBeats` is the preferred sync value for
+animation; pattern and row fields are also included for tracker-style sync.
 
 ```lua
-local track, currentFrame, currentRow = somatic_get_state()
-print(string.format("t:%d f:%d r:%d", track, currentFrame, currentRow), 0, 0)
+local state = somatic_tick()
+print(string.format("beat:%.2f pat:%d row:%d", state.demoBeats, state.demoPatternIndex, state.demoPatternRow), 0, 0)
 ```
+
+public API:
+
+```lua
+somatic_tick(wallDeltaMillisOverride) -- call once per TIC frame; returns state
+somatic_get_time()                    -- read state without advancing time
+somatic_seek(beat)                    -- integral beat seek; audio seek is row-quantized
+somatic_set_options(options)          -- tempo/speed/isPlaying/isMuted/loopSongForever
+somatic_advance_frame()               -- advance paused demo time by one 60Hz frame
+somatic_end_frame()                   -- for internal bookkeeping
+```
+
+Transport state includes timing settings, play state, wall-clock fields, demo-clock fields, and song
+length fields. "Wall clock" refers to the clock on your wall rather than in the song/demo.
+The wall clock ticks even when the demo is paused. Useful for debug huds etc.
+
+```lua
+state.tempo
+state.speed
+state.rowsPerBeat
+state.rowsPerPattern
+state.isPlaying
+state.isMuted
+state.loopSongForever
+state.didSeek
+state.playbackRate
+
+state.wallFrame
+state.wallDeltaMillis
+state.wallMillis
+
+state.demoMillis
+state.demoDeltaMillis
+state.demoBeats
+state.demoDeltaBeats
+state.demoPatternIndex
+state.demoPatternRow
+
+state.songPatternCount
+state.songRowCount
+state.songBeatCount
+state.songMillis
+```
+
+For example:
+
+```lua
+if btnp(1) then
+	state = somatic_set_options({ isPlaying = not state.isPlaying })
+end
+if btnp(2) then
+	state = somatic_seek(math.max(0, state.demoBeats - 1))
+end
+if btnp(3) then
+	state = somatic_seek(math.min(state.songBeatCount, state.demoBeats + 1))
+end
+```
+
+`tempo` and `speed` can be overridden together for slowed playback. `rowsPerBeat`
+is based on Somatic's highlight rows.
 
 ## How to use with ticbuild build system
 
@@ -143,7 +205,7 @@ And in your Lua code,
 --#include "asset:song:CODE" -- include music routines
 
 function TIC()
-  somatic_tick() -- music update per frame
+  local state = somatic_tick() -- music + transport update per frame
 end
 ```
 
