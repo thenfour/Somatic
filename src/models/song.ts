@@ -102,6 +102,7 @@ export type SongDto = {
    customEntrypointLua: string;
 
    arrangementThumbnailSize: ArrangementThumbnailSize;
+   exportCueSheet?: boolean;
 };
 
 function getSomaticBuildMetadataForSongSave(): SomaticBuildMetadata {
@@ -148,6 +149,7 @@ export class Song {
    customEntrypointLua: string;
 
    arrangementThumbnailSize: ArrangementThumbnailSize;
+   exportCueSheet: boolean;
 
    constructor(data: Partial<SongDto> = {}) {
       this.subsystemType = data.subsystemType || kSubsystem.key.TIC80;
@@ -184,6 +186,7 @@ export class Song {
 
       // Default to showing thumbnails (matches previous behavior).
       this.arrangementThumbnailSize = (data.arrangementThumbnailSize as ArrangementThumbnailSize) ?? "normal";
+      this.exportCueSheet = CoalesceBoolean(data.exportCueSheet, true);
 
       this.subsystem.onInitOrSubsystemTypeChange(this);
    }
@@ -346,6 +349,7 @@ export class Song {
          customEntrypointLua: this.customEntrypointLua,
 
          arrangementThumbnailSize: this.arrangementThumbnailSize,
+         exportCueSheet: this.exportCueSheet,
       };
    }
 

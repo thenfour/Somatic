@@ -178,6 +178,28 @@ export const SongEditor: React.FC<SongEditorProps> = ({ song, editorState, onSon
                 </ButtonGroup>
             </fieldset>
 
+          <fieldset>
+             <legend>Cuesheet</legend>
+             <div style={{maxWidth: 350}}>
+                Export an arrangement cue sheet as a global Lua table so carts can drive animation from song structure
+                or pattern names. The table is called SOMATIC_CUE_SHEET.
+             </div >
+             <CheckboxButton
+                checked={song.exportCueSheet}
+                onChange={(checked) => {
+                   onSongChange({
+                      description: checked ? 'Enable cue sheet export' : 'Disable cue sheet export',
+                      undoable: true,
+                      mutator: (s) => {
+                         s.exportCueSheet = checked;
+                      },
+                   });
+                }}
+             >
+                Export cue sheet?
+             </CheckboxButton>
+          </fieldset>
+
             <fieldset>
                 <legend>Custom Playroutine Entrypoint</legend>
                 <p>

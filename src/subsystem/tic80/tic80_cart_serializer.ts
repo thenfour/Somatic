@@ -220,6 +220,52 @@ function encodeExtraSongDataForBridge(song: Song, prepared: PreparedSong): Uint8
    return encodeSomaticExtraSongDataPayload({instruments, patterns}, totalBytes);
 }
 
+type CueSheetEntry = {
+   markerVariant: string;
+   patternIndex: number;
+   patternName: string;
+};
+
+function buildCueSheet(song: Song): CueSheetEntry[] | null {
+   if (!song.exportCueSheet) {
+      return null;
+   }
+
+   const entries: CueSheetEntry[] = [];
+   const maxPatternIndex = song.patterns.length - 1;
+   for (let orderIndex = 0; orderIndex < song.songOrder.length; orderIndex++) {
+      const orderItem = song.songOrder[orderIndex]!;
+      const patternIndex = clamp(orderItem.patternIndex ?? 0, 0, maxPatternIndex);
+      const patternName = song.patterns[patternIndex]?.name ?? "";
+      entries.push({
+         markerVariant: orderItem.markerVariant,
+         patternIndex,
+         patternName,
+      });
+   }
+
+   return entries;
+}
+
+function buildCueSheetLua(cueSheet: CueSheetEntry[] | null): string {
+   if (cueSheet == null) {
+      return "";
+   }
+
+   const entries: string[] = [];
+   const cueSheetEntries = cueSheet;
+   for (let orderIndex = 0; orderIndex < cueSheetEntries.length; orderIndex++) {
+      const entry = cueSheetEntries[orderIndex]!;
+      entries.push(`\t{ markerVariant = ${toLuaStringLiteral(entry.markerVariant)}, patternIndex = ${entry.patternIndex}, patternName = ${toLuaStringLiteral(entry.patternName)} },`);
+   }
+
+   if (entries.length === 0) {
+      return "SOMATIC_CUE_SHEET = {}";
+   }
+
+   return "SOMATIC_CUE_SHEET = {\n" + entries.join("\n") + "\n}";
+}
+
 export interface ExtraSongDataDetails {
    binaryPayload: Uint8Array;
    compressedPayload: Uint8Array;
@@ -641,6 +687,7 @@ function getCode(
    patternSerializationPlan: PatternMemoryPlan, //
    features: PlaybackFeatureUsage,              //
    extraSongDataDetails: ExtraSongDataDetails,
+   cueSheet: CueSheetEntry[] | null,
    ): //
    {
       code: string,          //
@@ -664,6 +711,7 @@ function getCode(
    const songOrderCompressed = lzCompress(songOrderPayload, gSomaticLZDefaultConfig);
    const songOrderB85 = base85Plus1Encode(songOrderCompressed);
    const songOrder = toLuaStringLiteral(songOrderB85);
+   const cueSheetSection = buildCueSheetLua(cueSheet);
 
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
 local SOMATIC_MUSIC_DATA = {
@@ -674,7 +722,9 @@ local SOMATIC_MUSIC_DATA = {
  -- patterns in code
  cp = { ${patternSerializationPlan.codePatternStrings.join(",")} },
 }
--- END_SOMATIC_MUSIC_DATA`;
+-- END_SOMATIC_MUSIC_DATA
+
+${cueSheetSection}`;
 
    // Generate the autogen section with the morph decoder and memory constants
    const autogenSection = `-- AUTO-GENERATED. DO NOT EDIT BY HAND.
@@ -824,6 +874,8 @@ export function serializeSongToCartDetailed(
       }
    }
 
+   const cueSheet = buildCueSheet(song);
+
    let optimizeResult: OptimizeResult = MakeOptimizeResultEmpty(song);
    if (optimize) {
       const result = OptimizeSong(song);
@@ -867,7 +919,7 @@ export function serializeSongToCartDetailed(
    const extraSongDataDetails = makeExtraSongDataDetails(song, preparedSong);
 
    const {code, generatedCode} =
-      getCode(song, preparedSong, variant, patternSerializationPlan, optimizeResult.featureUsage, extraSongDataDetails);
+      getCode(song, preparedSong, variant, patternSerializationPlan, optimizeResult.featureUsage, extraSongDataDetails, cueSheet);
 
    // waveforms
    const waveformCount = getMaxWaveformUsedIndex(song) + 1;
