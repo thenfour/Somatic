@@ -431,7 +431,7 @@ do
 		log(" firstBytes: [" .. firstBytes .. "]")
 	end
 	-- END_DEBUG_ONLY
-	function somatic_get_song_order_count()
+	local function song_order_count()
 		return #SOMATIC_MUSIC_DATA.songOrder / 4
 	end
 
@@ -541,7 +541,7 @@ do
 	-- Mute is implemented as zeroing out patterns. When unmuting, we need to re-queue them.
 	-- todo: unify a bit with tick logic because it's similar buffer mgmt
 	local function rebuildPlaybackBuffers()
-		local orderCount = somatic_get_song_order_count()
+		local orderCount = song_order_count()
 		local frontPointer = backBufferIsA and bufferBLocation or bufferALocation
 		local backPointer = backBufferIsA and bufferALocation or bufferBLocation
 
@@ -572,7 +572,7 @@ do
 		end
 	end
 
-	function somatic_set_muted(muted)
+	local function set_muted(muted)
 		local newMuted = (muted == true)
 		if playbackMuted == newMuted then
 			return
@@ -591,10 +591,6 @@ do
 		end
 	end
 
-	function somatic_get_muted()
-		return playbackMuted
-	end
-
 	-- TIC-80 tempo/speed pair expressed as BPM-ish beats.
 	local function somatic_get_bpm(tempo, speed)
 		return tempo * 6 / speed
@@ -607,6 +603,18 @@ do
 		local speed = options.speed or SOMATIC_MUSIC_DATA.speed
 		local rowsPerBeat = options.rowsPerBeat or SOMATIC_MUSIC_DATA.rowsPerBeat
 		local rowsPerPattern = SOMATIC_MUSIC_DATA.rowsPerPattern
+		if tempo <= 0 then
+			error("SOMATIC_MUSIC_DATA.tempo must be > 0")
+		end
+		if speed <= 0 then
+			error("SOMATIC_MUSIC_DATA.speed must be > 0")
+		end
+		if rowsPerBeat <= 0 then
+			error("SOMATIC_MUSIC_DATA.rowsPerBeat must be > 0")
+		end
+		if rowsPerPattern <= 0 then
+			error("SOMATIC_MUSIC_DATA.rowsPerPattern must be > 0")
+		end
 		return tempo, speed, rowsPerBeat, rowsPerPattern
 	end
 
@@ -630,6 +638,8 @@ do
 			rowsPerBeat = baseRowsPerBeat,
 			rowsPerPattern = baseRowsPerPattern,
 			isPlaying = true,
+			isMuted = false,
+			loopSongForever = false,
 			didSeek = false,
 			playbackRate = 1,
 			wallFrame = 0,
@@ -675,6 +685,8 @@ do
 		state.rowsPerBeat = somatic_transport.rowsPerBeat
 		state.rowsPerPattern = somatic_transport.rowsPerPattern
 		state.isPlaying = somatic_transport.isPlaying
+		state.isMuted = playbackMuted
+		state.loopSongForever = loopSongForeverEnabled
 		state.playbackRate = somatic_transport.playbackRate
 	end
 
@@ -682,22 +694,31 @@ do
 	local function somatic_apply_options(options)
 		options = options or {}
 		if options.tempo ~= nil then
+			if options.tempo <= 0 then
+				error("somatic_set_options: tempo must be > 0")
+			end
 			somatic_transport.tempo = options.tempo
 		end
 		if options.speed ~= nil then
-			somatic_transport.speed = options.speed
-			if somatic_transport.speed <= 0 then
-				somatic_transport.speed = 6
+			if options.speed <= 0 then
+				error("somatic_set_options: speed must be > 0")
 			end
+			somatic_transport.speed = options.speed
 		end
 		if options.rowsPerBeat ~= nil then
-			somatic_transport.rowsPerBeat = options.rowsPerBeat
-			if somatic_transport.rowsPerBeat <= 0 then
-				somatic_transport.rowsPerBeat = 4
+			if options.rowsPerBeat <= 0 then
+				error("somatic_set_options: rowsPerBeat must be > 0")
 			end
+			somatic_transport.rowsPerBeat = options.rowsPerBeat
 		end
 		if options.isPlaying ~= nil then
 			somatic_transport.isPlaying = options.isPlaying == true
+		end
+		if options.isMuted ~= nil then
+			set_muted(options.isMuted == true)
+		end
+		if options.loopSongForever ~= nil then
+			loopSongForeverEnabled = options.loopSongForever == true
 		end
 		somatic_transport.playbackRate = somatic_derive_playback_rate()
 		somatic_transport.time.demoMillis = somatic_get_millis_at_beat(somatic_transport.time.demoBeats)
@@ -723,7 +744,7 @@ do
 		if beat < 0 then
 			beat = 0
 		end
-		local orderCount = somatic_get_song_order_count()
+		local orderCount = song_order_count()
 		if orderCount <= 0 then
 			return 0, 0, 0
 		end
@@ -774,12 +795,17 @@ do
 		return state
 	end
 
-	-- call this every frame; keeps state consistent.
+	-- Read current transport state without ticking.
+	function somatic_get_time()
+		return somatic_transport.time
+	end
+
+	-- Clear one-frame flags after demo code consumes them.
 	function somatic_end_frame()
 		somatic_transport.time.didSeek = false
 	end
 
-	somatic_reset_state = function()
+	local function reset_music_state()
 		currentSongOrder = 0
 		playingSongOrder0b = 0
 		lastPlayingFrame = -1
@@ -791,25 +817,18 @@ do
 		if playbackMuted then
 			clearAllPlaybackBuffers()
 		end
-		log("somatic_reset_state") -- DEBUG_ONLY
+		log("reset_music_state") -- DEBUG_ONLY
 		--ch_set_playroutine_regs(0xFF)
 	end
 
-	somatic_reset_state()
+	reset_music_state()
 
-	-- init state and begin playback. can be called multiple times.
-	somatic_init = function(songPosition, startRow, loopSongForever, options)
-		options = options or {}
-		songPosition = songPosition or 0
-		startRow = startRow or 0
-		loopSongForeverEnabled = (loopSongForever == true)
-		somatic_apply_options(options)
-		if options.isPlaying == nil then
-			somatic_transport.isPlaying = true
-		end
+	-- Start/restart TIC music at a tracker position.
+	local function start_music_at_position(songPosition, startRow, preserveTime)
+		somatic_transport.isPlaying = true
 		somatic_write_settings_fields()
 
-		log(string.format("somatic_init: pos=%d row=%d", songPosition, startRow)) -- DEBUG_ONLY
+		log(string.format("start_music: pos=%d row=%d", songPosition, startRow)) -- DEBUG_ONLY
 
 		-- seed state
 		currentSongOrder = songPosition
@@ -831,7 +850,7 @@ do
 		end
 
 		initialized = true
-		if options.preserveTime ~= true then
+		if preserveTime ~= true then
 			somatic_set_time_from_position(songPosition, startRow)
 		end
 		somatic_transport.prevWallMillis = time()
@@ -849,6 +868,16 @@ do
 		end
 	end
 
+	-- Stop TIC music and optionally mark transport paused.
+	local function stop_music(markPaused)
+		music()
+		if markPaused ~= false then
+			somatic_transport.isPlaying = false
+		end
+		somatic_write_settings_fields()
+		reset_music_state()
+	end
+
 	-- seek by integral beat
 	function somatic_seek(beat)
 		local songPosition, row, normalizedBeat = somatic_beat_to_position(beat)
@@ -861,14 +890,9 @@ do
 		somatic_write_position_fields()
 
 		if somatic_transport.isPlaying then
-			somatic_init(songPosition, row, loopSongForeverEnabled, { isPlaying = true, preserveTime = true })
+			start_music_at_position(songPosition, row, true)
 		else
-			music()
-			stopAllVoices()
-			currentSongOrder = songPosition
-			playingSongOrder0b = songPosition
-			lastPlayingFrame = -1
-			stopPlayingOnNextFrame = false
+			stop_music(false)
 		end
 		return state
 	end
@@ -882,11 +906,10 @@ do
 		somatic_apply_options(options)
 
 		if wasPlaying and not somatic_transport.isPlaying then
-			music()
-			stopAllVoices()
+			stop_music(false)
 		elseif (not wasPlaying and somatic_transport.isPlaying) or restartsMusic then
 			local songPosition, row = somatic_beat_to_position(somatic_transport.time.demoBeats)
-			somatic_init(songPosition, row, loopSongForeverEnabled, { isPlaying = true, preserveTime = true })
+			start_music_at_position(songPosition, row, true)
 		end
 
 		return somatic_transport.time
@@ -901,8 +924,8 @@ do
 		return somatic_update_time(1000 / 60, true)
 	end
 
-	-- Raw TIC-80 music state plus Somatic order index.
-	local function somatic_get_state()
+	-- Internal TIC-80 music cursor; not part of public timing API.
+	local function read_tic_music_state()
 		local track = peek(0x13FFC)
 		local frame = peek(0x13FFD)
 		local row = peek(0x13FFE)
@@ -912,27 +935,11 @@ do
 		return track, playingSongOrder0b, frame, row
 	end
 
-	-- Stop TIC music and mark transport paused.
-	function somatic_stop()
-		log("tick: stopping") -- DEBUG_ONLY
-		music() -- stops playback.
-		somatic_transport.isPlaying = false
-		somatic_write_settings_fields()
-		somatic_reset_state()
-	end
-
 	-- Main per-frame API: updates time, then music buffers/SFX.
-	function somatic_tick(initialSongPositionOrWallDeltaMillis, initialStartRow, loopSongForever)
-		local wallDeltaMillisOverride = nil
-		if not initialized then
-			if initialStartRow ~= nil or loopSongForever ~= nil then
-				somatic_init(initialSongPositionOrWallDeltaMillis or 0, initialStartRow or 0, loopSongForever)
-			else
-				wallDeltaMillisOverride = initialSongPositionOrWallDeltaMillis
-				somatic_init(0, 0, loopSongForever)
-			end
-		else
-			wallDeltaMillisOverride = initialSongPositionOrWallDeltaMillis
+	function somatic_tick(wallDeltaMillisOverride)
+		if not initialized and somatic_transport.isPlaying then
+			local songPosition, row = somatic_beat_to_position(somatic_transport.time.demoBeats)
+			start_music_at_position(songPosition, row, true)
 		end
 
 		local state = somatic_update_time(wallDeltaMillisOverride, false)
@@ -940,7 +947,7 @@ do
 			return state
 		end
 
-		local track, _, currentFrame, row = somatic_get_state()
+		local track, _, currentFrame, row = read_tic_music_state()
 		if track == -1 then
 			return state
 		end
@@ -951,7 +958,7 @@ do
 			if stopPlayingOnNextFrame then
 				-- We already cleared the upcoming buffer when we hit end-of-song;
 				-- once the music engine advances again, stop cleanly.
-				somatic_stop()
+				stop_music(true)
 				return state
 			end
 
@@ -962,7 +969,7 @@ do
 			currentSongOrder = currentSongOrder + 1
 
 			local destPointer = backBufferIsA and bufferALocation or bufferBLocation
-			local orderCount = somatic_get_song_order_count()
+			local orderCount = song_order_count()
 
 			log(string.format("tick: advance to=%d count=%d", currentSongOrder, orderCount)) -- DEBUG_ONLY
 
@@ -999,69 +1006,51 @@ end -- do
 
 -- BEGIN_CUSTOM_ENTRYPOINT
 -- example main loop...
-local lastKnownOrder = 0
-local lastKnownRow = 0
 function TIC()
-	-- call once per frame
-	local transportState = somatic_tick()
-
-	-- somatic_get_song_order_count() returns the total number of song orders.
-	-- somatic_init(orderIndex0b, startRow0b) starts playback at the given order and row.
-	-- somatic_stop() stops playback.
-
-	-- somatic_get_state() returns four values:
-	-- "track" is -1 when stopped; otherwise kinda worthless
-	-- "playingSongOrder" is the song order index of the pattern currently being played (0-255)
-	-- "currentFrame" is the TIC-80 internal frame counter; kinda worthless.
-	-- "currentRow" is the current row within the pattern being played (0-63).
-	local track, playingSongOrder, currentFrame, currentRow = somatic_get_state()
-
-	if track ~= -1 then -- if playing
-		lastKnownOrder = playingSongOrder
-		lastKnownRow = currentRow
-	end
+	local state = somatic_tick()
 
 	if btnp(2) then -- left
-		somatic_init(math.max(0, playingSongOrder - 1), 0)
+		state = somatic_seek(math.max(0, state.demoBeats - 1))
 	end
 	if btnp(3) then -- right
-		-- clamping...
-		local nextPattern = math.min(somatic_get_song_order_count() - 1, playingSongOrder + 1)
-		somatic_init(nextPattern, 0)
+		state = somatic_seek(state.demoBeats + 1)
 	end
 	if btnp(1) then -- down
-		if track == -1 then
-			somatic_init(lastKnownOrder, lastKnownRow)
-		else
-			somatic_stop()
-		end
+		state = somatic_set_options({ isPlaying = not state.isPlaying })
 	end
 	if keyp(13) then -- M
-		somatic_set_muted(not somatic_get_muted())
+		state = somatic_set_options({ isMuted = not state.isMuted })
+	end
+	if btnp(0) then -- up
+		state = somatic_advance_frame()
 	end
 
 	cls(0)
 	local y = 2
 	print("Somatic playroutine", 0, y, 12)
 	y = y + 8
-	print("Left/Right = next/prev song order", 0, y, 15)
+	print("Left/Right = prev/next beat", 0, y, 15)
 	y = y + 8
 	print("Down = pause/resume", 0, y, 15)
+	y = y + 8
+	print("Up = step paused transport", 0, y, 15)
 	y = y + 8
 	print("M = mute toggle", 0, y, 15)
 	y = y + 8
 	print(
 		string.format(
-			"muted:%s t:%d ord:%d r:%d",
-			somatic_get_muted() and "y" or "n",
-			track,
-			playingSongOrder,
-			currentRow
+			"play:%s mute:%s beat:%.2f pat:%d row:%d",
+			state.isPlaying and "y" or "n",
+			state.isMuted and "y" or "n",
+			state.demoBeats,
+			state.demoPatternIndex,
+			state.demoPatternRow
 		),
 		0,
 		y,
 		6
 	)
+	somatic_end_frame()
 
 	-- BEGIN_DEBUG_ONLY
 	-- Show logs
