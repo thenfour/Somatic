@@ -601,7 +601,7 @@ do
 		options = options or {}
 		local tempo = options.tempo or SOMATIC_MUSIC_DATA.tempo
 		local speed = options.speed or SOMATIC_MUSIC_DATA.speed
-		local rowsPerBeat = options.rowsPerBeat or SOMATIC_MUSIC_DATA.rowsPerBeat
+		local rowsPerBeat = SOMATIC_MUSIC_DATA.rowsPerBeat
 		local rowsPerPattern = SOMATIC_MUSIC_DATA.rowsPerPattern
 		if tempo <= 0 then
 			error("SOMATIC_MUSIC_DATA.tempo must be > 0")
@@ -620,6 +620,10 @@ do
 
 	-- Shared state for music playback and demo timing.
 	local baseTempo, baseSpeed, baseRowsPerBeat, baseRowsPerPattern = somatic_resolve_timing_options()
+	local baseSongPatternCount = song_order_count()
+	local baseSongRowCount = baseSongPatternCount * baseRowsPerPattern
+	local baseSongBeatCount = baseSongRowCount / baseRowsPerBeat
+	local baseSongMillis = baseSongBeatCount * 60000 / somatic_get_bpm(baseTempo, baseSpeed)
 	local somatic_transport = {
 		-- Base timing stays fixed; overrides derive playbackRate.
 		baseTempo = baseTempo,
@@ -628,6 +632,10 @@ do
 		speed = baseSpeed,
 		rowsPerBeat = baseRowsPerBeat,
 		rowsPerPattern = baseRowsPerPattern,
+		songPatternCount = baseSongPatternCount,
+		songRowCount = baseSongRowCount,
+		songBeatCount = baseSongBeatCount,
+		songMillis = baseSongMillis,
 		isPlaying = true,
 		playbackRate = 1,
 		prevWallMillis = time(),
@@ -637,6 +645,10 @@ do
 			speed = baseSpeed,
 			rowsPerBeat = baseRowsPerBeat,
 			rowsPerPattern = baseRowsPerPattern,
+			songPatternCount = baseSongPatternCount,
+			songRowCount = baseSongRowCount,
+			songBeatCount = baseSongBeatCount,
+			songMillis = baseSongMillis,
 			isPlaying = true,
 			isMuted = false,
 			loopSongForever = false,
@@ -684,13 +696,17 @@ do
 		state.speed = somatic_transport.speed
 		state.rowsPerBeat = somatic_transport.rowsPerBeat
 		state.rowsPerPattern = somatic_transport.rowsPerPattern
+		state.songPatternCount = somatic_transport.songPatternCount
+		state.songRowCount = somatic_transport.songRowCount
+		state.songBeatCount = somatic_transport.songBeatCount
+		state.songMillis = somatic_transport.songMillis
 		state.isPlaying = somatic_transport.isPlaying
 		state.isMuted = playbackMuted
 		state.loopSongForever = loopSongForeverEnabled
 		state.playbackRate = somatic_transport.playbackRate
 	end
 
-	-- Apply runtime tempo/speed/rowsPerBeat/isPlaying overrides.
+	-- Apply runtime tempo/speed/isPlaying overrides.
 	local function somatic_apply_options(options)
 		options = options or {}
 		if options.tempo ~= nil then
@@ -706,10 +722,7 @@ do
 			somatic_transport.speed = options.speed
 		end
 		if options.rowsPerBeat ~= nil then
-			if options.rowsPerBeat <= 0 then
-				error("somatic_set_options: rowsPerBeat must be > 0")
-			end
-			somatic_transport.rowsPerBeat = options.rowsPerBeat
+			error("somatic_set_options: rowsPerBeat is song metadata")
 		end
 		if options.isPlaying ~= nil then
 			somatic_transport.isPlaying = options.isPlaying == true
@@ -902,7 +915,7 @@ do
 		options = options or {}
 		local wasPlaying = somatic_transport.isPlaying
 		local restartsMusic = wasPlaying
-			and (options.tempo ~= nil or options.speed ~= nil or options.rowsPerBeat ~= nil)
+			and (options.tempo ~= nil or options.speed ~= nil)
 		somatic_apply_options(options)
 
 		if wasPlaying and not somatic_transport.isPlaying then
