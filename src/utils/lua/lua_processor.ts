@@ -1175,7 +1175,7 @@ export function processLua(code: string, ruleOptions: OptimizationRuleOptions): 
 
       // Strip individual lines marked with -- DEBUG_ONLY
       const eol = processedCode.includes("\r\n") ? "\r\n" : "\n";
-      const lines = processedCode.split(eol);
+      const lines = processedCode.split(/\r?\n/);
       const filteredLines = lines.filter(line => !line.includes("-- DEBUG_ONLY"));
       processedCode = filteredLines.join(eol);
    }
