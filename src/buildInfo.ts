@@ -1,6 +1,5 @@
 export type BuildInfo = {
-   gitTag: string|null; //
-   commitsSinceTag: number | null;
+   appVersion: string;
    dirty: boolean | null;
    buildDate: string;
    lastCommitDate: string | null;
@@ -12,8 +11,7 @@ export type BuildInfo = {
 declare const BUILD_INFO: BuildInfo|undefined;
 
 const fallback: BuildInfo = {
-   gitTag: "v0",
-   commitsSinceTag: 0,
+   appVersion: "-1.0.0",
    dirty: true,
    buildDate: "2025-12-21T00:00:00Z",
    lastCommitDate: "2025-12-21T00:00:00Z",

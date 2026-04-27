@@ -1,7 +1,8 @@
-// gathers build info (git tag, etc).
+// gathers build info.
 // meant for baking into the sources for display in the about dialog.
 
 const childProcess = require('child_process');
+const packageJson = require('../package.json');
 
 function safeExec(command) {
   try {
@@ -12,14 +13,6 @@ function safeExec(command) {
 }
 
 function getBuildInfo() {
-  const gitTag = safeExec('git describe --tags --abbrev=0');
-
-  let commitsSinceTag = null;
-  if (gitTag) {
-    const count = safeExec(`git rev-list ${gitTag}..HEAD --count`);
-    commitsSinceTag = count != null ? parseInt(count, 10) : null;
-  }
-
   const dirtyOutput = safeExec('git status --porcelain');
   const dirty = dirtyOutput == null ? null : dirtyOutput.length > 0;
 
@@ -28,8 +21,7 @@ function getBuildInfo() {
   const buildDate = new Date().toISOString();
 
   return {
-    gitTag,
-    commitsSinceTag,
+     appVersion: packageJson.version || '-1.0.0',
     dirty,
     buildDate,
     lastCommitDate,

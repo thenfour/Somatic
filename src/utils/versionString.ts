@@ -1,40 +1,24 @@
 import {buildInfo} from "../buildInfo";
 
 export type BuildInfoLike = {
-   gitTag: string|null; //
-   commitsSinceTag: number | null;
+   appVersion: string;
    dirty: boolean | null;
    commitHash?: string | null;
    buildDate?: string;
    lastCommitDate?: string | null;
 };
 
-// Version tag is like:
-// - v1
-// - v1+290
-// - v1+290(!)
-// - unknown
-export function getBuildVersionTag(info: BuildInfoLike): string {
-   if (!info.gitTag)
-      return "unknown";
-
-   let str = String(info.gitTag);
-   if (info.commitsSinceTag && info.commitsSinceTag > 0) {
-      str += `+${info.commitsSinceTag}`;
-   }
-   if (info.dirty) {
-      str += "(!)";
-   }
-   return str;
+export function getSomaticVersionTag(info: BuildInfoLike): string {
+   return `v${info.appVersion}`;
 }
 
 // Hash input / display string.
-// Example: "Somatic v1+290(!)"
+// Example: "Somatic v1.0.10"
 export function getSomaticVersionString(info: BuildInfoLike): string {
-   return `Somatic ${getBuildVersionTag(info)}`;
+   return `Somatic ${getSomaticVersionTag(info)}`;
 }
 
-// Example: "Somatic v1+290(!) (abcdef1234)"
+// Example: "Somatic v1.0.10 (abcdef1234)"
 export function getSomaticVersionAndCommitString(): string {
-   return `Somatic ${getBuildVersionTag(buildInfo)} (${buildInfo.commitHash ?? "unknown"})`;
+   return `Somatic ${getSomaticVersionTag(buildInfo)} (${buildInfo.commitHash ?? "unknown"})`;
 }

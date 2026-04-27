@@ -1,6 +1,6 @@
 import React from 'react';
 import { buildInfo } from '../buildInfo';
-import { getBuildVersionTag } from '../utils/versionString';
+import {getSomaticVersionTag} from '../utils/versionString';
 import { DateValue } from './basic/DateValue';
 import { ModalDialog } from './basic/ModalDialog';
 import { Button } from './Buttons/PushButton';
@@ -12,7 +12,7 @@ export interface AboutSomaticDialogProps {
 
 export const AboutSomaticDialog: React.FC<AboutSomaticDialogProps> = ({ open, onClose }) => {
 
-    const versionString = getBuildVersionTag(buildInfo);
+   const versionString = getSomaticVersionTag(buildInfo);
 
     const buildDate: Date = new Date(buildInfo.buildDate);
     const lastCommitDate: Date | null = buildInfo.lastCommitDate ? new Date(buildInfo.lastCommitDate) : null;
@@ -56,6 +56,9 @@ export const AboutSomaticDialog: React.FC<AboutSomaticDialogProps> = ({ open, on
                         <strong>Commit hash:</strong>{' '}
                         {buildInfo.commitHash}
                     </li>}
+                {buildInfo.dirty && <li>
+                   <strong>Dirty build</strong>
+                </li>}
                 </ul>
             </div>
             <div className="modal-dialog__footer">

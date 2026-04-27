@@ -346,3 +346,18 @@ conversion that goes on between Somatic and the exported cartridge.
 ### export cart / song stats
 
 ![Song stats](.attachments/image-8.png)
+
+# Versioning
+
+Somatic uses npm-style `package.json` versioning for the app version, e.g. `v1.0.10`.
+The About dialog also displays useful git build info like commit hash, commit date, and whether
+the build was dirty.
+
+# Change log
+
+## 1.0.10
+
+- #189 Somatic can now act as a full transport system for demo prods. Demos tend to use
+  music as the source of timing, so this codifies that.
+- #188 runtime mute support
+- #187 cue sheet export support
