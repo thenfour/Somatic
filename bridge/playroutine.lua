@@ -44,6 +44,7 @@ do
 	local PATTERN_BUFFER_BYTES = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
 	local bufferALocation = __AUTOGEN_BUF_PTR_A -- pattern 46
 	local bufferBLocation = __AUTOGEN_BUF_PTR_B -- pattern 50
+	local ROW_EPSILON = 0.000001
 
 	-- Wave morphing
 	local morphMap = {}
@@ -638,6 +639,8 @@ do
 		songMillis = baseSongMillis,
 		isPlaying = true,
 		playbackRate = 1,
+		-- Internal only: public transport time can be fractional, but TIC-80 music starts on rows.
+		pendingAudioAbsRow = nil,
 		prevWallMillis = time(),
 		-- Public mutable snapshot returned by somatic_get_time().
 		time = {
@@ -649,6 +652,8 @@ do
 			songRowCount = baseSongRowCount,
 			songBeatCount = baseSongBeatCount,
 			songMillis = baseSongMillis,
+			-- isPlaying means the public/demo transport is running. After a fractional seek,
+			-- TIC-80 audio may be briefly silent until the next integer row boundary.
 			isPlaying = true,
 			isMuted = false,
 			loopSongForever = false,
@@ -751,25 +756,56 @@ do
 		somatic_write_position_fields()
 	end
 
-	-- beat to tracker order/row. only supports integral beats
-	local function somatic_beat_to_position(beat)
-		beat = (beat or 0) // 1
-		if beat < 0 then
-			beat = 0
-		end
+	local function somatic_clamp_abs_row(absRow)
 		local orderCount = song_order_count()
 		if orderCount <= 0 then
-			return 0, 0, 0
+			return 0, 0
 		end
 		local maxRow = orderCount * somatic_transport.rowsPerPattern - 1
-		local maxBeat = (maxRow // somatic_transport.rowsPerBeat)
-		if beat > maxBeat then
-			beat = maxBeat
+		if absRow < 0 then
+			absRow = 0
 		end
-		local absRow = (beat * somatic_transport.rowsPerBeat) // 1
+		if absRow > maxRow then
+			absRow = maxRow
+		end
+		return absRow, maxRow
+	end
+
+	local function somatic_abs_row_to_position(absRow)
 		local songPosition = absRow // somatic_transport.rowsPerPattern
 		local row = absRow % somatic_transport.rowsPerPattern
-		return songPosition, row, beat
+		return songPosition, row
+	end
+
+	local function somatic_normalize_beat(beat)
+		local absRow = (beat or 0) * somatic_transport.rowsPerBeat
+		absRow = somatic_clamp_abs_row(absRow)
+		return absRow / somatic_transport.rowsPerBeat, absRow
+	end
+
+	local function somatic_is_integral_row(absRow)
+		local floorRow = absRow // 1
+		if absRow - floorRow <= ROW_EPSILON then
+			return true, floorRow
+		end
+		if (floorRow + 1) - absRow <= ROW_EPSILON then
+			return true, floorRow + 1
+		end
+		return false, floorRow
+	end
+
+	local function somatic_beat_to_audio_position(beat)
+		local normalizedBeat, absRow = somatic_normalize_beat(beat)
+		local isIntegral, floorRow = somatic_is_integral_row(absRow)
+		local audioAbsRow = floorRow
+		local pendingAbsRow = nil
+		if not isIntegral then
+			audioAbsRow = floorRow + 1
+			audioAbsRow = somatic_clamp_abs_row(audioAbsRow)
+			pendingAbsRow = audioAbsRow
+		end
+		local songPosition, row = somatic_abs_row_to_position(audioAbsRow)
+		return songPosition, row, normalizedBeat, absRow, pendingAbsRow
 	end
 
 	-- Advance wall clock time; transport time advances only when playing or stepping.
@@ -839,6 +875,7 @@ do
 	-- Start/restart TIC music at a tracker position.
 	local function start_music_at_position(songPosition, startRow, preserveTime)
 		somatic_transport.isPlaying = true
+		somatic_transport.pendingAudioAbsRow = nil
 		somatic_write_settings_fields()
 
 		log(string.format("start_music: pos=%d row=%d", songPosition, startRow)) -- DEBUG_ONLY
@@ -882,18 +919,52 @@ do
 	end
 
 	-- Stop TIC music and optionally mark transport paused.
-	local function stop_music(markPaused)
+	local function stop_music(markPaused, preservePending)
 		music()
 		if markPaused ~= false then
 			somatic_transport.isPlaying = false
+		end
+		if preservePending ~= true then
+			somatic_transport.pendingAudioAbsRow = nil
 		end
 		somatic_write_settings_fields()
 		reset_music_state()
 	end
 
-	-- seek by integral beat
+	local function pause_music_until_row(absRow)
+		stop_music(false, true)
+		stopAllVoices()
+		somatic_transport.pendingAudioAbsRow = absRow
+		initialized = true
+		somatic_transport.prevWallMillis = time()
+	end
+
+	local function start_or_schedule_music_at_current_time()
+		local songPosition, row, _, _, pendingAbsRow = somatic_beat_to_audio_position(somatic_transport.time.demoBeats)
+		if pendingAbsRow == nil then
+			start_music_at_position(songPosition, row, true)
+		else
+			pause_music_until_row(pendingAbsRow)
+		end
+	end
+
+	local function maybe_start_pending_audio(state)
+		local pendingAbsRow = somatic_transport.pendingAudioAbsRow
+		if pendingAbsRow == nil then
+			return false
+		end
+		local currentAbsRow = state.demoBeats * somatic_transport.rowsPerBeat
+		if currentAbsRow + ROW_EPSILON < pendingAbsRow then
+			return true
+		end
+		local songPosition, row = somatic_abs_row_to_position(pendingAbsRow)
+		start_music_at_position(songPosition, row, true)
+		return false
+	end
+
+	-- seek by beat; fractional seeks keep public time exact and delay TIC audio to the next row.
 	function somatic_seek(beat)
-		local songPosition, row, normalizedBeat = somatic_beat_to_position(beat)
+		local _, _, normalizedBeat = somatic_beat_to_audio_position(beat)
 		local state = somatic_transport.time
 		state.demoBeats = normalizedBeat
 		state.demoMillis = somatic_get_millis_at_beat(normalizedBeat)
@@ -903,7 +974,7 @@ do
 		somatic_write_position_fields()
 
 		if somatic_transport.isPlaying then
-			start_music_at_position(songPosition, row, true)
+			start_or_schedule_music_at_current_time()
 		else
 			stop_music(false)
 		end
@@ -921,8 +992,7 @@ do
 		if wasPlaying and not somatic_transport.isPlaying then
 			stop_music(false)
 		elseif (not wasPlaying and somatic_transport.isPlaying) or restartsMusic then
-			local songPosition, row = somatic_beat_to_position(somatic_transport.time.demoBeats)
-			start_music_at_position(songPosition, row, true)
+			start_or_schedule_music_at_current_time()
 		end
 
 		return somatic_transport.time
@@ -951,12 +1021,14 @@ do
 	-- Main per-frame API: updates time, then music buffers/SFX.
 	function somatic_tick(wallDeltaMillisOverride)
 		if not initialized and somatic_transport.isPlaying then
-			local songPosition, row = somatic_beat_to_position(somatic_transport.time.demoBeats)
-			start_music_at_position(songPosition, row, true)
+			start_or_schedule_music_at_current_time()
 		end
 
 		local state = somatic_update_time(wallDeltaMillisOverride, false)
 		if not somatic_transport.isPlaying then
+			return state
+		end
+		if maybe_start_pending_audio(state) then
 			return state
 		end
 

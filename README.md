@@ -105,11 +105,15 @@ public API:
 ```lua
 somatic_tick(wallDeltaMillisOverride) -- call once per TIC frame; returns state
 somatic_get_time()                    -- read state without advancing time
-somatic_seek(beat)                    -- integral beat seek; audio seek is row-quantized
+somatic_seek(beat)                    -- seek to any beat, including fractional beats
 somatic_set_options(options)          -- tempo/speed/isPlaying/isMuted/loopSongForever
 somatic_advance_frame()               -- advance paused demo time by one 60Hz frame
 somatic_end_frame()                   -- for internal bookkeeping
 ```
+
+`somatic_seek()` keeps `demoBeats` / `demoMillis` continuous for animation. TIC-80 audio can
+only start on integer rows, so a fractional seek may produce a short silence until the next row
+boundary before music resumes.
 
 Transport state includes timing settings, play state, wall-clock fields, demo-clock fields, and song
 length fields. "Wall clock" refers to the clock on your wall rather than in the song/demo.
