@@ -12,6 +12,7 @@ import {Tooltip} from './basic/tooltip';
 import {ButtonGroup} from './Buttons/ButtonGroup';
 import {CheckboxButton} from './Buttons/CheckboxButton';
 import {DebugContainer} from './basic/DebugContainer';
+import {LuaOptimizationOptions} from "./LuaOptimizationOptions";
 
 type SongEditorProps = {
    song: Song;
@@ -198,6 +199,22 @@ export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSong
             >
                Export cue sheet?
             </CheckboxButton>
+         </fieldset>
+
+         <fieldset>
+            <legend>Optimization (Release only)</legend>
+            <LuaOptimizationOptions
+               value={song.releaseMinificationOptions}
+               onChange={(newOptions) => {
+                  onSongChange({
+                     description: 'Set release minification options',
+                     undoable: true,
+                     mutator: (s) => {
+                        s.releaseMinificationOptions = newOptions;
+                     },
+                  });
+               }}
+            />
          </fieldset>
 
          <fieldset>

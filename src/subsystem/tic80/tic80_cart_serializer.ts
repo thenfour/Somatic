@@ -22,23 +22,23 @@ import {PreparedSong, prepareSongColumns} from "./tic80_prepared_song";
 import {createChunk, encodeSfx, encodeTempo, encodeTrackSpeed, encodeWaveforms, packTrackFrame, packWaveformSamplesToBytes16, removeTrailingZerosFn, stringToAsciiPayload, TicChunkType} from "./tic80_serialization";
 
 
-const releaseOptions: OptimizationRuleOptions = {
-   stripComments: true,
-   stripDebugBlocks: true,
-   maxIndentLevel: 1,
-   lineBehavior: "tight",
-   maxLineLength: 180,
-   aliasRepeatedExpressions: true,
-   renameLocalVariables: true,
-   aliasLiterals: true,
-   packLocalDeclarations: true,
-   simplifyExpressions: true,
-   removeUnusedLocals: true,
-   removeUnusedFunctions: false,
-   functionNamesToKeep: [],
-   renameTableFields: true,
-   tableEntryKeysToRename: [...MorphEntryFieldNamesToRename],
-} as const;
+// const releaseOptions: OptimizationRuleOptions = {
+//    stripComments: true,
+//    stripDebugBlocks: true,
+//    maxIndentLevel: 1,
+//    lineBehavior: "tight",
+//    maxLineLength: 180,
+//    aliasRepeatedExpressions: true,
+//    renameLocalVariables: true,
+//    aliasLiterals: true,
+//    packLocalDeclarations: true,
+//    simplifyExpressions: true,
+//    removeUnusedLocals: true,
+//    removeUnusedFunctions: false,
+//    functionNamesToKeep: [],
+//    renameTableFields: true,
+//    tableEntryKeysToRename: [...MorphEntryFieldNamesToRename],
+// } as const;
 
 const debugOptions: OptimizationRuleOptions = {
    stripComments: false,
@@ -807,7 +807,8 @@ ${emitLuaDecoder(WaveformMorphGradientCodec, {
    }
 
    // optimize code
-   const optimizationRuleOptions: OptimizationRuleOptions = variant === "release" ? releaseOptions : debugOptions;
+   const optimizationRuleOptions: OptimizationRuleOptions = variant === "release" ? song.releaseMinificationOptions : debugOptions;
+   console.log(`Applying optimization rules`, optimizationRuleOptions);
    code = processLua(code, optimizationRuleOptions);
 
    // show build info in a comment.

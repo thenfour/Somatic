@@ -11,6 +11,26 @@ import {Tic80Waveform, Tic80WaveformDto} from "./waveform";
 import {Tic80Caps} from "./tic80Capabilities";
 import {buildInfo} from "../buildInfo";
 import {getSomaticVersionString} from "../utils/versionString";
+import {OptimizationRuleOptions} from "../utils/lua/lua_processor";
+import {MorphEntryFieldNamesToRename} from "../../bridge/morphSchema";
+
+export const kDefaultReleaseMinificationOptions: OptimizationRuleOptions = {
+   stripComments: true,
+   stripDebugBlocks: true,
+   maxIndentLevel: 1,
+   lineBehavior: "tight",
+   maxLineLength: 180,
+   aliasRepeatedExpressions: true,
+   renameLocalVariables: true,
+   aliasLiterals: true,
+   packLocalDeclarations: true,
+   simplifyExpressions: true,
+   removeUnusedLocals: true,
+   removeUnusedFunctions: false,
+   functionNamesToKeep: [],
+   renameTableFields: true,
+   tableEntryKeysToRename: [...MorphEntryFieldNamesToRename],
+} as const;
 
 // changing this, document in readme which changes occurred, create a upgrade fn from previous
 const kSomaticSchemaVersion = 1;
@@ -103,6 +123,8 @@ export type SongDto = {
 
    arrangementThumbnailSize: ArrangementThumbnailSize;
    exportCueSheet?: boolean;
+
+   releaseMinificationOptions?: OptimizationRuleOptions;
 };
 
 function getSomaticBuildMetadataForSongSave(): SomaticBuildMetadata {
@@ -151,6 +173,8 @@ export class Song {
    arrangementThumbnailSize: ArrangementThumbnailSize;
    exportCueSheet: boolean;
 
+   releaseMinificationOptions: OptimizationRuleOptions;
+
    constructor(data: Partial<SongDto> = {}) {
       this.subsystemType = data.subsystemType || kSubsystem.key.TIC80;
       this.subsystem = (() => {
@@ -187,6 +211,12 @@ export class Song {
       // Default to showing thumbnails (matches previous behavior).
       this.arrangementThumbnailSize = (data.arrangementThumbnailSize as ArrangementThumbnailSize) ?? "normal";
       this.exportCueSheet = CoalesceBoolean(data.exportCueSheet, true);
+
+      if (!data.releaseMinificationOptions) {
+         console.log(`gonna use default minification options!`);
+      }
+
+      this.releaseMinificationOptions = data.releaseMinificationOptions || kDefaultReleaseMinificationOptions;
 
       this.subsystem.onInitOrSubsystemTypeChange(this);
    }
@@ -349,6 +379,7 @@ export class Song {
          customEntrypointLua: this.customEntrypointLua,
 
          arrangementThumbnailSize: this.arrangementThumbnailSize,
+         releaseMinificationOptions: this.releaseMinificationOptions,
          exportCueSheet: this.exportCueSheet,
       };
    }
