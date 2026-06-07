@@ -7,7 +7,7 @@ import './somatic.css';
 
 import { LoopMode, SomaticTransportState } from './audio/backend';
 import { Tic80AudioController } from './audio/controller';
-import { serializeSongToCart } from './subsystem/tic80/tic80_cart_serializer';
+import {buildCueSheet, serializeSongToCart} from './subsystem/tic80/tic80_cart_serializer';
 import { importSongFromTicCartBytes } from './subsystem/tic80/tic80_import';
 import { useAppInstancePresence } from './hooks/useAppPresence';
 import { useClipboard } from './hooks/useClipboard';
@@ -638,6 +638,14 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         }
     };
 
+   const copySongMetadataJson = async () => {
+      const payload = {
+         transport: song.buildTransportConfig(),
+         cueSheet: buildCueSheet(song),
+      };
+      await clipboard.copyTextToClipboard(JSON.stringify(payload, null, 2));
+   };
+
     const onPanic = () => {
         //setTransportState('stop');
         audio.panic();
@@ -933,6 +941,15 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         Paste Song JSON
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Divider />
+                            <DesktopMenu.Item
+                               shortcut={mgr.getActionBindingLabel("CopyMetadata")}
+                               onSelect={() => {
+                                  void copySongMetadataJson();
+                               }}
+                            >
+                               Copy Song Metadata JSON
+                            </DesktopMenu.Item>
+                            <DesktopMenu.Divider />
                                     <DesktopMenu.Sub>
                                         <DesktopMenu.SubTrigger>Export Cart</DesktopMenu.SubTrigger>
                                         <DesktopMenu.SubContent>

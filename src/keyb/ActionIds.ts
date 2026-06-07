@@ -6,6 +6,7 @@ export const GlobalActions = {
     ImportTicCart: "ImportTicCart",
     SaveFile: "SaveFile",
     NewFile: "NewFile",
+   CopyMetadata: "CopyMetadata",
 
     Panic: "Panic",
     Undo: "Undo",

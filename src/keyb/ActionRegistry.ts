@@ -35,6 +35,13 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
         category: "File",
         defaultBindings: [{ kind: "character", key: "n", primary: true }],
     },
+   CopyMetadata: {
+      id: "CopyMetadata",
+      title: "copy metadata",
+      description: "copy metadata for the song as JSON.",
+      category: "File",
+      defaultBindings: [],
+   },
     Panic: {
         id: "Panic",
         title: "panic",

@@ -355,8 +355,32 @@ export class Song {
             }
          }
       }
-   };
+   }
 
+   getSongLengthRows(): number {
+      return this.songOrder.length * this.rowsPerPattern;
+   }
+
+   getRowsPerBeat(): number {
+      return this.highlightRowCount;
+   }
+
+   //  "transport": {
+   //    "tempo": 120,
+   //    "speed": 6,
+   //    "rowsPerBeat": 4,
+   //    "rowsPerPattern": 64,
+   //    "songBeatCount": 90,
+   //  },
+   buildTransportConfig() {
+      return {
+         tempo: this.tempo,
+         speed: this.speed,
+         rowsPerPattern: this.rowsPerPattern,
+         rowsPerBeat: this.getRowsPerBeat(),
+         songBeatCount: this.getSongLengthRows() / this.getRowsPerBeat(),
+      };
+   }
 
    toData(): SongDto {
       const buildInfo = getSomaticBuildMetadataForSongSave();

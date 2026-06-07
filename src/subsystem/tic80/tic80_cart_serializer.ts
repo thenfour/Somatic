@@ -221,12 +221,11 @@ function encodeExtraSongDataForBridge(song: Song, prepared: PreparedSong): Uint8
 }
 
 type CueSheetEntry = {
-   markerVariant: string;
-   patternIndex: number;
+   marker: string;
    patternName: string;
 };
 
-function buildCueSheet(song: Song): CueSheetEntry[] | null {
+export function buildCueSheet(song: Song): CueSheetEntry[] | null {
    if (!song.exportCueSheet) {
       return null;
    }
@@ -238,8 +237,7 @@ function buildCueSheet(song: Song): CueSheetEntry[] | null {
       const patternIndex = clamp(orderItem.patternIndex ?? 0, 0, maxPatternIndex);
       const patternName = song.patterns[patternIndex]?.name ?? "";
       entries.push({
-         markerVariant: orderItem.markerVariant,
-         patternIndex,
+         marker: orderItem.markerVariant,
          patternName,
       });
    }
@@ -256,7 +254,7 @@ function buildCueSheetLua(cueSheet: CueSheetEntry[] | null): string {
    const cueSheetEntries = cueSheet;
    for (let orderIndex = 0; orderIndex < cueSheetEntries.length; orderIndex++) {
       const entry = cueSheetEntries[orderIndex]!;
-      entries.push(`\t{ markerVariant = ${toLuaStringLiteral(entry.markerVariant)}, patternIndex = ${entry.patternIndex}, patternName = ${toLuaStringLiteral(entry.patternName)} },`);
+      entries.push(`\t{ marker = ${toLuaStringLiteral(entry.marker)}, patternName = ${toLuaStringLiteral(entry.patternName)} },`);
    }
 
    if (entries.length === 0) {
