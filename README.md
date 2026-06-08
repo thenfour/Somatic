@@ -357,26 +357,6 @@ Somatic uses npm-style `package.json` versioning for the app version, e.g. `v1.0
 The About dialog also displays useful git build info like commit hash, commit date, and whether
 the build was dirty.
 
-# Change log
-
-## 1.0.10
-
-- #189 Somatic can now act as a full transport system for demo prods. Demos tend to use
-  music as the source of timing, so this codifies that.
-- #188 runtime mute support
-- #187 cue sheet export support
-
-## 1.0.11
-
-https://github.com/thenfour/Somatic/milestone/3?closed=1
-
-- #192 allow specifying minification options for release export
-- #191 fixing minification bugs that were fixed in ticbuild
-- #190 playroutine transport now supports fractional row seeking
-- #193 #195 ability to export a cue sheet and transport config metadata
-
-## 1.0.12
-
 # Pattern end somatic pattern / "cut to next pattern" command.
 
 Somatic effect `C` cuts to the next pattern.
@@ -453,3 +433,27 @@ Testing shows that:
 - Like our `Cxx` command, `Jxy` performs the jump after the current row.
 - `x` is the frame number (0-15)
 - `y` is the row number (0-15; rows 16... are unable to be jumped to)
+
+
+# Change log
+
+## 1.0.10
+
+- #189 Somatic can now act as a full transport system for demo prods. Demos tend to use
+  music as the source of timing, so this codifies that.
+- #188 runtime mute support
+- #187 cue sheet export support
+
+## 1.0.11
+
+https://github.com/thenfour/Somatic/milestone/3?closed=1
+
+- #192 allow specifying minification options for release export
+- #191 fixing minification bugs that were fixed in ticbuild
+- #190 playroutine transport now supports fractional row seeking
+- #193 #195 ability to export a cue sheet and transport config metadata
+
+## 1.0.12
+
+- #197 cue sheet format updated and includes more info
+- #198 adding somatic `C` pattern effect command to jump to next pattern.

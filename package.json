@@ -1,7 +1,7 @@
 {
   "name": "somatic",
-"version": "1.0.11",
-  "description": "a playground for creating samples for TIC-80 music",
+"version": "1.0.12",
+"description": "TIC-80 music tracker and editor for demoscene, chiptune, and video game music composers",
   "main": "src/index.tsx",
   "scripts": {
     "build-bridge": "ts-node --transpile-only --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/build-bridge.ts",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx scripts/run-tests.ts"
   },
-  "author": "Matt Westcott",
+"author": "Carl Corcoran",
   "license": "ISC",
   "devDependencies": {
     "@babel/core": "^7.23.5",
@@ -26,6 +26,7 @@
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.18",
     "babel-loader": "^10.0.0",
+   "baseline-browser-mapping": "^2.10.34",
     "copy-webpack-plugin": "^13.0.1",
     "css-loader": "^7.1.2",
     "dotenv": "^17.2.3",
