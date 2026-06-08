@@ -368,8 +368,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
             if (ed.editingEnabled !== false && allowPatternNoteEntry) {
                 const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.activeSongPosition || 0));
-                const currentPatternIndex = s.songOrder[currentPosition].patternIndex ?? 0;
-                const rowsPerPattern = s.rowsPerPattern;
+               const currentPatternIndex = s.songOrder[currentPosition].patternIndex ?? 0;
                 const patternEditStep = s.patternEditStep;
 
                 updateSong({
