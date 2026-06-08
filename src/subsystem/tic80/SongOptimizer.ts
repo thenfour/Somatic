@@ -42,8 +42,9 @@ export function calculateSongUsage(song: Song): SongUsage {
       const pat = song.patterns[patIdx];
       if (!pat)
          return;
+      const rowLimit = song.getPatternEffectiveRowCount(patIdx);
       for (let ch = 0; ch < channelCount; ch++) {
-         for (let r = 0; r < song.rowsPerPattern; ++r) {
+         for (let r = 0; r < rowLimit; ++r) {
             const cell = pat.getCell(ch, r);
             if (cell.instrumentIndex === undefined || cell.instrumentIndex === null)
                continue;
@@ -271,8 +272,9 @@ export function OptimizeSong(song: Song): OptimizeResult {
    const usedInstrumentSet = new Set<number>([0, 1]);
    usedPatternSet.forEach((patternIdx) => {
       const pat = working.patterns[newPatternIndex.get(patternIdx) ?? patternIdx];
+      const rowLimit = working.getPatternEffectiveRowCount(newPatternIndex.get(patternIdx) ?? patternIdx);
       for (let ch = 0; ch < channelCount; ch++) {
-         for (let r = 0; r < working.rowsPerPattern; ++r) {
+         for (let r = 0; r < rowLimit; ++r) {
             const cell = pat.getCell(ch, r);
             if (cell.instrumentIndex !== undefined && cell.instrumentIndex !== null) {
                const inst = clamp(cell.instrumentIndex, 0, working.instruments.length - 1);

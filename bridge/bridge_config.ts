@@ -108,8 +108,9 @@ const bridgeConfig = {
       TF_ORDER_LIST_COUNT: Tic80MemoryMap.Map.addressWithOffset(0),
       // song order entries are 4 bytes each (one pattern-column index per channel)
       TF_ORDER_LIST_ENTRIES: Tic80MemoryMap.Map.addressWithOffset(1), // room for 256 entries * 4 bytes
-      // pattern data begins immediately after 1 + 256*4 bytes of order-list data
-      TF_PATTERN_DATA: Tic80MemoryMap.Map.addressWithOffset(0x401),
+      TF_ORDER_LIST_ROWS: Tic80MemoryMap.Map.addressWithOffset(0x401), // room for 256 effective row counts
+      // pattern data begins immediately after 1 + 256*4 bytes of order-list data + 256 row counts
+      TF_PATTERN_DATA: Tic80MemoryMap.Map.addressWithOffset(0x501),
 
       // Music state snapshot written by TIC-80 runtime
       MUSIC_STATE_TRACK: 0x13ffc,

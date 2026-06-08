@@ -193,8 +193,9 @@ function createSlicedPattern(srcPattern: Pattern, startRow: number, sliceLength:
 // want the largest multiple of sliceLength that fits in maxRows
 function computeRepeatedRowCount(sliceLength: number): number {
    const maxRows = Tic80Caps.pattern.maxRows;
-   const repeats = Math.floor(maxRows / sliceLength);
-   return repeats > 0 ? repeats * sliceLength : sliceLength;
+   const safeSliceLength = Math.max(1, sliceLength | 0);
+   const repeats = Math.floor(maxRows / safeSliceLength);
+   return repeats > 0 ? repeats * safeSliceLength : safeSliceLength;
 }
 
 // build a song that bakes in the requested playback options.
@@ -251,7 +252,7 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          const srcPattern = bakedSong.patterns[patternIndex];
          if (srcPattern) {
             // Create a song with just this one pattern
-            const sliceLength = bakedSong.rowsPerPattern;
+            const sliceLength = bakedSong.getPatternEffectiveRowCount(patternIndex);
             const newPattern = createSlicedPattern(srcPattern, 0, sliceLength);
             bakedSong.patterns = [newPattern];
             bakedSong.songOrder = [new SongOrderItem({patternIndex: 0})];
@@ -264,7 +265,7 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
             loopLength: 1,
          };
          songOrderOffset = cursorSongOrder;
-         somaticRowsPerTic80Pattern = originalSong.rowsPerPattern;
+         somaticRowsPerTic80Pattern = originalSong.getOrderEffectiveRowCount(cursorSongOrder);
          break;
       }
 
@@ -314,10 +315,11 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          const patternIndex = bakedSong.songOrder[cursorSongOrder].patternIndex;
          const srcPattern = bakedSong.patterns[patternIndex];
          if (srcPattern) {
-            const rowsPerPattern = bakedSong.rowsPerPattern;
-            const halfLength = Math.floor(rowsPerPattern / 2);
+            const rowsPerPattern = bakedSong.getPatternEffectiveRowCount(patternIndex);
+            const halfLength = Math.max(1, Math.floor(rowsPerPattern / 2));
             // Determine which half the cursor is in
-            const halfIndex = Math.floor(cursorRowIndex / halfLength);
+            const safeCursorRow = Math.min(cursorRowIndex, rowsPerPattern - 1);
+            const halfIndex = Math.floor(safeCursorRow / halfLength);
             const halfStart = halfIndex * halfLength;
 
             const newPattern = createSlicedPattern(srcPattern, halfStart, halfLength);
@@ -333,8 +335,10 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          };
          somaticPatternRowLoop = {
             beginSomaticPatternRow:
-               Math.max(0, cursorRowIndex - (cursorRowIndex % Math.max(1, Math.floor(bakedSong.rowsPerPattern / 2)))),
-            loopLength: Math.floor(bakedSong.rowsPerPattern / 2) || originalSong.rowsPerPattern,
+               Math.max(0, Math.min(cursorRowIndex, originalSong.getOrderEffectiveRowCount(cursorSongOrder) - 1) -
+                  (Math.min(cursorRowIndex, originalSong.getOrderEffectiveRowCount(cursorSongOrder) - 1) %
+                   Math.max(1, Math.floor(originalSong.getOrderEffectiveRowCount(cursorSongOrder) / 2)))),
+            loopLength: Math.max(1, Math.floor(originalSong.getOrderEffectiveRowCount(cursorSongOrder) / 2)),
          };
          // For half-pattern we loop over a contiguous block starting at halfStart with length halfLength.
          songOrderOffset = cursorSongOrder;
@@ -350,10 +354,11 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          const patternIndex = bakedSong.songOrder[cursorSongOrder].patternIndex;
          const srcPattern = bakedSong.patterns[patternIndex];
          if (srcPattern) {
-            const rowsPerPattern = bakedSong.rowsPerPattern;
-            const quarterLength = Math.floor(rowsPerPattern / 4);
+            const rowsPerPattern = bakedSong.getPatternEffectiveRowCount(patternIndex);
+            const quarterLength = Math.max(1, Math.floor(rowsPerPattern / 4));
             // Determine which quarter the cursor is in
-            const quarterIndex = Math.floor(cursorRowIndex / quarterLength);
+            const safeCursorRow = Math.min(cursorRowIndex, rowsPerPattern - 1);
+            const quarterIndex = Math.floor(safeCursorRow / quarterLength);
             const quarterStart = quarterIndex * quarterLength;
 
             const newPattern = createSlicedPattern(srcPattern, quarterStart, quarterLength);
@@ -369,8 +374,10 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          };
          somaticPatternRowLoop = {
             beginSomaticPatternRow:
-               Math.max(0, cursorRowIndex - (cursorRowIndex % Math.max(1, Math.floor(bakedSong.rowsPerPattern / 4)))),
-            loopLength: Math.floor(bakedSong.rowsPerPattern / 4) || originalSong.rowsPerPattern,
+               Math.max(0, Math.min(cursorRowIndex, originalSong.getOrderEffectiveRowCount(cursorSongOrder) - 1) -
+                  (Math.min(cursorRowIndex, originalSong.getOrderEffectiveRowCount(cursorSongOrder) - 1) %
+                   Math.max(1, Math.floor(originalSong.getOrderEffectiveRowCount(cursorSongOrder) / 4)))),
+            loopLength: Math.max(1, Math.floor(originalSong.getOrderEffectiveRowCount(cursorSongOrder) / 4)),
          };
          songOrderOffset = cursorSongOrder;
          patternRowOffset = somaticPatternRowLoop.beginSomaticPatternRow;
@@ -405,7 +412,7 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          } else {
             // No selection - fall back to current pattern
             if (srcPattern) {
-               const sliceLength = bakedSong.rowsPerPattern;
+               const sliceLength = bakedSong.getPatternEffectiveRowCount(patternIndex);
                const newPattern = createSlicedPattern(srcPattern, 0, sliceLength);
                bakedSong.patterns = [newPattern];
                bakedSong.songOrder = [new SongOrderItem({patternIndex: 0})];
@@ -437,6 +444,9 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
          instrument.waveFrames[i] = instrument.renderWaveformSlot;
       }
    }
+
+   resultStartPosition = Math.max(0, Math.min(resultStartPosition, bakedSong.songOrder.length - 1));
+   resultStartRow = Math.max(0, Math.min(resultStartRow, bakedSong.getOrderEffectiveRowCount(resultStartPosition) - 1));
 
    return {
       bakedSong,

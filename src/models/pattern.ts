@@ -181,6 +181,33 @@ export class Pattern {
          `contentSignatureForColumn: channelIndex out of range: ${channelIndex}`);
       return JSON.stringify({channel: dto.channels[channelIndex]});
    }
+
+   getPatternEndRow(rowLimit: number, channelCount: number): number|null {
+      const safeRowLimit = clamp(rowLimit | 0, 1, Number.MAX_SAFE_INTEGER);
+      const safeChannelCount = clamp(channelCount | 0, 1, Number.MAX_SAFE_INTEGER);
+      for (let rowIndex = 0; rowIndex < safeRowLimit; rowIndex++) {
+         for (let channelIndex = 0; channelIndex < safeChannelCount; channelIndex++) {
+            const cell = this.getCell(channelIndex, rowIndex);
+            if (cell.somaticEffect === kSomaticPatternCommand.key.PatternEnd) {
+               return rowIndex;
+            }
+         }
+      }
+      return null;
+   }
+
+   getEffectiveRowCount(rowLimit: number, channelCount: number): number {
+      const safeRowLimit = clamp(rowLimit | 0, 1, Number.MAX_SAFE_INTEGER);
+      const endRow = this.getPatternEndRow(safeRowLimit, channelCount);
+      if (endRow == null || endRow >= safeRowLimit - 1) {
+         return safeRowLimit;
+      }
+      return endRow + 1;
+   }
+
+   isRowReachable(rowIndex: number, rowLimit: number, channelCount: number): boolean {
+      return rowIndex < this.getEffectiveRowCount(rowLimit, channelCount);
+   }
 }
 
 export type PatternEffectCarryState = {
@@ -211,6 +238,7 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
    const safePatternIndex = clamp(patternIndex | 0, 0, song.patterns.length - 1);
    const pattern = song.patterns[safePatternIndex];
    const rowCount = song.rowsPerPattern;
+   const effectiveRowCount = pattern.getEffectiveRowCount(rowCount, song.subsystem.channelCount);
    const channelCount = song.subsystem.channelCount;
 
    // Precompute which instruments will actually render into a k-rate waveform slot during playback.
@@ -239,7 +267,7 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
    const activeKRateSlotByChannel: (number|null)[] = Array.from({length: channelCount}, () => null);
    const kRateRenderSlotConflictByRow: boolean[] = Array.from({length: rowCount}, () => false);
 
-   for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+   for (let rowIndex = 0; rowIndex < effectiveRowCount; rowIndex++) {
       // Track conflicts for this row while we update note / effect state.
       const slotCounts = new Map<number, number>();
 

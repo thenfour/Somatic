@@ -123,6 +123,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const safePatternIndex = clamp(currentPatternIndex, 0, song.patterns.length - 1);
         const [currentColumnIndex, setCurrentColumnIndex] = useState(0);
         const pattern: Pattern = song.patterns[safePatternIndex];
+        const patternEndRow = pattern.getPatternEndRow(song.rowsPerPattern, song.subsystem.channelCount);
+        const effectiveRows = pattern.getEffectiveRowCount(song.rowsPerPattern, song.subsystem.channelCount);
         const playbackAnalysis = useMemo(
             () => analyzePatternPlaybackForGrid(song, safePatternIndex),
             [song, safePatternIndex],
@@ -1570,10 +1572,23 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                 const rowSectionClass = resolvedHighlightStyle === kPatternGridHighlightStyle.valueByKey.sectionHeader
                                     ? (isSectionStart ? 'row-section-b' : 'row-section-a')
                                     : (sectionIndex === 0 ? 'row-section-a' : 'row-section-b');
-                                const rowClass = `${rowSectionClass}${activeRow === rowIndex ? ' active-row' : ''}`;
+                                const isUnreachableRow = rowIndex >= effectiveRows;
+                                const isPatternEndRow = patternEndRow === rowIndex && effectiveRows < song.rowsPerPattern;
+                                const rowClass = `${rowSectionClass}${activeRow === rowIndex ? ' active-row' : ''}${isUnreachableRow ? ' pattern-grid-row--unreachable' : ''}${isPatternEndRow ? ' pattern-grid-row--pattern-end' : ''}`;
                                 const isRowInSelection = editorState.isPatternRowSelected(rowIndex);
                                 const rowNumberClass = `row-number${isRowInSelection ? ' row-number--selected' : ''}`;
                                 const hasWaveformRenderConflict = kRateRenderSlotConflictByRow[rowIndex];
+                                const patternEndHasFreeTicEffectSlot = !isPatternEndRow ||
+                                    channelsArray.some((ch) => pattern.getCell(ch, rowIndex).tic80Effect === undefined);
+                                const rowWarningText = hasWaveformRenderConflict
+                                    ? "Two or more channels render to the same waveform slot on this row"
+                                    : !patternEndHasFreeTicEffectSlot
+                                        ? "Somatic C needs one channel without a TIC effect command so playback can synthesize the cut"
+                                    : isUnreachableRow
+                                        ? "This row is after the first Somatic C cut and will not play"
+                                        : isPatternEndRow
+                                            ? "Somatic C cuts to the next pattern after this row"
+                                            : "";
                                 return (
                                     <tr key={rowIndex} className={rowClass}>
                                         <td
@@ -1583,8 +1598,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         >
                                             <div className="row-number-inner">
                                                 <span className="row-number-index">{rowIndex.toString().padStart(2, '0')}</span>
-                                                {hasWaveformRenderConflict ? (
-                                                    <Tooltip title="Two or more channels render to the same waveform slot on this row">
+                                                {rowWarningText ? (
+                                                    <Tooltip title={rowWarningText}>
                                                         <div className="row-number-warning-dot"></div>
                                                     </Tooltip>
                                                 ) : <div className="row-number-warning-dot row-number-warning-dot--hidden"></div>}
@@ -1661,6 +1676,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             if (row.somaticEffect === undefined && row.somaticParam !== undefined) {
                                                 errorInRow = true;
                                                 errorText = "Somatic effect parameter set without a Somatic effect command.";
+                                            }
+                                            if (isPatternEndRow && !patternEndHasFreeTicEffectSlot) {
+                                                errorInRow = true;
+                                                errorText = "Somatic C needs one channel without a TIC effect command.";
                                             }
 
                                             const additionalClasses = `${isEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}${isAudible ? '' : ' muted-cell'}`;

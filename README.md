@@ -400,22 +400,56 @@ If there's no next order, the song ends.
 This command can only appear in the "somatic effect" column; not the TIC-80 effect column.
 The tic-80 native `J` pattern effect command remains unsupported.
 
-Fundamental changes to the app will need to be made:
+Scope: The somatic `C` command affects all channels.
+
+Multiple `C` commands: the first one encountered wins. Subsequent would be unreachable and untouched.
+
+`C` on last row is effectively a NOP. No special handling is needed in this case but worth noting.
 
 ## Implementation notes
 
 - `Song` and other models shall need methods to calculate timings. While previously
-we could rely on simple arithmetic for converting between rows/beats/patterns/time,
-now the song needs to be walked. Depending on context, walking calculation shall
-be needed; other places may need a precalculated table (hot paths, playroutine tick...)
-- All timing-based calcs in Somatic shall need to use methods for calculation,
-no longer relying on assumptions regarding fixed rows-per-pattern.
+  we could rely on simple arithmetic for converting between rows/beats/patterns/time,
+  now the song needs to be walked; each pattern will expose a method to get
+  effective rows.
+- All timing-based calcs in Somatic shall use methods for calculation to centralize
+  the logic, no longer relying on assumptions regarding fixed rows-per-pattern.
 - Any reliance on `song.rowsPerPattern` need updating. All use of
   `song.rowsPerPattern` as a means to calculate timings or transport details should be
-  updated to calculate.
+  updated to calculate. The song conceptually turns into "each pattern has its own
+  length"; this should be how the app shall feel. And `song.rowsPerPattern` becomes a
+  tic80 detail / pattern default.
+- To simplify the changes needed for the playroutine, we can export a mapping of
+  pattern -> effective pattern rows. When the playroutines encounter a playroutine
+  that needs cutting short, a `J` command can be synthesized.
 - Playroutine (bridge + playroutine.lua) will need to synthesize a native `J` command
   to the next pattern during playback.
-- We should document constraints if they exist (for example is a 1-row pattern
-  possible; does that give the playroutine enough time to do the pattern blit?)
+- We should document practical constraints if they exist (for example is a 1-row pattern
+  possible; does that give the playroutine enough time to do the pattern blit?).
+  We should allow `C` on all rows, but at least document if this could cause playback
+  glitches / undefined behavior.
 - Pattern editor should indicate unreachable rows with minimal code changes: we
   can just show a simple indication similar to other row-based warnings.
+- Pattern editor still uses `song.rowsPerPattern`, and even allows editing beyond
+  the usable pattern area; unreachable area is dimmed. Transport and song
+  export/playback/render use the effective length.
+- All loop modes shall be aware of pattern length for calculating the loop region.
+- Public transport API (`somatic_get_time` et al) can still expose `rowsPerPattern`.
+  Consumers are expected to understand constraints on its use.
+- Cue sheet shall include the effective row count (as a `rows` field) per entry.
+
+## Semantics of `Jxy` Tic-80 command
+
+https://github.com/nesbox/TIC-80/wiki/Music-editor
+
+`Jxy`: Jump to frame/beat
+
+- Jumps to frame (pattern) x, beat (row) y.
+- `J00` jumps to the beginning of the song, so if you use it, remember to remove
+  the rule before exporting the music track.
+
+Testing shows that:
+
+- Like our `Cxx` command, `Jxy` performs the jump after the current row.
+- `x` is the frame number (0-15)
+- `y` is the row number (0-15; rows 16... are unable to be jumped to)

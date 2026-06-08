@@ -17,9 +17,11 @@ local ADDR = {
 	INBOX = BRIDGE_CONFIG.memory.INBOX_ADDR,
 	OUTBOX = BRIDGE_CONFIG.memory.OUTBOX_ADDR,
 	SFX = BRIDGE_CONFIG.memory.SFX_ADDR,
+	TRACKS = BRIDGE_CONFIG.memory.TRACKS_ADDR,
 
 	TF_ORDER_LIST_COUNT = BRIDGE_CONFIG.memory.TF_ORDER_LIST_COUNT,
 	TF_ORDER_LIST_ENTRIES = BRIDGE_CONFIG.memory.TF_ORDER_LIST_ENTRIES,
+	TF_ORDER_LIST_ROWS = BRIDGE_CONFIG.memory.TF_ORDER_LIST_ROWS,
 	TF_PATTERN_DATA = BRIDGE_CONFIG.memory.TF_PATTERN_DATA,
 	SOMATIC_SFX_CONFIG = BRIDGE_CONFIG.memory.SOMATIC_SFX_CONFIG,
 }
@@ -861,6 +863,14 @@ local function getSongOrderCount()
 	return peek(ADDR.TF_ORDER_LIST_COUNT)
 end
 
+local function getSongOrderRowCount(songPosition)
+	local rows = peek(ADDR.TF_ORDER_LIST_ROWS + songPosition)
+	if rows == nil or rows <= 0 then
+		return 64 - peek(ADDR.TRACKS + 49)
+	end
+	return clamp(rows, 1, 64 - peek(ADDR.TRACKS + 49))
+end
+
 -- Computes a simple checksum and first-bytes hex preview for a memory region.
 -- addr:      start address in memory
 -- total_len: number of bytes to include in the checksum
@@ -960,6 +970,38 @@ local function swapInPlayorder(songPosition, destPointer)
 	end
 end
 
+local function patchPatternEndJump(songPosition, destPointer, playingFrame)
+	local rowCount = getSongOrderRowCount(songPosition)
+	local rowsPerPattern = 64 - peek(ADDR.TRACKS + 49)
+	if rowCount >= rowsPerPattern then
+		return
+	end
+	local row = rowCount - 1 -- make 0-based.
+
+	-- find a channel with empty command so we can safely patch the jmp
+	-- if none available, clobber first chan
+	local chosenCh = 0
+	for ch = 0, 3 do
+		local addr = destPointer + ch * PATTERN_BYTES_PER_PATTERN + row * ROW_BYTES
+		local command = (peek(addr + 1) >> 4) & 0x07
+		if command == 0 then
+			chosenCh = ch
+			break
+		end
+	end
+	local targetFrame = ((playingFrame or 0) + 1) % 16
+	local addr = destPointer + chosenCh * PATTERN_BYTES_PER_PATTERN + row * ROW_BYTES
+	-- set command to jump
+	poke(addr, ((targetFrame & 0x0f) << 4) | (peek(addr) & 0x0f))
+	-- and the param...
+	poke(addr + 1, (peek(addr + 1) & 0x80) | (3 << 4))
+end
+
+local function queuePlayorder(songPosition, destPointer, playingFrame)
+	swapInPlayorder(songPosition, destPointer)
+	patchPatternEndJump(songPosition, destPointer, playingFrame)
+end
+
 -- =========================
 -- general playroutine support
 
@@ -1005,9 +1047,28 @@ tf_music_init = function(songPosition, startRow)
 
 	log("music_init: Starting playback from position " .. tostring(songPosition) .. " row " .. tostring(startRow))
 
-	swapInPlayorder(currentSongOrder, bufferALocation)
+	queuePlayorder(songPosition, bufferALocation, 0)
 
-	ch_set_playroutine_regs(currentSongOrder)
+	currentSongOrder = songPosition + 1
+	backBufferIsA = false -- frame 0 plays buffer A; buffer B is preloaded for frame 1.
+	lastPlayingFrame = 0
+	local orderCount = getSongOrderCount()
+	if orderCount == 0 then
+		clearPatternBuffer(bufferBLocation)
+		stopPlayingOnNextFrame = true
+	elseif currentSongOrder >= orderCount then
+		if loopSongForever then
+			currentSongOrder = 0
+			queuePlayorder(currentSongOrder, bufferBLocation, 1)
+		else
+			clearPatternBuffer(bufferBLocation)
+			stopPlayingOnNextFrame = true
+		end
+	else
+		queuePlayorder(currentSongOrder, bufferBLocation, 1)
+	end
+
+	ch_set_playroutine_regs(songPosition)
 
 	music(
 		0, -- track
@@ -1067,7 +1128,7 @@ function tf_music_tick()
 		end
 	end
 
-	swapInPlayorder(currentSongOrder, destPointer)
+	queuePlayorder(currentSongOrder, destPointer, (currentFrame + 1) % 16)
 end
 
 local sweetie16_pal = "1a1c2c5d275db13e53ef7d57ffcd75a7f07038b76425717929366f3b5dc941a6f673eff7f4f4f494b0c2566c86333c57"

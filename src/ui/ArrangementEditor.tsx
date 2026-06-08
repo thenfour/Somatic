@@ -659,10 +659,11 @@ export const ArrangementEditor: React.FC<{
                     const canDelete = song.songOrder.length > 1;
                     const isMatchingCursorPattern = cursorPatternIndex !== undefined && clampedPattern === cursorPatternIndex;
                     const thumbKey = pattern ? pattern.contentSignature() : `nopat-${clampedPattern}`;
-                    const cacheKey = `${thumbKey}|${song.arrangementThumbnailSize}|${editorState.currentInstrument}|${song.rowsPerPattern}`;
+                    const effectiveRows = song.getOrderEffectiveRowCount(positionIndex);
+                    const cacheKey = `${thumbKey}|${song.arrangementThumbnailSize}|${editorState.currentInstrument}|${effectiveRows}`;
                     let thumbnail = thumbnailCache.get(cacheKey);
                     if (thumbnail === undefined) {
-                        thumbnail = renderThumbnail(song.subsystem.channelCount, pattern, song.rowsPerPattern, song.arrangementThumbnailSize, editorState.currentInstrument);
+                        thumbnail = renderThumbnail(song.subsystem.channelCount, pattern, effectiveRows, song.arrangementThumbnailSize, editorState.currentInstrument);
                         thumbnailCache.set(cacheKey, thumbnail);
                     }
 

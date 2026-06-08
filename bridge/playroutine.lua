@@ -436,6 +436,31 @@ do
 		return #SOMATIC_MUSIC_DATA.songOrder / 4
 	end
 
+	local function song_order_row_count(songPosition0b)
+		local rows = SOMATIC_MUSIC_DATA.orderRows and SOMATIC_MUSIC_DATA.orderRows[songPosition0b + 1] or nil
+		if rows == nil or rows <= 0 then
+			return SOMATIC_MUSIC_DATA.rowsPerPattern
+		end
+		return clamp(rows, 1, SOMATIC_MUSIC_DATA.rowsPerPattern)
+	end
+
+	local function song_row_count()
+		local total = 0
+		for i = 0, song_order_count() - 1 do
+			total = total + song_order_row_count(i)
+		end
+		return total
+	end
+
+	local function song_position_to_abs_row(songPosition, row)
+		local safeSongPosition = clamp(songPosition or 0, 0, math.max(0, song_order_count() - 1))
+		local absRow = 0
+		for i = 0, safeSongPosition - 1 do
+			absRow = absRow + song_order_row_count(i)
+		end
+		return absRow + clamp(row or 0, 0, math.max(0, song_order_row_count(safeSongPosition) - 1))
+	end
+
 	-- decode b85+1 LZ-compressed data into a table of integers with 'bits' bits each.
 	local function decodeBits(blob, bits)
 		local n = b85Plus1LZDecodeToMem(blob, __AUTOGEN_TEMP_PTR_B)
@@ -451,6 +476,7 @@ do
 	-- on boot, decode
 	SOMATIC_MUSIC_DATA.rpd = decodeBits(SOMATIC_MUSIC_DATA.rp, 16)
 	SOMATIC_MUSIC_DATA.songOrder = decodeBits(SOMATIC_MUSIC_DATA.so, 8)
+	SOMATIC_MUSIC_DATA.orderRows = decodeBits(SOMATIC_MUSIC_DATA.orows, 8)
 
 	local function blit_pattern_column(columnIndex0b, destPointer)
 		local rp = SOMATIC_MUSIC_DATA.rpd
@@ -501,6 +527,27 @@ do
 		end
 	end
 
+	local function patch_pattern_end_jump(songPosition0b, destPointer, playingFrame)
+		local rowCount = song_order_row_count(songPosition0b)
+		if rowCount >= SOMATIC_MUSIC_DATA.rowsPerPattern then
+			return
+		end
+		local row = rowCount - 1
+		local chosenCh = 0
+		for ch = 0, 3 do
+			local addr = destPointer + ch * PATTERN_BYTES_PER_PATTERN + row * ROW_BYTES
+			local command = (peek(addr + 1) >> 4) & 0x07
+			if command == 0 then
+				chosenCh = ch
+				break
+			end
+		end
+		local targetFrame = ((playingFrame or 0) + 1) % 16
+		local addr = destPointer + chosenCh * PATTERN_BYTES_PER_PATTERN + row * ROW_BYTES
+		poke(addr, ((targetFrame & 0x0f) << 4) | (peek(addr) & 0x0f))
+		poke(addr + 1, (peek(addr + 1) & 0x80) | (3 << 4))
+	end
+
 	local function clearPatternBuffer(destPointer)
 		for i = 0, PATTERN_BUFFER_BYTES - 1 do
 			poke(destPointer + i, 0)
@@ -528,11 +575,12 @@ do
 		end
 	end
 
-	local function queuePlaybackBuffer(songPosition0b, destPointer)
+	local function queuePlaybackBuffer(songPosition0b, destPointer, playingFrame)
 		if playbackMuted then
 			writeMutedPatternBuffer(destPointer)
 		else
 			swapInPlayorder(songPosition0b, destPointer)
+			patch_pattern_end_jump(songPosition0b, destPointer, playingFrame)
 		end
 	end
 
@@ -552,7 +600,7 @@ do
 		end
 
 		if playingSongOrder0b >= 0 and playingSongOrder0b < orderCount then
-			swapInPlayorder(playingSongOrder0b, frontPointer)
+			queuePlaybackBuffer(playingSongOrder0b, frontPointer, math.max(0, lastPlayingFrame))
 		else
 			clearPatternBuffer(frontPointer)
 		end
@@ -569,7 +617,7 @@ do
 		if nextSongOrder == nil then
 			clearPatternBuffer(backPointer)
 		else
-			swapInPlayorder(nextSongOrder, backPointer)
+			queuePlaybackBuffer(nextSongOrder, backPointer, (math.max(0, lastPlayingFrame) + 1) % 16)
 		end
 	end
 
@@ -622,7 +670,7 @@ do
 	-- Shared state for music playback and demo timing.
 	local baseTempo, baseSpeed, baseRowsPerBeat, baseRowsPerPattern = somatic_resolve_timing_options()
 	local baseSongPatternCount = song_order_count()
-	local baseSongRowCount = baseSongPatternCount * baseRowsPerPattern
+	local baseSongRowCount = song_row_count()
 	local baseSongBeatCount = baseSongRowCount / baseRowsPerBeat
 	local baseSongMillis = baseSongBeatCount * 60000 / somatic_get_bpm(baseTempo, baseSpeed)
 	local somatic_transport = {
@@ -677,6 +725,8 @@ do
 		return beat * 60000 / bpm
 	end
 
+	local somatic_abs_row_to_position
+
 	-- Override timing as a ratio against the exported song.
 	local function somatic_derive_playback_rate()
 		local baseBpm = somatic_get_bpm(somatic_transport.baseTempo, somatic_transport.baseSpeed)
@@ -690,8 +740,9 @@ do
 		if row < 0 then
 			row = 0
 		end
-		state.demoPatternIndex = row // somatic_transport.rowsPerPattern
-		state.demoPatternRow = (row // 1) % somatic_transport.rowsPerPattern
+		local songPosition, patternRow = somatic_abs_row_to_position(row // 1)
+		state.demoPatternIndex = songPosition
+		state.demoPatternRow = patternRow
 	end
 
 	-- Mirror current settings into the public time table.
@@ -746,7 +797,7 @@ do
 
 	-- sync transport from a somatic position.
 	local function somatic_set_time_from_position(songPosition, row)
-		local absRow = (songPosition or 0) * somatic_transport.rowsPerPattern + (row or 0)
+		local absRow = song_position_to_abs_row(songPosition, row)
 		local beat = absRow / somatic_transport.rowsPerBeat
 		local state = somatic_transport.time
 		state.demoBeats = beat
@@ -761,7 +812,7 @@ do
 		if orderCount <= 0 then
 			return 0, 0
 		end
-		local maxRow = orderCount * somatic_transport.rowsPerPattern - 1
+		local maxRow = song_row_count() - 1
 		if absRow < 0 then
 			absRow = 0
 		end
@@ -771,10 +822,18 @@ do
 		return absRow, maxRow
 	end
 
-	local function somatic_abs_row_to_position(absRow)
-		local songPosition = absRow // somatic_transport.rowsPerPattern
-		local row = absRow % somatic_transport.rowsPerPattern
-		return songPosition, row
+	function somatic_abs_row_to_position(absRow)
+		local remaining = absRow // 1
+		local orderCount = song_order_count()
+		for songPosition = 0, orderCount - 1 do
+			local rows = song_order_row_count(songPosition)
+			if remaining < rows then
+				return songPosition, remaining
+			end
+			remaining = remaining - rows
+		end
+		local lastPosition = math.max(0, orderCount - 1)
+		return lastPosition, math.max(0, song_order_row_count(lastPosition) - 1)
 	end
 
 	local function somatic_normalize_beat(beat)
@@ -881,15 +940,33 @@ do
 		log(string.format("start_music: pos=%d row=%d", songPosition, startRow)) -- DEBUG_ONLY
 
 		-- seed state
-		currentSongOrder = songPosition
+		currentSongOrder = songPosition + 1
 		playingSongOrder0b = songPosition
-		backBufferIsA = true -- act like we came from buffer B so tick() will set it correctly on first pass.
-		lastPlayingFrame = -1 -- this means tick() will immediately seed the back buffer.
+		backBufferIsA = false -- frame 0 plays buffer A; buffer B is preloaded for frame 1.
+		lastPlayingFrame = 0
 		stopPlayingOnNextFrame = false
 		if playbackMuted then
 			clearAllPlaybackBuffers()
 		else
-			queuePlaybackBuffer(currentSongOrder, bufferALocation)
+			queuePlaybackBuffer(songPosition, bufferALocation, 0)
+		end
+
+		local orderCount = song_order_count()
+		local nextSongOrder = currentSongOrder
+		if orderCount == 0 then
+			clearPatternBuffer(bufferBLocation)
+			stopPlayingOnNextFrame = true
+		elseif nextSongOrder >= orderCount then
+			if loopSongForeverEnabled then
+				nextSongOrder = 0
+				currentSongOrder = 0
+				queuePlaybackBuffer(nextSongOrder, bufferBLocation, 1)
+			else
+				clearPatternBuffer(bufferBLocation)
+				stopPlayingOnNextFrame = true
+			end
+		else
+			queuePlaybackBuffer(nextSongOrder, bufferBLocation, 1)
 		end
 
 		stopAllVoices()
@@ -1071,12 +1148,12 @@ do
 			elseif currentSongOrder >= orderCount then
 				if loopSongForeverEnabled then
 					currentSongOrder = 0
-					queuePlaybackBuffer(currentSongOrder, destPointer)
+					queuePlaybackBuffer(currentSongOrder, destPointer, (currentFrame + 1) % 16)
 				else
 					clearNextBufferAndStop()
 				end
 			else
-				queuePlaybackBuffer(currentSongOrder, destPointer)
+				queuePlaybackBuffer(currentSongOrder, destPointer, (currentFrame + 1) % 16)
 			end
 		end
 

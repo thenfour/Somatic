@@ -88,14 +88,17 @@ export const TransportControls: React.FC<TransportControlsProps> = ({ bridgeRead
     mgr.useActionHandler("PreviousLoopMode", handlePreviousLoopMode);
     mgr.useActionHandler("ToggleLoopModeOff", handleToggleLoop);
 
-    const currentAbsRow = song.rowsPerPattern * editorState.activeSongPosition + editorState.patternEditRow;
+    const currentAbsRow = song.getAbsRowAtSongPosition(editorState.activeSongPosition, editorState.patternEditRow);
     const cursorPositionSeconds = song.subsystem.calculateSongPositionInSeconds({
         songTempo: song.tempo,
         songSpeed: song.speed,
         rowIndex: currentAbsRow,
     });
 
-    const currentAbsPlayheadRow = song.rowsPerPattern * (somaticTransportState.currentSomaticSongPosition || 0) + (somaticTransportState.currentSomaticRowIndex || 0);
+    const currentAbsPlayheadRow = song.getAbsRowAtSongPosition(
+        somaticTransportState.currentSomaticSongPosition || 0,
+        somaticTransportState.currentSomaticRowIndex || 0,
+    );
     const playheadPositionSeconds = song.subsystem.calculateSongPositionInSeconds({
         songTempo: song.tempo,
         songSpeed: song.speed,
@@ -105,7 +108,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({ bridgeRead
     const totalSongSeconds = song.subsystem.calculateSongPositionInSeconds({
         songTempo: song.tempo,
         songSpeed: song.speed,
-        rowIndex: song.songOrder.length * song.rowsPerPattern,
+        rowIndex: song.getSongLengthRows(),
     });
 
 

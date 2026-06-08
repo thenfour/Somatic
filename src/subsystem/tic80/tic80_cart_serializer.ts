@@ -229,7 +229,7 @@ function buildCueSheetLua(cueSheet: CueSheetEntry[] | null): string {
    const cueSheetEntries = cueSheet;
    for (let orderIndex = 0; orderIndex < cueSheetEntries.length; orderIndex++) {
       const entry = cueSheetEntries[orderIndex]!;
-      entries.push(`\t{ pi = ${entry.pi}, beat = ${entry.beat}, icon = ${toLuaStringLiteral(entry.icon)}, note = ${toLuaStringLiteral(entry.note)} },`);
+      entries.push(`\t{ pi = ${entry.pi}, beat = ${entry.beat}, rows = ${entry.rows}, icon = ${toLuaStringLiteral(entry.icon)}, note = ${toLuaStringLiteral(entry.note)} },`);
    }
 
    if (entries.length === 0) {
@@ -377,7 +377,9 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
    const trackData = encodeTrack(bakedSong.bakedSong);
    const extraSongData = encodeExtraSongDataForBridge(bakedSong.bakedSong, preparedSong);
 
-   const songOrderData = new Uint8Array(1 + SomaticCaps.maxSongLength * Tic80Caps.song.audioChannels);
+   const songOrderData =
+      new Uint8Array(1 + SomaticCaps.maxSongLength * Tic80Caps.song.audioChannels + SomaticCaps.maxSongLength);
+   const orderRowsOffset = 1 + SomaticCaps.maxSongLength * Tic80Caps.song.audioChannels;
    songOrderData[0] = preparedSong.songOrder.length;
    for (let i = 0; i < preparedSong.songOrder.length; i++) {
       const entry = preparedSong.songOrder[i];
@@ -390,6 +392,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
             `songOrderData: column index ${idx} >= patternColumns.length ${preparedSong.patternColumns.length}`);
          songOrderData[base + ch] = idx;
       }
+      songOrderData[orderRowsOffset + i] = clamp(entry.effectiveRows | 0, 1, bakedSong.bakedSong.rowsPerPattern);
    }
 
    const preparedPatternData = encodePreparedPatternColumns(preparedSong); // separate pattern data for playback use
@@ -672,6 +675,7 @@ function getCode(
    // Generate the SOMATIC_MUSIC_DATA section
    // song order is now a Uint8Array -- a stream of pattern column indices.
    const songOrderPayload = new Uint8Array(preparedSong.songOrder.length * Tic80Caps.song.audioChannels);
+   const orderRowsPayload = new Uint8Array(preparedSong.songOrder.length);
    for (let i = 0; i < preparedSong.songOrder.length; i++) {
       const entry = preparedSong.songOrder[i];
       const base = i * Tic80Caps.song.audioChannels;
@@ -679,11 +683,14 @@ function getCode(
          const idx = entry.patternColumnIndices[ch] | 0;
          songOrderPayload[base + ch] = idx;
       }
+      orderRowsPayload[i] = clamp(entry.effectiveRows | 0, 1, song.rowsPerPattern);
    }
    // lz compress & b85+1 encode.
    const songOrderCompressed = lzCompress(songOrderPayload, gSomaticLZDefaultConfig);
    const songOrderB85 = base85Plus1Encode(songOrderCompressed);
    const songOrder = toLuaStringLiteral(songOrderB85);
+   const orderRowsCompressed = lzCompress(orderRowsPayload, gSomaticLZDefaultConfig);
+   const orderRows = toLuaStringLiteral(base85Plus1Encode(orderRowsCompressed));
    const cueSheetSection = buildCueSheetLua(cueSheet);
 
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
@@ -691,9 +698,10 @@ local SOMATIC_MUSIC_DATA = {
  tempo = ${song.tempo},
  speed = ${song.speed},
  rowsPerBeat = ${song.highlightRowCount},
- rowsPerPattern = ${song.rowsPerPattern},
- so = ${songOrder},
- extraSongData = ${extraSongDataDetails.luaStringLiteral},
+rowsPerPattern = ${song.rowsPerPattern},
+so = ${songOrder},
+ orows = ${orderRows},
+extraSongData = ${extraSongDataDetails.luaStringLiteral},
  -- patterns in RAM
  rp = ${patternSerializationPlan.ramPatternLuaString},
  -- patterns in code

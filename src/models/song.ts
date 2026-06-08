@@ -243,13 +243,13 @@ export class Song {
 
    countInstrumentNotesInPattern(patternIndex: number, instrumentIndex: number): number {
       const pattern = this.patterns[patternIndex];
-      const rowLimit = this.rowsPerPattern;
+      const rowLimit = this.getPatternEffectiveRowCount(patternIndex);
       let count = 0;
 
       const channelCount = this.subsystem.channelCount;
 
       for (let ch = 0; ch < channelCount; ch += 1) {
-         for (let r = 0; r < this.rowsPerPattern; r += 1) {
+         for (let r = 0; r < rowLimit; r += 1) {
             const cell = pattern.getCell(ch, r);
             if (cell.instrumentIndex === instrumentIndex && cell.midiNote !== undefined && !isNoteCut(cell)) {
                count += 1;
@@ -285,10 +285,10 @@ export class Song {
       for (const orderItem of this.songOrder) {
          const patternIndex = clamp(orderItem.patternIndex ?? 0, 0, this.patterns.length - 1);
          const pattern = this.patterns[patternIndex];
-         const rowLimit = this.rowsPerPattern;
+         const rowLimit = this.getPatternEffectiveRowCount(patternIndex);
          const channelCount = this.subsystem.channelCount;
          for (let ch = 0; ch < channelCount; ++ch) {
-            for (let r = 0; r < this.rowsPerPattern; ++r) {
+            for (let r = 0; r < rowLimit; ++r) {
                const cell = pattern.getCell(ch, r);
                if (cell.instrumentIndex !== undefined && cell.instrumentIndex !== null) {
                   usageMap.set(cell.instrumentIndex, true);
@@ -358,16 +358,56 @@ export class Song {
    }
 
    getSongLengthRows(): number {
-      return this.songOrder.length * this.rowsPerPattern;
-   }
-
-   getBeatsPerPattern(): number {
-      // todo : jumps #198
-      return this.rowsPerPattern / this.getRowsPerBeat();
+      return this.songOrder.reduce((sum, _, orderIndex) => sum + this.getOrderEffectiveRowCount(orderIndex), 0);
    }
 
    getRowsPerBeat(): number {
       return this.highlightRowCount;
+   }
+
+   getPatternEffectiveRowCount(patternIndex: number): number {
+      const maxPatternIndex = Math.max(0, this.patterns.length - 1);
+      const safePatternIndex = clamp(patternIndex | 0, 0, maxPatternIndex);
+      const pattern = this.patterns[safePatternIndex];
+      if (!pattern) {
+         return this.rowsPerPattern;
+      }
+      return pattern.getEffectiveRowCount(this.rowsPerPattern, this.subsystem.channelCount);
+   }
+
+   getOrderEffectiveRowCount(orderIndex: number): number {
+      if (this.songOrder.length === 0) {
+         return this.rowsPerPattern;
+      }
+      const safeOrderIndex = clamp(orderIndex | 0, 0, this.songOrder.length - 1);
+      const orderItem = this.songOrder[safeOrderIndex];
+      return this.getPatternEffectiveRowCount(orderItem.patternIndex);
+   }
+
+   getAbsRowAtSongPosition(songPosition: number, rowIndex = 0): number {
+      const safePosition = clamp(songPosition | 0, 0, Math.max(0, this.songOrder.length - 1));
+      let absRow = 0;
+      for (let i = 0; i < safePosition; i++) {
+         absRow += this.getOrderEffectiveRowCount(i);
+      }
+      const rowsInOrder = this.getOrderEffectiveRowCount(safePosition);
+      return absRow + clamp(rowIndex | 0, 0, Math.max(0, rowsInOrder - 1));
+   }
+
+   getSongPositionAtAbsRow(absRow: number): {songPosition: number; rowIndex: number;} {
+      const orderCount = this.songOrder.length;
+      if (orderCount <= 0) {
+         return {songPosition: 0, rowIndex: 0};
+      }
+      let remaining = clamp(Math.floor(absRow), 0, Math.max(0, this.getSongLengthRows() - 1));
+      for (let orderIndex = 0; orderIndex < orderCount; orderIndex++) {
+         const rows = this.getOrderEffectiveRowCount(orderIndex);
+         if (remaining < rows) {
+            return {songPosition: orderIndex, rowIndex: remaining};
+         }
+         remaining -= rows;
+      }
+      return {songPosition: orderCount - 1, rowIndex: Math.max(0, this.getOrderEffectiveRowCount(orderCount - 1) - 1)};
    }
 
    //  "transport": {
@@ -443,6 +483,7 @@ export type CueSheetEntry = {
    icon: string;
    pi: number;
    beat: number;
+   rows: number;
    note: string;
 };
 
@@ -460,7 +501,8 @@ export function buildCueSheet(song: Song): CueSheetEntry[] | null {
       entries.push({
          icon: orderItem.markerVariant,
          pi: patternIndex, // order index != pattern index; this is necessary.
-         beat: orderIndex * song.getBeatsPerPattern(),
+         beat: song.getAbsRowAtSongPosition(orderIndex, 0) / song.getRowsPerBeat(),
+         rows: song.getOrderEffectiveRowCount(orderIndex),
          note: patternName,
       });
    }

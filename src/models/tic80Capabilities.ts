@@ -125,6 +125,14 @@ export const kSomaticPatternCommand = defineEnum({
       description: "Lowpass strength scale (00=bypass, FF=max)",
       nomivalValue: 0xff,
    },
+   PatternEnd: {
+      value: 3,
+      tic80SerializedValue: 4,
+      keyboardShortcut: "c",
+      patternChar: "C",
+      description: "Cut to next pattern after this row",
+      nomivalValue: undefined,
+   },
 });
 
 export type SomaticPatternCommand = typeof kSomaticPatternCommand.$key;
@@ -232,6 +240,7 @@ export const TicMemoryMap = {
    // NB: IF THIS CHANGES YOU HAVE TO UPDATE maxPatternLengthToBridge IN SomaticCaps
    //TILE_BASE: parseAddress(mem.TILE_BASE),
    TF_ORDER_LIST: parseAddress(mem.TF_ORDER_LIST), // TILE_BASE: 1 length byte + 256 entries.
+   TF_ORDER_LIST_ROWS: parseAddress(mem.TF_ORDER_LIST_ROWS),
    TF_PATTERN_DATA: parseAddress(
       mem.TF_PATTERN_DATA), // theoretically you can support the whole tile+sprite+map area for pattern data.
 

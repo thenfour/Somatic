@@ -13,6 +13,7 @@ export type PreparedPatternColumn = {
 
 export type PreparedSongOrderItem = {
    patternColumnIndices: [number, number, number, number];
+   effectiveRows: number;
 };
 
 export type PreparedSong = {
@@ -60,7 +61,10 @@ export function prepareSongColumns(song: Song): PreparedSong {
       for (let ch = 0; ch < Tic80Caps.song.audioChannels; ch++) {
          columnIndices[ch] = getColumnIndex(patternIndex, ch);
       }
-      songOrder.push({patternColumnIndices: columnIndices});
+      songOrder.push({
+         patternColumnIndices: columnIndices,
+         effectiveRows: song.getPatternEffectiveRowCount(patternIndex),
+      });
    }
 
    return {

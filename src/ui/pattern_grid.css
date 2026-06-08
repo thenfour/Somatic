@@ -273,6 +273,14 @@
     background-color: var(--row-active);
 }
 
+.pattern-grid tr.pattern-grid-row--unreachable {
+    opacity: 0.42;
+}
+
+.pattern-grid tr.pattern-grid-row--pattern-end .row-number {
+    color: var(--accent);
+}
+
 .pattern-grid tr.row-section-a:not(.active-row) {
     /* normally we use tic colors directly and unaltered. but the pattern editor has a lot of modes,
     so we make an exception. here we blend --row-a and --bg. */
