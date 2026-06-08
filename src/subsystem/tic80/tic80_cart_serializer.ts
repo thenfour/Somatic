@@ -7,7 +7,7 @@ import bridgeConfig from "../../../bridge/bridge_config";
 import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../../../bridge/memory_layout";
 import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec, WaveformMorphGradientCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked,} from "../../../bridge/morphSchema";
 import {LoopMode} from "../../audio/backend";
-import type {Song} from "../../models/song";
+import {buildCueSheet, type CueSheetEntry, type Song} from "../../models/song";
 import {gTic80AllChannelsAudible, kSomaticPatternCommand, SomaticCaps, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
 import {emitLuaBitpackPrelude, emitLuaDecoder} from "../../utils/bitpack/emitLuaDecoder";
 import {MemoryRegion} from "../../utils/bitpack/MemoryRegion";
@@ -220,31 +220,6 @@ function encodeExtraSongDataForBridge(song: Song, prepared: PreparedSong): Uint8
    return encodeSomaticExtraSongDataPayload({instruments, patterns}, totalBytes);
 }
 
-type CueSheetEntry = {
-   marker: string;
-   patternName: string;
-};
-
-export function buildCueSheet(song: Song): CueSheetEntry[] | null {
-   if (!song.exportCueSheet) {
-      return null;
-   }
-
-   const entries: CueSheetEntry[] = [];
-   const maxPatternIndex = song.patterns.length - 1;
-   for (let orderIndex = 0; orderIndex < song.songOrder.length; orderIndex++) {
-      const orderItem = song.songOrder[orderIndex]!;
-      const patternIndex = clamp(orderItem.patternIndex ?? 0, 0, maxPatternIndex);
-      const patternName = song.patterns[patternIndex]?.name ?? "";
-      entries.push({
-         marker: orderItem.markerVariant,
-         patternName,
-      });
-   }
-
-   return entries;
-}
-
 function buildCueSheetLua(cueSheet: CueSheetEntry[] | null): string {
    if (cueSheet == null) {
       return "";
@@ -254,7 +229,7 @@ function buildCueSheetLua(cueSheet: CueSheetEntry[] | null): string {
    const cueSheetEntries = cueSheet;
    for (let orderIndex = 0; orderIndex < cueSheetEntries.length; orderIndex++) {
       const entry = cueSheetEntries[orderIndex]!;
-      entries.push(`\t{ marker = ${toLuaStringLiteral(entry.marker)}, patternName = ${toLuaStringLiteral(entry.patternName)} },`);
+      entries.push(`\t{ pi = ${entry.pi}, beat = ${entry.beat}, icon = ${toLuaStringLiteral(entry.icon)}, note = ${toLuaStringLiteral(entry.note)} },`);
    }
 
    if (entries.length === 0) {

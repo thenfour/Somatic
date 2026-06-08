@@ -7,7 +7,7 @@ import './somatic.css';
 
 import { LoopMode, SomaticTransportState } from './audio/backend';
 import { Tic80AudioController } from './audio/controller';
-import {buildCueSheet, serializeSongToCart} from './subsystem/tic80/tic80_cart_serializer';
+import {serializeSongToCart} from './subsystem/tic80/tic80_cart_serializer';
 import { importSongFromTicCartBytes } from './subsystem/tic80/tic80_import';
 import { useAppInstancePresence } from './hooks/useAppPresence';
 import { useClipboard } from './hooks/useClipboard';
@@ -21,7 +21,7 @@ import { useActionHandler } from './keyb/useActionHandler';
 import { KeyboardActionNoteInput } from './midi/keyboard_action_input';
 import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { EditorState } from './models/editor_state';
-import { Song } from './models/song';
+import {buildCueSheet, Song} from './models/song';
 import { AmigaModSubsystemFrontend } from './subsystem/AmigaMod/AmigaModSubsystemFrontend';
 import { kSubsystem } from './subsystem/base/SubsystemBackendBase';
 import { SomaticSubsystemFrontend } from './subsystem/base/SubsystemFrontendBase';

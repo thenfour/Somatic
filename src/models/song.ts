@@ -361,6 +361,11 @@ export class Song {
       return this.songOrder.length * this.rowsPerPattern;
    }
 
+   getBeatsPerPattern(): number {
+      // todo : jumps #198
+      return this.rowsPerPattern / this.getRowsPerBeat();
+   }
+
    getRowsPerBeat(): number {
       return this.highlightRowCount;
    }
@@ -431,6 +436,36 @@ export class Song {
    clone(): Song {
       return Song.fromData(this.toData());
    }
+}
+
+
+export type CueSheetEntry = {
+   icon: string;
+   pi: number;
+   beat: number;
+   note: string;
+};
+
+export function buildCueSheet(song: Song): CueSheetEntry[] | null {
+   if (!song.exportCueSheet) {
+      return null;
+   }
+
+   const entries: CueSheetEntry[] = [];
+   const maxPatternIndex = song.patterns.length - 1;
+   for (let orderIndex = 0; orderIndex < song.songOrder.length; orderIndex++) {
+      const orderItem = song.songOrder[orderIndex]!;
+      const patternIndex = clamp(orderItem.patternIndex ?? 0, 0, maxPatternIndex);
+      const patternName = song.patterns[patternIndex]?.name ?? "";
+      entries.push({
+         icon: orderItem.markerVariant,
+         pi: patternIndex, // order index != pattern index; this is necessary.
+         beat: orderIndex * song.getBeatsPerPattern(),
+         note: patternName,
+      });
+   }
+
+   return entries;
 }
 
 

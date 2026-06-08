@@ -365,3 +365,57 @@ the build was dirty.
   music as the source of timing, so this codifies that.
 - #188 runtime mute support
 - #187 cue sheet export support
+
+## 1.0.11
+
+https://github.com/thenfour/Somatic/milestone/3?closed=1
+
+- #192 allow specifying minification options for release export
+- #191 fixing minification bugs that were fixed in ticbuild
+- #190 playroutine transport now supports fractional row seeking
+- #193 #195 ability to export a cue sheet and transport config metadata
+
+## 1.0.12
+
+# Pattern end somatic pattern / "cut to next pattern" command.
+
+Somatic effect `C` cuts to the next pattern.
+
+## Why no param?
+
+Traditional trackers (IT, FT / xm / s3m) accept a parameter for `Cxx` / `Dxx` where `xx`
+is the row number of the next pattern to play.
+
+For us that introduces complexity and it's currently not forseen to need it.
+
+It can be a feature to build afterwards anyway, as needed.
+
+## Spec / details
+
+Current row plays (the row containing the `C` command), and
+the next row to be played is the 1st row in the next play order's pattern.
+
+If there's no next order, the song ends.
+
+This command can only appear in the "somatic effect" column; not the TIC-80 effect column.
+The tic-80 native `J` pattern effect command remains unsupported.
+
+Fundamental changes to the app will need to be made:
+
+## Implementation notes
+
+- `Song` and other models shall need methods to calculate timings. While previously
+we could rely on simple arithmetic for converting between rows/beats/patterns/time,
+now the song needs to be walked. Depending on context, walking calculation shall
+be needed; other places may need a precalculated table (hot paths, playroutine tick...)
+- All timing-based calcs in Somatic shall need to use methods for calculation,
+no longer relying on assumptions regarding fixed rows-per-pattern.
+- Any reliance on `song.rowsPerPattern` need updating. All use of
+  `song.rowsPerPattern` as a means to calculate timings or transport details should be
+  updated to calculate.
+- Playroutine (bridge + playroutine.lua) will need to synthesize a native `J` command
+  to the next pattern during playback.
+- We should document constraints if they exist (for example is a 1-row pattern
+  possible; does that give the playroutine enough time to do the pattern blit?)
+- Pattern editor should indicate unreachable rows with minimal code changes: we
+  can just show a simple indication similar to other row-based warnings.
