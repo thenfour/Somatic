@@ -466,3 +466,8 @@ https://github.com/thenfour/Somatic/milestone/3?closed=1
 
 - #197 cue sheet format updated and includes more info
 - #198 adding somatic `C` pattern effect command to jump to next pattern.
+
+## 1.0.13
+
+- #199 adding ability to specify a sync offset time, and utilities for time projection
+- #200 making `SOMATIC_MUSIC_DATA` globally visible
