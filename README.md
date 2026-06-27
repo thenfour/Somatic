@@ -89,11 +89,10 @@ function TIC()
 	...
 	somatic_end_frame()
 end
-
 ```
 
-`somatic_tick()` returns the current transport state. `demoBeats` is the preferred sync value for
-animation; pattern and row fields are also included for tracker-style sync.
+`somatic_tick()` returns the current external transport state. `demoBeats` is the preferred sync
+value for animation; pattern and row fields are also included for tracker-style sync.
 
 ```lua
 local state = somatic_tick()
@@ -103,17 +102,23 @@ print(string.format("beat:%.2f pat:%d row:%d", state.demoBeats, state.demoPatter
 public API:
 
 ```lua
-somatic_tick(wallDeltaMillisOverride) -- call once per TIC frame; returns state
-somatic_get_time()                    -- read state without advancing time
-somatic_seek(beat)                    -- seek to any beat, including fractional beats
-somatic_set_options(options)          -- tempo/speed/isPlaying/isMuted/loopSongForever
-somatic_advance_frame()               -- advance paused demo time by one 60Hz frame
-somatic_end_frame()                   -- for internal bookkeeping
+somatic_tick(wallDeltaMillisOverride, syncOffsetMS) -- call once per TIC frame; returns state
+somatic_get_time(syncOffsetMS)                      -- read state without advancing time
+somatic_get_raw_time()                              -- read music transport state without sync correction
+somatic_project_time(state, syncOffsetMS)           -- project a state through a time offset
+somatic_seek(beat, syncOffsetMS)                    -- seek to an external beat, including fractional beats
+somatic_set_options(options)                        -- tempo/speed/isPlaying/isMuted/loopSongForever/syncOffsetMS
+somatic_advance_frame()                             -- advance paused demo time by one 60Hz frame
+somatic_end_frame()                                 -- for internal bookkeeping
 ```
 
 `somatic_seek()` keeps `demoBeats` / `demoMillis` continuous for animation. TIC-80 audio can
 only start on integer rows, so a fractional seek may produce a short silence until the next row
 boundary before music resumes.
+
+`syncOffsetMS` is a presentation-only latency correction in system milliseconds. Positive values
+advance the returned external transport time. It does not change internal music playback state;
+`somatic_get_raw_time()` exposes that unprojected state.
 
 Transport state includes timing settings, play state, wall-clock fields, demo-clock fields, and song
 length fields. "Wall clock" refers to the clock on your wall rather than in the song/demo.
@@ -129,6 +134,7 @@ state.isMuted
 state.loopSongForever
 state.didSeek
 state.playbackRate
+state.syncOffsetMS
 
 state.wallFrame
 state.wallDeltaMillis
@@ -145,6 +151,9 @@ state.songPatternCount
 state.songRowCount
 state.songBeatCount
 state.songMillis
+
+state.rawDemoMillis -- internal time with no sync offset applied
+state.rawDemoBeats  -- internal time with no sync offset applied
 ```
 
 For example:

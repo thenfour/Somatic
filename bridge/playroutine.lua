@@ -687,9 +687,11 @@ do
 		songMillis = baseSongMillis,
 		isPlaying = true,
 		playbackRate = 1,
+		syncOffsetMS = 0,
 		-- Internal only: public transport time can be fractional, but TIC-80 music starts on rows.
 		pendingAudioAbsRow = nil,
 		prevWallMillis = time(),
+		projectedTime = {},
 		-- Public mutable snapshot returned by somatic_get_time().
 		time = {
 			tempo = baseTempo,
@@ -707,6 +709,7 @@ do
 			loopSongForever = false,
 			didSeek = false,
 			playbackRate = 1,
+			syncOffsetMS = 0,
 			wallFrame = 0,
 			wallDeltaMillis = 0,
 			wallMillis = 0,
@@ -734,8 +737,8 @@ do
 	end
 
 	-- Refresh row/pattern fields from demoBeats.
-	local function somatic_write_position_fields()
-		local state = somatic_transport.time
+	local function somatic_write_position_fields(state)
+		state = state or somatic_transport.time
 		local row = state.demoBeats * somatic_transport.rowsPerBeat
 		if row < 0 then
 			row = 0
@@ -760,6 +763,48 @@ do
 		state.isMuted = playbackMuted
 		state.loopSongForever = loopSongForeverEnabled
 		state.playbackRate = somatic_transport.playbackRate
+		state.syncOffsetMS = 0
+	end
+
+	local function somatic_sync_offset_ms(syncOffsetMS)
+		if syncOffsetMS ~= nil then
+			somatic_transport.syncOffsetMS = tonumber(syncOffsetMS) or 0
+		end
+		return somatic_transport.syncOffsetMS or 0
+	end
+
+	local function somatic_get_sync_offset_beats(syncOffsetMS)
+		local offsetMS = somatic_sync_offset_ms(syncOffsetMS)
+		if offsetMS == 0 then
+			return 0
+		end
+		local bpm = somatic_get_bpm(somatic_transport.baseTempo, somatic_transport.baseSpeed)
+		return offsetMS * somatic_transport.playbackRate * bpm / 60000
+	end
+
+	function somatic_project_time(state, syncOffsetMS)
+		local offsetMS = somatic_sync_offset_ms(syncOffsetMS)
+		if offsetMS == 0 then
+			state.syncOffsetMS = 0
+			return state
+		end
+
+		local projected = somatic_transport.projectedTime
+		for k in pairs(projected) do
+			projected[k] = nil
+		end
+		for k, v in pairs(state) do
+			projected[k] = v
+		end
+
+		local offsetDemoMillis = offsetMS * somatic_transport.playbackRate
+		projected.rawDemoMillis = state.demoMillis
+		projected.rawDemoBeats = state.demoBeats
+		projected.syncOffsetMS = offsetMS
+		projected.demoMillis = math.max(0, state.demoMillis + offsetDemoMillis)
+		projected.demoBeats = math.max(0, state.demoBeats + somatic_get_sync_offset_beats())
+		somatic_write_position_fields(projected)
+		return projected
 	end
 
 	-- Apply runtime tempo/speed/isPlaying overrides.
@@ -904,8 +949,12 @@ do
 	end
 
 	-- Read current transport state without ticking.
-	function somatic_get_time()
+	function somatic_get_raw_time()
 		return somatic_transport.time
+	end
+
+	function somatic_get_time(syncOffsetMS)
+		return somatic_project_time(somatic_transport.time, syncOffsetMS)
 	end
 
 	-- Clear one-frame flags after demo code consumes them.
@@ -1040,8 +1089,8 @@ do
 	end
 
 	-- seek by beat; fractional seeks keep public time exact and delay TIC audio to the next row.
-	function somatic_seek(beat)
-		local _, _, normalizedBeat = somatic_beat_to_audio_position(beat)
+	function somatic_seek(beat, syncOffsetMS)
+		local _, _, normalizedBeat = somatic_beat_to_audio_position((beat or 0) - somatic_get_sync_offset_beats(syncOffsetMS))
 		local state = somatic_transport.time
 		state.demoBeats = normalizedBeat
 		state.demoMillis = somatic_get_millis_at_beat(normalizedBeat)
@@ -1055,12 +1104,13 @@ do
 		else
 			stop_music(false)
 		end
-		return state
+		return somatic_project_time(state)
 	end
 
 	-- apply timing/play state; restarts music when needed.
 	function somatic_set_options(options)
 		options = options or {}
+		somatic_sync_offset_ms(options.syncOffsetMS)
 		local wasPlaying = somatic_transport.isPlaying
 		local restartsMusic = wasPlaying
 			and (options.tempo ~= nil or options.speed ~= nil)
@@ -1072,16 +1122,16 @@ do
 			start_or_schedule_music_at_current_time()
 		end
 
-		return somatic_transport.time
+		return somatic_project_time(somatic_transport.time)
 	end
 
 	-- step demo time 1 frame.
 	function somatic_advance_frame()
 		-- somatic cannot do a frame advance while playing.
 		if somatic_transport.isPlaying then
-			return somatic_transport.time
+			return somatic_project_time(somatic_transport.time)
 		end
-		return somatic_update_time(1000 / 60, true)
+		return somatic_project_time(somatic_update_time(1000 / 60, true))
 	end
 
 	-- Internal TIC-80 music cursor; not part of public timing API.
@@ -1096,22 +1146,23 @@ do
 	end
 
 	-- Main per-frame API: updates time, then music buffers/SFX.
-	function somatic_tick(wallDeltaMillisOverride)
+	function somatic_tick(wallDeltaMillisOverride, syncOffsetMS)
+		somatic_sync_offset_ms(syncOffsetMS)
 		if not initialized and somatic_transport.isPlaying then
 			start_or_schedule_music_at_current_time()
 		end
 
 		local state = somatic_update_time(wallDeltaMillisOverride, false)
 		if not somatic_transport.isPlaying then
-			return state
+			return somatic_project_time(state)
 		end
 		if maybe_start_pending_audio(state) then
-			return state
+			return somatic_project_time(state)
 		end
 
 		local track, _, currentFrame, row = read_tic_music_state()
 		if track == -1 then
-			return state
+			return somatic_project_time(state)
 		end
 
 		-- If we've advanced to a new music frame, update our order bookkeeping *first*
@@ -1121,7 +1172,7 @@ do
 				-- We already cleared the upcoming buffer when we hit end-of-song;
 				-- once the music engine advances again, stop cleanly.
 				stop_music(true)
-				return state
+				return somatic_project_time(state)
 			end
 
 			backBufferIsA = not backBufferIsA
@@ -1158,7 +1209,7 @@ do
 		end
 
 		somatic_sfx_tick(track, currentFrame, row)
-		return state
+		return somatic_project_time(state)
 	end
 end -- do
 -- BEGIN_DISABLE_MINIFICATION

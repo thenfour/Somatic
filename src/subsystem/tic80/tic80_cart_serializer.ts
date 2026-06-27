@@ -694,7 +694,7 @@ function getCode(
    const cueSheetSection = buildCueSheetLua(cueSheet);
 
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
-local SOMATIC_MUSIC_DATA = {
+SOMATIC_MUSIC_DATA = {
  tempo = ${song.tempo},
  speed = ${song.speed},
  rowsPerBeat = ${song.highlightRowCount},
