@@ -471,3 +471,7 @@ https://github.com/thenfour/Somatic/milestone/3?closed=1
 
 - #199 adding ability to specify a sync offset time, and utilities for time projection
 - #200 making `SOMATIC_MUSIC_DATA` globally visible
+
+## 1.0.14
+
+- #201 fixed not being able to scroll past 16 song order (oops)

@@ -17,7 +17,7 @@ const mem = bridgeConfig.memory;
 
 export const SomaticCaps = {
    maxPatternCount: 256,
-   maxSongLength: 256,
+   maxSongLength: 255,
    maxPatternLengthToBridge: 40000,
    maxSongTitleLength: 200,
    maxMorphGradientNodes: 16,
