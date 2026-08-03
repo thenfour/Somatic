@@ -26,8 +26,7 @@ import { CheckboxButton } from './Buttons/CheckboxButton';
 
 type ExtendedCellType = 'note' | 'instrument' | 'volume' | 'command' | 'param' | 'somaticCommand' | 'somaticParam';
 
-const COMPACT_CELL_TYPES: readonly ExtendedCellType[] = ['note', 'instrument', 'volume', 'command', 'param'];
-const FULL_CELL_TYPES: readonly ExtendedCellType[] = [...COMPACT_CELL_TYPES, 'somaticCommand', 'somaticParam'];
+const SOMATIC_CELL_TYPES: readonly ExtendedCellType[] = ['somaticCommand', 'somaticParam'];
 const CTRL_ARROW_JUMP_SIZE = 4;
 
 const instrumentKeyMap = '0123456789abcdef'.split('');
@@ -143,8 +142,15 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
         const fxCarryTooltip = `Effect command state at the end of this pattern (doesn't consider previous patterns)`;
 
+        const showVolumeColumn = editorState.showVolumeColumn !== false;
         const showSomaticColumns = editorState.showSomaticColumns !== false;
-        const visibleCellTypes = showSomaticColumns ? FULL_CELL_TYPES : COMPACT_CELL_TYPES;
+        const visibleCellTypes = useMemo<readonly ExtendedCellType[]>(() => {
+            const result: ExtendedCellType[] = ['note', 'instrument'];
+            if (showVolumeColumn) result.push('volume');
+            result.push('command', 'param');
+            if (showSomaticColumns) result.push(...SOMATIC_CELL_TYPES);
+            return result;
+        }, [showSomaticColumns, showVolumeColumn]);
         const cellsPerChannel = visibleCellTypes.length;
         const cellStridePerChannel = cellsPerChannel + 1; // includes the non-interactive separator
 
@@ -162,7 +168,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             channelIndex: number;
             hiNibble: number;
         } | null>(null);
-        const prevShowSomaticColumnsRef = useRef(showSomaticColumns);
+        const prevVisibleCellTypesRef = useRef(visibleCellTypes);
 
         const clearPendingInstrumentEntry = useCallback(() => {
             pendingInstrumentEntryRef.current = null;
@@ -175,31 +181,30 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         }, [editingEnabled, clearPendingInstrumentEntry]);
 
         useEffect(() => {
-            const prevShow = prevShowSomaticColumnsRef.current;
-            prevShowSomaticColumnsRef.current = showSomaticColumns;
+            const previousCellTypes = prevVisibleCellTypesRef.current;
+            prevVisibleCellTypesRef.current = visibleCellTypes;
+            if (previousCellTypes === visibleCellTypes) return;
 
-            // Only remap columns when transitioning from showing to hiding.
-            if (showSomaticColumns || !prevShow) return;
-
-            const channelIndex = Math.floor(currentColumnIndex / FULL_CELL_TYPES.length);
-            const offset = currentColumnIndex % FULL_CELL_TYPES.length;
-            const previousType = FULL_CELL_TYPES[offset] ?? 'note';
-            const compactOffset = COMPACT_CELL_TYPES.indexOf(previousType);
-            const shouldForceParam = compactOffset === -1;
-            const nextOffset = shouldForceParam ? COMPACT_CELL_TYPES.indexOf('param') : compactOffset;
-            const targetCol = channelIndex * COMPACT_CELL_TYPES.length + nextOffset;
+            const channelIndex = Math.floor(currentColumnIndex / previousCellTypes.length);
+            const offset = currentColumnIndex % previousCellTypes.length;
+            const previousType = previousCellTypes[offset] ?? 'note';
+            const nextType = visibleCellTypes.includes(previousType)
+                ? previousType
+                : previousType === 'volume' ? 'instrument' : 'param';
+            const nextOffset = visibleCellTypes.indexOf(nextType);
+            const targetCol = channelIndex * visibleCellTypes.length + nextOffset;
 
             if (targetCol !== currentColumnIndex) {
                 setCurrentColumnIndex(targetCol);
             }
 
-            if (shouldForceParam) {
-                onEditorStateChange((s) => s.setPatternEditColumnType("param"));
+            if (nextType !== previousType) {
+                onEditorStateChange((s) => s.setPatternEditColumnType(nextType));
                 const rowIndex = editorState.patternEditRow ?? 0;
                 const rowTarget = cellRefs[rowIndex]?.[targetCol];
                 if (rowTarget) rowTarget.focus();
             }
-        }, [showSomaticColumns, currentColumnIndex, editorState.patternEditColumnType, editorState.patternEditRow, onEditorStateChange, cellRefs]);
+        }, [visibleCellTypes, currentColumnIndex, editorState.patternEditRow, onEditorStateChange, cellRefs]);
 
         const channelsArray = numericRange(0, song.subsystem.channelCount);
 
@@ -1543,6 +1548,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                     adv
                                 </CheckboxButton>
                                 </Tooltip>
+                                <Tooltip title="Toggle Show Volume Column">
+                                <CheckboxButton onClick={() => onEditorStateChange((s) => s.setShowVolumeColumn(!s.showVolumeColumn))} checked={editorState.showVolumeColumn}>
+                                    vol
+                                </CheckboxButton>
+                                </Tooltip>
                                 <Tooltip title={`Toggle Show Somatic Columns ${somaticColumnsKeyshortcut}`}>
                                 <CheckboxButton onClick={() => onEditorStateChange((s) => s.setShowSomaticColumns(!s.showSomaticColumns))} checked={editorState.showSomaticColumns}>
                                     som
@@ -1647,13 +1657,16 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const paramText = formatParams(row.tic80EffectX, row.tic80EffectY);
                                             const somCmdText = formatSomaticCommand(row.somaticEffect);
                                             const somParamText = formatSomaticParam(row.somaticParam);
-                                            const noteCol = channelIndex * cellsPerChannel;
-                                            const instCol = noteCol + 1;
-                                            const volumeCol = noteCol + 2;
-                                            const cmdCol = noteCol + 3;
-                                            const paramCol = noteCol + 4;
-                                            const somCmdCol = noteCol + 5;
-                                            const somParamCol = noteCol + 6;
+                                            const channelColumnBase = channelIndex * cellsPerChannel;
+                                            const columnIndexFor = (cellType: ExtendedCellType) =>
+                                                channelColumnBase + visibleCellTypes.indexOf(cellType);
+                                            const noteCol = columnIndexFor('note');
+                                            const instCol = columnIndexFor('instrument');
+                                            const volumeCol = columnIndexFor('volume');
+                                            const cmdCol = columnIndexFor('command');
+                                            const paramCol = columnIndexFor('param');
+                                            const somCmdCol = columnIndexFor('somaticCommand');
+                                            const somParamCol = columnIndexFor('somaticParam');
                                             const isEmpty = !row.midiNote && !row.noteOff && row.tic80Effect === undefined && row.instrumentIndex == null && row.volumeU8 === undefined && row.tic80EffectX === undefined && row.tic80EffectY === undefined && row.somaticEffect === undefined && row.somaticParam === undefined;
                                             const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
                                             const channelSelected = editorState.isPatternChannelSelected(channelIndex);
@@ -1700,9 +1713,13 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const collapsedSomaticClass = showSomaticColumns
                                                 ? ''
                                                 : ` pattern-grid-collapsed-somatic${hasHiddenSomaticData ? ' pattern-grid-collapsed-somatic--has-data' : ''}`;
+                                            const hasHiddenVolumeData = !showVolumeColumn && row.volumeU8 !== undefined;
+                                            const collapsedVolumeClass = showVolumeColumn
+                                                ? ''
+                                                : ` pattern-grid-collapsed-volume${hasHiddenVolumeData ? ' pattern-grid-collapsed-volume--has-data' : ''}`;
 
                                             const noteClass = `note-cell${additionalClasses}${noteSelectionClass}`;
-                                            const instClass = `instrument-cell${additionalClasses}${instSelectionClass}`;
+                                            const instClass = `instrument-cell${additionalClasses}${instSelectionClass}${collapsedVolumeClass}`;
                                             const volumeClass = `volume-cell${additionalClasses}${volumeSelectionClass}`;
                                             const cmdClass = `command-cell${additionalClasses}${cmdSelectionClass}`;
                                             const paramClass = `param-cell${additionalClasses}${paramSelectionClass}${collapsedSomaticClass}`;
@@ -1752,24 +1769,26 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                             </span>
                                                         </Tooltip>
                                                     </td>
-                                                    <td
-                                                        tabIndex={0}
-                                                        data-focus-bookmark="true"
-                                                        ref={(el) => (cellRefs[rowIndex][volumeCol] = el)}
-                                                        className={volumeClass}
-                                                        style={cellStyle}
-                                                        onKeyDown={onCellKeyDown}
-                                                        onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
-                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
-                                                        onFocus={() => onCellFocus(rowIndex, channelIndex, volumeCol)}
-                                                        data-row-index={rowIndex}
-                                                        data-channel-index={channelIndex}
-                                                        data-cell-type="volume"
-                                                        data-column-index={volumeCol}
-                                                        data-cell-value={`[${JSON.stringify(row.volumeU8)}]`}
-                                                    >
-                                                        {volumeText}
-                                                    </td>
+                                                    {showVolumeColumn && (
+                                                        <td
+                                                            tabIndex={0}
+                                                            data-focus-bookmark="true"
+                                                            ref={(el) => (cellRefs[rowIndex][volumeCol] = el)}
+                                                            className={volumeClass}
+                                                            style={cellStyle}
+                                                            onKeyDown={onCellKeyDown}
+                                                            onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
+                                                            onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
+                                                            onFocus={() => onCellFocus(rowIndex, channelIndex, volumeCol)}
+                                                            data-row-index={rowIndex}
+                                                            data-channel-index={channelIndex}
+                                                            data-cell-type="volume"
+                                                            data-column-index={volumeCol}
+                                                            data-cell-value={`[${JSON.stringify(row.volumeU8)}]`}
+                                                        >
+                                                            {volumeText}
+                                                        </td>
+                                                    )}
                                                     <td
                                                         tabIndex={0}
                                                         data-focus-bookmark="true"

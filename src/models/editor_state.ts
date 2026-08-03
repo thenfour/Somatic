@@ -9,6 +9,7 @@ export interface EditorStateDto {
    activeSongPosition: number;
    currentInstrument: number;
    editingEnabled: boolean;
+   showVolumeColumn: boolean;
    showSomaticColumns: boolean;
    patternEditRow: number;
    patternEditChannel: number;
@@ -27,6 +28,7 @@ export class EditorState {
    activeSongPosition: number;
    currentInstrument: number;
    editingEnabled: boolean;
+   showVolumeColumn: boolean;
    showSomaticColumns: boolean;
    patternEditRow: number;
    patternEditChannel: number;
@@ -43,6 +45,7 @@ export class EditorState {
       activeSongPosition = 0,
       currentInstrument = 0,
       editingEnabled = false,
+      showVolumeColumn = true,
       showSomaticColumns = true,
       patternEditRow = 0,
       patternEditChannel = 0,
@@ -57,6 +60,7 @@ export class EditorState {
       this.activeSongPosition = clamp(activeSongPosition, 0, 255);
       this.currentInstrument = currentInstrument;
       this.editingEnabled = CoalesceBoolean(editingEnabled, true);
+      this.showVolumeColumn = CoalesceBoolean(showVolumeColumn, true);
       this.showSomaticColumns = CoalesceBoolean(showSomaticColumns, true);
       this.patternEditRow = clamp(patternEditRow, 0, 63);
       this.patternEditChannel = patternEditChannel;
@@ -84,6 +88,13 @@ export class EditorState {
 
    setEditingEnabled(enabled: boolean) {
       this.editingEnabled = Boolean(enabled);
+   }
+
+   setShowVolumeColumn(enabled: boolean) {
+      this.showVolumeColumn = Boolean(enabled);
+      if (!this.showVolumeColumn && this.patternEditColumnType === "volume") {
+         this.patternEditColumnType = "instrument";
+      }
    }
 
    setShowSomaticColumns(enabled: boolean) {
@@ -205,6 +216,7 @@ export class EditorState {
          activeSongPosition: this.activeSongPosition,
          currentInstrument: this.currentInstrument,
          editingEnabled: this.editingEnabled,
+         showVolumeColumn: this.showVolumeColumn,
          showSomaticColumns: this.showSomaticColumns,
          patternEditRow: this.patternEditRow,
          patternEditChannel: this.patternEditChannel,
