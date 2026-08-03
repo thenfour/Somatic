@@ -30,7 +30,7 @@ export const InstrumentChip: React.FC<InstrumentChipProps> = ({ className, style
         classes.push(className);
     }
     if (instrument.highlightColor) {
-        classes.push('instrument-chip--highlighted');
+       classes.push('instrument-chip--has-highlight');
         (moreStyle as any)["--instrument-highlight-color"] = instrument.highlightColor;
         (moreStyle as any)["--instrument-highlight-fg"] = instrument.highlightFg || '#000000';
     }

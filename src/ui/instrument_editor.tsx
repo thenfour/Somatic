@@ -774,6 +774,7 @@ show render slot if there are k-rate effects enabled
                             instrumentIndex={instrumentIndex}
                             instrument={instrument}
                             children={<span className="instrument-chip-index">{instrument.getIndexString(instrumentIndex)}</span>}
+                        className="instrument-chip-highlighted"
                         />
                     </div>
                     {/* <label htmlFor="instrument-name">Name</label> */}

@@ -43,6 +43,7 @@
 .chip.instrument-chip {
     --instrument-highlight-color: var(--row-a);
     --instrument-highlight-fg: var(--cell-instrument);
+    /* background-color: var(--instrument-highlight-color); */
 }
 
 .chip .instrument-chip-index-container {
@@ -55,13 +56,24 @@
     color: var(--muted);
 }
 
-.chip.instrument-chip--highlighted .instrument-chip-index-container {}
+.chip.instrument-chip--has-highlight {
+   /*
+    instrument selector combo items are chips but render their own highlights.
+    if you want highlighted chips use instrument-chip-highlighted
+   */
+}
+
+.chip.instrument-chip-highlighted {
+      background-color: var(--instrument-highlight-color);
+}
+
+
 
 .chip .instrument-chip-index {
     color: var(--instrument-highlight-fg);
 }
 
-.chip.instrument-chip--highlighted .instrument-chip-index {
+.chip.instrument-chip--has-highlight .instrument-chip-index {
     /* contrast color is very strong; this makes it easier on the eyes*/
     opacity: 65%;
 }
