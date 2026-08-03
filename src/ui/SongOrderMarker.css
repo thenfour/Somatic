@@ -60,6 +60,49 @@
     color: var(--marker-circle-minus);
 }
 
+.marker-icon.p-icon {
+    color: var(--marker-p);
+}
+
+.marker-icon.mp-icon {
+    color: var(--marker-mp);
+}
+
+.marker-icon.mf-icon {
+    color: var(--marker-mf);
+}
+
+.marker-icon.f-icon {
+    color: var(--marker-f);
+}
+
+.marker-icon.fermata-icon {
+    color: var(--marker-fermata);
+}
+
+.marker-icon.cresc-icon {
+    color: var(--marker-cresc);
+}
+
+.marker-icon.decresc-icon {
+    color: var(--marker-decresc);
+}
+
+.marker-icon.fire-icon {
+    color: var(--marker-fire);
+}
+
+.marker-icon.lightning-icon {
+    color: var(--marker-lightning);
+}
+
+.song-order-marker__music-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    flex: none;
+    overflow: visible;
+}
+
 .marker-icon.blank-icon {
     color: var(--marker-blank);
 }

@@ -22,6 +22,17 @@ export const SongOrderMarkerVariantValues = [
    "circlePlus",
    "circleMinus",
 
+   "p",
+   "mp",
+   "mf",
+   "f",
+   "fermata",
+   "cresc",
+   "decresc",
+
+   "fire",
+   "lightning",
+
    //"up",
 
    "circle1",

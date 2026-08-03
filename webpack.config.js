@@ -110,6 +110,10 @@ module.exports = {
             ],
           },
         },
+        {
+          from: "licenses/Bravura-OFL.txt",
+          to: "licenses/Bravura-OFL.txt",
+        },
       ],
     }),
     new SeoAssetsWebpackPlugin(SEO),

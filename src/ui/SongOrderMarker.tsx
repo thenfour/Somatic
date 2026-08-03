@@ -14,9 +14,11 @@ import {
     mdiCloseCircleOutline,
     mdiExclamationThick,
     mdiFlagVariant,
+    mdiFire,
     mdiFlask,
     mdiHeart,
     mdiHelp,
+    mdiLightningBolt,
     mdiMinusCircle,
     mdiPencil,
     mdiPlay,
@@ -27,6 +29,7 @@ import {
 import Icon from "@mdi/react";
 import { SongOrderMarkerVariant, SongOrderMarkerVariantValues } from "../models/songOrder";
 import { DesktopMenu } from "./DesktopMenu/DesktopMenu";
+import { BravuraMarkerIcon, HairpinMarkerIcon } from "./SongOrderMusicMarkerIcons";
 
 import "./SongOrderMarker.css";
 
@@ -64,6 +67,24 @@ export const SongOrderMarkerValue: React.FC<SongOrderMarkerControlProps> = (prop
                 return <div className="marker-icon circle-plus-icon"><Icon path={mdiPlusCircle} size={1} /></div>;
             case "circleMinus":
                 return <div className="marker-icon circle-minus-icon"><Icon path={mdiMinusCircle} size={1} /></div>;
+            case "p":
+                return <div className="marker-icon p-icon"><BravuraMarkerIcon glyph="p" /></div>;
+            case "mp":
+                return <div className="marker-icon mp-icon"><BravuraMarkerIcon glyph="mp" /></div>;
+            case "mf":
+                return <div className="marker-icon mf-icon"><BravuraMarkerIcon glyph="mf" /></div>;
+            case "f":
+                return <div className="marker-icon f-icon"><BravuraMarkerIcon glyph="f" /></div>;
+            case "fermata":
+                return <div className="marker-icon fermata-icon"><BravuraMarkerIcon glyph="fermata" /></div>;
+            case "cresc":
+                return <div className="marker-icon cresc-icon"><HairpinMarkerIcon direction="cresc" /></div>;
+            case "decresc":
+                return <div className="marker-icon decresc-icon"><HairpinMarkerIcon direction="decresc" /></div>;
+            case "fire":
+                return <div className="marker-icon fire-icon"><Icon path={mdiFire} size={1} /></div>;
+            case "lightning":
+                return <div className="marker-icon lightning-icon"><Icon path={mdiLightningBolt} size={1} /></div>;
             case "blank":
                 return <div className="marker-icon blank-icon"></div>;
             // case "asterisk":
