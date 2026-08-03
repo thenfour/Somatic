@@ -543,7 +543,7 @@
     gap: 4px;
 }
 
-.pattern-grid .row-number-warning-dot {
+.pattern-grid .row-number-issue-dot {
     --dot-size: 9px;
     width: var(--dot-size);
     height: var(--dot-size);
@@ -552,7 +552,7 @@
     background-color: var(--error-accent);
 }
 
-.pattern-grid .row-number-warning-dot--hidden {
+.pattern-grid .row-number-issue-dot--hidden {
     visibility: hidden;
 }
 

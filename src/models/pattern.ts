@@ -224,6 +224,85 @@ export type PatternEffectCarryState = {
    somaticCommandStates: Map<SomaticPatternCommand, {paramU8: number}>;
 };
 
+export type PatternRowIssue = {
+   rowIndex: number;
+   channelIndex?: number;
+   message: string;
+   emphasis: "strong"|"marker";
+};
+
+export type PatternRowIssueAnalysis = {
+   issuesByRow: PatternRowIssue[][];
+   issueRowCount: number;
+   hasStrongIssues: boolean;
+};
+
+export function analyzePatternRowIssues(
+   pattern: Pattern,
+   rowCount: number, // assumed in range.
+   channelCount: number,
+   kRateRenderSlotConflictByRow: readonly boolean[] = [],
+): PatternRowIssueAnalysis {
+   const patternEndRow = pattern.getPatternEndRow(rowCount, channelCount);
+   const patternEndHasFreeTicEffectSlot = patternEndRow == null ||
+      Array.from({length: channelCount}, (_, channelIndex) => channelIndex)
+         .some((channelIndex) => pattern.getCell(channelIndex, patternEndRow).tic80Effect === undefined);
+
+   let issueRowCount = 0;
+   let hasStrongIssues = false;
+   const issuesByRow = Array.from({length: rowCount}, (_, rowIndex) => {
+      const issues: PatternRowIssue[] = [];
+
+      if (kRateRenderSlotConflictByRow[rowIndex]) {
+         issues.push({
+            rowIndex,
+            message: "Two or more channels render to the same waveform slot on this row",
+            emphasis: "marker",
+         });
+      }
+
+      for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
+         const cell = pattern.getCell(channelIndex, rowIndex);
+         let message = "";
+
+         if (cell.tic80Effect === kTic80EffectCommand.key.J) {
+            message = "The 'J' command is not supported in Somatic patterns.";
+         }
+         if (cell.tic80Effect === undefined &&
+            (cell.tic80EffectX !== undefined || cell.tic80EffectY !== undefined)) {
+            message = "Effect parameter set without an effect command.";
+         }
+         if (cell.instrumentIndex !== undefined && cell.midiNote === undefined) {
+            message = "Instrument set without a note.";
+         }
+         if (cell.somaticEffect === undefined && cell.somaticParam !== undefined) {
+            message = "Somatic effect parameter set without a Somatic effect command.";
+         }
+
+         if (message) {
+            issues.push({rowIndex, channelIndex, message, emphasis: "strong"});
+            hasStrongIssues = true;
+         }
+      }
+
+      if (rowIndex === patternEndRow && !patternEndHasFreeTicEffectSlot) {
+         issues.push({
+            rowIndex,
+            message: "Somatic C needs one channel without a TIC effect command.",
+            emphasis: "strong",
+         });
+         hasStrongIssues = true;
+      }
+
+      if (issues.length > 0) {
+         issueRowCount += 1;
+      }
+      return issues;
+   });
+
+   return {issuesByRow, issueRowCount, hasStrongIssues};
+}
+
 export type PatternPlaybackAnalysis = {
    // For each channel, leftover effect state at the end of this pattern only
    // (does not consider previous patterns).

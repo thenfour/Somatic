@@ -3,11 +3,11 @@ import type { SomaticTransportState } from "../audio/backend";
 import { SelectionRect2D, useRectSelection2D } from "../hooks/useRectSelection2D";
 import { useWheelNavigator } from "../hooks/useWheelNavigator";
 import { EditorState } from "../models/editor_state";
-import { Pattern } from "../models/pattern";
+import {analyzePatternPlaybackForGrid, analyzePatternRowIssues, Pattern} from "../models/pattern";
 import { formatPatternIndex, Song } from "../models/song";
 import { SongOrderItem } from "../models/songOrder";
 import { SomaticCaps } from "../models/tic80Capabilities";
-import { CharMap, clamp } from "../utils/utils";
+import {assert, CharMap, clamp} from "../utils/utils";
 import './ArrangementEditor.css';
 import { useConfirmDialog } from "./basic/confirm_dialog";
 import { Tooltip } from "./basic/tooltip";
@@ -619,6 +619,32 @@ export const ArrangementEditor: React.FC<{
 
     const thumbnailCache = useMemo(() => new Map<string, React.ReactNode>(), []);
     const thumbnailsEnabled = song.arrangementThumbnailSize !== "off";
+   const patternIssueSummaries = useMemo(() => {
+      const summaries = new Map<number, {issueRowCount: number; hasStrongIssues: boolean;}>();
+      const arrangedPatternIndices = new Set(
+         song.songOrder.map((orderItem) => clamp(orderItem.patternIndex ?? 0, 0, maxPatterns - 1)),
+      );
+
+      for (const patternIndex of arrangedPatternIndices) {
+         const pattern = song.patterns[patternIndex];
+         assert(!!pattern, `Pattern at index ${patternIndex} is undefined`);
+         const {kRateRenderSlotConflictByRow} = analyzePatternPlaybackForGrid(song, patternIndex);
+         const analysis = analyzePatternRowIssues(
+            pattern,
+            song.rowsPerPattern,
+            song.subsystem.channelCount,
+            kRateRenderSlotConflictByRow,
+         );
+         if (analysis.issueRowCount > 0) {
+            summaries.set(patternIndex, {
+               issueRowCount: analysis.issueRowCount,
+               hasStrongIssues: analysis.hasStrongIssues,
+            });
+         }
+      }
+
+      return summaries;
+   }, [song, maxPatterns]);
     const thumbnailToggleClass = [
         "arrangement-editor__command",
         thumbnailsEnabled && "arrangement-editor__command--active",
@@ -652,6 +678,15 @@ export const ArrangementEditor: React.FC<{
                     const patternIndex = orderItem.patternIndex;
                     const clampedPattern = clamp(patternIndex ?? 0, 0, maxPatterns - 1);
                     const pattern = song.patterns[clampedPattern];
+                   const formattedPatternIndex = formatPatternIndex(clampedPattern);
+                   const issueSummary = patternIssueSummaries.get(clampedPattern);
+                   const issueRowCount = issueSummary?.issueRowCount ?? 0;
+                   const hasRowIssues = issueRowCount > 0;
+                   //  const hasStrongIssues = issueSummary?.hasStrongIssues ?? false;
+                   //  const hasMarkerOnlyIssues = hasRowIssues && !hasStrongIssues;
+                   const rowIssueDescription = hasRowIssues
+                      ? `Contains issues on ${issueRowCount} pattern ${issueRowCount === 1 ? "row" : "rows"}`
+                      : "";
                     const isSelected = editorState.activeSongPosition === positionIndex;
                     const sel = editorState.selectedArrangementPositions;
                     const isInSelection = sel?.includesCoord({ x: 0, y: positionIndex }) || false;
@@ -749,11 +784,19 @@ export const ArrangementEditor: React.FC<{
                                 <span className="arrangement-editor__position-id">
                                     {formatPatternIndex(positionIndex)}
                                 </span>
+                             <Tooltip title={rowIssueDescription} disabled={!hasRowIssues}>
                                 <span
-                                    className="arrangement-editor__pattern"
+                                   className={[
+                                      "arrangement-editor__pattern",
+                                      hasRowIssues && "arrangement-editor__pattern--has-row-errors"
+                                   ].filter(Boolean).join(" ")}
+                                   aria-label={hasRowIssues
+                                      ? `Pattern ${formattedPatternIndex}. ${rowIssueDescription}.`
+                                      : undefined}
                                 >
-                                    {formatPatternIndex(clampedPattern)}
+                                   {formattedPatternIndex}
                                 </span>
+                             </Tooltip>
                                 {thumbnail && (
                                     <div className="arrangement-editor__thumbnail-container" aria-hidden="true">
                                         {thumbnail}

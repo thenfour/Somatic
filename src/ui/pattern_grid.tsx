@@ -10,7 +10,7 @@ import { GlobalActionId } from '../keyb/ActionIds';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
 import { useActionHandler } from '../keyb/useActionHandler';
 import { EditorState } from '../models/editor_state';
-import { analyzePatternPlaybackForGrid, isNoteCut, Pattern, PatternCell } from '../models/pattern';
+import { analyzePatternPlaybackForGrid, analyzePatternRowIssues, isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { formatPatternIndex, Song } from '../models/song';
 import { kSomaticPatternCommand, kTic80EffectCommand, SomaticPatternCommand, Tic80EffectCommand } from '../models/tic80Capabilities';
 import { PatternGridHighlightStyle, kPatternGridHighlightStyle } from '../models/patternGridHighlightStyle';
@@ -130,6 +130,15 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             [song, safePatternIndex],
         );
         const { fxCarryByChannel, kRateRenderSlotConflictByRow } = playbackAnalysis;
+        const rowIssueAnalysis = useMemo(
+            () => analyzePatternRowIssues(
+                pattern,
+                song.rowsPerPattern,
+                song.subsystem.channelCount,
+                kRateRenderSlotConflictByRow,
+            ),
+            [pattern, song.rowsPerPattern, song.subsystem.channelCount, kRateRenderSlotConflictByRow],
+        );
 
         const fxCarryTooltip = `Effect command state at the end of this pattern (doesn't consider previous patterns)`;
 
@@ -1577,16 +1586,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                 const rowClass = `${rowSectionClass}${activeRow === rowIndex ? ' active-row' : ''}${isUnreachableRow ? ' pattern-grid-row--unreachable' : ''}${isPatternEndRow ? ' pattern-grid-row--pattern-end' : ''}`;
                                 const isRowInSelection = editorState.isPatternRowSelected(rowIndex);
                                 const rowNumberClass = `row-number${isRowInSelection ? ' row-number--selected' : ''}`;
-                                const hasWaveformRenderConflict = kRateRenderSlotConflictByRow[rowIndex];
-                                const patternEndHasFreeTicEffectSlot = !isPatternEndRow ||
-                                    channelsArray.some((ch) => pattern.getCell(ch, rowIndex).tic80Effect === undefined);
-                                const rowWarningText = hasWaveformRenderConflict
-                                    ? "Two or more channels render to the same waveform slot on this row"
-                                    : !patternEndHasFreeTicEffectSlot
-                                        ? "Somatic C needs one channel without a TIC effect command so playback can synthesize the cut"
-                                    : isUnreachableRow
-                                         ? "This row is after the first Somatic C cut and will not play"
-                                         : "";
+                                const rowIssues = rowIssueAnalysis.issuesByRow[rowIndex] ?? [];
+                                const rowIssueText = Array.from(new Set(rowIssues.map((issue) => issue.message))).join(" ");
                                 return (
                                     <tr key={rowIndex} className={rowClass}>
                                         <td
@@ -1596,11 +1597,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                         >
                                             <div className="row-number-inner">
                                                 <span className="row-number-index">{rowIndex.toString().padStart(2, '0')}</span>
-                                                {rowWarningText ? (
-                                                    <Tooltip title={rowWarningText}>
-                                                        <div className="row-number-warning-dot"></div>
+                                                {rowIssueText ? (
+                                                    <Tooltip title={rowIssueText}>
+                                                        <div className="row-number-issue-dot"></div>
                                                     </Tooltip>
-                                                ) : <div className="row-number-warning-dot row-number-warning-dot--hidden"></div>}
+                                                ) : <div className="row-number-issue-dot row-number-issue-dot--hidden"></div>}
                                             </div>
                                         </td>
                                         {Array.from({ length: song.subsystem.channelCount }).map((_, channelIndex) => {
@@ -1651,34 +1652,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                 return classes;
                                             };
 
-                                            let errorInRow = false;
-                                            let errorText = "";
-                                            // J command is an error (not compatible with playroutine)                                        
-                                            if (row.tic80Effect === kTic80EffectCommand.key.J) {
-                                                errorInRow = true;
-                                                errorText = "The 'J' command is not supported in Somatic patterns.";
-                                            }
-                                            // usage of instrument 0 is an error (reserved)
-                                            // if (row.midiNote !== undefined && row.instrumentIndex === 0) {
-                                            //     errorInRow = true;
-                                            //     errorText = "Instrument 0 is reserved and should not be used.";
-                                            // }
-                                            if (row.tic80Effect === undefined && (row.tic80EffectX !== undefined || row.tic80EffectY !== undefined)) {
-                                                errorInRow = true;
-                                                errorText = "Effect parameter set without an effect command.";
-                                            }
-                                            if (row.instrumentIndex !== undefined && row.midiNote === undefined) {
-                                                errorInRow = true;
-                                                errorText = "Instrument set without a note.";
-                                            }
-                                            if (row.somaticEffect === undefined && row.somaticParam !== undefined) {
-                                                errorInRow = true;
-                                                errorText = "Somatic effect parameter set without a Somatic effect command.";
-                                            }
-                                            if (isPatternEndRow && !patternEndHasFreeTicEffectSlot) {
-                                                errorInRow = true;
-                                                errorText = "Somatic C needs one channel without a TIC effect command.";
-                                            }
+                                            const strongIssue = rowIssues.find((issue) =>
+                                                issue.emphasis === "strong" &&
+                                                (issue.channelIndex === undefined || issue.channelIndex === channelIndex));
+                                            const errorText = strongIssue?.message ?? "";
+                                            const errorInRow = !!strongIssue;
 
                                             const additionalClasses = `${isEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}${isAudible ? '' : ' muted-cell'}`;
                                             const noteSelectionClass = getSelectionClasses('note');

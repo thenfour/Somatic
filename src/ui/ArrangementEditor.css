@@ -224,6 +224,11 @@
     padding: 0 4px;
 }
 
+.arrangement-editor .arrangement-editor__pattern--has-row-errors {
+    color: var(--error-surface-text);
+    background-color: var(--error-surface-bg);
+}
+
 .arrangement-editor__pattern-name-container {
     margin-left: 6px;
     flex: 1;
