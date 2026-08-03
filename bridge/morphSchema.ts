@@ -84,6 +84,7 @@ export const MorphEntryCodec = C.struct("MorphEntry", [
    C.field("lfoCycleTicks12", C.u(12)),
    C.field("panU8", C.u8()),
    C.field("panLfoDepthU8", C.u8()),
+   C.field("volumeU8", C.u8()),
    C.field("lowpassEnabled", C.bool()),
    C.field("lowpassAmountU8", C.u8()),
    C.field("lowpassDurationTicks12", C.u(12)),
@@ -162,6 +163,7 @@ export type MorphEntryInput = {
       lfoCycleTicks12: number;
       panU8: number;
       panLfoDepthU8: number;
+      volumeU8: number;
    };
    // Only used when waveEngine = morph
    morphGradientNodes?: WaveformMorphGradientNodePacked[];
@@ -180,6 +182,7 @@ function flattenEntry(entry: MorphEntryInput): MorphEntryPacked {
       lfoCycleTicks12: cfg.lfoCycleTicks12,
       panU8: cfg.panU8,
       panLfoDepthU8: cfg.panLfoDepthU8,
+      volumeU8: cfg.volumeU8,
       lowpassEnabled: cfg.lowpassEnabled ? 1 : 0,
       lowpassAmountU8: cfg.lowpassAmountU8,
       lowpassDurationTicks12: cfg.lowpassDurationTicks12,

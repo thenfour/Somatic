@@ -318,6 +318,7 @@ local function read_sfx_cfg(instrumentId)
 				lfoCycleInTicks = entry.lfoCycleTicks12,
 				panU8 = entry.panU8,
 				panLfoDepthU8 = entry.panLfoDepthU8,
+				volumeU8 = entry.volumeU8,
 				lowpassModSource = entry.lowpassModSource,
 			}
 
@@ -538,8 +539,9 @@ local function sfx_tick_channel(channel)
 		local lpScaleU8 = ch_lowpass_strength_scale_u8[channel + 1] or 255
 		render_tick_cfg(cfg, idx, channel, ticksPlayed, lt, scaleU8, lpScaleU8)
 	end
-	write_channel_pan(
+	write_channel_mix(
 		channel,
+		cfg and cfg.volumeU8 or 255,
 		cfg and cfg.panU8 or 128,
 		cfg and cfg.panLfoDepthU8 or 0,
 		lt,

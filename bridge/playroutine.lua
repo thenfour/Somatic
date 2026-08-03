@@ -341,8 +341,9 @@ do
 			local lpScaleU8 = ch_lowpass_strength_scale_u8[ch + 1] or 255
 			render_tick_cfg(cfg, instId, ch, ticksPlayed, lt, scaleU8, lpScaleU8)
 		end
-		write_channel_pan(
+		write_channel_mix(
 			ch,
+			cfg and cfg.volumeU8 or 255,
 			cfg and cfg.panU8 or 128,
 			cfg and cfg.panLfoDepthU8 or 0,
 			lt,

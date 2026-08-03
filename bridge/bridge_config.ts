@@ -139,7 +139,7 @@ const bridgeConfig = {
       // [8 patterns to be actually be played, used as front/back buffers]
       // [temp buffer A, must be able to hold sfx cfg after decompression]
       // [temp buffer B, must also be able to hold sfx cfg after decompression]
-      MAX_KRATE_SFX: 32, // IF sfx payload is 15 bytes per entry, 32 sfx = 480 bytes + overhead = fits ok.
+      MAX_KRATE_SFX: 32, // At 17 bytes per runtime entry, 32 SFX = 544 bytes + overhead.
       __AUTOGEN_TEMP_PTR_A: SomaticMemoryLayout.computed.TEMP_BUFFER_A_ADDR,
       __AUTOGEN_TEMP_PTR_B: SomaticMemoryLayout.computed.TEMP_BUFFER_B_ADDR
    }

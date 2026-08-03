@@ -146,7 +146,7 @@ describe("TIC-80 per-channel panning", () => {
       assert.match(details.wholePlayroutineCode, /local\s+engineVolume\s*=\s*peek\(addr\)/);
       assert.match(details.wholePlayroutineCode, /poke\(addr,\s*left\s*\|\s*right\s*<<\s*4\)/);
       assert.match(details.wholePlayroutineCode, /cell\.effectId\s*==\s*5/);
-      assert.match(details.wholePlayroutineCode, /write_channel_pan\(ch,/);
+      assert.match(details.wholePlayroutineCode, /write_channel_mix\(ch,/);
       assert.match(details.wholePlayroutineCode, /cfg\s+and\s+cfg\.panU8\s+or\s+128/);
 
       const optimized = serializeSongToCartDetailed(song, true, "debug", gTic80AllChannelsAudible);
@@ -167,7 +167,30 @@ describe("TIC-80 per-channel panning", () => {
          gTic80AllChannelsAudible,
       );
       assert.equal(overrideOnly.extraSongDataDetails.krateInstruments.length, 0);
-      assert.match(overrideOnly.wholePlayroutineCode, /write_channel_pan\(/);
+      assert.match(overrideOnly.wholePlayroutineCode, /write_channel_mix\(/);
       assert.match(overrideOnly.wholePlayroutineCode, /cfg\s+and\s+cfg\.panU8\s+or\s+128/);
+   });
+});
+
+describe("TIC-80 per-instrument volume", () => {
+   it("persists and applies instrument volume in the final channel mix", async () => {
+      const {serializeSongToCartDetailed} = await import("../src/subsystem/tic80/tic80_cart_serializer");
+      const song = new Song();
+      const instrument = song.instruments[0];
+      instrument.volume = 0.5;
+      song.patterns[0].setCell(0, 0, {midiNote: 60, instrumentIndex: 0});
+
+      assert.equal(song.clone().instruments[0].volume, 0.5);
+
+      const details = serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible);
+      assert.equal(details.extraSongDataDetails.krateInstruments.length, 1);
+      assert.equal(details.extraSongDataDetails.krateInstruments[0].cfg.volumeU8, 128);
+      assert.match(details.wholePlayroutineCode, /write_channel_mix\(ch,/);
+      assert.match(details.wholePlayroutineCode, /local\s+volume\s*=\s*clamp01/);
+      assert.match(details.wholePlayroutineCode, /left\s*\*\s*leftGain\s*\*\s*volume/);
+      assert.match(details.wholePlayroutineCode, /right\s*\*\s*rightGain\s*\*\s*volume/);
+
+      const optimized = serializeSongToCartDetailed(song, true, "debug", gTic80AllChannelsAudible);
+      assert.equal(optimized.extraSongDataDetails.krateInstruments[0].cfg.volumeU8, 128);
    });
 });

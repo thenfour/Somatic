@@ -110,6 +110,10 @@ function panLfoDepthToU8(depth: number): number {
    return clamp(Math.round(clamp(depth ?? 0, 0, 1) * 0xff), 0, 0xff);
 }
 
+function volume01ToU8(volume: number): number {
+   return clamp(Math.round(clamp(volume ?? 1, 0, 1) * 0xff), 0, 0xff);
+}
+
 // Extract the wave-morphing instrument config from the song.
 function getMorphMap(song: Song): MorphEntryInput[] {
    const entries: MorphEntryInput[] = [];
@@ -167,6 +171,7 @@ function getMorphMap(song: Song): MorphEntryInput[] {
             lfoCycleTicks12,
             panU8: panN11ToU8(inst.pan),
             panLfoDepthU8: panLfoDepthToU8(inst.panLfoDepth),
+            volumeU8: volume01ToU8(inst.volume),
          },
          morphGradientNodes,
       });

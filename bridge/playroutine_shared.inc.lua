@@ -231,7 +231,9 @@ local function pan_u8_to_n11(panU8)
 	return v / 127
 end
 
-local function write_channel_pan(channel, basePanU8, depthU8, lfoTicks, lfoCycleTicks)
+-- Apply Somatic gain after TIC-80 has produced its native envelope/Mxy stereo levels.
+local function write_channel_mix(channel, baseVolumeU8, basePanU8, depthU8, lfoTicks, lfoCycleTicks)
+	local volume = clamp01((baseVolumeU8 or 255) / 255)
 	local panU8 = ch_pan_override_u8[channel + 1]
 	if panU8 == nil then
 		panU8 = basePanU8 or 128
@@ -259,8 +261,8 @@ local function write_channel_pan(channel, basePanU8, depthU8, lfoTicks, lfoCycle
 	local engineVolume = peek(addr)
 	local left = engineVolume & 0x0f
 	local right = (engineVolume >> 4) & 0x0f
-	left = math.floor(left * leftGain + 0.5)
-	right = math.floor(right * rightGain + 0.5)
+	left = math.floor(left * leftGain * volume + 0.5)
+	right = math.floor(right * rightGain * volume + 0.5)
 	poke(addr, left | right << 4)
 end
 

@@ -159,6 +159,15 @@ const PanConfig: ContinuousParamConfig = {
     },
 };
 
+const VolumeConfig: ContinuousParamConfig = {
+    resolutionSteps: 101,
+    default: 1,
+   center: 0,
+    convertTo01: (v) => v,
+    convertFrom01: (v01) => v01,
+    format: (v) => `${Math.round(v * 100)}%`,
+};
+
 const PanLfoDepthConfig: ContinuousParamConfig = {
     resolutionSteps: 101,
     default: 0,
@@ -643,6 +652,16 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
+    const setVolume = (value: number) => {
+        onSongChange({
+            description: 'Set instrument volume',
+            undoable: true,
+            mutator: (s) => {
+                s.instruments[instrumentIndex].volume = clamp(value, 0, 1);
+            },
+        });
+    };
+
     const setPanLfoDepth = (value: number) => {
         onSongChange({
             description: 'Set pan LFO depth',
@@ -859,6 +878,12 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                     <div className="instrument-tab-content">
                         <div className="field-row">
                             <ButtonGroup>
+                                <ContinuousKnob
+                                    label='volume'
+                                    value={instrument.volume}
+                                    config={VolumeConfig}
+                                    onChange={setVolume}
+                                />
                                 <ContinuousKnob
                                     label='pan'
                                     value={instrument.pan}

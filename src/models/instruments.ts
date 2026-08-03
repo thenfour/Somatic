@@ -228,6 +228,8 @@ export interface SomaticInstrumentDto {
    // 0 = note C, 1 = C#, ... 11 = B.
    baseNote: number;
    octave: number; // 0-7
+   // Instrument-level gain applied after the native TIC-80 volume envelope, 0..1.
+   volume: number;
    // Continuous balance: -1 = left, 0 = center, +1 = right.
    pan: number;
    // Bipolar LFO around the base/overridden pan, 0..1.
@@ -294,6 +296,7 @@ export class SomaticInstrument {
    speed: number;    // 0-7
    baseNote: number; // 0-15
    octave: number;   // 0-7
+   volume: number;
    pan: number;
    panLfoDepth: number;
 
@@ -367,6 +370,7 @@ export class SomaticInstrument {
       const legacyLeft = CoalesceBoolean(legacyStereo.stereoLeft, true);
       const legacyRight = CoalesceBoolean(legacyStereo.stereoRight, true);
       const legacyPan = legacyLeft === legacyRight ? 0 : (legacyLeft ? -1 : 1);
+      this.volume = clamp(data.volume ?? 1, 0, 1);
       this.pan = clamp(data.pan ?? legacyPan, -1, 1);
       this.panLfoDepth = clamp(data.panLfoDepth ?? 0, 0, 1);
 
@@ -498,6 +502,7 @@ export class SomaticInstrument {
          speed: this.speed,
          baseNote: this.baseNote,
          octave: this.octave,
+         volume: this.volume,
          pan: this.pan,
          panLfoDepth: this.panLfoDepth,
          volumeFrames: [...this.volumeFrames],
@@ -577,7 +582,7 @@ export class SomaticInstrument {
    }
 
    needsPlayroutineConfig(): boolean {
-      return this.isKRateProcessing() || this.pan !== 0 || this.isPanLfoProcessing();
+      return this.isKRateProcessing() || this.volume !== 1 || this.pan !== 0 || this.isPanLfoProcessing();
    }
 
    getUsedWaveformIndices(): Set<number> {
