@@ -23,6 +23,7 @@ export const GlobalActions = {
     CycleTic80PanelSize: "CycleTic80PanelSize",
     ToggleOnScreenKeyboard: "ToggleOnScreenKeyboard",
     ToggleAdvancedEditPanel: "ToggleAdvancedEditPanel",
+    ToggleVolumeColumn: "ToggleVolumeColumn",
     ToggleSomaticColumns: "ToggleSomaticColumns",
     TogglePatternEditor: "TogglePatternEditor",
     ToggleCartStatsPanel: "ToggleCartStatsPanel",

@@ -195,6 +195,14 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
         defaultBindings: [{ kind: "character", key: "\\" }],
     },
 
+    ToggleVolumeColumn: {
+        id: "ToggleVolumeColumn",
+        title: "toggle volume column",
+        description: "show or hide the volume column in the pattern grid.",
+        category: "View",
+        defaultBindings: [],
+    },
+
     ToggleSomaticColumns: {
         id: "ToggleSomaticColumns",
         title: "toggle Somatic columns",

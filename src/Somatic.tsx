@@ -726,6 +726,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("CycleTic80PanelSize", () => cycleTic80FrameSize());
     useActionHandler("ToggleOnScreenKeyboard", () => setShowingOnScreenKeyboard((open) => !open));
     useActionHandler("ToggleAdvancedEditPanel", () => setAdvancedEditPanelOpen((open) => !open));
+    useActionHandler("ToggleVolumeColumn", () =>
+        updateEditorState((s) => s.setShowVolumeColumn(!s.showVolumeColumn))
+    );
     useActionHandler("ToggleSomaticColumns", () =>
         updateEditorState((s) => s.setShowSomaticColumns(!s.showSomaticColumns))
     );
@@ -1067,6 +1070,15 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         shortcut={mgr.getActionBindingLabel("ToggleAdvancedEditPanel")}
                                     >
                                         Advanced Edit Panel
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={editorState.showVolumeColumn}
+                                        onSelect={() =>
+                                            updateEditorState((s) => s.setShowVolumeColumn(!s.showVolumeColumn))
+                                        }
+                                        shortcut={mgr.getActionBindingLabel("ToggleVolumeColumn")}
+                                    >
+                                        Volume Column
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={editorState.showSomaticColumns}

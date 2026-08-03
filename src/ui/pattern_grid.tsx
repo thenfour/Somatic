@@ -1463,6 +1463,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
         };
 
+        const volumeColumnKeyshortcut = mgr.getActionBindingLabelAsTooltipSuffix("ToggleVolumeColumn") || "Unbound";
         const somaticColumnsKeyshortcut = mgr.getActionBindingLabelAsTooltipSuffix("ToggleSomaticColumns") || "Unbound";
 
         const containerRef = useRef<HTMLDivElement | null>(null);
@@ -1548,7 +1549,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                     adv
                                 </CheckboxButton>
                                 </Tooltip>
-                                <Tooltip title="Toggle Show Volume Column">
+                                <Tooltip title={`Toggle Show Volume Column ${volumeColumnKeyshortcut}`}>
                                 <CheckboxButton onClick={() => onEditorStateChange((s) => s.setShowVolumeColumn(!s.showVolumeColumn))} checked={editorState.showVolumeColumn}>
                                     vol
                                 </CheckboxButton>
