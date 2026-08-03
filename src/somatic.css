@@ -44,6 +44,8 @@
     --cell-instrument: #257179;
     --cell-command: #5d275d;
     --cell-param: #257179;
+    --cell-volume: #257179;
+    --cell-pan: #257179;
     --cell-somatic-command: var(--tic-2);
     --cell-somatic-param: var(--tic-9);
     --keyboard-white-key: #f4f4f4;
@@ -147,6 +149,8 @@
     --cell-instrument: #38b764;
     --cell-command: #ffcd75;
     --cell-param: #ef7d57;
+    --cell-volume: #ef7d57;
+    --cell-pan: #ef7d57;
     --cell-somatic-command: var(--tic-10);
     --cell-somatic-param: var(--tic-11);
     --keyboard-white-key: #94b0c2;

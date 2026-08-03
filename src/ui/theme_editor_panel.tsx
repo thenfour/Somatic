@@ -38,6 +38,8 @@ const THEME_VARS = {
         '--cell-instrument',
         '--cell-command',
         '--cell-param',
+       '--cell-volume',
+       '--cell-pan',
         '--cell-somatic-command',
         '--cell-somatic-param',
 

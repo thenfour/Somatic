@@ -15,6 +15,10 @@ export type PatternCell = {
    // 0-based Somatic instrument index, or undefined for no instrument.
    instrumentIndex?: number | undefined;
 
+   // Per-channel volume gain, 00..FF. Multiplied by the instrument's base volume;
+   // undefined is full gain (FF).
+   volumeU8?: number;
+
    // When true, this cell represents a note-off / note-cut event.
    // This is Somatic-level and platform-agnostic.
    noteOff?: boolean;

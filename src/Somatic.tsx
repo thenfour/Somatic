@@ -82,7 +82,7 @@ type SongChangeArgs = {
     undoable: boolean;
 };
 type EditorStateMutator = (state: EditorState) => void;
-type PatternCellType = "note" | "instrument" | "command" | "param" | "somaticCommand" | "somaticParam";
+type PatternCellType = "note" | "instrument" | "volume" | "pan" | "command" | "param" | "somaticCommand" | "somaticParam";
 
 const DEFAULT_LOOP_STATE: { loopMode: LoopMode; lastNonOffLoopMode: LoopMode } = {
     loopMode: "off",
@@ -94,7 +94,7 @@ const getActivePatternCellType = (): PatternCellType | null => {
     const active = document.activeElement;
     if (!active || !(active instanceof HTMLElement)) return null;
     const cellType = active.getAttribute("data-cell-type");
-    return cellType === "note" || cellType === "instrument" || cellType === "command" || cellType === "param"
+   return cellType === "note" || cellType === "instrument" || cellType === "volume" || cellType === "pan" || cellType === "command" || cellType === "param"
         || cellType === "somaticCommand" || cellType === "somaticParam"
         ? cellType
         : null;
@@ -102,7 +102,7 @@ const getActivePatternCellType = (): PatternCellType | null => {
 
 const isEditingCommandOrParamCell = () => {
     const cellType = getActivePatternCellType();
-    return cellType === "command" || cellType === "param" || cellType === "instrument" || cellType === "somaticCommand" || cellType === "somaticParam";
+   return cellType === "command" || cellType === "param" || cellType === "instrument" || cellType === "volume" || cellType === "pan" || cellType === "somaticCommand" || cellType === "somaticParam";
 };
 
 const isEditingNoteCell = () => getActivePatternCellType() === "note";

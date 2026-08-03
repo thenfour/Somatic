@@ -5,7 +5,7 @@ import {modSourceToU8, SomaticEffectKind, SomaticInstrumentWaveEngine, ToWaveEng
 //import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
 import bridgeConfig from "../../../bridge/bridge_config";
 import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../../../bridge/memory_layout";
-import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec, WaveformMorphGradientCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked,} from "../../../bridge/morphSchema";
+import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_EVENT_VOLUME, SomaticPatternExtrasCodec, WaveformMorphGradientCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked,} from "../../../bridge/morphSchema";
 import {LoopMode} from "../../audio/backend";
 import {buildCueSheet, type CueSheetEntry, type Song} from "../../models/song";
 import {gTic80AllChannelsAudible, kSomaticPatternCommand, SomaticCaps, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
@@ -189,36 +189,32 @@ function getSomaticPatternExtraEntries(prepared: PreparedSong): SomaticPatternEn
    for (let patternIndex0b = 0; patternIndex0b < prepared.patternColumns.length; patternIndex0b++) {
       const col = prepared.patternColumns[patternIndex0b];
       const channel = col.channel;
-
-      let hasAny = false;
+      const events: SomaticPatternEntryPacked["events"] = [];
       for (let row = 0; row < prepared.rowsPerPattern; row++) {
          const cell = channel.getCell(row);
-         if (!cell)
-            continue;
-         if (cell.somaticEffect !== undefined || cell.somaticParam !== undefined) {
-            hasAny = true;
-            break;
+         const somaticEffectInfo = kSomaticPatternCommand.coerceByKey(cell.somaticEffect);
+         if (somaticEffectInfo) {
+            events.push({
+               rowIndex: row,
+               eventId: somaticEffectInfo.tic80SerializedValue,
+               paramU8: (cell.somaticParam ?? 0) & 0xff,
+            });
+         }
+         if (cell.volumeU8 !== undefined) {
+            events.push({
+               rowIndex: row,
+               eventId: SOMATIC_PATTERN_EVENT_VOLUME,
+               paramU8: cell.volumeU8 & 0xff,
+            });
          }
       }
-      if (!hasAny)
+      if (events.length === 0)
          continue;
-
-      const cells = new Array(prepared.rowsPerPattern);
-      for (let row = 0; row < prepared.rowsPerPattern; row++) {
-         const cell = channel.getCell(row);
-         // effectId: 0 = none; 1.. = command index + 1
-         const somaticEffectInfo = kSomaticPatternCommand.coerceByKey(cell.somaticEffect);
-         const effectId = somaticEffectInfo ?
-            somaticEffectInfo.tic80SerializedValue :
-            0; //(cell?.somaticEffect ?? null) == null ? 0 : ((cell!.somaticEffect! + 1) & 0x0f);
-         const paramU8 = (cell.somaticParam ?? 0) & 0xff; //(cell?.somaticParam ?? 0) & 0xff;
-         cells[row] = {effectId, paramU8};
-      }
 
       assert(
          patternIndex0b >= 0 && patternIndex0b < SomaticCaps.maxPatternCount,
          `getSomaticPatternExtraEntries: patternIndex0b out of range: ${patternIndex0b}`);
-      entries.push({patternIndex: patternIndex0b, cells});
+      entries.push({patternIndex: patternIndex0b, events});
    }
 
    return entries;
@@ -729,7 +725,7 @@ local SOMATIC_SFX_CONFIG = ${SomaticMemoryLayout.somaticSfxConfig.address}
 local MORPH_HEADER_BYTES = ${MORPH_HEADER_BYTES}
 local MORPH_ENTRY_BYTES = ${MORPH_ENTRY_BYTES}
 local SOMATIC_EXTRA_SONG_HEADER_BYTES = ${SOMATIC_EXTRA_SONG_HEADER_BYTES}
-local SOMATIC_PATTERN_ENTRY_BYTES = ${SOMATIC_PATTERN_ENTRY_BYTES}
+local SOMATIC_PATTERN_EVENT_VOLUME = ${SOMATIC_PATTERN_EVENT_VOLUME}
 
 ${emitLuaBitpackPrelude({baseArgName: "base"}).trim()}
 
@@ -739,8 +735,8 @@ ${emitLuaDecoder(MorphEntryCodec, {
       includeLayoutComments: true,
    }).trim()}
 
-${emitLuaDecoder(SomaticPatternEntryCodec, {
-      functionName: "decode_SomaticPatternEntry",
+${emitLuaDecoder(SomaticPatternExtrasCodec, {
+      functionName: "decode_SomaticPatternExtras",
       baseArgName: "base",
       includeLayoutComments: true,
    }).trim()}

@@ -20,7 +20,7 @@ export interface EditorStateDto {
    lastNonOffLoopMode: LoopMode;
 }
 
-export type SomaticEditorStateColumnType = "note"|"instrument"|"command"|"param"|"somaticCommand"|"somaticParam";
+export type SomaticEditorStateColumnType = "note"|"instrument"|"volume"|"command"|"param"|"somaticCommand"|"somaticParam";
 
 export class EditorState {
    octave: number;

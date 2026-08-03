@@ -8,12 +8,20 @@ import {SomaticInstrument} from "../src/models/instruments";
 import {gTic80AllChannelsAudible, kSomaticPatternCommand} from "../src/models/tic80Capabilities";
 import {decodeInstrumentFromBytes66, decodeTrackSpeed, encodeInstrument, encodeTrackSpeed} from "../src/subsystem/tic80/tic80_serialization";
 import {Tic80Constants, Tic80MemoryMap} from "../bridge/memory_layout";
-import {MORPH_ENTRY_BYTES, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES} from "../bridge/morphSchema";
+import {MORPH_ENTRY_BYTES, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_EVENT_VOLUME, SomaticPatternExtrasCodec} from "../bridge/morphSchema";
+import {BitReader, MemoryRegion} from "../src/utils/bitpack/bitpack";
 
 const testRequire = createRequire(import.meta.url);
 (testRequire as any).extensions[".lua"] = (module: NodeModule, filename: string) => {
    (module as any).exports = fs.readFileSync(filename, "utf8");
 };
+
+function decodePatternExtras(payload: Uint8Array, instrumentCount: number) {
+   const offset = SOMATIC_EXTRA_SONG_HEADER_BYTES + instrumentCount * MORPH_ENTRY_BYTES;
+   const bytes = payload.subarray(offset);
+   const region = new MemoryRegion({name: "pattern extras", address: 0, size: bytes.length});
+   return SomaticPatternExtrasCodec.decode(new BitReader(bytes, region));
+}
 
 describe("TIC-80 track speed serialization", () => {
    it("encodes display speeds as signed deltas from TIC-80's default speed", () => {
@@ -128,16 +136,16 @@ describe("TIC-80 per-channel panning", () => {
       assert.equal(details.extraSongDataDetails.krateInstruments[0].cfg.panLfoDepthU8, 128);
 
       const payload = details.extraSongDataDetails.binaryPayload;
-      assert.equal(payload[1], 2, "one Somatic pattern column per panned channel");
-      const firstPattern = SOMATIC_EXTRA_SONG_HEADER_BYTES + MORPH_ENTRY_BYTES;
-      const secondPattern = firstPattern + SOMATIC_PATTERN_ENTRY_BYTES;
-      const readFirstCell = (patternOffset: number) => {
-         const b0 = payload[patternOffset + 1];
-         const b1 = payload[patternOffset + 2];
-         return {effectId: b0 & 0x0f, paramU8: (b0 >> 4) | ((b1 & 0x0f) << 4)};
-      };
-      assert.deepEqual(readFirstCell(firstPattern), {effectId: 5, paramU8: 0});
-      assert.deepEqual(readFirstCell(secondPattern), {effectId: 5, paramU8: 255});
+      const patternExtras = decodePatternExtras(payload, 1);
+      assert.equal(patternExtras.length, 2, "one Somatic pattern event group per panned channel");
+      assert.deepEqual(patternExtras[0], {
+         patternIndex: 0,
+         events: [{rowIndex: 0, eventId: 5, paramU8: 0}],
+      });
+      assert.deepEqual(patternExtras[1], {
+         patternIndex: 1,
+         events: [{rowIndex: 0, eventId: 5, paramU8: 255}],
+      });
 
       assert.match(
          details.wholePlayroutineCode,
@@ -186,11 +194,45 @@ describe("TIC-80 per-instrument volume", () => {
       assert.equal(details.extraSongDataDetails.krateInstruments.length, 1);
       assert.equal(details.extraSongDataDetails.krateInstruments[0].cfg.volumeU8, 128);
       assert.match(details.wholePlayroutineCode, /write_channel_mix\(ch,/);
-      assert.match(details.wholePlayroutineCode, /local\s+volume\s*=\s*clamp01/);
+      assert.match(details.wholePlayroutineCode, /baseVolume\s*=\s*clamp01/);
+      assert.match(details.wholePlayroutineCode, /volumeScaleU8\s*=\s*ch_volume_scale_u8\[[^\]]+\]\s+or\s+255/);
+      assert.match(details.wholePlayroutineCode, /volume\s*=\s*baseVolume\s*\*\s*volumeScale/);
       assert.match(details.wholePlayroutineCode, /left\s*\*\s*leftGain\s*\*\s*volume/);
       assert.match(details.wholePlayroutineCode, /right\s*\*\s*rightGain\s*\*\s*volume/);
 
       const optimized = serializeSongToCartDetailed(song, true, "debug", gTic80AllChannelsAudible);
       assert.equal(optimized.extraSongDataDetails.krateInstruments[0].cfg.volumeU8, 128);
+   });
+
+   it("serializes channel-volume gain events and multiplies them by instrument volume", async () => {
+      const {serializeSongToCartDetailed} = await import("../src/subsystem/tic80/tic80_cart_serializer");
+      const song = new Song();
+      song.patterns[0].setCell(0, 0, {
+         midiNote: 60,
+         instrumentIndex: 0,
+         volumeU8: 0,
+         somaticEffect: kSomaticPatternCommand.key.Pan,
+         somaticParam: 64,
+      });
+      song.patterns[0].setCell(0, 4, {volumeU8: 255});
+
+      assert.equal(song.clone().patterns[0].getCell(0, 0).volumeU8, 0);
+
+      const details = serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible);
+      const patternExtras = decodePatternExtras(details.extraSongDataDetails.binaryPayload, 0);
+      assert.deepEqual(patternExtras, [{
+         patternIndex: 0,
+         events: [
+            {rowIndex: 0, eventId: 5, paramU8: 64},
+            {rowIndex: 0, eventId: SOMATIC_PATTERN_EVENT_VOLUME, paramU8: 0},
+            {rowIndex: 4, eventId: SOMATIC_PATTERN_EVENT_VOLUME, paramU8: 255},
+         ],
+      }]);
+      assert.match(details.wholePlayroutineCode, /decode_SomaticPatternExtras/);
+      assert.match(details.wholePlayroutineCode, /cell\.volumeU8\s*~=\s*nil/);
+      assert.match(details.wholePlayroutineCode, /ch_volume_scale_u8\[ch\s*\+\s*1\]\s*=\s*cell\.volumeU8/);
+      assert.match(details.wholePlayroutineCode, /baseVolume\s*=\s*clamp01/);
+      assert.match(details.wholePlayroutineCode, /volumeScale\s*=\s*clamp01/);
+      assert.match(details.wholePlayroutineCode, /volume\s*=\s*baseVolume\s*\*\s*volumeScale/);
    });
 });

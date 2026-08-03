@@ -155,6 +155,17 @@ function makeInterpolationAccessors(subsystem: SubsystemBackend): Record<Interpo
             return {...cell, midiNote: clamped};
          },
       },
+      volume: {
+         min: 0,
+         max: 0xff,
+         read: (cell) => cell.volumeU8,
+         write: (cell, value) => {
+            const clamped = clamp(Math.round(value), 0, 0xff);
+            if (cell.volumeU8 === clamped)
+               return null;
+            return {...cell, volumeU8: clamped};
+         },
+      },
       paramX: {
          min: 0,
          max: 0x0f,

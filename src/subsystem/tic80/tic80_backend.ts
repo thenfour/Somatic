@@ -74,7 +74,7 @@ export class Tic80Backend {
          return;
       }
 
-      type PlaybackRequest = { channel: number; sfxId: number; tic80Note: number; speed: number };
+      type PlaybackRequest = { channel: number; sfxId: number; tic80Note: number; speed: number; volumeU8?: number };
       const requests: PlaybackRequest[] = [];
 
       for (let channelIndex = 0; channelIndex < Tic80Caps.song.audioChannels; channelIndex++) {
@@ -103,6 +103,7 @@ export class Tic80Backend {
             sfxId: clampedInstrumentIndex,
             tic80Note: noteInfo.tic.absoluteNoteIndex,
             speed,
+            volumeU8: cell.volumeU8,
          });
       }
 

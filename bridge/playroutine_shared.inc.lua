@@ -170,6 +170,7 @@ local ch_sfx_ticks = { 0, 0, 0, 0 } -- 0-based channel -> duration since note-on
 local ch_effect_strength_scale_u8 = { 255, 255, 255, 255 } -- per channel (0..3)
 local ch_lowpass_strength_scale_u8 = { 255, 255, 255, 255 } -- per channel (0..3)
 local ch_pan_override_u8 = { nil, nil, nil, nil } -- Pxx override; reset on the next note event
+local ch_volume_scale_u8 = { nil, nil, nil, nil } -- volume-column gain; reset on the next note event
 
 local render_src_a = {}
 local render_src_b = {}
@@ -233,7 +234,10 @@ end
 
 -- Apply Somatic gain after TIC-80 has produced its native envelope/Mxy stereo levels.
 local function write_channel_mix(channel, baseVolumeU8, basePanU8, depthU8, lfoTicks, lfoCycleTicks)
-	local volume = clamp01((baseVolumeU8 or 255) / 255)
+	local volumeScaleU8 = ch_volume_scale_u8[channel + 1] or 255
+	local baseVolume = clamp01((baseVolumeU8 or 255) / 255)
+	local volumeScale = clamp01(volumeScaleU8 / 255)
+	local volume = baseVolume * volumeScale
 	local panU8 = ch_pan_override_u8[channel + 1]
 	if panU8 == nil then
 		panU8 = basePanU8 or 128

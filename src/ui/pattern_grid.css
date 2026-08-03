@@ -466,6 +466,17 @@
     white-space: nowrap;
 }
 
+.pattern-grid td.volume-cell {
+    color: var(--cell-volume);
+    white-space: nowrap;
+    background-color: #0002;
+}
+
+.pattern-grid td.pan-cell {
+    color: var(--cell-pan);
+    white-space: nowrap;
+}
+
 .pattern-grid td.command-cell {
     color: var(--cell-command);
 }
@@ -485,7 +496,7 @@
 }
 
 .pattern-grid td.pattern-grid-collapsed-somatic {
-    border-right: 4px solid color-mix(in srgb, var(--text) 35%, transparent);
+    border-right: 4px solid color-mix(in srgb, var(--text) 10%, transparent);
 }
 
 .pattern-grid td.pattern-grid-collapsed-somatic--has-data {

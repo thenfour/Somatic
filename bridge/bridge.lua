@@ -117,8 +117,8 @@ local OUTBOX = {
 -- INBOX.LOOP         : for PLAY, non-zero means "loop forever" (wrap to order 0 instead of stopping at end);
 --                      for PLAY_SFX_ON/OFF, low 2 bits used as channel index (0..3).
 -- INBOX.SUSTAIN      : boolean sustain flag for PLAY; signed speed offset ([-4..+3]) for PLAY_SFX_ON.
--- INBOX.TEMPO        : optional tempo override for PLAY (0 = default).
--- INBOX.SPEED        : optional speed override for PLAY (0 = default).
+-- INBOX.TEMPO        : optional tempo override for PLAY; volume byte for PLAY_SFX_ON.
+-- INBOX.SPEED        : optional speed override for PLAY; volume-present flag for PLAY_SFX_ON.
 -- INBOX.HOST_ACK     : reserved; currently unused (intended for host log read pointer or similar acknowledgements).
 -- INBOX + 8..        : reserved; INBOX.MUTEX/SEQ/TOKEN live at offsets 12/13/14 for host->cart mailbox sync.
 
@@ -202,6 +202,7 @@ local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
 local MORPH_MAP_BYTES = ADDR.MARKER - MORPH_MAP_BASE
 
 local pattern_extra_cache = {}
+local pattern_extra_loaded = false
 local morph_nodes_cache = {}
 local sfx_cfg_cache = {}
 local MORPH_GRADIENT_BASE = MORPH_MAP_BASE
@@ -250,12 +251,10 @@ local function morph_get_nodes(offBytes)
 	return nodes
 end
 
-local function read_extra_song_header_counts()
+local function read_extra_song_instrument_count()
 	local instrumentCount = peek(MORPH_MAP_BASE)
-	local patternCount = peek(MORPH_MAP_BASE + 1)
 	local needed = SOMATIC_EXTRA_SONG_HEADER_BYTES
 		+ instrumentCount * MORPH_ENTRY_BYTES
-		+ patternCount * SOMATIC_PATTERN_ENTRY_BYTES
 	assert(MORPH_MAP_BYTES > 0, "Invalid bridge memory map: SOMATIC_SFX_CONFIG must be below MARKER")
 	assert(
 		needed <= MORPH_MAP_BYTES,
@@ -265,11 +264,9 @@ local function read_extra_song_header_counts()
 			.. tostring(MORPH_MAP_BYTES)
 			.. " (instrumentCount="
 			.. tostring(instrumentCount)
-			.. " patternCount="
-			.. tostring(patternCount)
 			.. ")"
 	)
-	return instrumentCount, patternCount
+	return instrumentCount
 end
 
 local function u8_to_s8(b)
@@ -288,7 +285,7 @@ local function read_sfx_cfg(instrumentId)
 		return cached or nil
 	end
 
-	local count, _patternCount = read_extra_song_header_counts()
+	local count = read_extra_song_instrument_count()
 
 	for i = 0, count - 1 do
 		local off = MORPH_MAP_BASE + SOMATIC_EXTRA_SONG_HEADER_BYTES + i * MORPH_ENTRY_BYTES
@@ -345,24 +342,29 @@ local function read_pattern_extra_cells(patternIndex0b)
 	if patternIndex0b == nil then
 		return nil
 	end
-	local cached = pattern_extra_cache[patternIndex0b]
-	if cached ~= nil then
-		return cached
-	end
-
-	local instrumentCount, patternCount = read_extra_song_header_counts()
-	local patternsBase = MORPH_MAP_BASE + SOMATIC_EXTRA_SONG_HEADER_BYTES + instrumentCount * MORPH_ENTRY_BYTES
-	for i = 0, patternCount - 1 do
-		local off = patternsBase + i * SOMATIC_PATTERN_ENTRY_BYTES
-		local entry = decode_SomaticPatternEntry(off)
-		if entry.patternIndex == patternIndex0b then
-			pattern_extra_cache[patternIndex0b] = entry.cells
-			return entry.cells
+	if not pattern_extra_loaded then
+		local instrumentCount = read_extra_song_instrument_count()
+		local patternsBase = MORPH_MAP_BASE + SOMATIC_EXTRA_SONG_HEADER_BYTES + instrumentCount * MORPH_ENTRY_BYTES
+		local patternEntries = decode_SomaticPatternExtras(patternsBase)
+		for _, entry in ipairs(patternEntries) do
+			local cells = {}
+			for _, event in ipairs(entry.events) do
+				local rowIndex1b = event.rowIndex + 1
+				local cell = cells[rowIndex1b] or {}
+				if event.eventId == SOMATIC_PATTERN_EVENT_VOLUME then
+					cell.volumeU8 = event.paramU8
+				else
+					cell.effectId = event.eventId
+					cell.paramU8 = event.paramU8
+				end
+				cells[rowIndex1b] = cell
+			end
+			pattern_extra_cache[entry.patternIndex] = cells
 		end
+		pattern_extra_loaded = true
 	end
 
-	pattern_extra_cache[patternIndex0b] = false
-	return nil
+	return pattern_extra_cache[patternIndex0b]
 end
 
 local function render_waveform_morph(cfg, ticksPlayed, outSamples)
@@ -551,7 +553,7 @@ local function sfx_tick_channel(channel)
 end
 
 local function advance_all_lfo_ticks()
-	local count, _patternCount = read_extra_song_header_counts()
+	local count = read_extra_song_instrument_count()
 	for i = 0, count - 1 do
 		local id = peek(MORPH_MAP_BASE + SOMATIC_EXTRA_SONG_HEADER_BYTES + i * MORPH_ENTRY_BYTES)
 		lfo_ticks_by_sfx[id] = (lfo_ticks_by_sfx[id] or 0) + 1
@@ -586,9 +588,10 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 	last_music_frame = frame
 	last_music_row = row
 
-	-- Apply Somatic per-pattern extra commands. P is deferred until after note
-	-- events so Pxx on a note row overrides the newly triggered voice.
+	-- Apply Somatic per-pattern extra commands. Pan and volume are deferred until
+	-- after note events so same-row values control the newly triggered voice.
 	local pendingPanByChannel = {}
+	local pendingVolumeByChannel = {}
 	local songPosition0b = peek(BRIDGE_CONFIG.memory.MUSIC_STATE_SOMATIC_SONG_POSITION)
 	if songPosition0b ~= nil and songPosition0b ~= 0xFF then
 		local base = ADDR.TF_ORDER_LIST_ENTRIES + songPosition0b * 4
@@ -616,6 +619,9 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 			elseif cell and cell.effectId == 5 then
 				pendingPanByChannel[ch + 1] = cell.paramU8 or 128
 			end
+			if cell and cell.volumeU8 ~= nil then
+				pendingVolumeByChannel[ch + 1] = cell.volumeU8
+			end
 		end
 	end
 
@@ -632,15 +638,21 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 			ch_sfx_id[ch + 1] = -1
 			ch_sfx_ticks[ch + 1] = 0
 			ch_pan_override_u8[ch + 1] = nil
+			ch_volume_scale_u8[ch + 1] = nil
 		else
 			-- note-on
 			ch_sfx_id[ch + 1] = inst
 			ch_sfx_ticks[ch + 1] = 0
 			ch_pan_override_u8[ch + 1] = nil
+			ch_volume_scale_u8[ch + 1] = nil
 		end
 		local pendingPan = pendingPanByChannel[ch + 1]
 		if pendingPan ~= nil then
 			ch_pan_override_u8[ch + 1] = pendingPan
+		end
+		local pendingVolume = pendingVolumeByChannel[ch + 1]
+		if pendingVolume ~= nil then
+			ch_volume_scale_u8[ch + 1] = pendingVolume
 		end
 	end
 end
@@ -658,6 +670,7 @@ end
 local function handle_transmit()
 	sync(24, 0, true)
 	pattern_extra_cache = {}
+	pattern_extra_loaded = false
 	morph_nodes_cache = {}
 	sfx_cfg_cache = {}
 	publish_cmd(CMD_TRANSMIT, 0)
@@ -673,6 +686,7 @@ local function handle_play()
 	-- true means sync from runtime -> cart.
 	sync(24, 0, true)
 	pattern_extra_cache = {}
+	pattern_extra_loaded = false
 	morph_nodes_cache = {}
 	sfx_cfg_cache = {}
 
@@ -702,6 +716,8 @@ local function handle_play_sfx_on()
 	local note = peek(INBOX.ROW)
 	local channel = peek(INBOX.LOOP) & 0x03
 	local speed = peek(INBOX.SUSTAIN) - 4 -- subtract 4 to get signed speed in the requisite range -4..+3
+	local volumeU8 = peek(INBOX.TEMPO)
+	local hasVolumeScale = peek(INBOX.SPEED) ~= 0
 	-- Clamp to valid ranges for TIC sfx API
 	if note > 95 then
 		note = 95
@@ -721,6 +737,10 @@ local function handle_play_sfx_on()
 	ch_sfx_id[channel + 1] = sfx_id
 	ch_sfx_ticks[channel + 1] = 0
 	ch_pan_override_u8[channel + 1] = nil
+	ch_volume_scale_u8[channel + 1] = nil
+	if hasVolumeScale then
+		ch_volume_scale_u8[channel + 1] = volumeU8
+	end
 
 	-- id, note, duration (-1 = sustained), channel 0..3, volume 15, speed 0
 	sfx(sfx_id, note, -1, channel, 15, speed)
@@ -735,6 +755,7 @@ local function handle_play_sfx_off()
 	ch_sfx_id[channel + 1] = -1
 	ch_sfx_ticks[channel + 1] = 0
 	ch_pan_override_u8[channel + 1] = nil
+	ch_volume_scale_u8[channel + 1] = nil
 	publish_cmd(CMD_PLAY_SFX_OFF, 0)
 	log(string.format("PLAY_SFX_OFF ch=%d", channel))
 end
@@ -1023,7 +1044,9 @@ tf_music_reset_state = function()
 	ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
 	ch_lowpass_strength_scale_u8 = { 255, 255, 255, 255 }
 	ch_pan_override_u8 = { nil, nil, nil, nil }
+	ch_volume_scale_u8 = { nil, nil, nil, nil }
 	pattern_extra_cache = {}
+	pattern_extra_loaded = false
 	log("reset_state: Music state reset.")
 	ch_set_playroutine_regs(0xFF)
 end

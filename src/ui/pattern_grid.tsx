@@ -24,19 +24,16 @@ import { ButtonGroup } from './Buttons/ButtonGroup';
 import { Button } from './Buttons/PushButton';
 import { CheckboxButton } from './Buttons/CheckboxButton';
 
-type CellType = 'note' | 'instrument' | 'command' | 'param';
+type ExtendedCellType = 'note' | 'instrument' | 'volume' | 'command' | 'param' | 'somaticCommand' | 'somaticParam';
 
-type ExtendedCellType = CellType | 'somaticCommand' | 'somaticParam';
-
-const FULL_CELLS_PER_CHANNEL = 6;
-const FULL_CELL_STRIDE_PER_CHANNEL = 7; // includes non-interactive cells between chans
-const COMPACT_CELLS_PER_CHANNEL = 4;
-const COMPACT_CELL_STRIDE_PER_CHANNEL = 5; // includes non-interactive cells between chans
+const COMPACT_CELL_TYPES: readonly ExtendedCellType[] = ['note', 'instrument', 'volume', 'command', 'param'];
+const FULL_CELL_TYPES: readonly ExtendedCellType[] = [...COMPACT_CELL_TYPES, 'somaticCommand', 'somaticParam'];
 const CTRL_ARROW_JUMP_SIZE = 4;
 
 const instrumentKeyMap = '0123456789abcdef'.split('');
 const commandKeyMap = kTic80EffectCommand.infos.map(info => info.keyboardShortcut);
 const paramKeyMap = instrumentKeyMap;
+const volumeKeyMap = instrumentKeyMap;
 
 const somaticCommandKeyMap = kSomaticPatternCommand.infos.map(info => info.keyboardShortcut);
 const somaticParamKeyMap = instrumentKeyMap;
@@ -49,6 +46,11 @@ const formatMidiNote = (midiNote: number | undefined | null) => {
 
 const formatInstrumentLabel = (val: number | undefined | null): string => {
     if (val === null || val === undefined) return '--';
+    return (val & 0xFF).toString(16).toUpperCase().padStart(2, '0');
+};
+
+const formatVolume = (val: number | undefined | null): string => {
+    if (val == null) return '--';
     return (val & 0xFF).toString(16).toUpperCase().padStart(2, '0');
 };
 
@@ -142,8 +144,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const fxCarryTooltip = `Effect command state at the end of this pattern (doesn't consider previous patterns)`;
 
         const showSomaticColumns = editorState.showSomaticColumns !== false;
-        const cellsPerChannel = showSomaticColumns ? FULL_CELLS_PER_CHANNEL : COMPACT_CELLS_PER_CHANNEL;
-        const cellStridePerChannel = showSomaticColumns ? FULL_CELL_STRIDE_PER_CHANNEL : COMPACT_CELL_STRIDE_PER_CHANNEL;
+        const visibleCellTypes = showSomaticColumns ? FULL_CELL_TYPES : COMPACT_CELL_TYPES;
+        const cellsPerChannel = visibleCellTypes.length;
+        const cellStridePerChannel = cellsPerChannel + 1; // includes the non-interactive separator
 
         const cellRefs = useCellRefsGrid<HTMLTableCellElement>(
             song.subsystem.maxRowsPerPattern,
@@ -178,15 +181,13 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             // Only remap columns when transitioning from showing to hiding.
             if (showSomaticColumns || !prevShow) return;
 
-            const channelIndex = Math.floor(currentColumnIndex / FULL_CELLS_PER_CHANNEL);
-            const offset = currentColumnIndex % FULL_CELLS_PER_CHANNEL;
-            const nextOffset = Math.min(offset, COMPACT_CELLS_PER_CHANNEL - 1);
-            const nextCol = channelIndex * COMPACT_CELLS_PER_CHANNEL + nextOffset;
-
-            const isSomaticColumn = editorState.patternEditColumnType === "somaticCommand" || editorState.patternEditColumnType === "somaticParam";
-            const shouldForceParam = isSomaticColumn || offset >= COMPACT_CELLS_PER_CHANNEL;
-            const paramCol = channelIndex * COMPACT_CELLS_PER_CHANNEL + (COMPACT_CELLS_PER_CHANNEL - 1);
-            const targetCol = shouldForceParam ? paramCol : nextCol;
+            const channelIndex = Math.floor(currentColumnIndex / FULL_CELL_TYPES.length);
+            const offset = currentColumnIndex % FULL_CELL_TYPES.length;
+            const previousType = FULL_CELL_TYPES[offset] ?? 'note';
+            const compactOffset = COMPACT_CELL_TYPES.indexOf(previousType);
+            const shouldForceParam = compactOffset === -1;
+            const nextOffset = shouldForceParam ? COMPACT_CELL_TYPES.indexOf('param') : compactOffset;
+            const targetCol = channelIndex * COMPACT_CELL_TYPES.length + nextOffset;
 
             if (targetCol !== currentColumnIndex) {
                 setCurrentColumnIndex(targetCol);
@@ -551,6 +552,18 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             );
         }, [clearPatternFieldInScope]);
 
+        const handleClearVolume = useCallback((scope: AdvancedEditScope) => {
+            clearPatternFieldInScope(
+                scope,
+                'Clear channel volume gains',
+                (cell) => {
+                    if (cell.volumeU8 === undefined) return cell;
+                    return { ...cell, volumeU8: undefined };
+                },
+                'No channel volume gains were found to clear in that scope.',
+            );
+        }, [clearPatternFieldInScope]);
+
         const createClipboardPayload = (): PatternClipboardPayload | null => {
             const bounds = editorState.patternSelection;
             if (!bounds) return null;
@@ -731,6 +744,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         tic80Effect: undefined,
                         tic80EffectX: undefined,
                         tic80EffectY: undefined,
+                        volumeU8: undefined,
                         somaticEffect: undefined,
                         somaticParam: undefined,
                     });
@@ -745,14 +759,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const channelIndex = editorState.patternEditChannel;
             const columnIndex = currentColumnIndex;
             const cellTypeOffset = columnIndex % cellsPerChannel;
-            const cellType: ExtendedCellType =
-                cellTypeOffset === 0 ? 'note' :
-                    cellTypeOffset === 1 ? 'instrument' :
-                        cellTypeOffset === 2 ? 'command' :
-                            cellTypeOffset === 3 ? 'param' :
-                                !showSomaticColumns ? 'param' :
-                                    cellTypeOffset === 4 ? 'somaticCommand' :
-                                        'somaticParam';
+            const cellType = visibleCellTypes[cellTypeOffset] ?? 'note';
             onSongChange({
                 description: 'Clear field under cursor',
                 undoable: true,
@@ -765,6 +772,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         pat.setCell(channelIndex, rowIndex, { ...oldCell, midiNote: undefined, noteOff: undefined });
                     } else if (cellType === 'instrument') {
                         pat.setCell(channelIndex, rowIndex, { ...oldCell, instrumentIndex: undefined });
+                    } else if (cellType === 'volume') {
+                        pat.setCell(channelIndex, rowIndex, { ...oldCell, volumeU8: undefined });
                     } else if (cellType === 'command') {
                         pat.setCell(channelIndex, rowIndex, { ...oldCell, tic80Effect: undefined });
                     } else if (cellType === 'param') {
@@ -936,6 +945,27 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     pat.setCell(channelIndex, rowIndex, {
                         ...oldCell,
                         somaticParam: next,
+                    });
+                },
+            });
+            return true;
+        };
+
+        const handleVolumeKey = (channelIndex: number, rowIndex: number, key: string): boolean => {
+            const idx = volumeKeyMap.indexOf(key);
+            if (idx === -1) return false;
+            onSongChange({
+                description: 'Set channel volume gain from key',
+                undoable: true,
+                mutator: (s) => {
+                    const patIndex = Math.max(0, Math.min(safePatternIndex, s.patterns.length - 1));
+                    const pat = s.patterns[patIndex];
+                    const oldCell = pat.getCell(channelIndex, rowIndex);
+                    const current = oldCell.volumeU8 ?? 0;
+                    const next = ((current << 4) | idx) & 0xFF;
+                    pat.setCell(channelIndex, rowIndex, {
+                        ...oldCell,
+                        volumeU8: next,
                     });
                 },
             });
@@ -1278,6 +1308,12 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     }
                     e.preventDefault();
                 }
+            } else if (cellType === 'volume' && volumeKeyMap.includes(e.key) && !e.repeat) {
+                const handled = handleVolumeKey(channelIndex, rowIndex, e.key);
+                if (handled) {
+                    // Match the two-nibble parameter columns: keep focus in place while typing.
+                    e.preventDefault();
+                }
             } else if (cellType === 'command' && includesOf(commandKeyMap, e.key) && !e.repeat) {
                 const effect = kTic80EffectCommand.infos.find(info => info.keyboardShortcut === e.key)!;
                 const handled = handleCommandKey(channelIndex, rowIndex, effect.key);
@@ -1341,14 +1377,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
             // Determine column type from column index
             const cellTypeOffset = col % cellsPerChannel;
-            const columnType =
-                cellTypeOffset === 0 ? 'note' :
-                    cellTypeOffset === 1 ? 'instrument' :
-                        cellTypeOffset === 2 ? 'command' :
-                            cellTypeOffset === 3 ? 'param' :
-                                !showSomaticColumns ? 'param' :
-                                    cellTypeOffset === 4 ? 'somaticCommand' :
-                                        'somaticParam';
+            const columnType = visibleCellTypes[cellTypeOffset] ?? 'note';
             onEditorStateChange((s) => s.setPatternEditColumnType(columnType));
         };
 
@@ -1470,6 +1499,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         onInterpolate={handleInterpolate}
                         onClearNotes={handleClearNotes}
                         onClearInstrument={handleClearInstrument}
+                        onClearVolume={handleClearVolume}
                         onClearEffect={handleClearEffect}
                         onClearParamX={handleClearParamX}
                         onClearParamY={handleClearParamY}
@@ -1612,17 +1642,19 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const instrument = row.instrumentIndex != null ? song.getInstrument(row.instrumentIndex) : null;
                                             const [instText, instTooltip] = noteCut ? ["", null] : [formatInstrumentLabel(row.instrumentIndex), instrument?.getCaption(row.instrumentIndex!)];//formatInstrument(row.instrumentIndex, song);
                                             const instrumentIsSelected = editorState.currentInstrument != null && row.instrumentIndex === editorState.currentInstrument;
+                                            const volumeText = formatVolume(row.volumeU8);
                                             const cmdText = formatCommand(row.tic80Effect);
                                             const paramText = formatParams(row.tic80EffectX, row.tic80EffectY);
                                             const somCmdText = formatSomaticCommand(row.somaticEffect);
                                             const somParamText = formatSomaticParam(row.somaticParam);
                                             const noteCol = channelIndex * cellsPerChannel;
                                             const instCol = noteCol + 1;
-                                            const cmdCol = noteCol + 2;
-                                            const paramCol = noteCol + 3;
-                                            const somCmdCol = noteCol + 4;
-                                            const somParamCol = noteCol + 5;
-                                            const isEmpty = !row.midiNote && !row.noteOff && row.tic80Effect === undefined && row.instrumentIndex == null && row.tic80EffectX === undefined && row.tic80EffectY === undefined && row.somaticEffect === undefined && row.somaticParam === undefined;
+                                            const volumeCol = noteCol + 2;
+                                            const cmdCol = noteCol + 3;
+                                            const paramCol = noteCol + 4;
+                                            const somCmdCol = noteCol + 5;
+                                            const somParamCol = noteCol + 6;
+                                            const isEmpty = !row.midiNote && !row.noteOff && row.tic80Effect === undefined && row.instrumentIndex == null && row.volumeU8 === undefined && row.tic80EffectX === undefined && row.tic80EffectY === undefined && row.somaticEffect === undefined && row.somaticParam === undefined;
                                             const isMetaFocused = editorState.patternEditChannel === channelIndex && editorState.patternEditRow === rowIndex;//focusedCell?.row === rowIndex && focusedCell?.channel === channelIndex;
                                             const channelSelected = editorState.isPatternChannelSelected(channelIndex);
                                             const isCellSelected = isRowInSelection && channelSelected;
@@ -1634,7 +1666,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                 (cellStyle as any)['--instrument-highlight-fg'] = instrument.highlightFg;
                                             }
 
-                                            const selectionRightEdgeCellType: ExtendedCellType = showSomaticColumns ? 'somaticParam' : 'param';
+                                            const selectionRightEdgeCellType = visibleCellTypes[visibleCellTypes.length - 1];
                                             const getSelectionClasses = (cellType: ExtendedCellType) => {
                                                 let classes = '';
                                                 if (highlightSelectedInstrument && instrumentIsSelected) classes += ' pattern-cell--selected-instrument';
@@ -1658,6 +1690,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const additionalClasses = `${isEmpty ? ' empty-cell' : ''}${isMetaFocused ? ' metaCellFocus' : ''}${noteCut ? ' note-cut-cell' : ''}${errorInRow ? ' error-cell' : ''}${isAudible ? '' : ' muted-cell'}`;
                                             const noteSelectionClass = getSelectionClasses('note');
                                             const instSelectionClass = getSelectionClasses('instrument');
+                                            const volumeSelectionClass = getSelectionClasses('volume');
                                             const cmdSelectionClass = getSelectionClasses('command');
                                             const paramSelectionClass = getSelectionClasses('param');
                                             const somCmdSelectionClass = getSelectionClasses('somaticCommand');
@@ -1670,6 +1703,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
 
                                             const noteClass = `note-cell${additionalClasses}${noteSelectionClass}`;
                                             const instClass = `instrument-cell${additionalClasses}${instSelectionClass}`;
+                                            const volumeClass = `volume-cell${additionalClasses}${volumeSelectionClass}`;
                                             const cmdClass = `command-cell${additionalClasses}${cmdSelectionClass}`;
                                             const paramClass = `param-cell${additionalClasses}${paramSelectionClass}${collapsedSomaticClass}`;
                                             const somCmdClass = `somatic-command-cell${additionalClasses}${somCmdSelectionClass}`;
@@ -1717,6 +1751,24 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                                 {instText}
                                                             </span>
                                                         </Tooltip>
+                                                    </td>
+                                                    <td
+                                                        tabIndex={0}
+                                                        data-focus-bookmark="true"
+                                                        ref={(el) => (cellRefs[rowIndex][volumeCol] = el)}
+                                                        className={volumeClass}
+                                                        style={cellStyle}
+                                                        onKeyDown={onCellKeyDown}
+                                                        onMouseDown={(e) => onCellMouseDownSelectingInstrument(e, rowIndex, channelIndex)}
+                                                        onMouseEnter={() => selection2d.onCellMouseEnter({ y: rowIndex, x: channelIndex })}
+                                                        onFocus={() => onCellFocus(rowIndex, channelIndex, volumeCol)}
+                                                        data-row-index={rowIndex}
+                                                        data-channel-index={channelIndex}
+                                                        data-cell-type="volume"
+                                                        data-column-index={volumeCol}
+                                                        data-cell-value={`[${JSON.stringify(row.volumeU8)}]`}
+                                                    >
+                                                        {volumeText}
                                                     </td>
                                                     <td
                                                         tabIndex={0}
@@ -1792,9 +1844,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                             >
                                                                 {somParamText}
                                                             </td>
-                                                        <td className="pattern-grid-empty-cell"></td>
                                                         </>
                                                     )}
+                                                    <td className="pattern-grid-empty-cell"></td>
                                                 </React.Fragment>
                                             );
                                         })}

@@ -100,25 +100,44 @@ export const MorphEntryCodec = C.struct("MorphEntry", [
 ]);
 
 // =========================
-// Somatic per-pattern extra data (POC: per-row Somatic command + param)
+// Somatic per-pattern extra data. Pattern extensions are stored as sparse
+// events so independent fields can coexist without adding parallel
+// per-feature payload sections.
+
+export const SOMATIC_PATTERN_EVENT_VOLUME = 6;
+export const SOMATIC_PATTERN_EVENTS_PER_COLUMN_MAX = Tic80Caps.pattern.maxRows * 2;
 
 export const SomaticExtraSongDataHeaderCodec = C.struct("SomaticExtraSongDataHeader", [
    C.field("instrumentEntryCount", C.u8()),
-   C.field("patternEntryCount", C.u8()),
 ]);
 
-export const SomaticPatternCellCodec = C.struct("SomaticPatternCell", [
-   // 0 = none; 1..15 = command id + 1
-   // (UI stores 0-based command indices; we offset by +1 so 0 can mean "none")
-   C.field("effectId", C.u(4)),
+export const SomaticPatternEventCodec = C.struct("SomaticPatternEvent", [
+   // 0 = none; (UI stores 0-based command indices; we offset by +1 so 0 can mean "none")
+   // 1..5 are the existing Somatic command ids; 6 is the volume column.
+   C.field("rowIndex", C.u(6)),
+   C.field("eventId", C.u(4)),
    C.field("paramU8", C.u8()),
 ]);
 
 export const SomaticPatternEntryCodec = C.struct("SomaticPatternEntry", [
    // 0-based pattern-column index (preparedSong.patternColumns index)
    C.field("patternIndex", C.u8()),
-   C.field("cells", C.array("cells", SomaticPatternCellCodec, 64)),
+   C.field("events", C.varArray(
+      "events",
+      SomaticPatternEventCodec,
+      C.u8(),
+      SOMATIC_PATTERN_EVENTS_PER_COLUMN_MAX,
+      false,
+   )),
 ]);
+
+export const SomaticPatternExtrasCodec = C.varArray(
+   "SomaticPatternExtras",
+   SomaticPatternEntryCodec,
+   C.u8(),
+   SomaticCaps.maxPatternCount,
+   false,
+);
 
 // Derive everything else from the codec
 const MORPH_ENTRY_FIELDS = extractFieldInfo(MorphEntryCodec);
@@ -129,7 +148,7 @@ export const MorphEntryFieldNamesToRename = [
    ...MORPH_ENTRY_FIELDS.map(f => f.name),
    ...WAVEFORM_MORPH_GRADIENT_NODE_FIELDS.map(f => f.name),
    ...extractFieldInfo(SomaticPatternEntryCodec).map(f => f.name),
-   ...extractFieldInfo(SomaticPatternCellCodec).map(f => f.name),
+   ...extractFieldInfo(SomaticPatternEventCodec).map(f => f.name),
    "extraSongData",
    "samples",
    "morphGradientNodes",
@@ -208,21 +227,20 @@ export const MORPH_HEADER_BYTES = MorphHeaderCodec.byteSizeCeil!();
 export const SOMATIC_EXTRA_SONG_HEADER_BITS = fixedBits(SomaticExtraSongDataHeaderCodec, "SomaticExtraSongDataHeader");
 export const SOMATIC_EXTRA_SONG_HEADER_BYTES = SomaticExtraSongDataHeaderCodec.byteSizeCeil!();
 
-export const SOMATIC_PATTERN_ENTRY_BITS = fixedBits(SomaticPatternEntryCodec, "SomaticPatternEntry");
-export const SOMATIC_PATTERN_ENTRY_BYTES = SomaticPatternEntryCodec.byteSizeCeil!();
+export const SOMATIC_PATTERN_EVENT_BITS = fixedBits(SomaticPatternEventCodec, "SomaticPatternEvent");
 
 export const WAVEFORM_MORPH_GRADIENT_NODE_BITS = fixedBits(WaveformMorphGradientNodeCodec, "WaveformMorphGradientNode");
 export const WAVEFORM_MORPH_GRADIENT_NODE_BYTES = WaveformMorphGradientNodeCodec.byteSizeCeil!();
 
-export type SomaticPatternCellPacked = {
-   // 0 = none; 1..15 = command id + 1
-   effectId: number; //
+export type SomaticPatternEventPacked = {
+   rowIndex: number;
+   eventId: number;
    paramU8: number;
 };
 
 export type SomaticPatternEntryPacked = {
-   patternIndex: number;              //
-   cells: SomaticPatternCellPacked[]; // length 64
+   patternIndex: number;
+   events: SomaticPatternEventPacked[];
 };
 
 export type WaveformMorphGradientNodePacked = {
@@ -251,23 +269,18 @@ function clampU8(value: number): number {
 }
 
 function normalizeSomaticPatternEntry(entry: SomaticPatternEntryPacked): SomaticPatternEntryPacked {
-   const cells: SomaticPatternCellPacked[] = new Array(Tic80Caps.pattern.maxRows);
-   for (let i = 0; i < Tic80Caps.pattern.maxRows; i++) {
-      const c = entry.cells[i] ?? {effectId: 0, paramU8: 0};
-      cells[i] = {
-         effectId: clampU(c.effectId, 4),
-         paramU8: clampU8(c.paramU8),
-      };
-   }
    return {
       patternIndex: clampU8(entry.patternIndex),
-      cells,
+      events: entry.events.map(event => ({
+         rowIndex: clampU(event.rowIndex, 6),
+         eventId: clampU(event.eventId, 4),
+         paramU8: clampU8(event.paramU8),
+      })),
    };
 }
 
 export function encodeSomaticExtraSongDataPayload(input: SomaticExtraSongDataInput, totalBytes?: number): Uint8Array {
    const instrumentEntryCount = input.instruments.length;
-   const patternEntryCount = input.patterns.length;
 
    // Prepare normalized data
    const normalizedInstruments = input.instruments.map(entry => {
@@ -294,12 +307,13 @@ export function encodeSomaticExtraSongDataPayload(input: SomaticExtraSongDataInp
    const PayloadCodec = C.struct("SomaticExtraSongDataPayload", [
       C.field("header", SomaticExtraSongDataHeaderCodec),
       C.field("instruments", C.runtimeArray("instruments", MorphEntryCodec, true)),
-      C.field("patterns", C.runtimeArray("patterns", SomaticPatternEntryCodec, true)),
+      C.alignToByte(),
+      C.field("patterns", SomaticPatternExtrasCodec),
       C.field("gradients", C.runtimeArray("gradients", WaveformMorphGradientCodec, true)),
    ]);
 
    const payloadData = {
-      header: {instrumentEntryCount, patternEntryCount},
+      header: {instrumentEntryCount},
       instruments: normalizedInstruments,
       patterns: normalizedPatterns,
       gradients: gradients,

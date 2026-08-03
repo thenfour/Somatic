@@ -283,8 +283,8 @@ do
 			local columnIndex0b = getColumnIndex(playingSongOrder, ch)
 			local cells = columnIndex0b ~= nil and patternExtra[columnIndex0b] or nil
 			local cell = cells and cells[row + 1] or nil
-			-- E/F/L affect the currently playing voice. P is applied after the note event below,
-			-- so a note and Pxx on the same row pans the newly triggered voice.
+			-- E/F/L affect the currently playing voice. Pan and volume are applied after
+			-- the note event below so same-row values control the newly triggered voice.
 			if cell and cell.effectId == 1 then
 				-- 'E': Set effect strength scale
 				ch_effect_strength_scale_u8[ch + 1] = cell.paramU8 or 255
@@ -314,16 +314,21 @@ do
 				ch_sfx_id[ch + 1] = -1
 				ch_sfx_ticks[ch + 1] = 0
 				ch_pan_override_u8[ch + 1] = nil
+				ch_volume_scale_u8[ch + 1] = nil
 			else
 				-- note on
 				ch_sfx_id[ch + 1] = inst
 				ch_sfx_ticks[ch + 1] = 0
 				ch_pan_override_u8[ch + 1] = nil
+				ch_volume_scale_u8[ch + 1] = nil
 			end
 
 			if cell and cell.effectId == 5 then
 				-- 'P': Per-channel pan override (00=left, 80=center, FF=right)
 				ch_pan_override_u8[ch + 1] = cell.paramU8 or 128
+			end
+			if cell and cell.volumeU8 ~= nil then
+				ch_volume_scale_u8[ch + 1] = cell.volumeU8
 			end
 		end
 	end
@@ -379,7 +384,6 @@ do
 		-- let's use a part of pattern mem for temp storage
 		b85Plus1LZDecodeToMem(m, __AUTOGEN_TEMP_PTR_B)
 		local instrumentCount = peek(__AUTOGEN_TEMP_PTR_B)
-		local patternCount = peek(__AUTOGEN_TEMP_PTR_B + 1)
 		local off = __AUTOGEN_TEMP_PTR_B + SOMATIC_EXTRA_SONG_HEADER_BYTES
 		for _ = 1, instrumentCount do
 			local entry = decode_MorphEntry(off)
@@ -397,10 +401,21 @@ do
 			morphIds[#morphIds + 1] = id
 			off = off + MORPH_ENTRY_BYTES
 		end
-		for _ = 1, patternCount do
-			local entry = decode_SomaticPatternEntry(off)
-			patternExtra[entry.patternIndex] = entry.cells
-			off = off + SOMATIC_PATTERN_ENTRY_BYTES
+		local patternEntries = decode_SomaticPatternExtras(off)
+		for _, entry in ipairs(patternEntries) do
+			local cells = {}
+			for _, event in ipairs(entry.events) do
+				local rowIndex1b = event.rowIndex + 1
+				local cell = cells[rowIndex1b] or {}
+				if event.eventId == SOMATIC_PATTERN_EVENT_VOLUME then
+					cell.volumeU8 = event.paramU8
+				else
+					cell.effectId = event.eventId
+					cell.paramU8 = event.paramU8
+				end
+				cells[rowIndex1b] = cell
+			end
+			patternExtra[entry.patternIndex] = cells
 		end
 	end
 
@@ -578,6 +593,7 @@ do
 			ch_sfx_id[ch + 1] = -1
 			ch_sfx_ticks[ch + 1] = 0
 			ch_pan_override_u8[ch + 1] = nil
+			ch_volume_scale_u8[ch + 1] = nil
 		end
 	end
 
@@ -977,6 +993,7 @@ do
 		ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
 		ch_lowpass_strength_scale_u8 = { 255, 255, 255, 255 }
 		ch_pan_override_u8 = { nil, nil, nil, nil }
+		ch_volume_scale_u8 = { nil, nil, nil, nil }
 		lfo_ticks_by_sfx = {}
 		if playbackMuted then
 			clearAllPlaybackBuffers()
