@@ -50,6 +50,10 @@ export class Tic80AudioController {
       await this.backend.transmit(args);
    }
 
+   async transmitEditedSong(args: BackendPlaySongArgs) {
+      await this.backend.transmitEditedSong(args);
+   }
+
    panic() {
       this.voiceManager.releaseAll();
       this.backend.panic();

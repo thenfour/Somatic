@@ -7,9 +7,10 @@ import type {Pattern} from "../../models/pattern";
 import type {Song} from "../../models/song";
 import {gTic80ChannelsArray, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
 import type {Tic80BridgeHandle} from "./Tic80Bridged";
-import {convertTic80MusicStateToSomatic} from "./bakeSong";
+import {convertTic80MusicStateToSomatic, getBakedSongPosition} from "./bakeSong";
 import {LoopMode, MakeEmptySomaticTransportState, SomaticTransportState, Tic80TransportState} from "../../audio/backend";
 import {serializeSongForTic80Bridge, Tic80SerializedSong} from "./tic80_cart_serializer";
+import {clamp} from "../../utils/utils";
 
 export type BackendPlaySongArgs = {
    reason: string;                           //
@@ -25,12 +26,72 @@ export type BackendPlaySongArgs = {
    songOrderSelection: SelectionRect2D | null,
 };
 
+type PlaybackSession = Omit<BackendPlaySongArgs, "reason" | "song" | "startPosition" | "startRow">;
 
-// Minimal TIC-80 backend: delegates transport commands to the bridge.
-// Song/instrument upload is not implemented yet; this is a transport stub.
+type ActivePlayback = {
+   serializedSong: Tic80SerializedSong;
+   session: PlaybackSession;
+};
+
+function cloneSelection(selection: SelectionRect2D | null): SelectionRect2D | null {
+   return selection ? new SelectionRect2D(selection.toData()) : null;
+}
+
+function clonePlaybackSession(args: BackendPlaySongArgs): PlaybackSession {
+   return {
+      cursorSongOrder: args.cursorSongOrder,
+      cursorChannelIndex: args.cursorChannelIndex,
+      cursorRowIndex: args.cursorRowIndex,
+      patternSelection: cloneSelection(args.patternSelection),
+      audibleChannels: new Set(args.audibleChannels),
+      loopMode: args.loopMode,
+      songOrderSelection: cloneSelection(args.songOrderSelection),
+   };
+}
+
+function clampSelection(
+   selection: SelectionRect2D | null,
+   maxXInclusive: number,
+   maxYInclusive: number,
+): SelectionRect2D | null {
+   if (!selection)
+      return null;
+   return selection.withClampedCoords((coord) => ({
+      x: clamp(coord.x, 0, Math.max(0, maxXInclusive)),
+      y: clamp(coord.y, 0, Math.max(0, maxYInclusive)),
+   }));
+}
+
+function makeSessionArgs(
+   session: PlaybackSession,
+   song: Song,
+   reason: string,
+   startPosition: number,
+   startRow: number,
+): BackendPlaySongArgs {
+   const cursorSongOrder = clamp(session.cursorSongOrder | 0, 0, Math.max(0, song.songOrder.length - 1));
+   const cursorRowIndex = clamp(session.cursorRowIndex | 0, 0, Math.max(0, song.rowsPerPattern - 1));
+   return {
+      ...session,
+      reason,
+      song,
+      cursorSongOrder,
+      cursorRowIndex,
+      patternSelection: clampSelection(
+         session.patternSelection, Math.max(0, song.subsystem.channelCount - 1), Math.max(0, song.rowsPerPattern - 1)),
+      songOrderSelection: clampSelection(
+         session.songOrderSelection, 0, Math.max(0, song.songOrder.length - 1)),
+      startPosition,
+      startRow,
+   };
+}
+
+
+// TIC-80 backend: owns transport state and delegates uploads/commands to the bridge.
 export class Tic80Backend {
    private readonly bridge: () => Tic80BridgeHandle | null;
-   private serializedSong: Tic80SerializedSong|null = null; // the last uploaded song.
+   private activePlayback: ActivePlayback | null = null;
+   private playbackEpoch = 0;
    //private lastKnownTi80TransportState: Tic80TransportState = MakeEmptyTic80TransportState();
    private lastKnownSomaticTransportState: SomaticTransportState = MakeEmptySomaticTransportState();
 
@@ -147,7 +208,6 @@ export class Tic80Backend {
       });
 
       //console.log("[Tic80Backend] transmitAndPlay uploading song:", serializedSong);
-      this.serializedSong = serializedSong;
       return serializedSong;
    };
 
@@ -162,7 +222,7 @@ export class Tic80Backend {
          return null;
       }
 
-      const reason = `transmitAndPlay: ${args.reason}`;
+      const reason = `transmit: ${args.reason}`;
       await b.invokeExclusive(reason, async (tx) => {
          await tx.transmit({
             data: serializedSong, //
@@ -171,6 +231,67 @@ export class Tic80Backend {
       });
       return serializedSong;
    };
+
+   // Upload an edited song. If its baked content changed while the
+   // transport is running, restart from the current position.
+   // Instrument/waveform-only edits use a cheaper transmit-only path.
+   async transmitEditedSong(args: BackendPlaySongArgs): Promise<Tic80SerializedSong | null> {
+      const b = this.bridge();
+      if (!b || !b.isReady())
+         return null;
+
+      const active = this.activePlayback;
+      const currentState = this.getSomaticTransportState();
+      if (!active || !currentState.isPlaying || currentState.currentSomaticSongPosition == null ||
+         currentState.currentSomaticRowIndex == null) {
+         if (!currentState.isPlaying) {
+            this.activePlayback = null;
+         }
+         return this.transmit(args);
+      }
+
+      const epoch = this.playbackEpoch;
+      const sessionArgs = makeSessionArgs(
+         active.session,
+         args.song,
+         args.reason,
+         currentState.currentSomaticSongPosition,
+         currentState.currentSomaticRowIndex,
+      );
+      const serializedSong = this.prepareForTransmit(sessionArgs);
+      if (!serializedSong)
+         return null;
+
+      const reason = `transmitEditedSong: ${args.reason}`;
+      let restarted = false;
+      await b.invokeExclusive(reason, async (tx) => {
+         const latestState = this.getSomaticTransportState();
+         const canRestart = epoch === this.playbackEpoch && this.activePlayback === active && latestState.isPlaying &&
+            latestState.currentSomaticSongPosition != null && latestState.currentSomaticRowIndex != null;
+         const sequencedPlaybackChanged =
+            serializedSong.playbackFingerprint !== active.serializedSong.playbackFingerprint;
+
+         if (!canRestart || !sequencedPlaybackChanged) {
+            await tx.transmit({data: serializedSong, reason});
+            return;
+         }
+
+         const resumeAt = getBakedSongPosition(
+            serializedSong.bakedSong,
+            latestState.currentSomaticSongPosition!,
+            latestState.currentSomaticRowIndex!,
+         );
+         serializedSong.bakedSong.startPosition = resumeAt.songPosition;
+         serializedSong.bakedSong.startRow = resumeAt.rowIndex;
+         await tx.transmitAndPlay({data: serializedSong, reason});
+         restarted = true;
+      });
+
+      if (restarted && epoch === this.playbackEpoch && this.activePlayback === active) {
+         this.activePlayback = {serializedSong, session: active.session};
+      }
+      return serializedSong;
+   }
 
    async transmitAndPlay(args: BackendPlaySongArgs): Promise<Tic80SerializedSong|null> //
    {
@@ -186,17 +307,28 @@ export class Tic80Backend {
       }
 
       const reason = `transmitAndPlay: ${args.reason}`;
+      const epoch = ++this.playbackEpoch;
+      const session = clonePlaybackSession(args);
+      let played = false;
 
       await b.invokeExclusive(reason, async (tx) => {
-         await tx.transmitAndPlay({
-            data: serializedSong, //
-            reason                //
-         });
+         if (epoch !== this.playbackEpoch) {
+            await tx.transmit({data: serializedSong, reason});
+            return;
+         }
+         await tx.transmitAndPlay({data: serializedSong, reason});
+         played = true;
       });
+      if (played && epoch === this.playbackEpoch) {
+         this.activePlayback = {serializedSong, session};
+      }
       return serializedSong;
    }
 
    async panic() {
+      this.playbackEpoch++;
+      this.activePlayback = null;
+      this.lastKnownSomaticTransportState = MakeEmptySomaticTransportState();
       const b = this.bridge();
       if (!b || !b.isReady()) {
          return;
@@ -222,6 +354,9 @@ export class Tic80Backend {
    }
 
    async stop() {
+      this.playbackEpoch++;
+      this.activePlayback = null;
+      this.lastKnownSomaticTransportState = MakeEmptySomaticTransportState();
       const b = this.bridge();
       if (b && b.isReady())
          await b.invokeExclusive("stop", async (tx) => {
@@ -260,15 +395,13 @@ export class Tic80Backend {
          return this.lastKnownSomaticTransportState;
       }
 
-      // uses last serialized song's baked info to map tic80 state back to somatic state.
-      // note that there's a potential desync here if the song was changed since last upload.
-      // instead of trying to detect that though (it's not trivial without clamping down a lot of stuff),
-      // just deal with the possibility of desync in the UI.
+      // Only the bake that was acknowledged as playing may interpret the bridge's
+      // transport counters. Transmit-only edits deliberately leave this mapping alone.
       const tic80State = this.getTic80TransportState();
-      if (!this.serializedSong) {
+      if (!this.activePlayback) {
          return this.lastKnownSomaticTransportState;
       }
-      const somaticState = convertTic80MusicStateToSomatic(this.serializedSong?.bakedSong, tic80State);
+      const somaticState = convertTic80MusicStateToSomatic(this.activePlayback.serializedSong.bakedSong, tic80State);
       // avoid spamming new instances.
       if (JSON.stringify(somaticState) !== JSON.stringify(this.lastKnownSomaticTransportState)) {
          this.lastKnownSomaticTransportState = somaticState;

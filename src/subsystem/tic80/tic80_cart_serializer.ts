@@ -366,6 +366,9 @@ export interface Tic80SerializedSong {
    bakedSong: BakedSong;
    optimizeResult: OptimizeResult;
    preparedSong: PreparedSong;
+   // Identifies everything that affects sequenced playback, while deliberately
+   // excluding instrument/waveform configuration that can be updated live.
+   playbackFingerprint: string;
    //waveformData: Uint8Array;
    //sfxData: Uint8Array;
    //trackData: Uint8Array;
@@ -380,6 +383,29 @@ export interface Tic80SerializedSong {
    //patternData: Uint8Array;
 
    standardBlocksToTransmit: TransmissionBlock[], mapBlocksToTransmit: TransmissionBlock[],
+}
+
+function makePlaybackFingerprint(bakedSong: BakedSong): string {
+   const song = bakedSong.bakedSong;
+   const sequence = song.songOrder.map((orderEntry, orderIndex) => {
+      const patternIndex = clamp(orderEntry.patternIndex | 0, 0, Math.max(0, song.patterns.length - 1));
+      const pattern = song.patterns[patternIndex];
+      const effectiveRows = song.getOrderEffectiveRowCount(orderIndex);
+      const channels = Array.from({length: Tic80Caps.song.audioChannels}, (_, channelIndex) => {
+         const rows = pattern?.getChannel(channelIndex).toData().rows ?? [];
+         return Array.from({length: effectiveRows}, (_, rowIndex) => rows[rowIndex] ?? {});
+      });
+      return {effectiveRows, channels};
+   });
+
+   return JSON.stringify({
+      wantSongLoop: bakedSong.wantSongLoop,
+      transportConversion: bakedSong.transportConversion,
+      tempo: song.tempo,
+      speed: song.speed,
+      rowsPerPattern: song.rowsPerPattern,
+      sequence,
+   });
 }
 
 export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80SerializedSong {
@@ -413,6 +439,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
    return {
       bakedSong,
       preparedSong,
+      playbackFingerprint: makePlaybackFingerprint(bakedSong),
       optimizeResult: {
          ...MakeOptimizeResultEmpty(bakedSong.bakedSong),
          usedPatternColumnCount: preparedSong.patternColumns.length,

@@ -93,6 +93,41 @@ export type BakedSong = {
    };
 };
 
+export type BakedSongPosition = {
+   songPosition: number;
+   rowIndex: number;
+};
+
+// Convert an editor-facing Somatic position back into a position in a baked song.
+// inverse of the position portion of convertTic80MusicStateToSomatic and
+// is used when replacing a playing bake without sending the user back to its start.
+export function getBakedSongPosition(
+   bakedSong: BakedSong,
+   somaticSongPosition: number,
+   somaticRowIndex: number,
+): BakedSongPosition {
+   const conv = bakedSong.transportConversion;
+   const orderCount = bakedSong.bakedSong.songOrder.length;
+   const songPosition = Math.max(
+      0,
+      Math.min((somaticSongPosition | 0) - conv.songOrderOffset, Math.max(0, orderCount - 1)),
+   );
+
+   let rowIndex: number;
+   if (conv.somaticPatternRowLoop) {
+      const loopLength = Math.max(1, conv.somaticPatternRowLoop.loopLength | 0);
+      const relativeRow = (somaticRowIndex | 0) - conv.somaticPatternRowLoop.beginSomaticPatternRow;
+      rowIndex = ((relativeRow % loopLength) + loopLength) % loopLength;
+   } else {
+      rowIndex = (somaticRowIndex | 0) - conv.patternRowOffset;
+   }
+
+   const effectiveRows = bakedSong.bakedSong.getOrderEffectiveRowCount(songPosition);
+   rowIndex = Math.max(0, Math.min(rowIndex, Math.max(0, effectiveRows - 1)));
+
+   return {songPosition, rowIndex};
+}
+
 // basically takes a raw song + playback options (channel muting, loop mode and its dependencies)
 // and outputs a song that bakes in these options, and indicates args to make it play as requested.
 /*

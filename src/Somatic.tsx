@@ -248,7 +248,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     // auto-save to backend + localStorage
     const autoSave = useWriteBehindEffect<Song>(
         async (doc, { signal }) => {
-            await audio.transmit({
+            await audio.transmitEditedSong({
                 song: doc,
                 reason: "auto-save",
                 audibleChannels: editorState.getAudibleChannels(doc),
