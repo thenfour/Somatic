@@ -1792,6 +1792,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                             >
                                                                 {somParamText}
                                                             </td>
+                                                        <td className="pattern-grid-empty-cell"></td>
                                                         </>
                                                     )}
                                                 </React.Fragment>

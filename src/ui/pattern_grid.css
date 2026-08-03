@@ -322,6 +322,11 @@
 }
 
 
+.pattern-grid td.pattern-grid-empty-cell {
+    width:0px; /* padding still exists */
+    background-color: var(--bg);
+}
+
 
 .pattern-grid td.pattern-cell--selected::before {
     content: "";
