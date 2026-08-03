@@ -36,6 +36,30 @@
     color: var(--marker-check);
 }
 
+.marker-icon.pencil-icon {
+    color: var(--marker-pencil);
+}
+
+.marker-icon.flask-icon {
+    color: var(--marker-flask);
+}
+
+.marker-icon.flag-icon {
+    color: var(--marker-flag);
+}
+
+.marker-icon.reject-icon {
+    color: var(--marker-reject);
+}
+
+.marker-icon.circle-plus-icon {
+    color: var(--marker-circle-plus);
+}
+
+.marker-icon.circle-minus-icon {
+    color: var(--marker-circle-minus);
+}
+
 .marker-icon.blank-icon {
     color: var(--marker-blank);
 }

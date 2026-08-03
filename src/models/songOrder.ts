@@ -15,6 +15,13 @@ export const SongOrderMarkerVariantValues = [
    "exclamation",
    "check",
 
+   "pencil",
+   "flask",
+   "flag",
+   "reject",
+   "circlePlus",
+   "circleMinus",
+
    //"up",
 
    "circle1",

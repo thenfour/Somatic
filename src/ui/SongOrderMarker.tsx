@@ -11,10 +11,16 @@ import {
     mdiCardsDiamond,
     mdiCardsSpade,
     mdiCheck,
+    mdiCloseCircleOutline,
     mdiExclamationThick,
+    mdiFlagVariant,
+    mdiFlask,
     mdiHeart,
     mdiHelp,
+    mdiMinusCircle,
+    mdiPencil,
     mdiPlay,
+    mdiPlusCircle,
     mdiStar,
     mdiTrashCanOutline,
 } from "@mdi/js";
@@ -46,6 +52,18 @@ export const SongOrderMarkerValue: React.FC<SongOrderMarkerControlProps> = (prop
                 return <div className="marker-icon exclamation-icon"><Icon path={mdiExclamationThick} size={1} /></div>;
             case "check":
                 return <div className="marker-icon check-icon"><Icon path={mdiCheck} size={1} /></div>;
+            case "pencil":
+                return <div className="marker-icon pencil-icon"><Icon path={mdiPencil} size={1} /></div>;
+            case "flask":
+                return <div className="marker-icon flask-icon"><Icon path={mdiFlask} size={1} /></div>;
+            case "flag":
+                return <div className="marker-icon flag-icon"><Icon path={mdiFlagVariant} size={1} /></div>;
+            case "reject":
+                return <div className="marker-icon reject-icon"><Icon path={mdiCloseCircleOutline} size={1} /></div>;
+            case "circlePlus":
+                return <div className="marker-icon circle-plus-icon"><Icon path={mdiPlusCircle} size={1} /></div>;
+            case "circleMinus":
+                return <div className="marker-icon circle-minus-icon"><Icon path={mdiMinusCircle} size={1} /></div>;
             case "blank":
                 return <div className="marker-icon blank-icon"></div>;
             // case "asterisk":

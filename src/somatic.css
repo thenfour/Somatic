@@ -77,6 +77,12 @@
     --marker-exclamation: #ef7d57;
     --marker-trash: #566c86;
     --marker-check: #a7f070;
+    --marker-pencil: #257179;
+    --marker-flask: #5d275d;
+    --marker-flag: #3b5dc9;
+    --marker-reject: #b13e53;
+    --marker-circle-plus: #38b764;
+    --marker-circle-minus: #ef7d57;
     --marker-blank: #566c86;
     --marker-asterisk: #73eff7;
     --marker-up: #b13e53;
@@ -174,6 +180,12 @@
     --marker-exclamation: #ef7d57;
     --marker-trash: #41a6f6;
     --marker-check: #38b764;
+    --marker-pencil: #73eff7;
+    --marker-flask: #ffcd75;
+    --marker-flag: #41a6f6;
+    --marker-reject: #ef7d57;
+    --marker-circle-plus: #a7f070;
+    --marker-circle-minus: #b13e53;
     --marker-blank: #566c86;
     --marker-asterisk: #73eff7;
     --marker-up: #b13e53;
