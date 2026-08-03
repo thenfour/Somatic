@@ -19,6 +19,10 @@ export type PatternCell = {
    // undefined is full gain (FF).
    volumeU8?: number;
 
+   // Per-channel pan override, 00=left, 80=center, FF=right. Undefined uses
+   // the instrument's base pan.
+   panU8?: number;
+
    // When true, this cell represents a note-off / note-cut event.
    // This is Somatic-level and platform-agnostic.
    noteOff?: boolean;

@@ -10,6 +10,7 @@ export interface EditorStateDto {
    currentInstrument: number;
    editingEnabled: boolean;
    showVolumeColumn: boolean;
+   showPanColumn: boolean;
    showSomaticColumns: boolean;
    patternEditRow: number;
    patternEditChannel: number;
@@ -21,7 +22,7 @@ export interface EditorStateDto {
    lastNonOffLoopMode: LoopMode;
 }
 
-export type SomaticEditorStateColumnType = "note"|"instrument"|"volume"|"command"|"param"|"somaticCommand"|"somaticParam";
+export type SomaticEditorStateColumnType = "note"|"instrument"|"volume"|"pan"|"command"|"param"|"somaticCommand"|"somaticParam";
 
 export class EditorState {
    octave: number;
@@ -29,6 +30,7 @@ export class EditorState {
    currentInstrument: number;
    editingEnabled: boolean;
    showVolumeColumn: boolean;
+   showPanColumn: boolean;
    showSomaticColumns: boolean;
    patternEditRow: number;
    patternEditChannel: number;
@@ -46,6 +48,7 @@ export class EditorState {
       currentInstrument = 0,
       editingEnabled = false,
       showVolumeColumn = true,
+      showPanColumn = true,
       showSomaticColumns = true,
       patternEditRow = 0,
       patternEditChannel = 0,
@@ -61,6 +64,7 @@ export class EditorState {
       this.currentInstrument = currentInstrument;
       this.editingEnabled = CoalesceBoolean(editingEnabled, true);
       this.showVolumeColumn = CoalesceBoolean(showVolumeColumn, true);
+      this.showPanColumn = CoalesceBoolean(showPanColumn, true);
       this.showSomaticColumns = CoalesceBoolean(showSomaticColumns, true);
       this.patternEditRow = clamp(patternEditRow, 0, 63);
       this.patternEditChannel = patternEditChannel;
@@ -94,6 +98,13 @@ export class EditorState {
       this.showVolumeColumn = Boolean(enabled);
       if (!this.showVolumeColumn && this.patternEditColumnType === "volume") {
          this.patternEditColumnType = "instrument";
+      }
+   }
+
+   setShowPanColumn(enabled: boolean) {
+      this.showPanColumn = Boolean(enabled);
+      if (!this.showPanColumn && this.patternEditColumnType === "pan") {
+         this.patternEditColumnType = this.showVolumeColumn ? "volume" : "instrument";
       }
    }
 
@@ -217,6 +228,7 @@ export class EditorState {
          currentInstrument: this.currentInstrument,
          editingEnabled: this.editingEnabled,
          showVolumeColumn: this.showVolumeColumn,
+         showPanColumn: this.showPanColumn,
          showSomaticColumns: this.showSomaticColumns,
          patternEditRow: this.patternEditRow,
          patternEditChannel: this.patternEditChannel,

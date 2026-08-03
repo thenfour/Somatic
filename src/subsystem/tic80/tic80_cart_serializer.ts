@@ -5,7 +5,7 @@ import {modSourceToU8, SomaticEffectKind, SomaticInstrumentWaveEngine, ToWaveEng
 //import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
 import bridgeConfig from "../../../bridge/bridge_config";
 import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../../../bridge/memory_layout";
-import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_EVENT_VOLUME, SomaticPatternExtrasCodec, WaveformMorphGradientCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked,} from "../../../bridge/morphSchema";
+import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_EVENT_PAN, SOMATIC_PATTERN_EVENT_VOLUME, SomaticPatternExtrasCodec, WaveformMorphGradientCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked,} from "../../../bridge/morphSchema";
 import {LoopMode} from "../../audio/backend";
 import {buildCueSheet, type CueSheetEntry, type Song} from "../../models/song";
 import {gTic80AllChannelsAudible, kSomaticPatternCommand, SomaticCaps, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
@@ -205,6 +205,13 @@ function getSomaticPatternExtraEntries(prepared: PreparedSong): SomaticPatternEn
                rowIndex: row,
                eventId: SOMATIC_PATTERN_EVENT_VOLUME,
                paramU8: cell.volumeU8 & 0xff,
+            });
+         }
+         if (cell.panU8 !== undefined) {
+            events.push({
+               rowIndex: row,
+               eventId: SOMATIC_PATTERN_EVENT_PAN,
+               paramU8: cell.panU8 & 0xff,
             });
          }
       }
@@ -726,6 +733,7 @@ local MORPH_HEADER_BYTES = ${MORPH_HEADER_BYTES}
 local MORPH_ENTRY_BYTES = ${MORPH_ENTRY_BYTES}
 local SOMATIC_EXTRA_SONG_HEADER_BYTES = ${SOMATIC_EXTRA_SONG_HEADER_BYTES}
 local SOMATIC_PATTERN_EVENT_VOLUME = ${SOMATIC_PATTERN_EVENT_VOLUME}
+local SOMATIC_PATTERN_EVENT_PAN = ${SOMATIC_PATTERN_EVENT_PAN}
 
 ${emitLuaBitpackPrelude({baseArgName: "base"}).trim()}
 

@@ -327,6 +327,10 @@ do
 				-- 'P': Per-channel pan override (00=left, 80=center, FF=right)
 				ch_pan_override_u8[ch + 1] = cell.paramU8 or 128
 			end
+			if cell and cell.panU8 ~= nil then
+				-- Dedicated pan column takes precedence over a same-row legacy Pxx command.
+				ch_pan_override_u8[ch + 1] = cell.panU8
+			end
 			if cell and cell.volumeU8 ~= nil then
 				ch_volume_scale_u8[ch + 1] = cell.volumeU8
 			end
@@ -409,6 +413,8 @@ do
 				local cell = cells[rowIndex1b] or {}
 				if event.eventId == SOMATIC_PATTERN_EVENT_VOLUME then
 					cell.volumeU8 = event.paramU8
+				elseif event.eventId == SOMATIC_PATTERN_EVENT_PAN then
+					cell.panU8 = event.paramU8
 				else
 					cell.effectId = event.eventId
 					cell.paramU8 = event.paramU8

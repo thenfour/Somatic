@@ -166,6 +166,17 @@ function makeInterpolationAccessors(subsystem: SubsystemBackend): Record<Interpo
             return {...cell, volumeU8: clamped};
          },
       },
+      pan: {
+         min: 0,
+         max: 0xff,
+         read: (cell) => cell.panU8,
+         write: (cell, value) => {
+            const clamped = clamp(Math.round(value), 0, 0xff);
+            if (cell.panU8 === clamped)
+               return null;
+            return {...cell, panU8: clamped};
+         },
+      },
       paramX: {
          min: 0,
          max: 0x0f,

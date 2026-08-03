@@ -24,7 +24,8 @@ export type PatternAdvancedPanelProps = {
 
     onClearNotes: (scope: AdvancedEditScope) => void;
     onClearInstrument: (scope: AdvancedEditScope) => void;
-   onClearVolume: (scope: AdvancedEditScope) => void;
+    onClearVolume: (scope: AdvancedEditScope) => void;
+    onClearPan: (scope: AdvancedEditScope) => void;
     onClearEffect: (scope: AdvancedEditScope) => void;
     onClearParamX: (scope: AdvancedEditScope) => void;
     onClearParamY: (scope: AdvancedEditScope) => void;
@@ -53,7 +54,8 @@ export type AdvancedEditScope = {
 };
 const interpolateOptions = [
     { value: "notes", label: "Notes" },
-   {value: "volume", label: "Volume"},
+    { value: "volume", label: "Volume" },
+    { value: "pan", label: "Pan" },
     { value: "paramX", label: "X" },
     { value: "paramY", label: "Y" },
     { value: "paramXY", label: "XY" },
@@ -72,7 +74,8 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     onInterpolate,
     onClearNotes,
     onClearInstrument,
-   onClearVolume,
+    onClearVolume,
+    onClearPan,
     onClearEffect,
     onClearParamX,
     onClearParamY,
@@ -115,13 +118,21 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
         onClearInstrument(scope);
     };
 
-   const handleClearVolume = () => {
-      onClearVolume(scope);
-   };
+    const handleClearVolume = () => {
+        onClearVolume(scope);
+    };
 
-   const handleInterpolateVolume = () => {
-      onInterpolate("volume", scope);
-   };
+    const handleInterpolateVolume = () => {
+        onInterpolate("volume", scope);
+    };
+
+    const handleClearPan = () => {
+        onClearPan(scope);
+    };
+
+    const handleInterpolatePan = () => {
+        onInterpolate("pan", scope);
+    };
 
     const handleClearEffect = () => {
         onClearEffect(scope);
@@ -320,14 +331,22 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                     </ButtonGroup>
                 </fieldset>
                 <fieldset>
-                <legend>Volume</legend>
-                <ButtonGroup>
-                   <Button onClick={handleClearVolume}>Clear</Button>
-                   <Divider />
-                   <Button onClick={handleInterpolateVolume}>Interpolate</Button>
-                </ButtonGroup>
-             </fieldset>
-             <fieldset>
+                    <legend>Volume</legend>
+                    <ButtonGroup>
+                        <Button onClick={handleClearVolume}>Clear</Button>
+                        <Divider />
+                        <Button onClick={handleInterpolateVolume}>Interpolate</Button>
+                    </ButtonGroup>
+                </fieldset>
+                <fieldset>
+                    <legend>Pan</legend>
+                    <ButtonGroup>
+                        <Button onClick={handleClearPan}>Clear</Button>
+                        <Divider />
+                        <Button onClick={handleInterpolatePan}>Interpolate</Button>
+                    </ButtonGroup>
+                </fieldset>
+                <fieldset>
                     <legend>Param</legend>
                     <ButtonGroup>
                         <Button onClick={handleClearX}>Clear X</Button>

@@ -24,6 +24,7 @@ export const GlobalActions = {
     ToggleOnScreenKeyboard: "ToggleOnScreenKeyboard",
     ToggleAdvancedEditPanel: "ToggleAdvancedEditPanel",
     ToggleVolumeColumn: "ToggleVolumeColumn",
+    TogglePanColumn: "TogglePanColumn",
     ToggleSomaticColumns: "ToggleSomaticColumns",
     TogglePatternEditor: "TogglePatternEditor",
     ToggleCartStatsPanel: "ToggleCartStatsPanel",

@@ -475,6 +475,7 @@
 .pattern-grid td.pan-cell {
     color: var(--cell-pan);
     white-space: nowrap;
+    background-color: #0004;
 }
 
 .pattern-grid td.command-cell {
@@ -483,6 +484,7 @@
 
 .pattern-grid td.somatic-command-cell {
     color: var(--cell-somatic-command);
+    background-color: #0002;
 }
 
 .pattern-grid td.param-cell {
@@ -493,6 +495,7 @@
 .pattern-grid td.somatic-param-cell {
     color: var(--cell-somatic-param);
     white-space: nowrap;
+    background-color: #0002;
 }
 
 .pattern-grid td.pattern-grid-collapsed-somatic {
@@ -504,12 +507,14 @@
     border-right-color: var(--accent);
 }
 
-.pattern-grid td.pattern-grid-collapsed-volume {
+.pattern-grid td.pattern-grid-collapsed-volume,
+.pattern-grid td.pattern-grid-collapsed-pan {
     /* border-right: 4px solid color-mix(in srgb, var(--text) 5%, transparent); */
     border-right: 4px solid #0002;
 }
 
-.pattern-grid td.pattern-grid-collapsed-volume--has-data {
+.pattern-grid td.pattern-grid-collapsed-volume--has-data,
+.pattern-grid td.pattern-grid-collapsed-pan--has-data {
     border-right-color: var(--accent);
 }
 

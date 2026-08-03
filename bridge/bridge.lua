@@ -118,8 +118,9 @@ local OUTBOX = {
 --                      for PLAY_SFX_ON/OFF, low 2 bits used as channel index (0..3).
 -- INBOX.SUSTAIN      : boolean sustain flag for PLAY; signed speed offset ([-4..+3]) for PLAY_SFX_ON.
 -- INBOX.TEMPO        : optional tempo override for PLAY; volume byte for PLAY_SFX_ON.
--- INBOX.SPEED        : optional speed override for PLAY; volume-present flag for PLAY_SFX_ON.
--- INBOX.HOST_ACK     : reserved; currently unused (intended for host log read pointer or similar acknowledgements).
+-- INBOX.SPEED        : optional speed override for PLAY; mix flags for PLAY_SFX_ON
+--                      (bit 0=volume present, bit 1=pan present).
+-- INBOX.HOST_ACK     : pan byte for PLAY_SFX_ON; otherwise reserved.
 -- INBOX + 8..        : reserved; INBOX.MUTEX/SEQ/TOKEN live at offsets 12/13/14 for host->cart mailbox sync.
 
 -- =========================
@@ -353,6 +354,8 @@ local function read_pattern_extra_cells(patternIndex0b)
 				local cell = cells[rowIndex1b] or {}
 				if event.eventId == SOMATIC_PATTERN_EVENT_VOLUME then
 					cell.volumeU8 = event.paramU8
+				elseif event.eventId == SOMATIC_PATTERN_EVENT_PAN then
+					cell.panU8 = event.paramU8
 				else
 					cell.effectId = event.eventId
 					cell.paramU8 = event.paramU8
@@ -619,6 +622,10 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 			elseif cell and cell.effectId == 5 then
 				pendingPanByChannel[ch + 1] = cell.paramU8 or 128
 			end
+			if cell and cell.panU8 ~= nil then
+				-- Dedicated pan column takes precedence over a same-row legacy Pxx command.
+				pendingPanByChannel[ch + 1] = cell.panU8
+			end
 			if cell and cell.volumeU8 ~= nil then
 				pendingVolumeByChannel[ch + 1] = cell.volumeU8
 			end
@@ -717,7 +724,10 @@ local function handle_play_sfx_on()
 	local channel = peek(INBOX.LOOP) & 0x03
 	local speed = peek(INBOX.SUSTAIN) - 4 -- subtract 4 to get signed speed in the requisite range -4..+3
 	local volumeU8 = peek(INBOX.TEMPO)
-	local hasVolumeScale = peek(INBOX.SPEED) ~= 0
+	local mixFlags = peek(INBOX.SPEED)
+	local hasVolumeScale = (mixFlags & 1) ~= 0
+	local panU8 = peek(INBOX.HOST_ACK)
+	local hasPanOverride = (mixFlags & 2) ~= 0
 	-- Clamp to valid ranges for TIC sfx API
 	if note > 95 then
 		note = 95
@@ -737,6 +747,9 @@ local function handle_play_sfx_on()
 	ch_sfx_id[channel + 1] = sfx_id
 	ch_sfx_ticks[channel + 1] = 0
 	ch_pan_override_u8[channel + 1] = nil
+	if hasPanOverride then
+		ch_pan_override_u8[channel + 1] = panU8
+	end
 	ch_volume_scale_u8[channel + 1] = nil
 	if hasVolumeScale then
 		ch_volume_scale_u8[channel + 1] = volumeU8

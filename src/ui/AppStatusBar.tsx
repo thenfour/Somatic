@@ -28,7 +28,7 @@ const COLUMN_DESCRIPTIONS: Record<string, React.ReactNode> = {
     note: 'Note',
     instrument: 'Instrument',
    volume: 'Channel volume gain (00=silent, FF=full; multiplied by instrument volume)',
-   pan: 'Channel pan (00=left, 80=center, FF=right; combined with instrument pan)',
+   pan: 'Channel pan (00=left, 80=center, FF=right; overrides instrument pan)',
    command: <>Effect command <LinkButton href="https://github.com/nesbox/TIC-80/issues/261#issuecomment-566043505">TIC-80 effect reference</LinkButton></>,
    param: <>Effect param <LinkButton href="https://github.com/nesbox/TIC-80/issues/261#issuecomment-566043505">TIC-80 effect reference</LinkButton></>,
    somaticCommand: <>Somatic command <LinkButton href="https://github.com/thenfour/Somatic/wiki">Somatic effect reference</LinkButton></>,

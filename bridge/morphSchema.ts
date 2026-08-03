@@ -105,7 +105,8 @@ export const MorphEntryCodec = C.struct("MorphEntry", [
 // per-feature payload sections.
 
 export const SOMATIC_PATTERN_EVENT_VOLUME = 6;
-export const SOMATIC_PATTERN_EVENTS_PER_COLUMN_MAX = Tic80Caps.pattern.maxRows * 2;
+export const SOMATIC_PATTERN_EVENT_PAN = 7;
+export const SOMATIC_PATTERN_EVENTS_PER_COLUMN_MAX = Tic80Caps.pattern.maxRows * 3;
 
 export const SomaticExtraSongDataHeaderCodec = C.struct("SomaticExtraSongDataHeader", [
    C.field("instrumentEntryCount", C.u8()),
@@ -113,7 +114,7 @@ export const SomaticExtraSongDataHeaderCodec = C.struct("SomaticExtraSongDataHea
 
 export const SomaticPatternEventCodec = C.struct("SomaticPatternEvent", [
    // 0 = none; (UI stores 0-based command indices; we offset by +1 so 0 can mean "none")
-   // 1..5 are the existing Somatic command ids; 6 is the volume column.
+   // 1..5 are the existing Somatic command ids; 6 is volume and 7 is pan.
    C.field("rowIndex", C.u(6)),
    C.field("eventId", C.u(4)),
    C.field("paramU8", C.u8()),

@@ -8,7 +8,7 @@ import {SomaticInstrument} from "../src/models/instruments";
 import {gTic80AllChannelsAudible, kSomaticPatternCommand} from "../src/models/tic80Capabilities";
 import {decodeInstrumentFromBytes66, decodeTrackSpeed, encodeInstrument, encodeTrackSpeed} from "../src/subsystem/tic80/tic80_serialization";
 import {Tic80Constants, Tic80MemoryMap} from "../bridge/memory_layout";
-import {MORPH_ENTRY_BYTES, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_EVENT_VOLUME, SomaticPatternExtrasCodec} from "../bridge/morphSchema";
+import {MORPH_ENTRY_BYTES, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_EVENT_PAN, SOMATIC_PATTERN_EVENT_VOLUME, SomaticPatternExtrasCodec} from "../bridge/morphSchema";
 import {BitReader, MemoryRegion} from "../src/utils/bitpack/bitpack";
 
 const testRequire = createRequire(import.meta.url);
@@ -115,19 +115,20 @@ describe("TIC-80 per-channel panning", () => {
       song.patterns[0].setCell(0, 0, {
          midiNote: 60,
          instrumentIndex: 0,
+         panU8: 32,
          somaticEffect: kSomaticPatternCommand.key.Pan,
          somaticParam: 0,
       });
       song.patterns[0].setCell(1, 0, {
          midiNote: 64,
          instrumentIndex: 0,
-         somaticEffect: kSomaticPatternCommand.key.Pan,
-         somaticParam: 255,
+         panU8: 255,
       });
 
       const cloned = song.clone().instruments[0];
       assert.equal(cloned.pan, 0.25);
       assert.equal(cloned.panLfoDepth, 0.5);
+      assert.equal(song.clone().patterns[0].getCell(0, 0).panU8, 32);
 
       const details = serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible);
       assert.equal(kSomaticPatternCommand.infoByKey.Pan.tic80SerializedValue, 5);
@@ -140,11 +141,14 @@ describe("TIC-80 per-channel panning", () => {
       assert.equal(patternExtras.length, 2, "one Somatic pattern event group per panned channel");
       assert.deepEqual(patternExtras[0], {
          patternIndex: 0,
-         events: [{rowIndex: 0, eventId: 5, paramU8: 0}],
+         events: [
+            {rowIndex: 0, eventId: 5, paramU8: 0},
+            {rowIndex: 0, eventId: SOMATIC_PATTERN_EVENT_PAN, paramU8: 32},
+         ],
       });
       assert.deepEqual(patternExtras[1], {
          patternIndex: 1,
-         events: [{rowIndex: 0, eventId: 5, paramU8: 255}],
+         events: [{rowIndex: 0, eventId: SOMATIC_PATTERN_EVENT_PAN, paramU8: 255}],
       });
 
       assert.match(
@@ -154,6 +158,8 @@ describe("TIC-80 per-channel panning", () => {
       assert.match(details.wholePlayroutineCode, /local\s+engineVolume\s*=\s*peek\(addr\)/);
       assert.match(details.wholePlayroutineCode, /poke\(addr,\s*left\s*\|\s*right\s*<<\s*4\)/);
       assert.match(details.wholePlayroutineCode, /cell\.effectId\s*==\s*5/);
+      assert.match(details.wholePlayroutineCode, /cell\.panU8\s*~=\s*nil/);
+      assert.match(details.wholePlayroutineCode, /ch_pan_override_u8\[ch\s*\+\s*1\]\s*=\s*cell\.panU8/);
       assert.match(details.wholePlayroutineCode, /write_channel_mix\(ch,/);
       assert.match(details.wholePlayroutineCode, /cfg\s+and\s+cfg\.panU8\s+or\s+128/);
 
@@ -211,6 +217,7 @@ describe("TIC-80 per-instrument volume", () => {
          midiNote: 60,
          instrumentIndex: 0,
          volumeU8: 0,
+         panU8: 128,
          somaticEffect: kSomaticPatternCommand.key.Pan,
          somaticParam: 64,
       });
@@ -225,6 +232,7 @@ describe("TIC-80 per-instrument volume", () => {
          events: [
             {rowIndex: 0, eventId: 5, paramU8: 64},
             {rowIndex: 0, eventId: SOMATIC_PATTERN_EVENT_VOLUME, paramU8: 0},
+            {rowIndex: 0, eventId: SOMATIC_PATTERN_EVENT_PAN, paramU8: 128},
             {rowIndex: 4, eventId: SOMATIC_PATTERN_EVENT_VOLUME, paramU8: 255},
          ],
       }]);

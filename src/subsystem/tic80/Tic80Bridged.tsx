@@ -47,7 +47,7 @@ export type Tic80BridgeHandle = {
 };
 
 export type Tic80BridgeTransaction = {
-    playSfx: (opts: { sfxId: number; tic80Note: number; channel: number; speed: number; volumeU8?: number }) => Promise<void>;
+    playSfx: (opts: { sfxId: number; tic80Note: number; channel: number; speed: number; volumeU8?: number; panU8?: number }) => Promise<void>;
     stopSfx: (opts: { channel: number; }) => Promise<void>;
     transmitAndPlay: (opts: {
         data: Tic80SerializedSong,
@@ -383,7 +383,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             return heapRef.current!.slice(start, start + length);
         }
 
-        async function playSfxRaw(opts: { sfxId: number; tic80Note: number; channel: number; speed: number; volumeU8?: number }) {
+        async function playSfxRaw(opts: { sfxId: number; tic80Note: number; channel: number; speed: number; volumeU8?: number; panU8?: number }) {
             const channel = (opts.channel ?? 0) & 0xff;
 
             // sfxId passed in is the somatic-facing instrument id (0-based).
@@ -394,9 +394,12 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             const speed = opts.speed & 0xff;
             const hasVolumeScale = opts.volumeU8 !== undefined;
             const volumeU8 = hasVolumeScale ? (opts.volumeU8! & 0xff) : 0;
+            const hasPanOverride = opts.panU8 !== undefined;
+            const panU8 = hasPanOverride ? (opts.panU8! & 0xff) : 0;
+            const mixFlags = (hasVolumeScale ? 1 : 0) | (hasPanOverride ? 2 : 0);
             const cmd = TicBridge.CMD_PLAY_SFX_ON;
             await sendMailboxCommandRaw(
-                [cmd, sfxId, note, channel, speed, volumeU8, hasVolumeScale ? 1 : 0],
+                [cmd, sfxId, note, channel, speed, volumeU8, mixFlags, panU8],
                 "Play SFX",
             );
         }

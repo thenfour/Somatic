@@ -203,6 +203,14 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
         defaultBindings: [],
     },
 
+    TogglePanColumn: {
+        id: "TogglePanColumn",
+        title: "toggle pan column",
+        description: "show or hide the pan column in the pattern grid.",
+        category: "View",
+        defaultBindings: [],
+    },
+
     ToggleSomaticColumns: {
         id: "ToggleSomaticColumns",
         title: "toggle Somatic columns",

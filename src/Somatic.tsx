@@ -729,6 +729,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("ToggleVolumeColumn", () =>
         updateEditorState((s) => s.setShowVolumeColumn(!s.showVolumeColumn))
     );
+    useActionHandler("TogglePanColumn", () =>
+        updateEditorState((s) => s.setShowPanColumn(!s.showPanColumn))
+    );
     useActionHandler("ToggleSomaticColumns", () =>
         updateEditorState((s) => s.setShowSomaticColumns(!s.showSomaticColumns))
     );
@@ -1079,6 +1082,15 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         shortcut={mgr.getActionBindingLabel("ToggleVolumeColumn")}
                                     >
                                         Volume Column
+                                    </DesktopMenu.Item>
+                                    <DesktopMenu.Item
+                                        checked={editorState.showPanColumn}
+                                        onSelect={() =>
+                                            updateEditorState((s) => s.setShowPanColumn(!s.showPanColumn))
+                                        }
+                                        shortcut={mgr.getActionBindingLabel("TogglePanColumn")}
+                                    >
+                                        Pan Column
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
                                         checked={editorState.showSomaticColumns}
