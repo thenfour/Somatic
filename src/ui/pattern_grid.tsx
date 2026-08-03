@@ -129,15 +129,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             () => analyzePatternPlaybackForGrid(song, safePatternIndex),
             [song, safePatternIndex],
         );
-        const { fxCarryByChannel, kRateRenderSlotConflictByRow } = playbackAnalysis;
+        const { fxCarryByChannel } = playbackAnalysis;
         const rowIssueAnalysis = useMemo(
             () => analyzePatternRowIssues(
                 pattern,
                 song.rowsPerPattern,
                 song.subsystem.channelCount,
-                kRateRenderSlotConflictByRow,
             ),
-            [pattern, song.rowsPerPattern, song.subsystem.channelCount, kRateRenderSlotConflictByRow],
+            [pattern, song.rowsPerPattern, song.subsystem.channelCount],
         );
 
         const fxCarryTooltip = `Effect command state at the end of this pattern (doesn't consider previous patterns)`;
@@ -1613,8 +1612,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const instrument = row.instrumentIndex != null ? song.getInstrument(row.instrumentIndex) : null;
                                             const [instText, instTooltip] = noteCut ? ["", null] : [formatInstrumentLabel(row.instrumentIndex), instrument?.getCaption(row.instrumentIndex!)];//formatInstrument(row.instrumentIndex, song);
                                             const instrumentIsSelected = editorState.currentInstrument != null && row.instrumentIndex === editorState.currentInstrument;
-                                            const instrumentIsKRate = instrument?.isKRateProcessing() || false;
-                                            const krateRenderSlot = instrumentIsKRate ? instrument!.renderWaveformSlot : null;
                                             const cmdText = formatCommand(row.tic80Effect);
                                             const paramText = formatParams(row.tic80EffectX, row.tic80EffectY);
                                             const somCmdText = formatSomaticCommand(row.somaticEffect);
@@ -1797,14 +1794,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                             </td>
                                                         </>
                                                     )}
-                                                    <td className='pattern-grid-krate-render-slot-cell'>
-                                                        {/* show which k-rate render slot if applicable */}
-                                                        {krateRenderSlot === null ? "" : (
-                                                            <Tooltip title={`K-Rate waveform render slot #${krateRenderSlot}`}>
-                                                                <span>{krateRenderSlot}</span>
-                                                            </Tooltip>
-                                                        )}
-                                                    </td>
                                                 </React.Fragment>
                                             );
                                         })}

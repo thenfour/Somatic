@@ -1,8 +1,7 @@
 import {describe, it} from "node:test";
 import assert from "node:assert/strict";
 
-import {analyzePatternPlaybackForGrid, analyzePatternRowIssues, Pattern} from "../src/models/pattern";
-import {Song} from "../src/models/song";
+import {analyzePatternRowIssues, Pattern} from "../src/models/pattern";
 import {kSomaticPatternCommand, kTic80EffectCommand} from "../src/models/tic80Capabilities";
 
 describe("pattern row issues", () => {
@@ -90,37 +89,5 @@ describe("pattern row issues", () => {
 
       assert.equal(analysis.issueRowCount, 1);
       assert.equal(analysis.issuesByRow[2].length, 2);
-   });
-
-   it("treats waveform render-slot conflicts as marker issues", () => {
-      const song = new Song({rowsPerPattern: 8});
-      const pattern = song.patterns[0];
-      song.instruments[0].waveEngine = "pwm";
-      song.instruments[0].renderWaveformSlot = 3;
-      pattern.setCell(0, 0, {midiNote: 60, instrumentIndex: 0});
-      pattern.setCell(1, 0, {midiNote: 60, instrumentIndex: 0});
-      pattern.setCell(0, 1, {noteOff: true});
-      pattern.setCell(1, 1, {noteOff: true});
-
-      const {kRateRenderSlotConflictByRow} = analyzePatternPlaybackForGrid(song, 0);
-      const analysis = analyzePatternRowIssues(
-         pattern,
-         song.rowsPerPattern,
-         song.subsystem.channelCount,
-         kRateRenderSlotConflictByRow,
-      );
-
-      assert.equal(kRateRenderSlotConflictByRow[0], true);
-      assert.equal(kRateRenderSlotConflictByRow[1], false);
-      assert.equal(analysis.issueRowCount, 1);
-      assert.equal(analysis.hasStrongIssues, false);
-      assert.deepEqual(
-         analysis.issuesByRow[0],
-         [{
-            rowIndex: 0,
-            message: "Two or more channels render to the same waveform slot on this row",
-            emphasis: "marker",
-         }],
-      );
    });
 });

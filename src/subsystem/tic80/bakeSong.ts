@@ -440,8 +440,11 @@ export const BakeSong = (args: BakeSongArgs): BakedSong => {
       }
       instrument.waveLoopLength = 0;
       instrument.waveLoopStart = 0;
+      // TIC-80 natively copies the waveform into the channel's sound register before TIC()
+      // Our playroutine replaces it with the rendered k-rate waveform.
+      const placeholderWaveform = instrument.waveEngine === "native" ? instrument.sourceWaveformIndex : 0;
       for (let i = 0; i < Tic80Caps.sfx.envelopeFrameCount; i++) {
-         instrument.waveFrames[i] = instrument.renderWaveformSlot;
+         instrument.waveFrames[i] = placeholderWaveform;
       }
    }
 

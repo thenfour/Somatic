@@ -18,7 +18,7 @@ import {BUILD_INFO, getBridgeCartFilename} from "./buildInfo";
 import bridgeConfig, {BridgeConfig} from "../bridge/bridge_config";
 import {emitLuaBitpackPrelude, emitLuaDecoder} from "../src/utils/bitpack/emitLuaDecoder";
 import {MorphEntryCodec, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_ENTRY_BYTES, SomaticPatternEntryCodec, WaveformMorphGradientCodec,} from "../bridge/morphSchema";
-import {SomaticMemoryLayout, Tic80MemoryMap} from "../bridge/memory_layout";
+import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../bridge/memory_layout";
 import {emitBridgeVersionIconLua} from "./bridgeVersionIcon";
 import {replaceLuaBlock} from "../src/utils/utils";
 
@@ -85,6 +85,9 @@ function generateLuaAutogenBlock(config: BridgeConfig): string {
    lines.push("");
    lines.push("-- Memory Constants (generated from memory_layout.ts)");
    lines.push(`local WAVE_BASE = ${Tic80MemoryMap.Waveforms.address}`);
+   lines.push(`local SOUND_REGISTERS_BASE = ${Tic80MemoryMap.SoundRegisters.address}`);
+   lines.push(`local SOUND_REGISTER_BYTES = ${Tic80Constants.BYTES_PER_SOUND_REGISTER}`);
+   lines.push(`local SOUND_REGISTER_WAVEFORM_OFFSET = ${Tic80Constants.SOUND_REGISTER_WAVEFORM_OFFSET}`);
    lines.push(`local SFX_BASE = ${Tic80MemoryMap.Sfx.address}`);
    lines.push(`local PATTERNS_BASE = ${Tic80MemoryMap.MusicPatterns.address}`);
    lines.push(`local TRACKS_BASE = ${Tic80MemoryMap.MusicTracks.address}`);

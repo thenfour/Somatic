@@ -241,7 +241,6 @@ export function analyzePatternRowIssues(
    pattern: Pattern,
    rowCount: number, // assumed in range.
    channelCount: number,
-   kRateRenderSlotConflictByRow: readonly boolean[] = [],
 ): PatternRowIssueAnalysis {
    const patternEndRow = pattern.getPatternEndRow(rowCount, channelCount);
    const patternEndHasFreeTicEffectSlot = patternEndRow == null ||
@@ -252,14 +251,6 @@ export function analyzePatternRowIssues(
    let hasStrongIssues = false;
    const issuesByRow = Array.from({length: rowCount}, (_, rowIndex) => {
       const issues: PatternRowIssue[] = [];
-
-      if (kRateRenderSlotConflictByRow[rowIndex]) {
-         issues.push({
-            rowIndex,
-            message: "Two or more channels render to the same waveform slot on this row",
-            emphasis: "marker",
-         });
-      }
 
       for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
          const cell = pattern.getCell(channelIndex, rowIndex);
@@ -307,10 +298,6 @@ export type PatternPlaybackAnalysis = {
    // For each channel, leftover effect state at the end of this pattern only
    // (does not consider previous patterns).
    fxCarryByChannel: PatternEffectCarryState[];
-
-   // For each row, whether two or more channels are simultaneously rendering
-   // into the same k-rate waveform slot.
-   kRateRenderSlotConflictByRow: boolean[];
 };
 
 export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number): PatternPlaybackAnalysis {
@@ -319,14 +306,6 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
    const rowCount = song.rowsPerPattern;
    const effectiveRowCount = pattern.getEffectiveRowCount(rowCount, song.subsystem.channelCount);
    const channelCount = song.subsystem.channelCount;
-
-   // Precompute which instruments will actually render into a k-rate waveform slot during playback.
-   // array indexed by instrument index -> slot index or null.
-   const kRateRenderSlotByInstrument: (number|null)[] = song.instruments.map((inst) => {
-      if (!inst.isKRateProcessing())
-         return null;
-      return inst.renderWaveformSlot;
-   });
 
    // Effect carry state per channel.
    const fxCarryByChannel: PatternEffectCarryState[] =
@@ -342,14 +321,7 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
                                                {paramU8: number}>(),
                                          }));
 
-   // init k-rate render slot per channel (for sustaining notes).
-   const activeKRateSlotByChannel: (number|null)[] = Array.from({length: channelCount}, () => null);
-   const kRateRenderSlotConflictByRow: boolean[] = Array.from({length: rowCount}, () => false);
-
    for (let rowIndex = 0; rowIndex < effectiveRowCount; rowIndex++) {
-      // Track conflicts for this row while we update note / effect state.
-      const slotCounts = new Map<number, number>();
-
       for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
          const cell = pattern.getCell(channelIndex, rowIndex);
 
@@ -399,34 +371,10 @@ export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number):
             }
          }
 
-         // K-rate render slot
-         if (isNoteCut(cell)) {
-            // Explicit note cut: end any sustaining note on this channel.
-            activeKRateSlotByChannel[channelIndex] = null;
-         } else if (cell.midiNote) {
-            // New note: update active slot for this channel.
-            const instId = cell.instrumentIndex;
-            if (instId != null) {
-               const slot = kRateRenderSlotByInstrument[instId] ?? null;
-               activeKRateSlotByChannel[channelIndex] = slot;
-            } else {
-               activeKRateSlotByChannel[channelIndex] = null;
-            }
-         }
-
-         const activeSlot = activeKRateSlotByChannel[channelIndex];
-         if (activeSlot != null) {
-            slotCounts.set(activeSlot, (slotCounts.get(activeSlot) ?? 0) + 1);
-         }
-      }
-
-      if (Array.from(slotCounts.values()).some((count) => count >= 2)) {
-         kRateRenderSlotConflictByRow[rowIndex] = true;
       }
    }
 
    return {
       fxCarryByChannel,
-      kRateRenderSlotConflictByRow,
    };
 }

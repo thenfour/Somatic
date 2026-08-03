@@ -181,7 +181,7 @@ do
 		return false
 	end
 
-	local function render_tick_cfg(cfg, instId, ticksPlayed, lfoTicks, effectStrengthScaleU8, lowpassStrengthScaleU8)
+	local function render_tick_cfg(cfg, instId, ch, ticksPlayed, lfoTicks, effectStrengthScaleU8, lowpassStrengthScaleU8)
 		if not cfg_is_k_rate_processing(cfg) then
 			return
 		end
@@ -256,17 +256,7 @@ do
 			apply_lowpass_effect_to_samples(render_out, openness01)
 		end
 		-- END_FEATURE_LOWPASS
-		wave_write_samples(cfg.renderWaveformSlot, render_out)
-	end
-
-	local function prime_render_slot_for_note_on(instId, ch)
-		local cfg = morphMap and morphMap[instId]
-		if cfg_is_k_rate_processing(cfg) then
-			local lt = lfo_ticks_by_sfx[instId] or 0
-			local scaleU8 = ch_effect_strength_scale_u8[ch + 1] or 255
-			local lpScaleU8 = ch_lowpass_strength_scale_u8[ch + 1] or 255
-			render_tick_cfg(cfg, instId, 0, lt, scaleU8, lpScaleU8)
-		end
+		write_channel_waveform(ch, render_out)
 	end
 
 	local function getColumnIndex(songPosition0b, ch)
@@ -326,7 +316,6 @@ do
 				-- note on
 				ch_sfx_id[ch + 1] = inst
 				ch_sfx_ticks[ch + 1] = 0
-				prime_render_slot_for_note_on(inst, ch)
 			end
 		end
 	end
@@ -342,7 +331,7 @@ do
 			local lt = lfo_ticks_by_sfx[instId] or 0
 			local scaleU8 = ch_effect_strength_scale_u8[ch + 1] or 255
 			local lpScaleU8 = ch_lowpass_strength_scale_u8[ch + 1] or 255
-			render_tick_cfg(cfg, instId, ticksPlayed, lt, scaleU8, lpScaleU8)
+			render_tick_cfg(cfg, instId, ch, ticksPlayed, lt, scaleU8, lpScaleU8)
 		end
 		ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 	end

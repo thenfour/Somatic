@@ -186,8 +186,10 @@ local function wave_read_samples(waveIndex, outSamples)
 	end
 end
 
-local function wave_write_samples(waveIndex, samples)
-	local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
+local function write_channel_waveform(channel, samples)
+	local base = SOUND_REGISTERS_BASE
+		+ channel * SOUND_REGISTER_BYTES
+		+ SOUND_REGISTER_WAVEFORM_OFFSET
 	local si = 0
 	for i = 0, WAVE_BYTES_PER_WAVE - 1 do
 		local s0 = clamp_nibble_round(samples[si])

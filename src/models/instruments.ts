@@ -256,7 +256,6 @@ export interface SomaticInstrumentDto {
    waveEngine: SomaticInstrumentWaveEngine;
 
    sourceWaveformIndex: number; // 0-15 (used as morph A for morph engine; used as source for native+effects)
-   renderWaveformSlot: number;  // 0-15 -- which waveform slot to use for live k-rate processing.
 
    // Morph wave engine: a per-instrument gradient of waveforms.
    // When waveEngine != "morph", this should be empty or undefined.
@@ -320,7 +319,6 @@ export class SomaticInstrument {
 
    waveEngine: SomaticInstrumentWaveEngine;
    sourceWaveformIndex: number; // 0-15
-   renderWaveformSlot: number;  // 0-15 -- which waveform slot to use for live k-rate processing. used for PWM as well!
    morphGradientNodes: WaveformMorphGradientNode[];
 
    // editor-only, persisted
@@ -406,7 +404,6 @@ export class SomaticInstrument {
 
       this.waveEngine = coerceWaveEngine(data.waveEngine ?? "native");
       this.sourceWaveformIndex = clamp(data.sourceWaveformIndex ?? 0, 0, Tic80Caps.waveform.count - 1);
-      this.renderWaveformSlot = clamp(data.renderWaveformSlot ?? 15, 0, Tic80Caps.waveform.count - 1);
 
       const rawGradient = data.morphGradientNodes ?? [];
       if (!Array.isArray(rawGradient))
@@ -509,7 +506,6 @@ export class SomaticInstrument {
          pitch16x: this.pitch16x,
          waveEngine: this.waveEngine,
          sourceWaveformIndex: this.sourceWaveformIndex,
-         renderWaveformSlot: this.renderWaveformSlot,
          morphGradientNodes: this.morphGradientNodes.map((n) => ({
                                                             amplitudes: [...n.amplitudes],
                                                             durationSeconds: n.durationSeconds,
@@ -550,7 +546,7 @@ export class SomaticInstrument {
    getCaption(myIndex: number): string {
       const indexString = this.getIndexString(myIndex);
       return `${indexString}: ${this.name}${
-         this.isKRateProcessing() ? ` [K-rate #${this.renderWaveformSlot.toString(16).toUpperCase()}]` : ""}`;
+         this.isKRateProcessing() ? " [K-rate]" : ""}`;
    }
 
    isKRateProcessing(): boolean {
@@ -568,9 +564,6 @@ export class SomaticInstrument {
 
    getUsedWaveformIndices(): Set<number> {
       const usedWaveforms = new Set<number>();
-      if (this.isKRateProcessing()) {
-         usedWaveforms.add(this.renderWaveformSlot);
-      }
       switch (this.waveEngine) {
          case "morph":
             // Morph gradients embed their waveforms per-instrument; they do not consume global TIC-80 waveform slots.
@@ -591,7 +584,6 @@ export class SomaticInstrument {
    }
 
    remapWaveformIndices(waveformRemap: Map<number, number>) {
-      this.renderWaveformSlot = waveformRemap.get(this.renderWaveformSlot) ?? this.renderWaveformSlot;
       this.sourceWaveformIndex = waveformRemap.get(this.sourceWaveformIndex) ?? this.sourceWaveformIndex;
       this.waveFrames = this.waveFrames.map((waveIdx) => {
          return waveformRemap.get(waveIdx) ?? waveIdx;

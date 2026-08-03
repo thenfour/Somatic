@@ -720,11 +720,8 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
 - no k-rate processing = show native waveform envelope
 - else, show source waveform
 
-show render slot if there are k-rate effects enabled
-
 */}
 
-    const showRenderWaveformSlot = instrument.isKRateProcessing();
     const showNativeWaveformEnvelope = !instrument.isKRateProcessing();
     const showSourceWaveform = !showNativeWaveformEnvelope && instrument.waveEngine === 'native';
 
@@ -946,7 +943,7 @@ show render slot if there are k-rate effects enabled
                         {instrument.waveEngine === 'pwm' && (
                             <div>
                                 <div style={{ maxWidth: 520 }}>
-                                    PWM uses the configured waveform slot for live synthesis.
+                            PWM is synthesized at 60 Hz.
                                 </div>
                                 <div style={{ maxWidth: 520, marginTop: 4 }}>
                                     PWM speed is controlled by the instrument LFO rate in the Effects tab;
@@ -970,44 +967,6 @@ show render slot if there are k-rate effects enabled
                                 </div>
                             </div>
                         )}
-
-                        {
-                            showRenderWaveformSlot && (
-
-                                <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: 8 }}>
-                                    <strong>waveform rendering slot</strong>
-                                    <div style={{ maxWidth: 400 }}>
-                                        when doing k-rate processing, we have to render the waveform to a slot.
-                                        note: this means this instrument must be monophonic.
-                                    </div>
-                                    <div style={{ display: "flex", gap: "16px", padding: 8 }}>
-                                        <WaveformSelect
-                                            song={song}
-                                            onClickWaveform={(waveformId) => {
-                                                onSongChange({
-                                                    description: 'Set PWM waveform slot',
-                                                    undoable: true,
-                                                    mutator: (s) => {
-                                                        const inst = s.instruments[instrumentIndex];
-                                                        inst.renderWaveformSlot = waveformId;
-                                                    },
-                                                });
-                                            }}
-                                            getOverlayText={(i) => {
-                                                const isNoise = song.waveforms[i]?.isNoise() ?? false;
-                                                return `${i.toString(16).toUpperCase()}${isNoise ? ' (Noise)' : ''}`;
-                                            }}
-                                            getWaveformDisplayStyle={(waveformId) => {
-                                                if (waveformId === instrument.renderWaveformSlot) {
-                                                    return "selected";
-                                                }
-                                                return "muted";
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            )
-                        }
 
                         {showNativeWaveformEnvelope && (
                             <>

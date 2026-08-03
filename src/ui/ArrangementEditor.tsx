@@ -3,7 +3,7 @@ import type { SomaticTransportState } from "../audio/backend";
 import { SelectionRect2D, useRectSelection2D } from "../hooks/useRectSelection2D";
 import { useWheelNavigator } from "../hooks/useWheelNavigator";
 import { EditorState } from "../models/editor_state";
-import {analyzePatternPlaybackForGrid, analyzePatternRowIssues, Pattern} from "../models/pattern";
+import {analyzePatternRowIssues, Pattern} from "../models/pattern";
 import { formatPatternIndex, Song } from "../models/song";
 import { SongOrderItem } from "../models/songOrder";
 import { SomaticCaps } from "../models/tic80Capabilities";
@@ -628,12 +628,10 @@ export const ArrangementEditor: React.FC<{
       for (const patternIndex of arrangedPatternIndices) {
          const pattern = song.patterns[patternIndex];
          assert(!!pattern, `Pattern at index ${patternIndex} is undefined`);
-         const {kRateRenderSlotConflictByRow} = analyzePatternPlaybackForGrid(song, patternIndex);
          const analysis = analyzePatternRowIssues(
             pattern,
             song.rowsPerPattern,
             song.subsystem.channelCount,
-            kRateRenderSlotConflictByRow,
          );
          if (analysis.issueRowCount > 0) {
             summaries.set(patternIndex, {

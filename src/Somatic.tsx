@@ -357,14 +357,42 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         editorRef.current = editorState;
     }, [editorState]);
 
+   // Live audition must wait for the latest instrument configuration to reach the bridge.
+   // A serial # prevents a delayed note-on from firing after its note-off.
+   const auditionGenerationByNoteRef = React.useRef(new Map<number, number>()); // map note value -> serial
+   const auditionNoteOn = useCallback(
+      (s: Song, instrumentIndex: number, note: number, channel: number) => {
+         const generation = (auditionGenerationByNoteRef.current.get(note) ?? 0) + 1;
+         auditionGenerationByNoteRef.current.set(note, generation);
+         void (async () => {
+            autoSave.enqueue(s);
+            await autoSave.flush();
+            if (auditionGenerationByNoteRef.current.get(note) !== generation) {
+               return;
+            }
+            audio.sfxNoteOn(s, instrumentIndex, note, channel);
+         })();
+      },
+      [audio, autoSave],
+   );
+   const auditionNoteOff = useCallback(
+      (note: number) => {
+         auditionGenerationByNoteRef.current.set(
+            note,
+            (auditionGenerationByNoteRef.current.get(note) ?? 0) + 1,
+         );
+         audio.sfxNoteOff(note);
+      },
+      [audio],
+   );
+
     const handleIncomingNoteOn = useCallback(
         (note: number) => {
             const s = songRef.current;
             const ed = editorRef.current;
             const channel = ed.patternEditChannel;
             const allowPatternNoteEntry = isEditingNoteCell();
-            autoSave.flush(); // immediately apply changes to instrument; user is playing a note maybe testing their tweaks.
-            audio.sfxNoteOn(s, ed.currentInstrument, note, ed.patternEditChannel);
+          auditionNoteOn(s, ed.currentInstrument, note, ed.patternEditChannel);
 
             if (ed.editingEnabled !== false && allowPatternNoteEntry) {
                 const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.activeSongPosition || 0));
@@ -396,15 +424,14 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 });
             }
         },
-        [audio, autoSave, updateSong]
+       [auditionNoteOn, updateSong]
     );
 
     const handleIncomingNoteOff = useCallback(
         (note: number) => {
-            //autoSave.flush();
-            audio.sfxNoteOff(note);
+          auditionNoteOff(note);
         },
-        [audio, autoSave]
+       [auditionNoteOff]
     );
 
     // Register note handlers once for each source (MIDI + keyboard).
@@ -465,13 +492,11 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     // handlers for clicking the keyboard view note on / off
     const handleNoteOn = (midiNote: number) => {
-        autoSave.flush();
-        audio.sfxNoteOn(song, editorState.currentInstrument, midiNote, editorState.patternEditChannel);
+       auditionNoteOn(song, editorState.currentInstrument, midiNote, editorState.patternEditChannel);
     };
 
     const handleNoteOff = (midiNote: number) => {
-        //autoSave.flush();
-        audio.sfxNoteOff(midiNote);
+       auditionNoteOff(midiNote);
     };
 
     const createNewSong = async () => {

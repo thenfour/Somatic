@@ -76,7 +76,6 @@ export const MorphEntryCodec = C.struct("MorphEntry", [
    C.field("instrumentId", C.u8()),
    C.field("waveEngineId", WaveEngineIdCodec),
    C.field("sourceWaveformIndex", C.u(4)),
-   C.field("renderWaveformSlot", C.u(4)),
    // Byte offset (from start of extra-song payload) to WaveformMorphGradient data.
    // 0 means "no gradient".
    C.field("gradientOffsetBytes", C.u(16)),
@@ -146,7 +145,6 @@ export type MorphEntryInput = {
    cfg: {
       waveEngineId: WaveEngineId; //
       sourceWaveformIndex: number;
-      renderWaveformSlot: number;
       pwmDuty5: number;        //
       pwmDepth5: number;       //
       lowpassEnabled: boolean; //
@@ -172,7 +170,6 @@ function flattenEntry(entry: MorphEntryInput): MorphEntryPacked {
       instrumentId: entry.instrumentId,
       waveEngineId: cfg.waveEngineId,
       sourceWaveformIndex: cfg.sourceWaveformIndex,
-      renderWaveformSlot: cfg.renderWaveformSlot,
       gradientOffsetBytes: 0,
       pwmDuty5: cfg.pwmDuty5,
       pwmDepth5: cfg.pwmDepth5,

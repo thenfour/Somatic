@@ -140,7 +140,6 @@ function getMorphMap(song: Song): MorphEntryInput[] {
          instrumentId: instrumentId + 2,
          cfg: {
             sourceWaveformIndex: clamp(inst.sourceWaveformIndex | 0, 0, Tic80Caps.waveform.count - 1),
-            renderWaveformSlot: clamp(inst.renderWaveformSlot | 0, 0, Tic80Caps.waveform.count - 1),
             pwmDuty5: clamp(inst.pwmDuty | 0, 0, 31),
             pwmDepth5: clamp(inst.pwmDepth | 0, 0, 31),
 
@@ -700,6 +699,9 @@ ${cueSheetSection}`;
 
 -- Memory Constants (generated from memory_layout.ts)
 local WAVE_BASE = ${Tic80MemoryMap.Waveforms.address}
+local SOUND_REGISTERS_BASE = ${Tic80MemoryMap.SoundRegisters.address}
+local SOUND_REGISTER_BYTES = ${Tic80Constants.BYTES_PER_SOUND_REGISTER}
+local SOUND_REGISTER_WAVEFORM_OFFSET = ${Tic80Constants.SOUND_REGISTER_WAVEFORM_OFFSET}
 local SFX_BASE = ${Tic80MemoryMap.Sfx.address}
 local PATTERNS_BASE = ${Tic80MemoryMap.MusicPatterns.address}
 local TRACKS_BASE = ${Tic80MemoryMap.MusicTracks.address}

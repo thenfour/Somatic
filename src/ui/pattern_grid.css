@@ -606,20 +606,6 @@
     font-weight: 600;
 }
 
-.pattern-grid .pattern-grid-krate-render-slot-cell {
-    color: var(--accent);
-    font-size: 11px;
-    text-align: center;
-    background-color: var(--bg);
-    width: 13px;
-}
-
-
-/* make sure the higlight borders are allowed to appear on top of the krate render slot column*/
-.pattern-grid .pattern-grid-krate-render-slot-cell {
-    z-index: 1;
-}
-
 .pattern-grid td.pattern-cell--selected,
 .pattern-grid td.metaCellFocus {
     z-index: 2;

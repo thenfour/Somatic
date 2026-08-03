@@ -303,7 +303,6 @@ local function read_sfx_cfg(instrumentId)
 			local cfg = {
 				waveEngineId = entry.waveEngineId,
 				sourceWaveformIndex = entry.sourceWaveformIndex,
-				renderWaveformSlot = entry.renderWaveformSlot,
 				gradientOffsetBytes = entry.gradientOffsetBytes,
 				pwmDuty = entry.pwmDuty5,
 				pwmDepth = entry.pwmDepth5,
@@ -448,7 +447,7 @@ local function render_waveform_samples(cfg, ticksPlayed, instrumentId, lfoTicks,
 	end
 end
 
-local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks, effectStrengthScaleU8, lowpassStrengthScaleU8)
+local function render_tick_cfg(cfg, instrumentId, channel, ticksPlayed, lfoTicks, effectStrengthScaleU8, lowpassStrengthScaleU8)
 	if not cfg_is_k_rate_processing(cfg) then
 		return
 	end
@@ -520,22 +519,7 @@ local function render_tick_cfg(cfg, instrumentId, ticksPlayed, lfoTicks, effectS
 		apply_lowpass_effect_to_samples(render_out, openness01)
 	end
 
-	wave_write_samples(cfg.renderWaveformSlot, render_out)
-end
-
-local function prime_render_slot_for_note_on(instrumentId, ch1)
-	local cfg = read_sfx_cfg(instrumentId)
-	if cfg == nil then
-		return
-	end
-	if not cfg_is_k_rate_processing(cfg) then
-		return
-	end
-	-- Render tick 0 so audio starts with a defined wavetable.
-	local lt = lfo_ticks_by_sfx[instrumentId] or 0
-	local scaleU8 = ch_effect_strength_scale_u8[ch1] or 255
-	local lpScaleU8 = ch_lowpass_strength_scale_u8[ch1] or 255
-	render_tick_cfg(cfg, instrumentId, 0, lt, scaleU8, lpScaleU8)
+	write_channel_waveform(channel, render_out)
 end
 
 local function sfx_tick_channel(channel)
@@ -560,7 +544,7 @@ local function sfx_tick_channel(channel)
 	local lt = lfo_ticks_by_sfx[idx] or 0
 	local scaleU8 = ch_effect_strength_scale_u8[channel + 1] or 255
 	local lpScaleU8 = ch_lowpass_strength_scale_u8[channel + 1] or 255
-	render_tick_cfg(cfg, idx, ticksPlayed, lt, scaleU8, lpScaleU8)
+	render_tick_cfg(cfg, idx, channel, ticksPlayed, lt, scaleU8, lpScaleU8)
 	ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 end
 
@@ -645,7 +629,6 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 			-- note-on
 			ch_sfx_id[ch + 1] = inst
 			ch_sfx_ticks[ch + 1] = 0
-			prime_render_slot_for_note_on(inst, ch + 1)
 		end
 	end
 end
@@ -725,8 +708,6 @@ local function handle_play_sfx_on()
 	-- Track per-channel note state for morphing
 	ch_sfx_id[channel + 1] = sfx_id
 	ch_sfx_ticks[channel + 1] = 0
-	-- Ensure the morph slot is initialized before starting audio.
-	prime_render_slot_for_note_on(sfx_id, channel + 1)
 
 	-- id, note, duration (-1 = sustained), channel 0..3, volume 15, speed 0
 	sfx(sfx_id, note, -1, channel, 15, speed)
