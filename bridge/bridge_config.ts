@@ -1,4 +1,10 @@
-import {RegionForMusicPattern, RegionForSfx, RegionForWaveform, SomaticMemoryLayout, Tic80MemoryMap} from "./memory_layout";
+import {RegionForMusicPattern, RegionForSfx, RegionForWaveform, SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "./memory_layout";
+
+export const TIC80_BRIDGE_SONG_ORDER_CAPACITY = 256;
+const TF_ORDER_LIST_ENTRIES_OFFSET = 1;
+const TF_ORDER_LIST_ROWS_OFFSET =
+   TF_ORDER_LIST_ENTRIES_OFFSET + TIC80_BRIDGE_SONG_ORDER_CAPACITY * Tic80Constants.MUSIC_CHANNELS;
+const TF_PATTERN_DATA_OFFSET = TF_ORDER_LIST_ROWS_OFFSET + TIC80_BRIDGE_SONG_ORDER_CAPACITY;
 
 // IN GENERAL, we can only really use pattern memory for our own use for the playroutines.
 // we cannot make any guarantees about other code in the demo (to live beside playroutines),
@@ -106,11 +112,12 @@ const bridgeConfig = {
       //TILE_BASE: 0x4000,
       TF_ORDER_LIST: Tic80MemoryMap.Map.beginAddress(),
       TF_ORDER_LIST_COUNT: Tic80MemoryMap.Map.addressWithOffset(0),
+      TF_ORDER_LIST_CAPACITY: TIC80_BRIDGE_SONG_ORDER_CAPACITY,
       // song order entries are 4 bytes each (one pattern-column index per channel)
-      TF_ORDER_LIST_ENTRIES: Tic80MemoryMap.Map.addressWithOffset(1), // room for 256 entries * 4 bytes
-      TF_ORDER_LIST_ROWS: Tic80MemoryMap.Map.addressWithOffset(0x401), // room for 256 effective row counts
-      // pattern data begins immediately after 1 + 256*4 bytes of order-list data + 256 row counts
-      TF_PATTERN_DATA: Tic80MemoryMap.Map.addressWithOffset(0x501),
+      TF_ORDER_LIST_ENTRIES: Tic80MemoryMap.Map.addressWithOffset(TF_ORDER_LIST_ENTRIES_OFFSET),
+      TF_ORDER_LIST_ROWS: Tic80MemoryMap.Map.addressWithOffset(TF_ORDER_LIST_ROWS_OFFSET),
+      // pattern data begins after the fixed-capacity entry and effective-row tables.
+      TF_PATTERN_DATA: Tic80MemoryMap.Map.addressWithOffset(TF_PATTERN_DATA_OFFSET),
 
       // Music state snapshot written by TIC-80 runtime
       MUSIC_STATE_TRACK: 0x13ffc,

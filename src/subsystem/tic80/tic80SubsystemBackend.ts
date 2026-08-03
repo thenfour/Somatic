@@ -1,6 +1,6 @@
 import {SomaticInstrument, SomaticInstrumentDto} from "../../models/instruments";
 import {Song, SongDto} from "../../models/song";
-import {Tic80Caps} from "../../models/tic80Capabilities";
+import {SomaticCaps, Tic80Caps} from "../../models/tic80Capabilities";
 import {Tic80Waveform, Tic80WaveformDto} from "../../models/waveform";
 import {IsNullOrWhitespace} from "../../utils/utils";
 import {kSubsystem, SomaticSubsystemBackend, SubsystemTypeKey} from "../base/SubsystemBackendBase";
@@ -70,7 +70,9 @@ export class Tic80SubsystemBackend implements SomaticSubsystemBackend<Song, Song
    maxEditorOctave: number = 8;
    defaultEditorOctave: number = 4;
 
-   maxSongOrder: number = 255; // while tic-80 natively supports 16, Somatic supports 256.
+   // this is the # of orders for somatic to expose. tic-80 internally supports
+   // only 16, but somatic's playroutine supports 255
+   maxSongOrder: number = SomaticCaps.maxSongLength;
 
    initWaveformsAndInstruments(song: Song, data: Partial<SongDto>): void {
       song.instruments = makeInstrumentList(data.instruments || []);

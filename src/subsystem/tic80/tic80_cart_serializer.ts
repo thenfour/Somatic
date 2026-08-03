@@ -18,7 +18,7 @@ import {getSomaticVersionAndCommitString} from "../../utils/versionString";
 import {BakedSong, BakeSong} from "./bakeSong";
 import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "./SongOptimizer";
 import {encodePatternChannelDirect} from "./tic80_pattern_encoding";
-import {PreparedSong, prepareSongColumns} from "./tic80_prepared_song";
+import {encodePreparedSongOrderForBridge, PreparedSong, prepareSongColumns} from "./tic80_prepared_song";
 import {createChunk, encodeSfx, encodeTempo, encodeTrackSpeed, encodeWaveforms, packTrackFrame, packWaveformSamplesToBytes16, removeTrailingZerosFn, stringToAsciiPayload, TicChunkType} from "./tic80_serialization";
 
 
@@ -377,23 +377,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
    const trackData = encodeTrack(bakedSong.bakedSong);
    const extraSongData = encodeExtraSongDataForBridge(bakedSong.bakedSong, preparedSong);
 
-   const songOrderData =
-      new Uint8Array(1 + SomaticCaps.maxSongLength * Tic80Caps.song.audioChannels + SomaticCaps.maxSongLength);
-   const orderRowsOffset = 1 + SomaticCaps.maxSongLength * Tic80Caps.song.audioChannels;
-   songOrderData[0] = preparedSong.songOrder.length;
-   for (let i = 0; i < preparedSong.songOrder.length; i++) {
-      const entry = preparedSong.songOrder[i];
-      const base = 1 + i * Tic80Caps.song.audioChannels;
-      for (let ch = 0; ch < Tic80Caps.song.audioChannels; ch++) {
-         const idx = entry.patternColumnIndices[ch] | 0;
-         assert(idx >= 0 && idx < SomaticCaps.maxPatternCount, `songOrderData: column index out of range: ${idx}`);
-         assert(
-            idx < preparedSong.patternColumns.length,
-            `songOrderData: column index ${idx} >= patternColumns.length ${preparedSong.patternColumns.length}`);
-         songOrderData[base + ch] = idx;
-      }
-      songOrderData[orderRowsOffset + i] = clamp(entry.effectiveRows | 0, 1, bakedSong.bakedSong.rowsPerPattern);
-   }
+   const songOrderData = encodePreparedSongOrderForBridge(preparedSong);
 
    const preparedPatternData = encodePreparedPatternColumns(preparedSong); // separate pattern data for playback use
    const patternData = ch_serializePatterns(preparedPatternData);

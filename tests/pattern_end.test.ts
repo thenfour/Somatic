@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 
 import {Pattern} from "../src/models/pattern";
 import {Song} from "../src/models/song";
-import {kSomaticPatternCommand} from "../src/models/tic80Capabilities";
-import {prepareSongColumns} from "../src/subsystem/tic80/tic80_prepared_song";
+import {kSomaticPatternCommand, SomaticCaps, TicMemoryMap} from "../src/models/tic80Capabilities";
+import {encodePreparedSongOrderForBridge, prepareSongColumns} from "../src/subsystem/tic80/tic80_prepared_song";
 
 describe("Somatic pattern end command", () => {
    it("uses the first Somatic C row as the effective pattern length", () => {
@@ -46,5 +46,13 @@ describe("Somatic pattern end command", () => {
       const prepared = prepareSongColumns(song);
       assert.equal(prepared.songOrder[0].effectiveRows, 4);
       assert.equal(prepared.songOrder[1].effectiveRows, 8);
+
+      const payload = encodePreparedSongOrderForBridge(prepared);
+      const rowsOffset = TicMemoryMap.TF_ORDER_LIST_ROWS - TicMemoryMap.TF_ORDER_LIST;
+      assert.equal(SomaticCaps.maxSongLength, 255);
+      assert.equal(TicMemoryMap.TF_ORDER_LIST_CAPACITY, 256);
+      assert.equal(payload.length, TicMemoryMap.TF_PATTERN_DATA - TicMemoryMap.TF_ORDER_LIST);
+      assert.equal(payload[rowsOffset], 4);
+      assert.equal(payload[rowsOffset + 1], 8);
    });
 });

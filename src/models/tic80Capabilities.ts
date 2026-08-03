@@ -17,6 +17,7 @@ const mem = bridgeConfig.memory;
 
 export const SomaticCaps = {
    maxPatternCount: 256,
+   // count is one byte, so an actual song can contain at most 255 orders.
    maxSongLength: 255,
    maxPatternLengthToBridge: 40000,
    maxSongTitleLength: 200,
@@ -235,11 +236,12 @@ export const TicMemoryMap = {
    LOG_WRITE_PTR_ADDR: parseAddress(mem.OUTBOX_ADDR) + 7,
 
    LOG_BASE: parseAddress(mem.OUTBOX_ADDR) + 16,
-   LOG_SIZE: mem.LOG_SIZE as number,
+   LOG_SIZE: mem.LOG_SIZE,
 
    // NB: IF THIS CHANGES YOU HAVE TO UPDATE maxPatternLengthToBridge IN SomaticCaps
    //TILE_BASE: parseAddress(mem.TILE_BASE),
-   TF_ORDER_LIST: parseAddress(mem.TF_ORDER_LIST), // TILE_BASE: 1 length byte + 256 entries.
+   TF_ORDER_LIST: parseAddress(mem.TF_ORDER_LIST),
+   TF_ORDER_LIST_CAPACITY: mem.TF_ORDER_LIST_CAPACITY,
    TF_ORDER_LIST_ROWS: parseAddress(mem.TF_ORDER_LIST_ROWS),
    TF_PATTERN_DATA: parseAddress(
       mem.TF_PATTERN_DATA), // theoretically you can support the whole tile+sprite+map area for pattern data.
