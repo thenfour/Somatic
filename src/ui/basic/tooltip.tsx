@@ -37,6 +37,10 @@ function rectContainsPoint(rect: Rect, x: number, y: number, pad: number): boole
     );
 }
 
+function containsEventTarget(element: Element, target: EventTarget | null): boolean {
+   return target instanceof Node && element.contains(target);
+}
+
 // Convert engine "top-left rect" back into "anchor coords"
 function rectToLegacyCoords(rect: Rect, side: Side): { top: number; left: number } {
     switch (side) {
@@ -192,7 +196,9 @@ export const Tooltip: React.FC<TooltipProps> = ({
             else if (ref) ref.current = node;
         },
         onMouseEnter: (e: React.MouseEvent) => {
-            if (!disabled) {
+           // React events from portals follow the react tree. only treat
+           // events from the trigger's *physical* DOM subtree as tooltip events
+           if (!disabled && containsEventTarget(e.currentTarget, e.target)) {
                 setCursorPos({ x: e.clientX, y: e.clientY });
                 setOpen(true);
             }
@@ -205,16 +211,35 @@ export const Tooltip: React.FC<TooltipProps> = ({
             }
             childElement.props.onMouseLeave?.(e);
         },
+       onMouseOut: (e: React.MouseEvent) => {
+          // Unlike React's synthetic mouse-leave boundary, this physical DOM
+          // check recognizes moving from the trigger into portaled content.
+          if (!disabled && !containsEventTarget(e.currentTarget, e.relatedTarget)) {
+             setOpen(false);
+             setCursorPos(null);
+          }
+          childElement.props.onMouseOut?.(e);
+       },
         onMouseMove: (e: React.MouseEvent) => {
-            if (!disabled) setCursorPos({ x: e.clientX, y: e.clientY });
+           if (!disabled && containsEventTarget(e.currentTarget, e.target)) {
+              setCursorPos({x: e.clientX, y: e.clientY});
+           }
             childElement.props.onMouseMove?.(e);
         },
         onFocus: (e: React.FocusEvent) => {
-            if (!disabled) setOpen(true);
+           if (!disabled && containsEventTarget(e.currentTarget, e.target)) {
+              setOpen(true);
+           }
             childElement.props.onFocus?.(e);
         },
         onBlur: (e: React.FocusEvent) => {
-            if (!disabled) setOpen(false);
+           if (
+              !disabled &&
+              containsEventTarget(e.currentTarget, e.target) &&
+              !containsEventTarget(e.currentTarget, e.relatedTarget)
+           ) {
+              setOpen(false);
+           }
             childElement.props.onBlur?.(e);
         },
     } as any);
