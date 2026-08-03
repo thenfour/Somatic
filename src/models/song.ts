@@ -98,6 +98,18 @@ export type SomaticBuildMetadata = {
    url: string | null;
 };
 
+export const CueSheetFieldValues = ["pi", "beat", "rows", "icon", "note"] as const;
+export type CueSheetField = typeof CueSheetFieldValues[number];
+
+function normalizeCueSheetFields(fields: unknown): CueSheetField[] {
+   if (!Array.isArray(fields)) {
+      return [...CueSheetFieldValues];
+   }
+
+   const selectedFields = new Set(fields);
+   return CueSheetFieldValues.filter((field) => selectedFields.has(field));
+}
+
 export type SongDto = {
    schemaVersion: number; //
    somaticBuild: SomaticBuildMetadata;
@@ -123,6 +135,7 @@ export type SongDto = {
 
    arrangementThumbnailSize: ArrangementThumbnailSize;
    exportCueSheet?: boolean;
+   cueSheetFields?: CueSheetField[];
 
    releaseMinificationOptions?: OptimizationRuleOptions;
 };
@@ -190,6 +203,7 @@ export class Song {
 
    arrangementThumbnailSize: ArrangementThumbnailSize;
    exportCueSheet: boolean;
+   cueSheetFields: CueSheetField[];
 
    releaseMinificationOptions: OptimizationRuleOptions;
 
@@ -229,6 +243,7 @@ export class Song {
       // Default to showing thumbnails (matches previous behavior).
       this.arrangementThumbnailSize = (data.arrangementThumbnailSize as ArrangementThumbnailSize) ?? "normal";
       this.exportCueSheet = CoalesceBoolean(data.exportCueSheet, true);
+      this.cueSheetFields = normalizeCueSheetFields(data.cueSheetFields);
 
       if (!data.releaseMinificationOptions) {
          console.log(`gonna use default minification options!`);
@@ -253,6 +268,16 @@ export class Song {
 
    setPatternEditStep(value: number) {
       this.patternEditStep = clamp(value, 0, 32);
+   }
+
+   setCueSheetFieldEnabled(field: CueSheetField, enabled: boolean) {
+      const selectedFields = new Set(this.cueSheetFields);
+      if (enabled) {
+         selectedFields.add(field);
+      } else {
+         selectedFields.delete(field);
+      }
+      this.cueSheetFields = CueSheetFieldValues.filter((candidate) => selectedFields.has(candidate));
    }
 
    setRowsPerPattern(value: number) {
@@ -543,6 +568,7 @@ export class Song {
          arrangementThumbnailSize: this.arrangementThumbnailSize,
          releaseMinificationOptions: this.releaseMinificationOptions,
          exportCueSheet: this.exportCueSheet,
+         cueSheetFields: [...this.cueSheetFields],
       };
    }
 
@@ -572,13 +598,13 @@ export class Song {
 }
 
 
-export type CueSheetEntry = {
+export type CueSheetEntry = Partial<{
    icon: string;
    pi: number;
    beat: number;
    rows: number;
    note: string;
-};
+}>;
 
 export function buildCueSheet(song: Song): CueSheetEntry[] | null {
    if (!song.exportCueSheet) {
@@ -586,18 +612,24 @@ export function buildCueSheet(song: Song): CueSheetEntry[] | null {
    }
 
    const entries: CueSheetEntry[] = [];
+   const fields = new Set(song.cueSheetFields);
    const maxPatternIndex = song.patterns.length - 1;
    for (let orderIndex = 0; orderIndex < song.songOrder.length; orderIndex++) {
       const orderItem = song.songOrder[orderIndex]!;
       const patternIndex = clamp(orderItem.patternIndex ?? 0, 0, maxPatternIndex);
       const patternName = song.patterns[patternIndex]?.name ?? "";
-      entries.push({
-         icon: orderItem.markerVariant,
-         pi: patternIndex, // order index != pattern index; this is necessary.
-         beat: song.getAbsRowAtSongPosition(orderIndex, 0) / song.getRowsPerBeat(),
-         rows: song.getOrderEffectiveRowCount(orderIndex),
-         note: patternName,
-      });
+      const entry: CueSheetEntry = {};
+      if (fields.has("pi"))
+         entry.pi = patternIndex; // order index != pattern index; this is necessary.
+      if (fields.has("beat"))
+         entry.beat = song.getAbsRowAtSongPosition(orderIndex, 0) / song.getRowsPerBeat();
+      if (fields.has("rows"))
+         entry.rows = song.getOrderEffectiveRowCount(orderIndex);
+      if (fields.has("icon"))
+         entry.icon = orderItem.markerVariant;
+      if (fields.has("note"))
+         entry.note = patternName;
+      entries.push(entry);
    }
 
    return entries;

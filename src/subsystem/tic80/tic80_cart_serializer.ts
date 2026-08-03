@@ -246,7 +246,18 @@ function buildCueSheetLua(cueSheet: CueSheetEntry[] | null): string {
    const cueSheetEntries = cueSheet;
    for (let orderIndex = 0; orderIndex < cueSheetEntries.length; orderIndex++) {
       const entry = cueSheetEntries[orderIndex]!;
-      entries.push(`\t{ pi = ${entry.pi}, beat = ${entry.beat}, rows = ${entry.rows}, icon = ${toLuaStringLiteral(entry.icon)}, note = ${toLuaStringLiteral(entry.note)} },`);
+      const fields: string[] = [];
+      if (entry.pi !== undefined)
+         fields.push(`pi = ${entry.pi}`);
+      if (entry.beat !== undefined)
+         fields.push(`beat = ${entry.beat}`);
+      if (entry.rows !== undefined)
+         fields.push(`rows = ${entry.rows}`);
+      if (entry.icon !== undefined)
+         fields.push(`icon = ${toLuaStringLiteral(entry.icon)}`);
+      if (entry.note !== undefined)
+         fields.push(`note = ${toLuaStringLiteral(entry.note)}`);
+      entries.push(fields.length > 0 ? `\t{ ${fields.join(", ")} },` : "\t{},");
    }
 
    if (entries.length === 0) {

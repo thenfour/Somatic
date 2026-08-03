@@ -2,8 +2,8 @@ import React from 'react';
 import {Tic80AudioController} from '../audio/controller';
 import {useShortcutManager} from '../keyb/KeyboardShortcutManager';
 import {EditorState} from '../models/editor_state';
-import type {ArrangementThumbnailSize} from '../models/song';
-import {Song} from '../models/song';
+import type {ArrangementThumbnailSize, CueSheetField} from '../models/song';
+import {CueSheetFieldValues, Song} from '../models/song';
 import {SomaticCaps} from '../models/tic80Capabilities';
 import {kSubsystem, SubsystemTypeKey} from '../subsystem/base/SubsystemBackendBase';
 import {clamp} from '../utils/utils';
@@ -20,6 +20,14 @@ type SongEditorProps = {
    onSongChange: (args: {mutator: (song: Song) => void; description: string; undoable: boolean;}) => void;
    onEditorStateChange: (mutator: (state: EditorState) => void) => void;
    audio: Tic80AudioController;
+};
+
+const CueSheetFieldLabels: Record<CueSheetField, string> = {
+   pi: "Pattern index (pi)",
+   beat: "Start beat (beat)",
+   rows: "Row count (rows)",
+   icon: "Arrangement marker (icon)",
+   note: "Pattern name (note)",
 };
 
 export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSongChange, onEditorStateChange, audio}) => {
@@ -199,6 +207,28 @@ export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSong
             >
                Export cue sheet?
             </CheckboxButton>
+            {song.exportCueSheet && (
+               <div style={{marginTop: 8}}>
+                  <div>Fields included in each cue:</div>
+                  <ButtonGroup orientation="vertical" style={{marginTop: 4}}>
+                     {CueSheetFieldValues.map((field) => (
+                        <CheckboxButton
+                           key={field}
+                           checked={song.cueSheetFields.includes(field)}
+                           onChange={(checked) => {
+                              onSongChange({
+                                 description: `${checked ? "Include" : "Exclude"} cue sheet field ${field}`,
+                                 undoable: true,
+                                 mutator: (s) => s.setCueSheetFieldEnabled(field, checked),
+                              });
+                           }}
+                        >
+                           {CueSheetFieldLabels[field]}
+                        </CheckboxButton>
+                     ))}
+                  </ButtonGroup>
+               </div>
+            )}
          </fieldset>
 
          <fieldset>
