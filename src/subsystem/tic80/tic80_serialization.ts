@@ -41,16 +41,8 @@ export function unpackTrackFrame(bytes: Uint8Array, startOffset = 0): [number, n
 
 export function decodeTrackSpeed(byte: number): number {
    const b = byte & 0xff;
-   // Inverse of encodeTrackSpeed (consistent with (S + 6) % 255)
-   if (b === 0)
-      return 6;
-   if (b <= 25)
-      return clamp(b + 6, 1, 31);
-   // 250..254 -> 1..5
-   if (b >= 250)
-      return clamp(b - 249, 1, 31);
-   // Unexpected values: clamp to something reasonable.
-   return clamp((b + 6) % 255, 1, 31);
+   const signedDelta = b >= 0x80 ? b - 0x100 : b;
+   return clamp(signedDelta + 6, 1, 31);
 }
 
 export function decodeRowsPerPattern(byte: number): number {
@@ -96,16 +88,9 @@ export function stringToAsciiPayload(str: string): Uint8Array {
 
 // Encode desired display speed (1..31) into raw S byte for CHUNK_MUSIC
 export function encodeTrackSpeed(displaySpeed: number): number {
-   // ensure integer & clamp to legal range
-   let speed = clamp(displaySpeed, 1, 31);
-
-   // Use the canonical mapping consistent with (S + 6) % 255
-   if (speed === 6)
-      return 0; // default speed
-   if (speed >= 7)
-      return speed - 6; // 7..31 -> 1..25
-   // speed in 1..5
-   return speed + 249; // 1..5 -> 250..254
+   const speed = Math.trunc(clamp(displaySpeed, 1, 31));
+   // TIC-80 stores a signed 8-bit delta from its default speed of 6.
+   return (speed - 6) & 0xff;
 }
 
 // Tempo: decode is T + 150; we do not track tempo, so default 150 -> store 0
