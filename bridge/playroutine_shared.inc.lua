@@ -169,6 +169,7 @@ local ch_sfx_id = { -1, -1, -1, -1 } -- 0-based channel -> sfx id (or -1)
 local ch_sfx_ticks = { 0, 0, 0, 0 } -- 0-based channel -> duration since note-on (ticks)
 local ch_effect_strength_scale_u8 = { 255, 255, 255, 255 } -- per channel (0..3)
 local ch_lowpass_strength_scale_u8 = { 255, 255, 255, 255 } -- per channel (0..3)
+local ch_pan_override_u8 = { nil, nil, nil, nil } -- Pxx override; reset on the next note event
 
 local render_src_a = {}
 local render_src_b = {}
@@ -187,9 +188,7 @@ local function wave_read_samples(waveIndex, outSamples)
 end
 
 local function write_channel_waveform(channel, samples)
-	local base = SOUND_REGISTERS_BASE
-		+ channel * SOUND_REGISTER_BYTES
-		+ SOUND_REGISTER_WAVEFORM_OFFSET
+	local base = SOUND_REGISTERS_BASE + channel * SOUND_REGISTER_BYTES + SOUND_REGISTER_WAVEFORM_OFFSET
 	local si = 0
 	for i = 0, WAVE_BYTES_PER_WAVE - 1 do
 		local s0 = clamp_nibble_round(samples[si])
@@ -222,6 +221,47 @@ local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, 
 		return fallbackT or 0
 	end
 	return clamp01(ticksPlayed / durationTicks)
+end
+
+local function pan_u8_to_n11(panU8)
+	local v = clamp(panU8, 0, 255) - 128
+	if v < 0 then
+		return v / 128
+	end
+	return v / 127
+end
+
+local function write_channel_pan(channel, basePanU8, depthU8, lfoTicks, lfoCycleTicks)
+	local panU8 = ch_pan_override_u8[channel + 1]
+	if panU8 == nil then
+		panU8 = basePanU8 or 128
+	end
+	local pan = pan_u8_to_n11(panU8)
+
+	-- BEGIN_FEATURE_LFO
+	local depth = clamp01((depthU8 or 0) / 255)
+	if depth > 0 and (lfoCycleTicks or 0) > 0 then
+		local lfo = calculate_mod_t(MOD_SRC_LFO, 0, 0, lfoTicks or 0, lfoCycleTicks, 0) * 2 - 1
+		pan = clamp(pan + depth * lfo, -1, 1)
+	end
+	-- END_FEATURE_LFO
+
+	-- Center-preserving balance law: center keeps both sides at their existing gain.
+	local leftGain = 1
+	local rightGain = 1
+	if pan < 0 then
+		rightGain = 1 + pan
+	else
+		leftGain = 1 - pan
+	end
+
+	local addr = STEREO_VOLUME_BASE + channel
+	local engineVolume = peek(addr)
+	local left = engineVolume & 0x0f
+	local right = (engineVolume >> 4) & 0x0f
+	left = math.floor(left * leftGain + 0.5)
+	right = math.floor(right * rightGain + 0.5)
+	poke(addr, left | right << 4)
 end
 
 local function cfg_is_k_rate_processing(cfg)

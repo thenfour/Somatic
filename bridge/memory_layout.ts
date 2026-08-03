@@ -59,7 +59,7 @@ const PATTERN_BUFFER_SIZE = Tic80Constants.BYTES_PER_MUSIC_PATTERN * Tic80Consta
 const LOG_BUFFER_SIZE = 240; // Log buffer for cart->host messages
 
 // SFX configuration storage
-// Worst case: 64 instruments * 14 bytes each = 896 bytes
+// Worst case: 64 instruments * ~14 bytes each = 896 bytes
 // Round up to 1KB for safety and future expansion
 const SOMATIC_SFX_CONFIG_SIZE = 0x400; // 1KB
 

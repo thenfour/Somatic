@@ -271,7 +271,7 @@ do
 		last_music_frame = frame
 		last_music_row = row
 
-		-- Apply Somatic per-pattern extra commands (currently: E param => effect strength scale)
+		-- Apply Somatic per-pattern extra commands.
 		local playingSongOrder = playingSongOrder0b
 		--local orderEntry = SOMATIC_MUSIC_DATA.songOrder[playingSongOrder + 1]
 
@@ -283,7 +283,8 @@ do
 			local columnIndex0b = getColumnIndex(playingSongOrder, ch)
 			local cells = columnIndex0b ~= nil and patternExtra[columnIndex0b] or nil
 			local cell = cells and cells[row + 1] or nil
-			-- effectId: 0=none; 1='E'; 2='L'; 3='F'
+			-- E/F/L affect the currently playing voice. P is applied after the note event below,
+			-- so a note and Pxx on the same row pans the newly triggered voice.
 			if cell and cell.effectId == 1 then
 				-- 'E': Set effect strength scale
 				ch_effect_strength_scale_u8[ch + 1] = cell.paramU8 or 255
@@ -312,10 +313,17 @@ do
 				-- note off
 				ch_sfx_id[ch + 1] = -1
 				ch_sfx_ticks[ch + 1] = 0
+				ch_pan_override_u8[ch + 1] = nil
 			else
 				-- note on
 				ch_sfx_id[ch + 1] = inst
 				ch_sfx_ticks[ch + 1] = 0
+				ch_pan_override_u8[ch + 1] = nil
+			end
+
+			if cell and cell.effectId == 5 then
+				-- 'P': Per-channel pan override (00=left, 80=center, FF=right)
+				ch_pan_override_u8[ch + 1] = cell.paramU8 or 128
 			end
 		end
 	end
@@ -327,12 +335,19 @@ do
 		end
 		local ticksPlayed = ch_sfx_ticks[ch + 1]
 		local cfg = morphMap and morphMap[instId]
+		local lt = lfo_ticks_by_sfx[instId] or 0
 		if cfg_is_k_rate_processing(cfg) then
-			local lt = lfo_ticks_by_sfx[instId] or 0
 			local scaleU8 = ch_effect_strength_scale_u8[ch + 1] or 255
 			local lpScaleU8 = ch_lowpass_strength_scale_u8[ch + 1] or 255
 			render_tick_cfg(cfg, instId, ch, ticksPlayed, lt, scaleU8, lpScaleU8)
 		end
+		write_channel_pan(
+			ch,
+			cfg and cfg.panU8 or 128,
+			cfg and cfg.panLfoDepthU8 or 0,
+			lt,
+			cfg and cfg.lfoCycleTicks12 or 0
+		)
 		ch_sfx_ticks[ch + 1] = ticksPlayed + 1
 	end
 
@@ -561,6 +576,7 @@ do
 			sfx(-1, 0, 0, ch)
 			ch_sfx_id[ch + 1] = -1
 			ch_sfx_ticks[ch + 1] = 0
+			ch_pan_override_u8[ch + 1] = nil
 		end
 	end
 
@@ -959,6 +975,7 @@ do
 		stopPlayingOnNextFrame = false
 		ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
 		ch_lowpass_strength_scale_u8 = { 255, 255, 255, 255 }
+		ch_pan_override_u8 = { nil, nil, nil, nil }
 		lfo_ticks_by_sfx = {}
 		if playbackMuted then
 			clearAllPlaybackBuffers()

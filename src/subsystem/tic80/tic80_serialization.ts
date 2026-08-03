@@ -213,6 +213,7 @@ export function decodeInstrumentFromBytes66(payload: Uint8Array, startOffset = 0
    const baseNote = b61 & 0x0f;
    const stereoLeft = ((b61 >> 4) & 0x01) === 0;
    const stereoRight = ((b61 >> 5) & 0x01) === 0;
+   const pan = stereoLeft === stereoRight ? 0 : (stereoLeft ? -1 : 1);
 
    const waveLoopStart = b62 & 0x0f;
    const waveLoopLength = (b62 >> 4) & 0x0f;
@@ -227,8 +228,7 @@ export function decodeInstrumentFromBytes66(payload: Uint8Array, startOffset = 0
       speed: decodeInstrumentSpeed(speedBits),
       baseNote,
       octave,
-      stereoLeft,
-      stereoRight,
+      pan,
 
       volumeFrames,
       volumeLoopStart,
@@ -329,9 +329,8 @@ export const encodeInstrument = (inst: SomaticInstrument): Uint8Array => {
    out[60] = (octave & 0x07) | (pitch16x << 3) | (speedBits << 4) | (reverse ? 0x80 : 0);
 
    const baseNote = clamp(inst.baseNote ?? 0, 0, 11);
-   const stereoLeft = inst.stereoLeft ? 0 : 1;
-   const stereoRight = inst.stereoRight ? 0 : 1;
-   out[61] = (baseNote & 0x0f) | (stereoLeft << 4) | (stereoRight << 5);
+   // Continuous pan owns stereo placement; TIC-80's native stereo flags always enabled.
+   out[61] = baseNote & 0x0f;
 
    out[62] = packLoop(inst.waveLoopStart, inst.waveLoopLength);
    out[63] = packLoop(inst.volumeLoopStart, inst.volumeLoopLength);

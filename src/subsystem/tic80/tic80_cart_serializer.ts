@@ -102,6 +102,14 @@ function RateInHzToTicks60HzAllowZero(rateHz: number): number {
    return clamp(ticks, 1, 0xffff);
 }
 
+function panN11ToU8(pan: number): number {
+   return clamp(Math.round((clamp(pan ?? 0, -1, 1) + 1) * 0.5 * 0xff), 0, 0xff);
+}
+
+function panLfoDepthToU8(depth: number): number {
+   return clamp(Math.round(clamp(depth ?? 0, 0, 1) * 0xff), 0, 0xff);
+}
+
 // Extract the wave-morphing instrument config from the song.
 function getMorphMap(song: Song): MorphEntryInput[] {
    const entries: MorphEntryInput[] = [];
@@ -113,7 +121,7 @@ function getMorphMap(song: Song): MorphEntryInput[] {
       const waveEngine: SomaticInstrumentWaveEngine = inst.waveEngine;
       const lowpassEnabled = !!inst.lowpassEnabled;
       const effectKind: SomaticEffectKind = inst.effectKind ?? SomaticEffectKind.none;
-      if (!inst.isKRateProcessing())
+      if (!inst.needsPlayroutineConfig())
          continue;
 
       let morphGradientNodes: WaveformMorphGradientNodePacked[]|undefined;
@@ -157,6 +165,8 @@ function getMorphMap(song: Song): MorphEntryInput[] {
 
             waveEngineId: ToWaveEngineId(waveEngine),
             lfoCycleTicks12,
+            panU8: panN11ToU8(inst.pan),
+            panLfoDepthU8: panLfoDepthToU8(inst.panLfoDepth),
          },
          morphGradientNodes,
       });
@@ -702,6 +712,7 @@ local WAVE_BASE = ${Tic80MemoryMap.Waveforms.address}
 local SOUND_REGISTERS_BASE = ${Tic80MemoryMap.SoundRegisters.address}
 local SOUND_REGISTER_BYTES = ${Tic80Constants.BYTES_PER_SOUND_REGISTER}
 local SOUND_REGISTER_WAVEFORM_OFFSET = ${Tic80Constants.SOUND_REGISTER_WAVEFORM_OFFSET}
+local STEREO_VOLUME_BASE = ${Tic80MemoryMap.StereoVolume.address}
 local SFX_BASE = ${Tic80MemoryMap.Sfx.address}
 local PATTERNS_BASE = ${Tic80MemoryMap.MusicPatterns.address}
 local TRACKS_BASE = ${Tic80MemoryMap.MusicTracks.address}

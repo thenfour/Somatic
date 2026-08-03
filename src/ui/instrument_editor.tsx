@@ -147,6 +147,27 @@ const LfoRateConfig: ContinuousParamConfig = {
     format: (v) => `${v.toFixed(2)} Hz`,
 };
 
+const PanConfig: ContinuousParamConfig = {
+    resolutionSteps: 201,
+    default: 0,
+    center: 0,
+    convertTo01: (v) => (v + 1) / 2,
+    convertFrom01: (v01) => v01 * 2 - 1,
+    format: (v) => {
+        if (Math.abs(v) < 0.005) return 'C';
+        return `${Math.round(Math.abs(v) * 100)}% ${v < 0 ? 'L' : 'R'}`;
+    },
+};
+
+const PanLfoDepthConfig: ContinuousParamConfig = {
+    resolutionSteps: 101,
+    default: 0,
+    center: 0,
+    convertTo01: (v) => v,
+    convertFrom01: (v01) => v01,
+    format: (v) => `${Math.round(v * 100)}%`,
+};
+
 // const LoopStartConfig: ContinuousParamConfig = {
 //     resolutionSteps: Tic80Caps.sfx.envelopeFrameCount,
 //     default: 0,
@@ -391,28 +412,6 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
-    const handleStereoLeftChange = (checked: boolean) => {
-        onSongChange({
-            description: 'Toggle stereo left',
-            undoable: true,
-            mutator: (s) => {
-                const inst = s.instruments[instrumentIndex];
-                inst.stereoLeft = checked;
-            },
-        });
-    };
-
-    const handleStereoRightChange = (checked: boolean) => {
-        onSongChange({
-            description: 'Toggle stereo right',
-            undoable: true,
-            mutator: (s) => {
-                const inst = s.instruments[instrumentIndex];
-                inst.stereoRight = checked;
-            },
-        });
-    };
-
     const handleArpeggioReverseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
         onSongChange({
@@ -634,6 +633,26 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
         });
     };
 
+    const setPan = (value: number) => {
+        onSongChange({
+            description: 'Set instrument pan',
+            undoable: true,
+            mutator: (s) => {
+                s.instruments[instrumentIndex].pan = clamp(value, -1, 1);
+            },
+        });
+    };
+
+    const setPanLfoDepth = (value: number) => {
+        onSongChange({
+            description: 'Set pan LFO depth',
+            undoable: true,
+            mutator: (s) => {
+                s.instruments[instrumentIndex].panLfoDepth = clamp(value, 0, 1);
+            },
+        });
+    };
+
     const setLowpassModSource = (source: ModSource) => {
         onSongChange({
             description: 'Set lowpass mod source',
@@ -839,18 +858,23 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                 <Tab thisTabId="volume" summaryTitle="Volume" canBeDefault={true}>
                     <div className="instrument-tab-content">
                         <div className="field-row">
-                            <label>Stereo</label>
                             <ButtonGroup>
-                                <CheckboxButton
-                                    //type="checkbox"
-                                    checked={instrument.stereoLeft}
-                                    onChange={handleStereoLeftChange}
-                                >L</CheckboxButton>
-                                <CheckboxButton
-                                    checked={instrument.stereoRight}
-                                    onChange={handleStereoRightChange}
-                                >R</CheckboxButton>
+                                <ContinuousKnob
+                                    label='pan'
+                                    value={instrument.pan}
+                                    config={PanConfig}
+                                    onChange={setPan}
+                                />
+                                <ContinuousKnob
+                                    label='pan LFO'
+                                    value={instrument.panLfoDepth}
+                                    config={PanLfoDepthConfig}
+                                    onChange={setPanLfoDepth}
+                                />
                             </ButtonGroup>
+                            <span style={{ marginLeft: 8 }}>
+                                Uses the global instrument LFO rate; Pxx overrides the base pan per channel.
+                            </span>
                         </div>
                         <InstrumentEnvelopeEditor
                             title="Volume"

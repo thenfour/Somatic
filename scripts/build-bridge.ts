@@ -88,6 +88,7 @@ function generateLuaAutogenBlock(config: BridgeConfig): string {
    lines.push(`local SOUND_REGISTERS_BASE = ${Tic80MemoryMap.SoundRegisters.address}`);
    lines.push(`local SOUND_REGISTER_BYTES = ${Tic80Constants.BYTES_PER_SOUND_REGISTER}`);
    lines.push(`local SOUND_REGISTER_WAVEFORM_OFFSET = ${Tic80Constants.SOUND_REGISTER_WAVEFORM_OFFSET}`);
+   lines.push(`local STEREO_VOLUME_BASE = ${Tic80MemoryMap.StereoVolume.address}`);
    lines.push(`local SFX_BASE = ${Tic80MemoryMap.Sfx.address}`);
    lines.push(`local PATTERNS_BASE = ${Tic80MemoryMap.MusicPatterns.address}`);
    lines.push(`local TRACKS_BASE = ${Tic80MemoryMap.MusicTracks.address}`);

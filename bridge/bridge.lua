@@ -316,6 +316,8 @@ local function read_sfx_cfg(instrumentId)
 				effectCurveS6 = entry.effectCurveS6,
 				effectModSource = entry.effectModSource,
 				lfoCycleInTicks = entry.lfoCycleTicks12,
+				panU8 = entry.panU8,
+				panLfoDepthU8 = entry.panLfoDepthU8,
 				lowpassModSource = entry.lowpassModSource,
 			}
 
@@ -530,21 +532,19 @@ local function sfx_tick_channel(channel)
 
 	local ticksPlayed = ch_sfx_ticks[channel + 1]
 	local cfg = read_sfx_cfg(idx)
-	if cfg == nil then
-		ch_sfx_ticks[channel + 1] = ticksPlayed + 1
-		return
-	end
-
-	-- Stable pipeline: if not k-rate processing, do nothing.
-	if not cfg_is_k_rate_processing(cfg) then
-		ch_sfx_ticks[channel + 1] = ticksPlayed + 1
-		return
-	end
-
 	local lt = lfo_ticks_by_sfx[idx] or 0
-	local scaleU8 = ch_effect_strength_scale_u8[channel + 1] or 255
-	local lpScaleU8 = ch_lowpass_strength_scale_u8[channel + 1] or 255
-	render_tick_cfg(cfg, idx, channel, ticksPlayed, lt, scaleU8, lpScaleU8)
+	if cfg_is_k_rate_processing(cfg) then
+		local scaleU8 = ch_effect_strength_scale_u8[channel + 1] or 255
+		local lpScaleU8 = ch_lowpass_strength_scale_u8[channel + 1] or 255
+		render_tick_cfg(cfg, idx, channel, ticksPlayed, lt, scaleU8, lpScaleU8)
+	end
+	write_channel_pan(
+		channel,
+		cfg and cfg.panU8 or 128,
+		cfg and cfg.panLfoDepthU8 or 0,
+		lt,
+		cfg and cfg.lfoCycleInTicks or 0
+	)
 	ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 end
 
@@ -584,7 +584,9 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 	last_music_frame = frame
 	last_music_row = row
 
-	-- Apply Somatic per-pattern extra commands: E = effect strength scale, F = lowpass strength scale, L = set LFO phase
+	-- Apply Somatic per-pattern extra commands. P is deferred until after note
+	-- events so Pxx on a note row overrides the newly triggered voice.
+	local pendingPanByChannel = {}
 	local songPosition0b = peek(BRIDGE_CONFIG.memory.MUSIC_STATE_SOMATIC_SONG_POSITION)
 	if songPosition0b ~= nil and songPosition0b ~= 0xFF then
 		local base = ADDR.TF_ORDER_LIST_ENTRIES + songPosition0b * 4
@@ -609,6 +611,8 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 						lfo_ticks_by_sfx[instId] = math.floor((cell.paramU8 or 0) / 255 * cycle)
 					end
 				end
+			elseif cell and cell.effectId == 5 then
+				pendingPanByChannel[ch + 1] = cell.paramU8 or 128
 			end
 		end
 	end
@@ -625,10 +629,16 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 			-- stop/cut/off codes
 			ch_sfx_id[ch + 1] = -1
 			ch_sfx_ticks[ch + 1] = 0
+			ch_pan_override_u8[ch + 1] = nil
 		else
 			-- note-on
 			ch_sfx_id[ch + 1] = inst
 			ch_sfx_ticks[ch + 1] = 0
+			ch_pan_override_u8[ch + 1] = nil
+		end
+		local pendingPan = pendingPanByChannel[ch + 1]
+		if pendingPan ~= nil then
+			ch_pan_override_u8[ch + 1] = pendingPan
 		end
 	end
 end
@@ -708,6 +718,7 @@ local function handle_play_sfx_on()
 	-- Track per-channel note state for morphing
 	ch_sfx_id[channel + 1] = sfx_id
 	ch_sfx_ticks[channel + 1] = 0
+	ch_pan_override_u8[channel + 1] = nil
 
 	-- id, note, duration (-1 = sustained), channel 0..3, volume 15, speed 0
 	sfx(sfx_id, note, -1, channel, 15, speed)
@@ -721,6 +732,7 @@ local function handle_play_sfx_off()
 	sfx(-1, 0, 0, channel)
 	ch_sfx_id[channel + 1] = -1
 	ch_sfx_ticks[channel + 1] = 0
+	ch_pan_override_u8[channel + 1] = nil
 	publish_cmd(CMD_PLAY_SFX_OFF, 0)
 	log(string.format("PLAY_SFX_OFF ch=%d", channel))
 end
@@ -1008,6 +1020,7 @@ tf_music_reset_state = function()
 	loopSongForever = false
 	ch_effect_strength_scale_u8 = { 255, 255, 255, 255 }
 	ch_lowpass_strength_scale_u8 = { 255, 255, 255, 255 }
+	ch_pan_override_u8 = { nil, nil, nil, nil }
 	pattern_extra_cache = {}
 	log("reset_state: Music state reset.")
 	ch_set_playroutine_regs(0xFF)

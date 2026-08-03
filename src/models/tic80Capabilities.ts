@@ -134,6 +134,14 @@ export const kSomaticPatternCommand = defineEnum({
       description: "Cut to next pattern after this row",
       nomivalValue: undefined,
    },
+   Pan: {
+      value: 4,
+      tic80SerializedValue: 5,
+      keyboardShortcut: "p",
+      patternChar: "P",
+      description: "Channel pan (00=left, 80=center, FF=right)",
+      nomivalValue: undefined,
+   },
 });
 
 export type SomaticPatternCommand = typeof kSomaticPatternCommand.$key;

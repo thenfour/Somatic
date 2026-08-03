@@ -228,8 +228,10 @@ export interface SomaticInstrumentDto {
    // 0 = note C, 1 = C#, ... 11 = B.
    baseNote: number;
    octave: number; // 0-7
-   stereoLeft: boolean;
-   stereoRight: boolean;
+   // Continuous balance: -1 = left, 0 = center, +1 = right.
+   pan: number;
+   // Bipolar LFO around the base/overridden pan, 0..1.
+   panLfoDepth: number;
 
    // volume envelope
    volumeFrames: number[];   // volume frames (0-15)
@@ -292,8 +294,8 @@ export class SomaticInstrument {
    speed: number;    // 0-7
    baseNote: number; // 0-15
    octave: number;   // 0-7
-   stereoLeft: boolean;
-   stereoRight: boolean;
+   pan: number;
+   panLfoDepth: number;
 
    // volume envelope
    volumeFrames: Int8Array;  // volume frames (0-15)
@@ -357,8 +359,16 @@ export class SomaticInstrument {
       this.baseNote = clamp(data.baseNote ?? 0, 0, 11);
       this.octave = clamp(data.octave ?? 4, 0, 7);
 
-      this.stereoLeft = CoalesceBoolean(data.stereoLeft, true);
-      this.stereoRight = CoalesceBoolean(data.stereoRight, true);
+      // Load-only compatibility for songs/instrument clipboard data saved before continuous pan.
+      const legacyStereo = data as Partial<SomaticInstrumentDto> & {
+         stereoLeft?: boolean;
+         stereoRight?: boolean;
+      };
+      const legacyLeft = CoalesceBoolean(legacyStereo.stereoLeft, true);
+      const legacyRight = CoalesceBoolean(legacyStereo.stereoRight, true);
+      const legacyPan = legacyLeft === legacyRight ? 0 : (legacyLeft ? -1 : 1);
+      this.pan = clamp(data.pan ?? legacyPan, -1, 1);
+      this.panLfoDepth = clamp(data.panLfoDepth ?? 0, 0, 1);
 
       this.volumeFrames =
          data.volumeFrames ? new Int8Array(data.volumeFrames) : new Int8Array(Tic80Caps.sfx.envelopeFrameCount);
@@ -488,8 +498,8 @@ export class SomaticInstrument {
          speed: this.speed,
          baseNote: this.baseNote,
          octave: this.octave,
-         stereoLeft: this.stereoLeft,
-         stereoRight: this.stereoRight,
+         pan: this.pan,
+         panLfoDepth: this.panLfoDepth,
          volumeFrames: [...this.volumeFrames],
          volumeLoopStart: this.volumeLoopStart,
          volumeLoopLength: this.volumeLoopLength,
@@ -560,6 +570,14 @@ export class SomaticInstrument {
          return true;
       }
       return false;
+   }
+
+   isPanLfoProcessing(): boolean {
+      return this.panLfoDepth > 0 && this.lfoRateHz > 0;
+   }
+
+   needsPlayroutineConfig(): boolean {
+      return this.isKRateProcessing() || this.pan !== 0 || this.isPanLfoProcessing();
    }
 
    getUsedWaveformIndices(): Set<number> {

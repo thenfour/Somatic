@@ -400,7 +400,8 @@ export function OptimizeSong(song: Song): OptimizeResult {
       }
 
       const lfoUsed = inst.lfoRateHz > 0 &&
-         (inst.lowpassModSource === "lfo" || inst.effectModSource === "lfo" || inst.waveEngine === "pwm");
+         (inst.lowpassModSource === "lfo" || inst.effectModSource === "lfo" || inst.waveEngine === "pwm" ||
+          inst.isPanLfoProcessing());
       if (lfoUsed) {
          featureUsage.lfo = true;
       } else {
@@ -454,7 +455,8 @@ export function analyzePlaybackFeatures(song: Song): PlaybackFeatureUsage {
          usage.wavefold = true;
       if (inst.effectKind === SomaticEffectKind.hardSync && inst.effectAmount > 0)
          usage.hardSync = true;
-      const lfoUsed = inst.lfoRateHz > 0 && (inst.lowpassModSource === "lfo" || inst.effectModSource === "lfo");
+      const lfoUsed = inst.lfoRateHz > 0 &&
+         (inst.lowpassModSource === "lfo" || inst.effectModSource === "lfo" || inst.isPanLfoProcessing());
       if (lfoUsed)
          usage.lfo = true;
    });
