@@ -24,6 +24,8 @@ import { CharMap } from '../../utils/utils';
 import { useFocusHistory } from '../basic/restoreFocus';
 import './DesktopMenu.css';
 import { gMenuActionRegistry, MenuActionId } from './DesktopMenuActions';
+import {mdiLaunch} from "@mdi/js";
+import Icon from "@mdi/react";
 
 const MENU_PORTAL_ID = 'desktop-menu-root';
 
@@ -737,7 +739,10 @@ const MenuLinkItem = React.forwardRef<HTMLAnchorElement, MenuLinkItemProps>(
         if (disabled) classes.push('desktop-menu-item--disabled');
         if (inset) classes.push('desktop-menu-item--inset');
 
-        const leading = checked ? CharMap.Check : icon;
+      let leading = checked ? CharMap.Check : icon;
+      if (!leading) {
+         leading = <Icon path={mdiLaunch} size={1} />;
+      }
         const resolvedRel = target === '_blank' ? (rel ?? 'noopener noreferrer') : rel;
 
         return (

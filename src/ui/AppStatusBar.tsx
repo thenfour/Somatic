@@ -1,18 +1,32 @@
-import { useAppStatusBar } from "../hooks/useAppStatusBar";
-import { EditorState } from "../models/editor_state";
-import { formatPatternIndex, Song } from "../models/song";
-import { kSomaticPatternCommand, kTic80EffectCommand } from "../models/tic80Capabilities";
-import { clamp } from "../utils/utils";
+import {mdiLaunch} from "@mdi/js";
+import {useAppStatusBar} from "../hooks/useAppStatusBar";
+import {EditorState} from "../models/editor_state";
+import {formatPatternIndex, Song} from "../models/song";
+import {kSomaticPatternCommand, kTic80EffectCommand} from "../models/tic80Capabilities";
+import {clamp} from "../utils/utils";
+import {IconButton} from "./Buttons/IconButton";
+
+
+const LinkButton: React.FC<{href: string; children: React.ReactNode;}> = ({href, children}) => {
+   const handleClick = () => {
+      window.open(href, "_blank");
+   };
+   return (
+      <IconButton onClick={handleClick} iconPath={mdiLaunch} >
+         {children}
+      </IconButton>
+   );
+};
 
 
 // Column type descriptions
-const COLUMN_DESCRIPTIONS: Record<string, string> = {
+const COLUMN_DESCRIPTIONS: Record<string, React.ReactNode> = {
     note: 'Note',
     instrument: 'Instrument',
-    command: 'Effect command',
-    param: 'Effect param',
-    somaticCommand: 'Somatic command',
-    somaticParam: 'Somatic param',
+   command: <>Effect command <LinkButton href="https://github.com/nesbox/TIC-80/issues/261#issuecomment-566043505">TIC-80 effect reference</LinkButton></>,
+   param: <>Effect param <LinkButton href="https://github.com/nesbox/TIC-80/issues/261#issuecomment-566043505">TIC-80 effect reference</LinkButton></>,
+   somaticCommand: <>Somatic command <LinkButton href="https://github.com/thenfour/Somatic/wiki">Somatic effect reference</LinkButton></>,
+   somaticParam: <>Somatic param <LinkButton href="https://github.com/thenfour/Somatic/wiki">Somatic effect reference</LinkButton></>,
 };
 
 interface AppStatusBarProps {

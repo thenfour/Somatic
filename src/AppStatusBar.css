@@ -26,6 +26,8 @@
 
 .app-status-bar-column {
     color: var(--accent);
+    display:flex;
+    align-items:center;
 }
 
 .app-status-bar-commands {

@@ -1130,6 +1130,17 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             <DesktopMenu.Root>
                                 <DesktopMenu.Trigger caret={false}>Help</DesktopMenu.Trigger>
                                 <DesktopMenu.Content>
+
+                            <DesktopMenu.LinkItem href="https://github.com/nesbox/TIC-80/issues/261#issuecomment-566043505" target="_blank">
+                               TIC-80 Pattern effect reference
+                            </DesktopMenu.LinkItem>
+                            <DesktopMenu.LinkItem href="https://github.com/thenfour/Somatic/wiki" target="_blank">
+                               Somatic pattern effect reference
+                            </DesktopMenu.LinkItem>
+
+
+                            <DesktopMenu.Divider />
+
                                     <DesktopMenu.LinkItem href="https://tic80.com/" target="_blank">
                                         TIC-80 Homepage
                                     </DesktopMenu.LinkItem>
