@@ -3,6 +3,10 @@ import {useAppStatusBar} from "../hooks/useAppStatusBar";
 import {EditorState} from "../models/editor_state";
 import {formatPatternIndex, Song} from "../models/song";
 import {kSomaticPatternCommand, kTic80EffectCommand} from "../models/tic80Capabilities";
+import {
+    describeTic80Effect,
+    formatTic80EffectInsight,
+} from "../subsystem/tic80/tic80_effect_insight";
 import {clamp} from "../utils/utils";
 import {IconButton} from "./Buttons/IconButton";
 
@@ -38,6 +42,11 @@ interface AppStatusBarProps {
     rightContent?: React.ReactNode;
 };
 
+type CommandDescription = {
+    text: string;
+    tooltip?: string;
+};
+
 export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, currentColumnType, onSongChange, onEditorStateChange, rightContent }) => {
     const { currentMessage } = useAppStatusBar();
 
@@ -61,30 +70,33 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
     const columnDesc = currentColumnType ? (COLUMN_DESCRIPTIONS[currentColumnType] || currentColumnType) : '';
 
     // Command descriptions
-    const commandDescParts: string[] = [];
+    const commandDescParts: CommandDescription[] = [];
 
     if (editingCell) {
         // TIC-80 effect command
-        const tic80EffectInfo = kTic80EffectCommand.coerceByKey(editingCell.tic80Effect);
-        if (!!tic80EffectInfo) {
-            const paramX = editingCell.tic80EffectX ?? 0;
-            const paramY = editingCell.tic80EffectY ?? 0;
-            const paramStr = `${paramX.toString(16).toUpperCase()}${paramY.toString(16).toUpperCase()}`;
-            commandDescParts.push(`${tic80EffectInfo.patternChar}${paramStr}: ${tic80EffectInfo.description}`);
+        if (kTic80EffectCommand.isValidKey(editingCell.tic80Effect)) {
+            const noteContext = song.getChannelNoteContext(songPosition, channel, row);
+            const tic80EffectInsight = describeTic80Effect(editingCell, noteContext);
+            if (tic80EffectInsight) {
+                commandDescParts.push({
+                    text: formatTic80EffectInsight(tic80EffectInsight),
+                    tooltip: tic80EffectInsight.warning,
+                });
+            }
         }
 
         // Somatic effect command
         const somaticEffectInfo = kSomaticPatternCommand.coerceByKey(editingCell.somaticEffect);
         if (!!somaticEffectInfo) {
             const paramStr = (editingCell.somaticParam ?? 0).toString(16).toUpperCase().padStart(2, '0');
-            commandDescParts.push(`${somaticEffectInfo.patternChar}${paramStr}: ${somaticEffectInfo.description}`);
+            commandDescParts.push({
+                text: `${somaticEffectInfo.patternChar}${paramStr}: ${somaticEffectInfo.description}`,
+            });
         }
     }
 
     // Build the full status line
     const positionStr = positionParts.join(' | ');
-    const commandStr = commandDescParts.length > 0 ? commandDescParts.join(', ') : '';
-
     // If there's a temporary message from the hook, show that in a separate area
     const displayMessage = currentMessage || '';
 
@@ -95,7 +107,11 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
                 {columnDesc && <span className="app-status-bar-column">{columnDesc}</span>}
             </div>
             <div className="app-status-bar-group app-status-bar-commands">
-                <span>{commandStr}</span>
+                {commandDescParts.map((part, index) => (
+                    <span key={index} title={part.tooltip}>
+                        {index > 0 ? ", " : ""}{part.text}
+                    </span>
+                ))}
             </div>
             <div className="app-status-bar-group app-status-bar-message">
                 <span>{displayMessage}</span>

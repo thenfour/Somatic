@@ -1,4 +1,6 @@
 
+import {Tic80Caps} from "../../models/tic80Capabilities";
+import {clamp} from "../utils";
 import {decodeModPeriod, MOD_FINETUNES, ModDecodedPitch, modMidiFromPeriod, modPeriodFromMidi, PROTRACKER_MIN_MIDI, PROTRACKER_NOTE_COUNT, PROTRACKER_PERIOD_TABLES, ProtrackerFinetune} from "./modMusic";
 import {kPitchClasses, PitchClassInfo} from "./pitchClass";
 import {defaultTicNoteConfig, TicPitch, ticPitchFromMidi} from "./tic80Music";
@@ -129,3 +131,8 @@ export const NoteRegistry = (() => {
 
    return api;
 })();
+
+export function formatTicMidiNote(midiNote: number): string {
+   const clamped = clamp(midiNote, Tic80Caps.pattern.minMidiNote, Tic80Caps.pattern.maxMidiNote);
+   return NoteRegistry.get(clamped)?.labelFixedWidth ?? clamped.toString();
+}

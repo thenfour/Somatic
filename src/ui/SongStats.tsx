@@ -8,7 +8,7 @@ import { useRenderAlarm } from "../hooks/useRenderAlarm";
 import { useWriteBehindEffect } from "../hooks/useWriteBehindEffect";
 import { Song } from "../models/song";
 import { analyzePatternColumns, OptimizeSong, PatternColumnAnalysisResult } from "../subsystem/tic80/SongOptimizer";
-import { compareBuffers, formatBytes } from "../utils/utils";
+import {CharMap, compareBuffers, formatBytes} from "../utils/utils";
 //import { generateAllMemoryMaps } from "../utils/memoryMapStats";
 import { Tic80MemoryMap } from "../../bridge/memory_layout";
 import { MemoryRegion } from "../utils/bitpack/MemoryRegion";
@@ -252,7 +252,7 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                         <div style={{ width: 12, height: 12, background: c.color, borderRadius: 2 }} />
                         <div style={{ flex: 1 }}>{c.name}</div>
                         <div style={{ color: 'var(--muted)', minWidth: 90, textAlign: 'right', display: "flex" }}>
-                            <SizeValue value={c.size} /> · {((c.size / totalSize) * 100).toFixed(1)}%
+                         <SizeValue value={c.size} /> {CharMap.Bullet} {((c.size / totalSize) * 100).toFixed(1)}%
                         </div>
                     </div>
                 ))}

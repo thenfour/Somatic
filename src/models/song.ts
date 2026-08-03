@@ -139,6 +139,24 @@ function getSomaticBuildMetadataForSongSave(): SomaticBuildMetadata {
 
 export type ArrangementThumbnailSize = "off"|"small"|"normal"|"large";
 
+export type SongChannelNoteOccurrence = Readonly<{
+   midiNote: number;
+   songPosition: number;
+   rowIndex: number;
+}>;
+
+export type SongChannelNoteContext = Readonly<{
+   // The note sounding as the row begins, before applying this row's note column.
+   activeBeforeRow?: SongChannelNoteOccurrence;
+
+   // The nominal note after applying this row's note/note-off column. Effect timing
+   // (for example TIC-80 Dxx note delay) is intentionally left to the subsystem.
+   activeAfterNoteColumn?: SongChannelNoteOccurrence;
+   // Describes how activeAfterNoteColumn was resolved.
+   source: "current-cell"|"sustained"|"none";
+   rowReachable: boolean;
+}>;
+
 const makePatternList = (data: PatternDto[]): Pattern[] => {
    const ret = data.map((patternData) => Pattern.fromData(patternData));
    // ensure at least 1 pattern.
@@ -382,6 +400,81 @@ export class Song {
       const safeOrderIndex = clamp(orderIndex | 0, 0, this.songOrder.length - 1);
       const orderItem = this.songOrder[safeOrderIndex];
       return this.getPatternEffectiveRowCount(orderItem.patternIndex);
+   }
+
+   private findActiveNoteBeforeRow(
+      songPosition: number,
+      channelIndex: number,
+      rowIndex: number,
+      ): SongChannelNoteOccurrence|undefined {
+      for (let orderIndex = songPosition; orderIndex >= 0; orderIndex--) {
+         const orderItem = this.songOrder[orderIndex];
+         const pattern = orderItem ? this.patterns[orderItem.patternIndex] : undefined;
+         if (!pattern)
+            continue;
+
+         const effectiveRows = this.getOrderEffectiveRowCount(orderIndex);
+         const rowExclusive = orderIndex === songPosition ? Math.min(rowIndex, effectiveRows) : effectiveRows;
+         for (let candidateRow = rowExclusive - 1; candidateRow >= 0; candidateRow--) {
+            const cell = pattern.getCell(channelIndex, candidateRow);
+            if (isNoteCut(cell))
+               return undefined;
+            if (cell.midiNote !== undefined) {
+               return {
+                  midiNote: cell.midiNote,
+                  songPosition: orderIndex,
+                  rowIndex: candidateRow,
+               };
+            }
+         }
+      }
+      return undefined;
+   }
+
+   getChannelNoteContext(
+      songPosition: number,
+      channelIndex: number,
+      rowIndex: number,
+      ): SongChannelNoteContext {
+      if (this.songOrder.length === 0) {
+         return {source: "none", rowReachable: false};
+      }
+
+      const safeSongPosition = clamp(songPosition | 0, 0, this.songOrder.length - 1);
+      const safeChannelIndex = clamp(channelIndex | 0, 0, Math.max(0, this.subsystem.channelCount - 1));
+      const safeRowIndex = clamp(rowIndex | 0, 0, Math.max(0, this.rowsPerPattern - 1));
+      const orderItem = this.songOrder[safeSongPosition];
+      const pattern = orderItem ? this.patterns[orderItem.patternIndex] : undefined;
+      const activeBeforeRow = this.findActiveNoteBeforeRow(
+         safeSongPosition, safeChannelIndex, safeRowIndex);
+
+      if (!pattern) {
+         return {activeBeforeRow, source: "none", rowReachable: false};
+      }
+
+      const cell = pattern.getCell(safeChannelIndex, safeRowIndex);
+      const rowReachable = safeRowIndex < this.getOrderEffectiveRowCount(safeSongPosition);
+      if (isNoteCut(cell)) {
+         return {activeBeforeRow, source: "none", rowReachable};
+      }
+      if (cell.midiNote !== undefined) {
+         return {
+            activeBeforeRow,
+            activeAfterNoteColumn: {
+               midiNote: cell.midiNote,
+               songPosition: safeSongPosition,
+               rowIndex: safeRowIndex,
+            },
+            source: "current-cell",
+            rowReachable,
+         };
+      }
+      return {
+         activeBeforeRow,
+         activeAfterNoteColumn: activeBeforeRow,
+         source: activeBeforeRow ? "sustained" : "none",
+         rowReachable,
+      };
    }
 
    getAbsRowAtSongPosition(songPosition: number, rowIndex = 0): number {

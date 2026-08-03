@@ -76,7 +76,7 @@ export const kTic80EffectCommand = defineEnum({
       description: "Pitch",
       keyboardShortcut: "p",
       patternChar: "P",
-      nominalX: 0,
+      nominalX: 8,
       nominalY: 0,
    },
    V: {

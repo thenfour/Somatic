@@ -54,7 +54,7 @@ export function RegionForWaveform(waveformIndex: number) {
 const PATTERN_BUFFER_SIZE = Tic80Constants.BYTES_PER_MUSIC_PATTERN * Tic80Constants.MUSIC_CHANNELS; // 768 bytes
 //const PATTERN_BUFFER_COUNT = 2; // Front and back buffers
 
-const LOG_BUFFER_SIZE = 240; // Log buffer for cart→host messages
+const LOG_BUFFER_SIZE = 240; // Log buffer for cart->host messages
 
 // SFX configuration storage
 // Worst case: 64 instruments * 14 bytes each = 896 bytes
