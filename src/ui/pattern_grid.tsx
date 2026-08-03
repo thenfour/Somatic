@@ -1585,10 +1585,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                     : !patternEndHasFreeTicEffectSlot
                                         ? "Somatic C needs one channel without a TIC effect command so playback can synthesize the cut"
                                     : isUnreachableRow
-                                        ? "This row is after the first Somatic C cut and will not play"
-                                        : isPatternEndRow
-                                            ? "Somatic C cuts to the next pattern after this row"
-                                            : "";
+                                         ? "This row is after the first Somatic C cut and will not play"
+                                         : "";
                                 return (
                                     <tr key={rowIndex} className={rowClass}>
                                         <td
