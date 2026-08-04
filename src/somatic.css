@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap");
 
 @font-face {
     font-family: "04b03Regular";
@@ -6,8 +6,8 @@
 }
 
 :root {
-    --ff-mono: 'Roboto Mono', Consolas, 'Courier New', monospace;
-    --ff-tic: '04b03Regular', monospace;
+    --ff-mono: "Roboto Mono", Consolas, "Courier New", monospace;
+    --ff-tic: "04b03Regular", monospace;
 
     --ff-size-1x: 16px;
     --ff-size-1-5x: 20px;
@@ -27,11 +27,6 @@
     --border-strong: #333c57;
     --accent: #a7f070;
     --accent-strong: #3b5dc9;
-    --row-a: #f4f4f4;
-    --row-b: #73eff7;
-    --row-number-a: #94b0c2;
-    --row-number-b: #73eff7;
-    --row-active: #38b764;
     --tooltip-bg: #1a1c2c;
     --tooltip-text: #f4f4f4;
     --success-accent: #38b764;
@@ -39,19 +34,27 @@
     --error-surface-bg: #b13e53;
     --error-surface-text: #ffcd75;
     --error-surface-border: #ef7d57;
+    --row-a: #f4f4f4;
+    --row-b: #566c86;
+    --row-number-a: #94b0c2;
+    --row-number-b: #566c86;
+    --row-active: #38b764;
     --edit-border: #b13e53;
-    --cell-note: #1a1c2c;
-    --cell-instrument: #257179;
-    --cell-command: #5d275d;
-    --cell-param: #257179;
-    --cell-volume: #257179;
-    --cell-pan: #257179;
-    --cell-somatic-command: var(--tic-2);
-    --cell-somatic-param: var(--tic-9);
+    --cell-note: #333c57;
+    --cell-instrument: #333c57;
+    --cell-command: #3b5dc9;
+    --cell-param: #3b5dc9;
+    --cell-volume: #ffcd75;
+    --cell-pan: #a7f070;
+    --cell-somatic-command: #257179;
+    --cell-somatic-param: #257179;
     --keyboard-white-key: #f4f4f4;
     --keyboard-black-key: #333c57;
     --keyboard-white-text: #1a1c2c;
     --keyboard-black-text: #94b0c2;
+    --transport-time-bg: #1a1c2c;
+    --transport-time-fg: #73eff7;
+    --transport-time-fg-subtle: #566c86;
     --waveform-edit-background: #3b5dc9;
     --waveform-edit-grid-line: #29366f;
     --waveform-edit-loop-line: #ffcd75;
@@ -105,9 +108,6 @@
     --marker-diamond: #73eff7;
     --marker-club: #566c86;
     --marker-spade: #333c57;
-    --transport-time-bg: #1a1c2c;
-    --transport-time-fg: #73eff7;
-    --transport-time-fg-subtle: #566c86;
     --arr-thumb-bg: #94b0c2;
     --arr-thumb-fill: #566c86;
     --arr-thumb-highlight: #ef7d57;
@@ -141,11 +141,6 @@
     --border-strong: #566c86;
     --accent: #41a6f6;
     --accent-strong: #73eff7;
-    --row-a: #333c57;
-    --row-b: #5d275d;
-    --row-number-a: #1a1c2c;
-    --row-number-b: #5d275d;
-    --row-active: #38b764;
     --tooltip-bg: #1a1c2c;
     --tooltip-text: #f4f4f4;
     --success-accent: #38b764;
@@ -153,19 +148,27 @@
     --error-surface-bg: #b13e53;
     --error-surface-text: #ffcd75;
     --error-surface-border: #ef7d57;
+    --row-a: #333c57;
+    --row-b: #566c86;
+    --row-number-a: #1a1c2c;
+    --row-number-b: #566c86;
+    --row-active: #38b764;
     --edit-border: #b13e53;
-    --cell-note: #a7f070;
-    --cell-instrument: #38b764;
-    --cell-command: #ffcd75;
-    --cell-param: #ef7d57;
-    --cell-volume: #ef7d57;
-    --cell-pan: #ef7d57;
-    --cell-somatic-command: var(--tic-10);
-    --cell-somatic-param: var(--tic-11);
+    --cell-note: #f4f4f4;
+    --cell-instrument: #f4f4f4;
+    --cell-command: #41a6f6;
+    --cell-param: #41a6f6;
+    --cell-volume: #ffcd75;
+    --cell-pan: #38b764;
+    --cell-somatic-command: #73eff7;
+    --cell-somatic-param: #73eff7;
     --keyboard-white-key: #94b0c2;
     --keyboard-black-key: #1a1c2c;
     --keyboard-white-text: #1a1c2c;
     --keyboard-black-text: #94b0c2;
+    --transport-time-bg: #1a1c2c;
+    --transport-time-fg: #73eff7;
+    --transport-time-fg-subtle: #566c86;
     --waveform-edit-background: #3b5dc9;
     --waveform-edit-grid-line: #29366f;
     --waveform-edit-loop-line: #ffcd75;
@@ -219,9 +222,6 @@
     --marker-diamond: #73eff7;
     --marker-club: #94b0c2;
     --marker-spade: #566c86;
-    --transport-time-bg: #1a1c2c;
-    --transport-time-fg: #73eff7;
-    --transport-time-fg-subtle: #566c86;
     --arr-thumb-bg: #1a1c2c;
     --arr-thumb-fill: #3b5dc9;
     --arr-thumb-highlight: #ef7d57;
@@ -609,10 +609,8 @@ option {
     /* ensure 100% width; prevent widening the page. */
     width: 100%;
     overflow: auto;
-    ;
     box-sizing: border-box;
 }
-
 
 .field-row {
     display: inline-flex;
@@ -717,12 +715,12 @@ option {
     cursor: pointer;
 
     gap: 12px;
-    background:
-        radial-gradient(circle at center,
-            rgba(0, 0, 0, .1) 50%,
-            rgba(0, 0, 0, .2) 75%,
-            rgba(0, 0, 0, .3) 100%);
-
+    background: radial-gradient(
+        circle at center,
+        rgba(0, 0, 0, 0.1) 50%,
+        rgba(0, 0, 0, 0.2) 75%,
+        rgba(0, 0, 0, 0.3) 100%
+    );
 }
 
 .splash-screen h1 {
@@ -788,7 +786,6 @@ option {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25); */
     flex: 0 0 auto;
 }
-
 
 .musicState-panel div.flags {
     display: flex;
@@ -857,7 +854,6 @@ option {
     padding: 8px;
     background: var(--panel-strong);
 }
-
 
 .songStatsPanel.error {
     border-color: var(--error-surface-border);
@@ -955,7 +951,6 @@ legend {
     padding: 0 6px;
 }
 
-
 .editor-state-controls {
     padding: 5px;
     gap: 20px;
@@ -981,7 +976,7 @@ legend {
 .header-song-title {
     padding: 0 12px;
     font-size: 20px;
-    display:flex;
+    display: flex;
     align-items: center;
     gap: 8px;
 }
@@ -995,18 +990,15 @@ legend {
     font-weight: bold;
 }
 
-
 .header-song-title .song-metadata-in-header svg {
-    height:24px;
-    width:24px;
+    height: 24px;
+    width: 24px;
     color: var(--accent);
 }
-
 
 .header-song-title:hover .song-metadata-in-header svg {
     color: var(--text);
 }
-
 
 .div-row {
     display: flex;

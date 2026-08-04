@@ -284,20 +284,26 @@
 .pattern-grid tr.row-section-a:not(.active-row) {
     /* normally we use tic colors directly and unaltered. but the pattern editor has a lot of modes,
     so we make an exception. here we blend --row-a and --bg. */
-    background-color: color-mix(in lab, var(--row-a) var(--row-color-mix), var(--bg) calc(100% - var(--row-color-mix)));
+    /* --row-color-mix: 10%; */
+    /* background-color: color-mix(in lab, var(--row-a) var(--row-color-mix), var(--bg) calc(100% - var(--row-color-mix))); */
     /* background-color: var(--row-a); */
+    /* background-color: var(--bg); */
 }
 
 .pattern-grid tr.row-section-b:not(.active-row) {
+   /* beat highlight row */
+    --row-color-mix: 20%;
     background-color: color-mix(in lab, var(--row-b) var(--row-color-mix), var(--bg) calc(100% - var(--row-color-mix)));
     /* background-color: var(--row-b); */
+    /* background-color: #0003; */
 }
 
 .pattern-grid tr.row-section-a:not(.active-row) .row-number {
-    background-color: color-mix(in lab, var(--row-number-a) var(--row-number-color-mix), var(--bg) calc(100% - var(--row-number-color-mix)));
+    /* background-color: color-mix(in lab, var(--row-number-a) var(--row-number-color-mix), var(--bg) calc(100% - var(--row-number-color-mix))); */
 }
 
 .pattern-grid tr.row-section-b:not(.active-row) .row-number {
+   --row-number-color-mix: 20%;
     background-color: color-mix(in lab, var(--row-number-b) var(--row-number-color-mix), var(--bg) calc(100% - var(--row-number-color-mix)));
 }
 
@@ -469,13 +475,13 @@
 .pattern-grid td.volume-cell {
     color: var(--cell-volume);
     white-space: nowrap;
-    background-color: #0002;
+    /* background-color: #0002; */
 }
 
 .pattern-grid td.pan-cell {
     color: var(--cell-pan);
     white-space: nowrap;
-    background-color: #0004;
+    /* background-color: #0004; */
 }
 
 .pattern-grid td.command-cell {
@@ -484,7 +490,7 @@
 
 .pattern-grid td.somatic-command-cell {
     color: var(--cell-somatic-command);
-    background-color: #0002;
+    /* background-color: #0002; */
 }
 
 .pattern-grid td.param-cell {
@@ -495,7 +501,7 @@
 .pattern-grid td.somatic-param-cell {
     color: var(--cell-somatic-param);
     white-space: nowrap;
-    background-color: #0002;
+    /* background-color: #0002; */
 }
 
 .pattern-grid td.pattern-grid-collapsed-somatic {
@@ -519,7 +525,8 @@
 }
 
 .pattern-grid td.empty-cell {
-    color: var(--muted);
+    /* color: var(--muted); - don't override the natural column's color */
+    opacity: 0.3;
 }
 
 .pattern-grid td.metaCellFocus {
