@@ -2,12 +2,14 @@ import {LoopMode} from "../audio/backend";
 import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {clamp, CoalesceBoolean, numericRange, Rect2D} from "../utils/utils";
 import {Pattern, PatternCell} from "./pattern";
+import {SelectionRange1D, SelectionRange1DDto} from "./selectionRange1D";
 import {Song} from "./song";
 
 export interface EditorStateDto {
    octave: number;
    activeSongPosition: number;
    currentInstrument: number;
+   instrumentOperationRange: SelectionRange1DDto|null;
    editingEnabled: boolean;
    showVolumeColumn: boolean;
    showPanColumn: boolean;
@@ -28,6 +30,7 @@ export class EditorState {
    octave: number;
    activeSongPosition: number;
    currentInstrument: number;
+   instrumentOperationRange: SelectionRange1D|null;
    editingEnabled: boolean;
    showVolumeColumn: boolean;
    showPanColumn: boolean;
@@ -46,6 +49,7 @@ export class EditorState {
       octave = 4,
       activeSongPosition = 0,
       currentInstrument = 0,
+      instrumentOperationRange = null,
       editingEnabled = false,
       showVolumeColumn = true,
       showPanColumn = true,
@@ -61,7 +65,8 @@ export class EditorState {
    }: Partial<EditorStateDto> = {}) {
       this.octave = octave;
       this.activeSongPosition = clamp(activeSongPosition, 0, 255);
-      this.currentInstrument = currentInstrument;
+      this.instrumentOperationRange = instrumentOperationRange ? new SelectionRange1D(instrumentOperationRange) : null;
+      this.currentInstrument = this.instrumentOperationRange?.focus ?? currentInstrument;
       this.editingEnabled = CoalesceBoolean(editingEnabled, true);
       this.showVolumeColumn = CoalesceBoolean(showVolumeColumn, true);
       this.showPanColumn = CoalesceBoolean(showPanColumn, true);
@@ -88,6 +93,18 @@ export class EditorState {
 
    setCurrentInstrument(song: Song, nextInstrument: number) {
       this.currentInstrument = clamp(nextInstrument, 0, song.subsystem.maxInstruments - 1);
+      this.instrumentOperationRange = SelectionRange1D.single(this.currentInstrument);
+   }
+
+   setInstrumentSelection(song: Song, selection: SelectionRange1D|null) {
+      if (!selection) {
+         this.instrumentOperationRange = null;
+         return;
+      }
+      const maxIndex = Math.max(0, Math.min(song.instruments.length, song.subsystem.maxInstruments) - 1);
+      const clamped = selection.withClampedBounds(0, maxIndex);
+      this.instrumentOperationRange = clamped;
+      this.currentInstrument = clamped.focus;
    }
 
    setEditingEnabled(enabled: boolean) {
@@ -226,6 +243,7 @@ export class EditorState {
          octave: this.octave,
          activeSongPosition: this.activeSongPosition,
          currentInstrument: this.currentInstrument,
+         instrumentOperationRange: this.instrumentOperationRange?.toData() ?? null,
          editingEnabled: this.editingEnabled,
          showVolumeColumn: this.showVolumeColumn,
          showPanColumn: this.showPanColumn,

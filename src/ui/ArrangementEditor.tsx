@@ -9,12 +9,14 @@ import {
    mdiTableRowPlusBefore
 } from "@mdi/js";
 import Icon from "@mdi/react";
-import React, {useEffect, useMemo, useRef} from "react";
+import React, {useCallback, useEffect, useMemo, useRef} from "react";
 import type {SomaticTransportState} from "../audio/backend";
-import {SelectionRect2D, useRectSelection2D} from "../hooks/useRectSelection2D";
+import {useContiguousListSelection} from "../hooks/useContiguousListSelection";
+import {SelectionRect2D} from "../hooks/useRectSelection2D";
 import {useWheelNavigator} from "../hooks/useWheelNavigator";
 import {EditorState} from "../models/editor_state";
 import {analyzePatternRowIssues, Pattern} from "../models/pattern";
+import {SelectionRange1D} from "../models/selectionRange1D";
 import {formatPatternIndex, Song} from "../models/song";
 import {SongOrderItem} from "../models/songOrder";
 import {SomaticCaps} from "../models/tic80Capabilities";
@@ -64,9 +66,40 @@ export const ArrangementEditor: React.FC<{
         [maxPositions]
     );
 
+    const focusRow = useCallback((positionIndex: number) => {
+        const target = rowRefs[positionIndex];
+        if (target) target.focus();
+    }, [rowRefs]);
+
+    const arrangementSelection = useMemo(() => {
+        const rect = editorState.selectedArrangementPositions;
+        const anchor = rect?.getAnchorPoint()?.y;
+        const signedHeight = rect?.getSignedSize()?.height;
+        if (anchor === undefined || signedHeight === undefined)
+            return null;
+        return SelectionRange1D.fromSignedSize(anchor, signedHeight);
+    }, [editorState.selectedArrangementPositions]);
+
+    const listSelection = useContiguousListSelection({
+        selection: arrangementSelection,
+        itemCount: song.songOrder.length,
+        focusIndex: focusRow,
+        pageSize: PAGE_SIZE,
+        onChange: (range) => {
+            onEditorStateChange((state) => {
+                state.setArrangementSelection(range ? new SelectionRect2D({
+                    start: {x: 0, y: range.anchor},
+                    size: {width: 1, height: range.signedSize()},
+                }) : null);
+                if (range)
+                    state.setActiveSongPosition(song, range.focus);
+            });
+        },
+    });
+
     // Pending selection/focus to apply after song mutations propagate
     const pendingSelectionRef = useRef<{
-        selection: SelectionRect2D | null;
+        selection: SelectionRange1D | null;
         focusRow: number | null;
     } | null>(null);
 
@@ -77,24 +110,13 @@ export const ArrangementEditor: React.FC<{
             pendingSelectionRef.current = null;
 
             if (pending.selection) {
-                selection2d.setSelection(pending.selection);
+                listSelection.setSelection(pending.selection);
             }
             if (pending.focusRow !== null) {
                 focusRow(pending.focusRow);
             }
         }
     }, [song.songOrder.length]);
-
-    const selection2d = useRectSelection2D({
-        selection: editorState.selectedArrangementPositions,
-        onChange: (rect) => {
-            onEditorStateChange((state) => state.setArrangementSelection(rect));
-        },
-        clampCoord: (coord) => ({
-            x: 0,
-            y: clamp(coord.y, 0, Math.max(0, song.songOrder.length - 1)),
-        }),
-    });
 
     const ensurePatternExists = (s: Song, patternIndex: number) => {
         const target = clamp(patternIndex, 0, maxPatterns - 1);
@@ -104,26 +126,13 @@ export const ArrangementEditor: React.FC<{
         return target;
     };
 
-    useEffect(() => {
-        const sel = editorState.selectedArrangementPositions;
-        if (!sel || sel.isNull()) {
-            return;
-        }
-    }, [editorState.selectedArrangementPositions]);
-
-    const nudgeSelectionAndFocusAnchor = (amt: number) => {
-        const sel = editorState.selectedArrangementPositions;
-        if (!sel || sel.isNull()) return;
-        const newRect = sel.withNudge({ width: 0, height: amt });
-        selection2d.setSelection(newRect);
-        const newFocus = newRect.getAnchorPoint()?.y;
-        if (newFocus != null) {
-            focusRow(newFocus);
-        }
+    const nudgeSelection = (amt: number) => {
+        if (!arrangementSelection) return;
+        listSelection.setSelection(arrangementSelection.withNudge(amt));
     };
 
     // Schedule selection/focus to be applied after song mutation propagates through state
-    const schedulePendingSelection = (selection: SelectionRect2D | null, focusRowIndex: number | null) => {
+    const schedulePendingSelection = (selection: SelectionRange1D | null, focusRowIndex: number | null) => {
         pendingSelectionRef.current = { selection, focusRow: focusRowIndex };
     };
 
@@ -141,10 +150,7 @@ export const ArrangementEditor: React.FC<{
     };
 
     const getSelectionRange = (): number[] => {
-        const sel = editorState.selectedArrangementPositions;
-        if (!sel || sel.isNull()) return [];
-        const ycoords = sel.getAllCells().map(c => c.y);
-        return ycoords;
+        return listSelection.indices;
     };
 
     const changePatternAtPosition = (positionIndex: number, delta: number) => {
@@ -168,9 +174,7 @@ export const ArrangementEditor: React.FC<{
     };
 
     const handleRowMouseDown = (e: React.MouseEvent, positionIndex: number) => {
-        onEditorStateChange((state) => state.setActiveSongPosition(song, positionIndex));
-        selection2d.onCellMouseDown(e, { x: 0, y: positionIndex });
-        focusRow(positionIndex);
+        listSelection.onItemMouseDown(e, positionIndex);
     };
 
     const handleInsertAbove = () => {
@@ -210,7 +214,7 @@ export const ArrangementEditor: React.FC<{
 
         // Schedule selection to new item after song state propagates
         schedulePendingSelection(
-            new SelectionRect2D({ start: { x: 0, y: insertPos }, size: { width: 1, height: 1 } }),
+            SelectionRange1D.single(insertPos),
             insertPos
         );
     };
@@ -235,7 +239,7 @@ export const ArrangementEditor: React.FC<{
         if (!confirmed) return;
 
         // Clear selection
-        selection2d.setSelection(new SelectionRect2D(null));
+        listSelection.setSelection(null);
         // but set keyboard focus back to where you were.
         focusRow(selection[0]);
 
@@ -280,7 +284,7 @@ export const ArrangementEditor: React.FC<{
 
         // Schedule selection to the new repeated items after song state propagates
         schedulePendingSelection(
-            new SelectionRect2D({ start: { x: 0, y: insertPos }, size: { width: 1, height: selectionCount } }),
+            new SelectionRange1D({anchor: insertPos + selectionCount - 1, focus: insertPos}),
             insertPos
         );
     };
@@ -320,7 +324,7 @@ export const ArrangementEditor: React.FC<{
 
         // Schedule selection to the new duplicated items after song state propagates
         schedulePendingSelection(
-            new SelectionRect2D({ start: { x: 0, y: insertPos }, size: { width: 1, height: selectionCount } }),
+            new SelectionRange1D({anchor: insertPos + selectionCount - 1, focus: insertPos}),
             insertPos
         );
     };
@@ -398,9 +402,7 @@ export const ArrangementEditor: React.FC<{
         });
 
         // update selection to follow the moved items.
-        if (editorState.selectedArrangementPositions) {
-            selection2d.setSelection(editorState.selectedArrangementPositions?.withNudge({ width: 0, height: -1 }) || null);
-        }
+        nudgeSelection(-1);
     };
 
     const handleMoveDown = () => {
@@ -421,7 +423,7 @@ export const ArrangementEditor: React.FC<{
             },
         });
         // update selection to follow the moved items.
-        nudgeSelectionAndFocusAnchor(1);
+        nudgeSelection(1);
     };
 
     // const toggleThumbnails = () => {
@@ -440,11 +442,6 @@ export const ArrangementEditor: React.FC<{
         return pat.name;
     };
 
-    const focusRow = (positionIndex: number) => {
-        const target = rowRefs[positionIndex];
-        if (target) target.focus();
-    };
-
     useWheelNavigator(containerRef, (e) => {
         const positionIndex = editorState.activeSongPosition;
         const maxIndex = Math.max(0, song.songOrder.length - 1);
@@ -459,59 +456,14 @@ export const ArrangementEditor: React.FC<{
         } else {
             next = Math.min(maxIndex, positionIndex + 1);
         }
-        selection2d.setSelection(new SelectionRect2D({
-            start: { x: 0, y: next },
-            size: { width: 1, height: 1 },
-        }));
-
-        onEditorStateChange((state) => {
-            state.setActiveSongPosition(song, next);
-        });
-
+        listSelection.selectIndex(next);
         focusRow(next);
     });
 
     const handleKeyDown = (e: React.KeyboardEvent, positionIndex: number) => {
-        const maxIndex = Math.max(0, song.songOrder.length - 1);
+        if (listSelection.onItemKeyDown(e, positionIndex))
+            return;
         switch (e.key) {
-            case 'ArrowUp': {
-                e.preventDefault();
-                const next = Math.max(0, positionIndex - 1);
-                if (e.shiftKey) {
-                    // shift up = nudge selection.
-                    selection2d.nudgeActiveEnd({ delta: { width: 0, height: -1 } });
-                } else {
-                    // no shift = set active position.
-                    selection2d.setSelection(new SelectionRect2D({
-                        start: { x: 0, y: next },
-                        size: { width: 1, height: 1 },
-                    }));
-                }
-                onEditorStateChange((state) => {
-                    state.setActiveSongPosition(song, next);
-                });
-                focusRow(next);
-                break;
-            }
-            case 'ArrowDown': {
-                e.preventDefault();
-                const next = Math.min(maxIndex, positionIndex + 1);
-                if (e.shiftKey) {
-                    // shift down = nudge selection.
-                    selection2d.nudgeActiveEnd({ delta: { width: 0, height: 1 } });
-                } else {
-                    // no shift = set active position.
-                    selection2d.setSelection(new SelectionRect2D({
-                        start: { x: 0, y: next },
-                        size: { width: 1, height: 1 },
-                    }));
-                }
-                onEditorStateChange((state) => {
-                    state.setActiveSongPosition(song, next);
-                });
-                focusRow(next);
-                break;
-            }
             case 'ArrowLeft': {
                 e.preventDefault();
                 changePatternAtPosition(positionIndex, -1);
@@ -520,63 +472,6 @@ export const ArrangementEditor: React.FC<{
             case 'ArrowRight': {
                 e.preventDefault();
                 changePatternAtPosition(positionIndex, 1);
-                break;
-            }
-            case 'Home': {
-                e.preventDefault();
-                if (e.shiftKey) {
-                    selection2d.setEnd({ x: 0, y: 0 });
-                    return;
-                }
-                const next = 0;
-                selection2d.setSelection(new SelectionRect2D({
-                    start: { x: 0, y: next },
-                    size: { width: 1, height: 1 },
-                }));
-                break;
-            }
-            case 'End': {
-                e.preventDefault();
-                if (e.shiftKey) {
-                    selection2d.setEnd({ x: 0, y: maxIndex });
-                    return;
-                }
-                const next = maxIndex;
-                selection2d.setSelection(new SelectionRect2D({
-                    start: { x: 0, y: next },
-                    size: { width: 1, height: 1 },
-                }));
-                break;
-            }
-            // page up / down will move by 4
-            case 'PageUp': {
-                e.preventDefault();
-                const next = Math.max(0, positionIndex - PAGE_SIZE);
-                if (e.shiftKey) {
-                    selection2d.nudgeActiveEnd({ delta: { width: 0, height: -PAGE_SIZE } });
-                    focusRow(next);
-                    return;
-                }
-                selection2d.setSelection(new SelectionRect2D({
-                    start: { x: 0, y: next },
-                    size: { width: 1, height: 1 },
-                }));
-                focusRow(next);
-                break;
-            }
-            case 'PageDown': {
-                e.preventDefault();
-                const next = Math.min(maxIndex, positionIndex + PAGE_SIZE);
-                if (e.shiftKey) {
-                    selection2d.nudgeActiveEnd({ delta: { width: 0, height: PAGE_SIZE } });
-                    focusRow(next);
-                    return;
-                }
-                selection2d.setSelection(new SelectionRect2D({
-                    start: { x: 0, y: next },
-                    size: { width: 1, height: 1 },
-                }));
-                focusRow(next);
                 break;
             }
             case 'Delete':
@@ -662,8 +557,7 @@ export const ArrangementEditor: React.FC<{
                       ? `Contains issues on ${issueRowCount} pattern ${issueRowCount === 1 ? "row" : "rows"}`
                       : "";
                     const isSelected = editorState.activeSongPosition === positionIndex;
-                    const sel = editorState.selectedArrangementPositions;
-                    const isInSelection = sel?.includesCoord({ x: 0, y: positionIndex }) || false;
+                    const isInSelection = listSelection.includes(positionIndex);
                     const isPlaying = activeSongPosition === positionIndex;
                     const canDelete = song.songOrder.length > 1;
                     const isMatchingCursorPattern = cursorPatternIndex !== undefined && clampedPattern === cursorPatternIndex;
@@ -677,8 +571,8 @@ export const ArrangementEditor: React.FC<{
                     }
 
                     // Determine if this is the first or last in selection
-                    const isFirstInSelection = positionIndex === sel?.topInclusive(); //editorState.selectedArrangementPositions sortedSelection.length > 0 && positionIndex === sortedSelection[0];
-                    const isLastInSelection = positionIndex === sel?.bottomInclusive();
+                    const isFirstInSelection = positionIndex === listSelection.first;
+                    const isLastInSelection = positionIndex === listSelection.last;
 
                     const rowClass = [
                         "arrangement-editor__row",
@@ -711,7 +605,7 @@ export const ArrangementEditor: React.FC<{
                                 ref={(el) => (rowRefs[positionIndex] = el)}
                                 onKeyDown={(e) => handleKeyDown(e, positionIndex)}
                                 onMouseDown={(e) => handleRowMouseDown(e, positionIndex)}
-                                onMouseEnter={() => selection2d.onCellMouseEnter({ x: 0, y: positionIndex })}
+                                onMouseEnter={() => listSelection.onItemMouseEnter(positionIndex)}
                           >
                                 <Tooltip title="Dec pattern">
                                     <button

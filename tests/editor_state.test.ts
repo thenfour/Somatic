@@ -4,6 +4,8 @@ import {describe, it} from "node:test";
 import {GlobalActions} from "../src/keyb/ActionIds";
 import {gActionRegistry} from "../src/keyb/ActionRegistry";
 import {EditorState} from "../src/models/editor_state";
+import {SelectionRange1D} from "../src/models/selectionRange1D";
+import {Song} from "../src/models/song";
 
 describe("EditorState pattern-column visibility", () => {
    it("shows mixer columns by default and preserves their visibility in snapshots", () => {
@@ -38,6 +40,28 @@ describe("EditorState pattern-column visibility", () => {
       state.setPatternEditColumnType("pan");
       state.setShowPanColumn(false);
       assert.equal(state.patternEditColumnType, "instrument");
+   });
+});
+
+describe("EditorState instrument operation range", () => {
+   it("keeps one current instrument at the active end and preserves the range in snapshots", () => {
+      const song = new Song();
+      const state = new EditorState();
+
+      state.setInstrumentSelection(song, new SelectionRange1D({anchor: 2, focus: 5}));
+
+      assert.equal(state.currentInstrument, 5);
+      assert.deepEqual(state.clone().instrumentOperationRange?.toData(), {anchor: 2, focus: 5});
+   });
+
+   it("collapses the operation range when the current instrument changes normally", () => {
+      const song = new Song();
+      const state = new EditorState({instrumentOperationRange: {anchor: 2, focus: 5}});
+
+      state.setCurrentInstrument(song, 3);
+
+      assert.equal(state.currentInstrument, 3);
+      assert.deepEqual(state.instrumentOperationRange?.toData(), {anchor: 3, focus: 3});
    });
 });
 

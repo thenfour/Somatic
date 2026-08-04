@@ -1,21 +1,16 @@
-// todo: keyboard nav on list + delete / insert below?
-// todo: insert new instrument above / below. don't allow if kicking out used instruments
 import React, { useCallback, useMemo, useRef } from "react";
 import {
-    mdiArrowDownBold,
-    mdiArrowUpBold,
-   mdiCancel,
-   mdiDeleteRestore,
+   mdiArrowDownBold,
+   mdiArrowUpBold,
    mdiEraser,
-   mdiFileRestore,
-    mdiRestore,
-    mdiTableRowPlusAfter,
-    mdiTableRowPlusBefore,
+   mdiTableRowPlusAfter,
+   mdiTableRowPlusBefore,
 } from "@mdi/js";
 
+import {useContiguousListSelection} from "../hooks/useContiguousListSelection";
 import { GlobalActions } from "../keyb/ActionIds";
 import { EditorState } from "../models/editor_state";
-import { makeDefaultInstrumentForIndex, SomaticInstrument } from "../models/instruments";
+import {SelectionRange1D} from "../models/selectionRange1D";
 import { Song } from "../models/song";
 import { clamp } from "../utils/utils";
 import { AppPanelShell } from "./AppPanelShell";
@@ -55,52 +50,66 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
         el.scrollIntoView?.({ block: "nearest" });
     }, []);
 
+    const instrumentSelection = useMemo(() => {
+        const stored = editorState.instrumentOperationRange;
+        if (stored && stored.focus === selectedInstrument) {
+            return stored.withClampedBounds(0, instrumentCount - 1);
+        }
+        return SelectionRange1D.single(selectedInstrument);
+    }, [editorState.instrumentOperationRange, instrumentCount, selectedInstrument]);
+
+    const listSelection = useContiguousListSelection({
+        selection: instrumentSelection,
+        itemCount: instrumentCount,
+        focusIndex: focusRow,
+        onChange: (range) => {
+            onEditorStateChange((st) => st.setInstrumentSelection(song, range));
+        },
+    });
+
     const setCurrentInstrument = useCallback((idx: number) => {
         onEditorStateChange((st) => st.setCurrentInstrument(song, idx));
-    }, [onEditorStateChange]);
+    }, [onEditorStateChange, song]);
 
 
     const canMoveUp = useMemo(() => {
-        if (selectedInstrument <= 0) return false;
+        if (listSelection.first === null || listSelection.first <= 0) return false;
         return true;
-    }, [selectedInstrument]);
+    }, [listSelection.first]);
 
     const canMoveDown = useMemo(() => {
-        if (selectedInstrument >= instrumentCount - 1) return false;
+        if (listSelection.last === null || listSelection.last >= instrumentCount - 1) return false;
         return true;
-    }, [selectedInstrument, instrumentCount]);
+    }, [instrumentCount, listSelection.last]);
 
-    const canClear = useMemo(() => {
-        return true;
-    }, [selectedInstrument]);
+    const canClear = listSelection.count > 0;
 
     const moveSelected = (delta: -1 | 1) => {
-        const a = selectedInstrument;
-        const b = a + delta;
-        if (b < 0 || b >= instrumentCount) return;
+        const selection = listSelection.indices;
+        if (selection.length === 0) return;
+        if (delta < 0 && selection[0] <= 0) return;
+        if (delta > 0 && selection[selection.length - 1] >= instrumentCount - 1) return;
 
         onSongChange({
-            description: delta < 0 ? "Move instrument up" : "Move instrument down",
+            description: delta < 0 ? "Move instrument selection up" : "Move instrument selection down",
             undoable: true,
             mutator: (s) => {
-                const tmp = s.instruments[a];
-                s.instruments[a] = s.instruments[b];
-                s.instruments[b] = tmp;
-                // Rewrite pattern instrument indices so playback is unchanged.
-                s.swapInstrumentIndicesInPatterns(a, b);
+                s.moveInstrumentRange(selection[0], selection.length, delta);
             },
         });
 
-        // Keep selection on the same instrument "identity" as it moves.
-        onEditorStateChange((st) => st.setCurrentInstrument(song, b));
+        // Keep the operation range and primary instrument on the same identities.
+        listSelection.setSelection(instrumentSelection.withNudge(delta));
     };
 
     const clearSelected = () => {
+        const selection = listSelection.indices;
+        if (selection.length === 0) return;
         onSongChange({
-            description: "Clear instrument",
+            description: selection.length === 1 ? "Reset instrument to defaults" : "Reset instruments to defaults",
             undoable: true,
             mutator: (s) => {
-                s.instruments[selectedInstrument] = makeDefaultInstrumentForIndex(selectedInstrument);
+                s.resetInstrumentSlotsToDefaults(selection);
             },
         });
     };
@@ -115,14 +124,14 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
     const canInsertAbove = useMemo(() => {
         if (lastInstrumentIsUsed) return false;
         return true;
-    }, [lastInstrumentIsUsed, selectedInstrument]);
+    }, [lastInstrumentIsUsed]);
 
     const canInsertBelow = useMemo(() => {
         if (lastInstrumentIsUsed) return false;
-        const insertIndex = selectedInstrument + 1;
+        const insertIndex = (listSelection.last ?? selectedInstrument) + 1;
         if (insertIndex >= instrumentCount) return false;
         return true;
-    }, [instrumentCount, lastInstrumentIsUsed, selectedInstrument]);
+    }, [instrumentCount, lastInstrumentIsUsed, listSelection.last, selectedInstrument]);
 
     const insertAt = (insertIndex: number) => {
         if (lastInstrumentIsUsed) return;
@@ -136,32 +145,12 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
             },
         });
         onEditorStateChange((st) => st.setCurrentInstrument(song, insertIndex));
+        focusRow(insertIndex);
     };
 
     const handleRowKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
-        let next: number | null = null;
-        switch (e.key) {
-            case "ArrowUp":
-                next = clamp(idx - 1, 0, instrumentCount - 1);
-                break;
-            case "ArrowDown":
-                next = clamp(idx + 1, 0, instrumentCount - 1);
-                break;
-            case "Home":
-                next = 0;
-                break;
-            case "End":
-                next = instrumentCount - 1;
-                break;
-            default:
-                return;
-        }
-        if (next === idx) return;
-        e.preventDefault();
-        setCurrentInstrument(next);
-        // Focus immediately so repeated key presses work smoothly.
-        focusRow(next);
-    }, [focusRow, instrumentCount, setCurrentInstrument]);
+        listSelection.onItemKeyDown(e, idx);
+    }, [listSelection]);
 
     return (
         <AppPanelShell
@@ -175,6 +164,9 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                     {Array.from({ length: instrumentCount }, (_, idx) => {
                         const inst = song.instruments[idx]!;
                         const isSelected = idx === selectedInstrument;
+                        const isInSelection = listSelection.includes(idx);
+                        const isFirstInSelection = idx === listSelection.first;
+                        const isLastInSelection = idx === listSelection.last;
                         const isUsed = usageMap.has(idx);
                         return (
                             <button
@@ -186,6 +178,9 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                                 className={[
                                     "instruments-panel__row",
                                     isSelected ? "instruments-panel__row--selected" : "",
+                                    isInSelection ? "instruments-panel__row--in-selection" : "",
+                                    isFirstInSelection ? "instruments-panel__row--selection-first" : "",
+                                    isLastInSelection ? "instruments-panel__row--selection-last" : "",
                                     isUsed ? "instruments-panel__row--used" : "instruments-panel__row--unused",
                                 ]
                                     .filter(Boolean)
@@ -193,17 +188,18 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                                 tabIndex={isSelected ? 0 : -1}
                                 data-focus-bookmark="true"
                                 aria-selected={isSelected}
-                                onClick={() => setCurrentInstrument(idx)}
+                                onMouseDown={(e) => listSelection.onItemMouseDown(e, idx)}
+                                onMouseEnter={() => listSelection.onItemMouseEnter(idx)}
+                                onClick={(e) => {
+                                    // Keyboard and assistive activation do not produce a pointer detail.
+                                    if (e.detail === 0)
+                                        listSelection.selectIndex(idx);
+                                }}
                                 onDoubleClick={() => {
                                     if (idx !== selectedInstrument) {
                                         setCurrentInstrument(idx);
                                     }
                                     onOpenInstrumentEditor();
-                                }}
-                                onFocus={() => {
-                                    if (idx !== selectedInstrument) {
-                                        setCurrentInstrument(idx);
-                                    }
                                 }}
                                 onKeyDown={(e) => handleRowKeyDown(e, idx)}
                             >
@@ -221,24 +217,24 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                 <div className="instruments-panel__footer">
                     <div className="instruments-panel__footer-row">
                         <ButtonGroup>
-                            <Tooltip title="Move instrument up">
+                            <Tooltip title="Move selected instruments up">
                                 <span className="instruments-panel__footer-tooltip-trigger">
                                     <IconButton
                                         type="button"
                                         onClick={() => moveSelected(-1)}
                                         disabled={!canMoveUp}
-                                        aria-label="Move instrument up"
+                                        aria-label="Move selected instruments up"
                                         iconPath={mdiArrowUpBold}
                                     />
                                 </span>
                             </Tooltip>
-                            <Tooltip title="Move instrument down">
+                            <Tooltip title="Move selected instruments down">
                                 <span className="instruments-panel__footer-tooltip-trigger">
                                     <IconButton
                                         type="button"
                                         onClick={() => moveSelected(1)}
                                         disabled={!canMoveDown}
-                                        aria-label="Move instrument down"
+                                        aria-label="Move selected instruments down"
                                         iconPath={mdiArrowDownBold}
                                     />
                                 </span>
@@ -247,7 +243,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                                 <span className="instruments-panel__footer-tooltip-trigger">
                                     <IconButton
                                         type="button"
-                                        onClick={() => insertAt(selectedInstrument)}
+                                        onClick={() => insertAt(listSelection.first ?? selectedInstrument)}
                                         disabled={!canInsertAbove}
                                         aria-label="Insert new instrument above"
                                         iconPath={mdiTableRowPlusBefore}
@@ -258,20 +254,20 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                                 <span className="instruments-panel__footer-tooltip-trigger">
                                     <IconButton
                                         type="button"
-                                        onClick={() => insertAt(selectedInstrument + 1)}
+                                        onClick={() => insertAt((listSelection.last ?? selectedInstrument) + 1)}
                                         disabled={!canInsertBelow}
                                         aria-label="Insert new instrument below"
                                         iconPath={mdiTableRowPlusAfter}
                                     />
                                 </span>
                             </Tooltip>
-                            <Tooltip title="Reset this instrument to defaults">
+                            <Tooltip title={listSelection.count === 1 ? "Reset this instrument to defaults" : "Reset selected instruments to defaults"}>
                                 <span className="instruments-panel__footer-tooltip-trigger">
                                     <IconButton
                                         type="button"
                                         onClick={clearSelected}
                                         disabled={!canClear}
-                                        aria-label="Reset this instrument to defaults"
+                                        aria-label={listSelection.count === 1 ? "Reset this instrument to defaults" : "Reset selected instruments to defaults"}
                                iconPath={mdiEraser} // see also: clear, restore, cancel, ...
                                     />
                                 </span>

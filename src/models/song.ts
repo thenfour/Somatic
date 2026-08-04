@@ -365,6 +365,43 @@ export class Song {
       }
    };
 
+   resetInstrumentSlotsToDefaults(instrumentIndices: Iterable<number>) {
+      for (const instrumentIndex of new Set(instrumentIndices)) {
+         if (!Number.isInteger(instrumentIndex) || instrumentIndex < 0 || instrumentIndex >= this.instruments.length)
+            continue;
+         this.instruments[instrumentIndex] = makeDefaultInstrumentForIndex(instrumentIndex);
+      }
+   }
+
+   moveInstrumentRange(firstIndex: number, count: number, delta: -1|1): boolean {
+      const lastIndex = firstIndex + count - 1;
+      if (count <= 0 || firstIndex < 0 || lastIndex >= this.instruments.length)
+         return false;
+      if (delta < 0 && firstIndex === 0)
+         return false;
+      if (delta > 0 && lastIndex === this.instruments.length - 1)
+         return false;
+
+      if (delta < 0) {
+         for (let sourceIndex = firstIndex; sourceIndex <= lastIndex; sourceIndex += 1) {
+            const targetIndex = sourceIndex - 1;
+            const tmp = this.instruments[sourceIndex];
+            this.instruments[sourceIndex] = this.instruments[targetIndex];
+            this.instruments[targetIndex] = tmp;
+            this.swapInstrumentIndicesInPatterns(sourceIndex, targetIndex);
+         }
+      } else {
+         for (let sourceIndex = lastIndex; sourceIndex >= firstIndex; sourceIndex -= 1) {
+            const targetIndex = sourceIndex + 1;
+            const tmp = this.instruments[sourceIndex];
+            this.instruments[sourceIndex] = this.instruments[targetIndex];
+            this.instruments[targetIndex] = tmp;
+            this.swapInstrumentIndicesInPatterns(sourceIndex, targetIndex);
+         }
+      }
+      return true;
+   }
+
    // Insert at `insertIndex` by shifting instruments down one slot (dropping the last slot).
    // Remaps pattern instrument indices so playback is unchanged.
    insertInstrumentSlotAtIndex(insertIndex: number) {
