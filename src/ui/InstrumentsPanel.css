@@ -99,6 +99,14 @@
     padding: 4px 0px;
 }
 
+.instruments-panel__footer-tooltip-trigger {
+    display: inline-flex;
+}
+
+.instruments-panel__footer-tooltip-trigger + .instruments-panel__footer-tooltip-trigger {
+    margin-left: -1px;
+}
+
 .instruments-panel__row.instruments-panel__row--unused {
     opacity: 40%;
 }

@@ -49,6 +49,7 @@
     width: 28px;
     display: flex;
     align-items: center;
+    justify-content: center;
 }
 
 .arrangement-editor button.arrangement-editor__command--active {

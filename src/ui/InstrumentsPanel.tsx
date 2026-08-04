@@ -1,17 +1,29 @@
 // todo: keyboard nav on list + delete / insert below?
 // todo: insert new instrument above / below. don't allow if kicking out used instruments
 import React, { useCallback, useMemo, useRef } from "react";
+import {
+    mdiArrowDownBold,
+    mdiArrowUpBold,
+   mdiCancel,
+   mdiDeleteRestore,
+   mdiEraser,
+   mdiFileRestore,
+    mdiRestore,
+    mdiTableRowPlusAfter,
+    mdiTableRowPlusBefore,
+} from "@mdi/js";
 
+import { GlobalActions } from "../keyb/ActionIds";
 import { EditorState } from "../models/editor_state";
 import { makeDefaultInstrumentForIndex, SomaticInstrument } from "../models/instruments";
 import { Song } from "../models/song";
 import { clamp } from "../utils/utils";
 import { AppPanelShell } from "./AppPanelShell";
+import { Tooltip } from "./basic/tooltip";
 import { ButtonGroup } from "./Buttons/ButtonGroup";
-import { Button } from "./Buttons/PushButton";
+import { IconButton } from "./Buttons/IconButton";
 import { InstrumentChip } from "./InstrumentChip";
 import "./InstrumentsPanel.css";
-import { GlobalActions } from "../keyb/ActionIds";
 
 export type InstrumentsPanelProps = {
     song: Song;
@@ -209,46 +221,61 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                 <div className="instruments-panel__footer">
                     <div className="instruments-panel__footer-row">
                         <ButtonGroup>
-                            <Button
-                                type="button"
-                                onClick={() => moveSelected(-1)}
-                                disabled={!canMoveUp}
-                                title="Move up"
-                            >
-                                ↑
-                            </Button>
-                            <Button
-                                type="button"
-                                onClick={() => moveSelected(1)}
-                                disabled={!canMoveDown}
-                                title="Move down"
-                            >
-                                ↓
-                            </Button>
-                            <Button
-                                type="button"
-                                onClick={() => insertAt(selectedInstrument)}
-                                disabled={!canInsertAbove}
-                                title={lastInstrumentIsUsed ? "Cannot insert: last instrument is used" : "Insert new instrument above"}
-                            >
-                                +↑
-                            </Button>
-                            <Button
-                                type="button"
-                                onClick={() => insertAt(selectedInstrument + 1)}
-                                disabled={!canInsertBelow}
-                                title={lastInstrumentIsUsed ? "Cannot insert: last instrument is used" : "Insert new instrument below"}
-                            >
-                                +↓
-                            </Button>
-                            <Button
-                                type="button"
-                                onClick={clearSelected}
-                                disabled={!canClear}
-                                title="Reset this instrument to defaults"
-                            >
-                                Reset
-                            </Button>
+                            <Tooltip title="Move instrument up">
+                                <span className="instruments-panel__footer-tooltip-trigger">
+                                    <IconButton
+                                        type="button"
+                                        onClick={() => moveSelected(-1)}
+                                        disabled={!canMoveUp}
+                                        aria-label="Move instrument up"
+                                        iconPath={mdiArrowUpBold}
+                                    />
+                                </span>
+                            </Tooltip>
+                            <Tooltip title="Move instrument down">
+                                <span className="instruments-panel__footer-tooltip-trigger">
+                                    <IconButton
+                                        type="button"
+                                        onClick={() => moveSelected(1)}
+                                        disabled={!canMoveDown}
+                                        aria-label="Move instrument down"
+                                        iconPath={mdiArrowDownBold}
+                                    />
+                                </span>
+                            </Tooltip>
+                            <Tooltip title={lastInstrumentIsUsed ? "Cannot insert: last instrument is used" : "Insert new instrument above"}>
+                                <span className="instruments-panel__footer-tooltip-trigger">
+                                    <IconButton
+                                        type="button"
+                                        onClick={() => insertAt(selectedInstrument)}
+                                        disabled={!canInsertAbove}
+                                        aria-label="Insert new instrument above"
+                                        iconPath={mdiTableRowPlusBefore}
+                                    />
+                                </span>
+                            </Tooltip>
+                            <Tooltip title={lastInstrumentIsUsed ? "Cannot insert: last instrument is used" : "Insert new instrument below"}>
+                                <span className="instruments-panel__footer-tooltip-trigger">
+                                    <IconButton
+                                        type="button"
+                                        onClick={() => insertAt(selectedInstrument + 1)}
+                                        disabled={!canInsertBelow}
+                                        aria-label="Insert new instrument below"
+                                        iconPath={mdiTableRowPlusAfter}
+                                    />
+                                </span>
+                            </Tooltip>
+                            <Tooltip title="Reset this instrument to defaults">
+                                <span className="instruments-panel__footer-tooltip-trigger">
+                                    <IconButton
+                                        type="button"
+                                        onClick={clearSelected}
+                                        disabled={!canClear}
+                                        aria-label="Reset this instrument to defaults"
+                               iconPath={mdiEraser} // see also: clear, restore, cancel, ...
+                                    />
+                                </span>
+                            </Tooltip>
                         </ButtonGroup>
                     </div>
                 </div>

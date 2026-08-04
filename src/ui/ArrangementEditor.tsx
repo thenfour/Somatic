@@ -1,18 +1,29 @@
-import React, { useEffect, useMemo, useRef } from "react";
-import type { SomaticTransportState } from "../audio/backend";
-import { SelectionRect2D, useRectSelection2D } from "../hooks/useRectSelection2D";
-import { useWheelNavigator } from "../hooks/useWheelNavigator";
-import { EditorState } from "../models/editor_state";
+import {
+   mdiArrowDownBold,
+   mdiArrowUpBold,
+   mdiAsterisk,
+   mdiClose,
+   mdiContentDuplicate,
+   mdiPlus,
+   mdiTableRowPlusAfter,
+   mdiTableRowPlusBefore
+} from "@mdi/js";
+import Icon from "@mdi/react";
+import React, {useEffect, useMemo, useRef} from "react";
+import type {SomaticTransportState} from "../audio/backend";
+import {SelectionRect2D, useRectSelection2D} from "../hooks/useRectSelection2D";
+import {useWheelNavigator} from "../hooks/useWheelNavigator";
+import {EditorState} from "../models/editor_state";
 import {analyzePatternRowIssues, Pattern} from "../models/pattern";
-import { formatPatternIndex, Song } from "../models/song";
-import { SongOrderItem } from "../models/songOrder";
-import { SomaticCaps } from "../models/tic80Capabilities";
-import {assert, CharMap, clamp} from "../utils/utils";
+import {formatPatternIndex, Song} from "../models/song";
+import {SongOrderItem} from "../models/songOrder";
+import {SomaticCaps} from "../models/tic80Capabilities";
+import {assert, clamp} from "../utils/utils";
 import './ArrangementEditor.css';
-import { useConfirmDialog } from "./basic/confirm_dialog";
-import { Tooltip } from "./basic/tooltip";
-import { renderThumbnail } from "./PatternThumbnail";
-import { SongOrderMarkerControl } from "./SongOrderMarker";
+import {useConfirmDialog} from "./basic/confirm_dialog";
+import {Tooltip} from "./basic/tooltip";
+import {renderThumbnail} from "./PatternThumbnail";
+import {SongOrderMarkerControl} from "./SongOrderMarker";
 
 const PAGE_SIZE = 4;
 
@@ -160,41 +171,6 @@ export const ArrangementEditor: React.FC<{
         onEditorStateChange((state) => state.setActiveSongPosition(song, positionIndex));
         selection2d.onCellMouseDown(e, { x: 0, y: positionIndex });
         focusRow(positionIndex);
-    };
-
-    const deletePosition = (positionIndex: number) => {
-        onSongChange({
-            description: 'Delete arrangement position',
-            undoable: true,
-            mutator: (s) => {
-                if (s.songOrder.length <= 1) return; // keep at least one position
-                if (positionIndex < 0 || positionIndex >= s.songOrder.length) return;
-                s.songOrder.splice(positionIndex, 1);
-            },
-        });
-        onEditorStateChange((state) => {
-            if (state.activeSongPosition >= positionIndex && state.activeSongPosition > 0) {
-                state.setActiveSongPosition(song, state.activeSongPosition - 1);
-            }
-        });
-    };
-
-    const handleDeletePosition = async (positionIndex: number) => {
-        const confirmed = await confirm({
-            content: (
-                <div>
-                    <p>
-                        Are you sure you want to delete position {formatPatternIndex(positionIndex)} from the arrangement?
-                    </p>
-                </div>
-            ),
-            defaultAction: 'no',
-            yesLabel: 'Delete',
-            noLabel: 'Cancel',
-        });
-
-        if (!confirmed) return;
-        deletePosition(positionIndex);
     };
 
     const handleInsertAbove = () => {
@@ -736,21 +712,7 @@ export const ArrangementEditor: React.FC<{
                                 onKeyDown={(e) => handleKeyDown(e, positionIndex)}
                                 onMouseDown={(e) => handleRowMouseDown(e, positionIndex)}
                                 onMouseEnter={() => selection2d.onCellMouseEnter({ x: 0, y: positionIndex })}
-                            >
-                                <Tooltip title="Delete position">
-                                    <button
-                                        type="button"
-                                        className="arrangement-editor__delete"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeletePosition(positionIndex);
-                                        }}
-                                        disabled={!canDelete}
-                                        aria-label="Delete position"
-                                    >
-                                        {CharMap.Mul}
-                                    </button>
-                                </Tooltip>
+                          >
                                 <Tooltip title="Dec pattern">
                                     <button
                                         type="button"
@@ -841,7 +803,7 @@ export const ArrangementEditor: React.FC<{
                             disabled={song.songOrder.length >= maxPositions}
                             aria-label="Insert above"
                         >
-                            +↑
+                            <Icon path={mdiTableRowPlusBefore} size={1} />
                         </button>
                     </Tooltip>
                     <Tooltip title="Insert new pattern below selection">
@@ -852,7 +814,7 @@ export const ArrangementEditor: React.FC<{
                             disabled={song.songOrder.length >= maxPositions}
                             aria-label="Insert below"
                         >
-                            +⬇
+                            <Icon path={mdiTableRowPlusAfter} size={1} />
                         </button>
                     </Tooltip>
                     <Tooltip title="Repeat selection (reuse same patterns)">
@@ -863,7 +825,7 @@ export const ArrangementEditor: React.FC<{
                             disabled={song.songOrder.length >= maxPositions}
                             aria-label="Repeat selection"
                         >
-                            {CharMap.Refresh}
+                      <Icon path={mdiPlus} size={1} />
                         </button>
                     </Tooltip>
                     <Tooltip title="Duplicate selection (copy patterns)">
@@ -874,16 +836,17 @@ export const ArrangementEditor: React.FC<{
                             disabled={song.songOrder.length >= maxPositions}
                             aria-label="Duplicate selection"
                         >
-                            {CharMap.OverlappingSquares}
+                            <Icon path={mdiContentDuplicate} size={1} />
                         </button>
                     </Tooltip>
-                    <Tooltip title="Make selection unique">
+                <Tooltip title="Make selection unique (clone patterns if used elsewhere)">
                         <button
                             type="button"
                             className="arrangement-editor__command"
                             onClick={handleMakeSelectionUnique}
+                            aria-label="Make selection unique"
                         >
-                            {CharMap.BoldSixPointedAsterisk}
+                      <Icon path={mdiAsterisk} size={1} />
                         </button>
                     </Tooltip>
                     <Tooltip title="Set marker for selected items">
@@ -925,7 +888,7 @@ export const ArrangementEditor: React.FC<{
                             disabled={getSelectionRange().length >= song.songOrder.length}
                             aria-label="Delete selected"
                         >
-                            {CharMap.Mul}
+                      <Icon path={mdiClose} size={1} />
                         </button>
                     </Tooltip>
                     <Tooltip title="Move selection up">
@@ -936,7 +899,7 @@ export const ArrangementEditor: React.FC<{
                             disabled={getSelectionRange()[0] === 0}
                             aria-label="Move up"
                         >
-                            {CharMap.UpArrow}
+                            <Icon path={mdiArrowUpBold} size={1} />
                         </button>
                     </Tooltip>
                     <Tooltip title="Move selection down">
@@ -947,7 +910,7 @@ export const ArrangementEditor: React.FC<{
                             disabled={getSelectionRange()[getSelectionRange().length - 1] >= song.songOrder.length - 1}
                             aria-label="Move down"
                         >
-                            {CharMap.DownArrow}
+                            <Icon path={mdiArrowDownBold} size={1} />
                         </button>
                     </Tooltip>
                     {/* <Tooltip title={thumbnailsEnabled ? "Hide thumbnails" : "Show thumbnails"}>
