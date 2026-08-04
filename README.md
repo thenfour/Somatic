@@ -478,3 +478,19 @@ https://github.com/thenfour/Somatic/milestone/3?closed=1
 
 ## 1.0.15
 
+-  #212 fixed: song speed was different between Somatic online editor and exported cart
+- #203 fixed: tooltips sometimes get stuck on
+- #211 fixed: somatic "C" command was not being respected in bridge (serialization bug)
+- #209 adding additional pattern marker glyphs
+- #202 added better insights for effects (like showing arpeggio actual notes, links to command reference)
+- #207 ability to block edit instruments. Select, delete, duplicate.
+- #218 Cue sheet export fields are configurable
+- #216 Song edits take effect immediately even while playing
+- #213 Removed the "render waveform slot" concept, instead writing directly to the waveform register.
+- #215, #217 Support for per channel L/R volume register:
+  - instrument pan control
+  - instrument master volume control
+  - pan pattern effect
+  - pan column
+  - volume column
+- #164 #219 #208: formatting tweaks
