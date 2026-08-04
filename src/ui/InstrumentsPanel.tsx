@@ -2,6 +2,9 @@ import React, { useCallback, useMemo, useRef } from "react";
 import {
    mdiArrowDownBold,
    mdiArrowUpBold,
+   mdiClose,
+   mdiContentDuplicate,
+   mdiDelete,
    mdiEraser,
    mdiTableRowPlusAfter,
    mdiTableRowPlusBefore,
@@ -14,6 +17,7 @@ import {SelectionRange1D} from "../models/selectionRange1D";
 import { Song } from "../models/song";
 import { clamp } from "../utils/utils";
 import { AppPanelShell } from "./AppPanelShell";
+import {useConfirmDialog} from "./basic/confirm_dialog";
 import { Tooltip } from "./basic/tooltip";
 import { ButtonGroup } from "./Buttons/ButtonGroup";
 import { IconButton } from "./Buttons/IconButton";
@@ -37,6 +41,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
     onOpenInstrumentEditor,
     onClose,
 }) => {
+   const {confirm} = useConfirmDialog();
     const instrumentCount = song.instruments.length;
     const selectedInstrument = clamp(editorState.currentInstrument, 0, instrumentCount - 1);
 
@@ -84,6 +89,25 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
 
     const canClear = listSelection.count > 0;
 
+   const duplicationAnalysis = useMemo(() => {
+      if (listSelection.first === null)
+         return {canDuplicate: false, hasCapacity: false, blockingTailIndices: []};
+      return song.analyzeInstrumentRangeDuplication(listSelection.first, listSelection.count);
+   }, [listSelection.count, listSelection.first, song]);
+
+   const duplicateTooltip = useMemo(() => {
+      if (duplicationAnalysis.canDuplicate)
+         return listSelection.count === 1 ? "Duplicate this instrument" : "Duplicate selected instruments";
+      if (!duplicationAnalysis.hasCapacity)
+         return "Can't duplicate: not enough free instrument slots";
+      if (duplicationAnalysis.blockingTailIndices.length === 0)
+         return "Can't duplicate this selection";
+      const slots = duplicationAnalysis.blockingTailIndices
+         .map((idx) => idx.toString(16).toUpperCase().padStart(2, "0"))
+         .join(", ");
+      return `Can't duplicate: tail slots ${slots} are referenced`;
+   }, [duplicationAnalysis, listSelection.count]);
+
     const moveSelected = (delta: -1 | 1) => {
         const selection = listSelection.indices;
         if (selection.length === 0) return;
@@ -113,6 +137,61 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
             },
         });
     };
+
+   const duplicateSelected = () => {
+      if (listSelection.first === null || !duplicationAnalysis.canDuplicate) return;
+
+      const firstIndex = listSelection.first;
+      const count = listSelection.count;
+      onSongChange({
+         description: count === 1 ? "Duplicate instrument" : "Duplicate instruments",
+         undoable: true,
+         mutator: (s) => {
+            s.duplicateInstrumentRange(firstIndex, count);
+         },
+      });
+
+      const duplicatedSelection = instrumentSelection.withNudge(count);
+      listSelection.setSelection(duplicatedSelection);
+      focusRow(duplicatedSelection.focus);
+   };
+
+   const deleteSelected = async () => {
+      if (listSelection.first === null || listSelection.count === 0) return;
+
+      const firstIndex = listSelection.first;
+      const count = listSelection.count;
+      const impact = song.analyzeInstrumentRangeDeletion(firstIndex, count);
+      const confirmed = await confirm({
+         content: (
+            <div>
+               <p>
+                  Delete {count} selected instruments (shifting up subsequent instruments)?
+               </p>
+               <p>
+                  {impact.referenceCellCount === 0
+                     ? "No pattern cells directly reference this selection."
+                     : `This will clear ${impact.clearedCellCount} pattern cells, including ${impact.referenceCellCount} that directly reference the selected instruments.`}
+               </p>
+            </div>
+         ),
+         defaultAction: "no",
+         yesLabel: "Delete",
+         noLabel: "Cancel",
+      });
+      if (!confirmed) return;
+
+      onSongChange({
+         description: count === 1 ? "Delete instrument" : "Delete instruments",
+         undoable: true,
+         mutator: (s) => {
+            s.deleteInstrumentRange(firstIndex, count);
+         },
+      });
+
+      onEditorStateChange((st) => st.setCurrentInstrument(song, firstIndex));
+      focusRow(firstIndex);
+   };
 
     const usageMap = useMemo(() => {
         return song.getInstrumentUsageMap();
@@ -148,9 +227,13 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
         focusRow(insertIndex);
     };
 
-    const handleRowKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
-        listSelection.onItemKeyDown(e, idx);
-    }, [listSelection]);
+   const handleRowKeyDown = (e: React.KeyboardEvent, idx: number) => {
+      if (listSelection.onItemKeyDown(e, idx)) return;
+      if (e.key === "Delete" || e.key === "Backspace") {
+         e.preventDefault();
+         void deleteSelected();
+      }
+   };
 
     return (
         <AppPanelShell
@@ -272,6 +355,28 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                                     />
                                 </span>
                             </Tooltip>
+                      <Tooltip title={duplicateTooltip}>
+                         <span className="instruments-panel__footer-tooltip-trigger">
+                            <IconButton
+                               type="button"
+                               onClick={duplicateSelected}
+                               disabled={!duplicationAnalysis.canDuplicate}
+                               aria-label={listSelection.count === 1 ? "Duplicate this instrument" : "Duplicate selected instruments"}
+                               iconPath={mdiContentDuplicate}
+                            />
+                         </span>
+                      </Tooltip>
+                      <Tooltip title={listSelection.count === 1 ? "Delete this instrument" : "Delete selected instruments"}>
+                         <span className="instruments-panel__footer-tooltip-trigger">
+                            <IconButton
+                               type="button"
+                               onClick={() => void deleteSelected()}
+                               disabled={listSelection.count === 0}
+                               aria-label={listSelection.count === 1 ? "Delete this instrument" : "Delete selected instruments"}
+                               iconPath={mdiClose}
+                            />
+                         </span>
+                      </Tooltip>
                         </ButtonGroup>
                     </div>
                 </div>

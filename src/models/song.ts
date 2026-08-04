@@ -170,6 +170,23 @@ export type SongChannelNoteContext = Readonly<{
    rowReachable: boolean;
 }>;
 
+export type InstrumentRangeDeletionImpact = Readonly<{
+   instrumentCount: number;
+   referenceCellCount: number;
+   clearedCellCount: number;
+}>;
+
+export type InstrumentRangeDuplicationAnalysis = Readonly<{
+   canDuplicate: boolean;
+   hasCapacity: boolean;
+   blockingTailIndices: number[];
+}>;
+
+export type DuplicatedInstrumentRange = Readonly<{
+   firstIndex: number;
+   count: number;
+}>;
+
 const makePatternList = (data: PatternDto[]): Pattern[] => {
    const ret = data.map((patternData) => Pattern.fromData(patternData));
    // ensure at least 1 pattern.
@@ -400,6 +417,172 @@ export class Song {
          }
       }
       return true;
+   }
+
+   // effectively a clamp / normalization. can return null if the range is invalid.
+   private getValidInstrumentRange(firstIndex: number, count: number): {
+      firstIndex: number;
+      lastIndex: number;
+      count: number;
+   } | null {
+      const safeFirst = Math.trunc(firstIndex);
+      const safeCount = Math.trunc(count);
+      const lastIndex = safeFirst + safeCount - 1;
+      if (safeCount <= 0 || safeFirst < 0 || lastIndex >= this.instruments.length)
+         return null;
+      return {firstIndex: safeFirst, lastIndex, count: safeCount};
+   }
+
+   private collectInstrumentRangeDeletion(firstIndex: number, count: number): {
+      impact: InstrumentRangeDeletionImpact;
+      rowsByPatternAndChannel: Map<Pattern, Map<number, Set<number>>>;
+   } {
+      const range = this.getValidInstrumentRange(firstIndex, count);
+      const rowsByPatternAndChannel = new Map<Pattern, Map<number, Set<number>>>();
+      if (!range) {
+         return {
+            impact: {instrumentCount: 0, referenceCellCount: 0, clearedCellCount: 0},
+            rowsByPatternAndChannel,
+         };
+      }
+
+      let referenceCellCount = 0;
+      let clearedCellCount = 0;
+      for (const pattern of this.patterns) {
+         const rowsByChannel = new Map<number, Set<number>>();
+         for (let channelIndex = 0; channelIndex < this.subsystem.channelCount; channelIndex += 1) {
+            const rows = new Set<number>();
+            for (let rowIndex = 0; rowIndex < this.rowsPerPattern; rowIndex += 1) {
+               const instrumentIndex = pattern.peekCell(channelIndex, rowIndex)?.instrumentIndex;
+               if (instrumentIndex === undefined ||
+                  instrumentIndex < range.firstIndex || instrumentIndex > range.lastIndex) {
+                  continue;
+               }
+               referenceCellCount += 1;
+               for (const dependentRow of pattern.getNoteCellAndDependentRows(
+                  channelIndex, rowIndex, this.rowsPerPattern)) {
+                  rows.add(dependentRow);
+               }
+            }
+            if (rows.size > 0) {
+               rowsByChannel.set(channelIndex, rows);
+               clearedCellCount += rows.size;
+            }
+         }
+         if (rowsByChannel.size > 0)
+            rowsByPatternAndChannel.set(pattern, rowsByChannel);
+      }
+
+      return {
+         impact: {instrumentCount: range.count, referenceCellCount, clearedCellCount},
+         rowsByPatternAndChannel,
+      };
+   }
+
+   analyzeInstrumentRangeDeletion(firstIndex: number, count: number): InstrumentRangeDeletionImpact {
+      return this.collectInstrumentRangeDeletion(firstIndex, count).impact;
+   }
+
+   deleteInstrumentRange(firstIndex: number, count: number): InstrumentRangeDeletionImpact {
+      const range = this.getValidInstrumentRange(firstIndex, count);
+      const collected = this.collectInstrumentRangeDeletion(firstIndex, count);
+      if (!range)
+         return collected.impact;
+
+      for (const [pattern, rowsByChannel] of collected.rowsByPatternAndChannel) {
+         for (const [channelIndex, rows] of rowsByChannel) {
+            for (const rowIndex of rows)
+               pattern.setCell(channelIndex, rowIndex, {});
+         }
+      }
+
+      const finalSourceIndex = this.instruments.length - range.count - 1;
+      for (let targetIndex = range.firstIndex; targetIndex <= finalSourceIndex; targetIndex += 1)
+         this.instruments[targetIndex] = this.instruments[targetIndex + range.count];
+      for (let tailIndex = this.instruments.length - range.count; tailIndex < this.instruments.length; tailIndex += 1)
+         this.instruments[tailIndex] = makeDefaultInstrumentForIndex(tailIndex);
+
+      for (const pattern of this.patterns) {
+         for (let channelIndex = 0; channelIndex < this.subsystem.channelCount; channelIndex += 1) {
+            for (let rowIndex = 0; rowIndex < this.rowsPerPattern; rowIndex += 1) {
+               const cell = pattern.peekCell(channelIndex, rowIndex);
+               if (!cell)
+                  continue;
+               if (cell.instrumentIndex !== undefined && cell.instrumentIndex > range.lastIndex)
+                  cell.instrumentIndex -= range.count;
+            }
+         }
+      }
+      return collected.impact;
+   }
+
+   // returns a list of all instrument indices that are referenced in the song's patterns (including unused patterns, including unreachable rows)
+   private getStoredInstrumentReferenceSet(): Set<number> {
+      const references = new Set<number>();
+      for (const pattern of this.patterns) {
+         for (let channelIndex = 0; channelIndex < this.subsystem.channelCount; channelIndex += 1) {
+            for (let rowIndex = 0; rowIndex < this.rowsPerPattern; rowIndex += 1) {
+               const instrumentIndex = pattern.peekCell(channelIndex, rowIndex)?.instrumentIndex;
+               if (instrumentIndex !== undefined)
+                  references.add(instrumentIndex);
+            }
+         }
+      }
+      return references;
+   }
+
+   // duplication not always possible so analyze first.
+   // returns the tail indices blocking duplication.
+   analyzeInstrumentRangeDuplication(firstIndex: number, count: number): InstrumentRangeDuplicationAnalysis {
+      const range = this.getValidInstrumentRange(firstIndex, count);
+      if (!range)
+         return {canDuplicate: false, hasCapacity: false, blockingTailIndices: []};
+
+      const insertIndex = range.lastIndex + 1;
+      if (insertIndex + range.count > this.instruments.length)
+         return {canDuplicate: false, hasCapacity: false, blockingTailIndices: []};
+
+      const references = this.getStoredInstrumentReferenceSet();
+      const firstTailIndex = this.instruments.length - range.count;
+      const blockingTailIndices: number[] = [];
+      for (let instrumentIndex = firstTailIndex; instrumentIndex < this.instruments.length; instrumentIndex += 1) {
+         if (references.has(instrumentIndex))
+            blockingTailIndices.push(instrumentIndex);
+      }
+      return {canDuplicate: blockingTailIndices.length === 0, hasCapacity: true, blockingTailIndices};
+   }
+
+   duplicateInstrumentRange(firstIndex: number, count: number): DuplicatedInstrumentRange | null {
+      const range = this.getValidInstrumentRange(firstIndex, count);
+      if (!range || !this.analyzeInstrumentRangeDuplication(firstIndex, count).canDuplicate)
+         return null;
+
+      const copies = this.instruments.slice(range.firstIndex, range.lastIndex + 1)
+         .map((instrument) => instrument.clone());
+      const insertIndex = range.lastIndex + 1;
+      for (let targetIndex = this.instruments.length - 1;
+         targetIndex >= insertIndex + range.count;
+         targetIndex -= 1) {
+         this.instruments[targetIndex] = this.instruments[targetIndex - range.count];
+      }
+      for (let offset = 0; offset < copies.length; offset += 1)
+         this.instruments[insertIndex + offset] = copies[offset];
+
+      const finalRemappableIndex = this.instruments.length - range.count - 1;
+      for (const pattern of this.patterns) {
+         for (let channelIndex = 0; channelIndex < this.subsystem.channelCount; channelIndex += 1) {
+            for (let rowIndex = 0; rowIndex < this.rowsPerPattern; rowIndex += 1) {
+               const cell = pattern.peekCell(channelIndex, rowIndex);
+               if (!cell)
+                  continue;
+               if (cell.instrumentIndex !== undefined &&
+                  cell.instrumentIndex >= insertIndex && cell.instrumentIndex <= finalRemappableIndex) {
+                  cell.instrumentIndex += range.count;
+               }
+            }
+         }
+      }
+      return {firstIndex: insertIndex, count: range.count};
    }
 
    // Insert at `insertIndex` by shifting instruments down one slot (dropping the last slot).

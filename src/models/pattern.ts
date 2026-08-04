@@ -51,6 +51,30 @@ export function isNoteCut(cell: PatternCell): boolean {
    return !!cell.noteOff;
 }
 
+const noteDependentTic80Effects = new Set<Tic80EffectCommand>([
+   kTic80EffectCommand.key.C,
+   kTic80EffectCommand.key.S,
+   kTic80EffectCommand.key.P,
+   kTic80EffectCommand.key.V,
+   kTic80EffectCommand.key.D,
+]);
+
+// Master volume, jump, and pattern-end commands control global playback flow rather
+// than the currently sounding note, so removing a note must leave them intact.
+const noteDependentSomaticEffects = new Set<SomaticPatternCommand>([
+   kSomaticPatternCommand.key.EffectStrengthScale,
+   kSomaticPatternCommand.key.SetLFOPhase,
+   kSomaticPatternCommand.key.FilterFrequency,
+   kSomaticPatternCommand.key.Pan,
+]);
+
+function cellDependsOnActiveNote(cell: PatternCell): boolean {
+   return cell.volumeU8 !== undefined ||
+      cell.panU8 !== undefined ||
+      (cell.tic80Effect !== undefined && noteDependentTic80Effects.has(cell.tic80Effect)) ||
+      (cell.somaticEffect !== undefined && noteDependentSomaticEffects.has(cell.somaticEffect));
+}
+
 // DTO = Data Transfer Object; the serializable representation of the class.
 export type PatternChannelDto = {
    rows: PatternCell[];
@@ -99,6 +123,9 @@ export class PatternChannel {
    getCell(index: number): PatternCell {
       this.ensureRows(index + 1);
       return this.rows[index];
+   }
+   peekCell(index: number): PatternCell|undefined {
+      return index < 0 ? undefined : this.rows[index];
    }
    ensureRows(count: number) {
       while (this.rows.length < count) {
@@ -167,6 +194,47 @@ export class Pattern {
       const channel = this.getChannel(channelIndex);
       channel.ensureRows(rowIndex + 1);
       return channel.getCell(rowIndex);
+   }
+
+   peekCell(channelIndex: number, rowIndex: number): PatternCell|undefined {
+      if (channelIndex < 0 || rowIndex < 0)
+         return undefined;
+      return this.channels[channelIndex]?.peekCell(rowIndex);
+   }
+
+   getNoteCellAndDependentRows(channelIndex: number, noteRowIndex: number, rowLimit: number): number[] {
+      const safeRowLimit = Math.max(0, Math.trunc(rowLimit));
+      if (channelIndex < 0 || noteRowIndex < 0 || noteRowIndex >= safeRowLimit)
+         return [];
+
+      const noteCell = this.peekCell(channelIndex, noteRowIndex);
+      const rows = [noteRowIndex];
+      if (noteCell?.midiNote === undefined || isNoteCut(noteCell))
+         return rows;
+
+      for (let rowIndex = noteRowIndex + 1; rowIndex < safeRowLimit; rowIndex += 1) {
+         const cell = this.peekCell(channelIndex, rowIndex);
+         if (!cell)
+            continue;
+         if (isNoteCut(cell)) {
+            rows.push(rowIndex);
+            break;
+         }
+         if (cell.midiNote !== undefined)
+            break;
+         if (cellDependsOnActiveNote(cell))
+            rows.push(rowIndex);
+      }
+      return rows;
+   }
+
+   // Clear the originating note cell plus later note-local controls, stopping at
+   // (and clearing) its note cut or immediately before the next note starts.
+   clearNoteCellAndDependents(channelIndex: number, noteRowIndex: number, rowLimit: number): number[] {
+      const rows = this.getNoteCellAndDependentRows(channelIndex, noteRowIndex, rowLimit);
+      for (const rowIndex of rows)
+         this.setCell(channelIndex, rowIndex, MakeEmptyPatternCell());
+      return rows;
    }
 
    static fromData(data: PatternDto): Pattern {

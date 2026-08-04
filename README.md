@@ -475,3 +475,6 @@ https://github.com/thenfour/Somatic/milestone/3?closed=1
 ## 1.0.14
 
 - #201 fixed not being able to scroll past 16 song order (oops)
+
+## 1.0.15
+
