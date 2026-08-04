@@ -29,12 +29,40 @@
 
 .instruments-panel__row {
     cursor: pointer;
-    border: 0;
-    padding: 1px 3px;
+    /* Reserve selection borders without changing the existing row density. */
+    border: 1px solid transparent;
+    padding: 0 2px;
     margin: 0;
     /* just feels better against the scrollbar in FF */
     margin-right: 8px;
     background-color: transparent;
+    --selection-rect-border: 1px solid var(--accent);
+    --inactive-opacity: 0.3;
+    --selection-bg-color: #8883;
+}
+
+.instruments-panel__row--in-selection {
+    /* background-color: #8883; */
+    border-left: var(--selection-rect-border);
+    border-right: var(--selection-rect-border);
+   border-bottom-color: var(--selection-bg-color);
+   border-top-color: var(--selection-bg-color);
+}
+
+.instruments-panel__row--in-selection .chip {
+   background-color: var(--selection-bg-color);
+}
+
+.instruments-panel__row--selection-first {
+    border-top: var(--selection-rect-border);
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+}
+
+.instruments-panel__row--selection-last {
+    border-bottom: var(--selection-rect-border);
+    border-bottom-left-radius: 3px;
+    border-bottom-right-radius: 3px;
 }
 
 .instruments-panel__row .chip {
@@ -107,10 +135,10 @@
     margin-left: -1px;
 }
 
-.instruments-panel__row.instruments-panel__row--unused {
-    opacity: 40%;
+.instruments-panel__row.instruments-panel__row--unused .chip {
+    opacity: var(--inactive-opacity);
 }
 
-.instruments-panel__row.instruments-panel__row--reserved {
-    opacity: 33%;
+.instruments-panel__row.instruments-panel__row--reserved .chip {
+    opacity: 0.2;
 }
