@@ -87,10 +87,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     const keyboardShortcutMgr = useShortcutManager<GlobalActionId>();
     const [scopeValue, setScopeValue] = useState<ScopeValue>("selection");
     const [scopeInstrumentIndex, setScopeInstrumentIndex] = useState<number | null>(null);
-    const [setInstrumentValue, setSetInstrumentValue] = useState<number>(2);
-    const mgr = useShortcutManager<GlobalActionId>();
-
-    const advancedEditPanelKeyshortcut = mgr.getActionBindingLabel("ToggleAdvancedEditPanel") || "Unbound";
+   const [setInstrumentValue, setSetInstrumentValue] = useState<number>(2);
 
     const instrumentOptions = React.useMemo(() => {
         return song.instruments.map((instrument, i) => ({

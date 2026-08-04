@@ -23,6 +23,7 @@ import { useToasts } from './toast_provider';
 import { ButtonGroup } from './Buttons/ButtonGroup';
 import { Button } from './Buttons/PushButton';
 import { CheckboxButton } from './Buttons/CheckboxButton';
+import {Divider} from "./basic/Divider";
 
 type ExtendedCellType = 'note' | 'instrument' | 'volume' | 'pan' | 'command' | 'param' | 'somaticCommand' | 'somaticParam';
 
@@ -1511,9 +1512,9 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             }
         };
 
-        const volumeColumnKeyshortcut = mgr.getActionBindingLabelAsTooltipSuffix("ToggleVolumeColumn") || "Unbound";
-      const panColumnKeyshortcut = mgr.getActionBindingLabelAsTooltipSuffix("TogglePanColumn") || "Unbound";
-        const somaticColumnsKeyshortcut = mgr.getActionBindingLabelAsTooltipSuffix("ToggleSomaticColumns") || "Unbound";
+      const volumeColumnKeyshortcut = mgr.getActionBindingLabelAsTooltipSuffix("ToggleVolumeColumn") || "(Unbound)";
+      const panColumnKeyshortcut = mgr.getActionBindingLabelAsTooltipSuffix("TogglePanColumn") || "(Unbound)";
+      const somaticColumnsKeyshortcut = mgr.getActionBindingLabelAsTooltipSuffix("ToggleSomaticColumns") || "(Unbound)";
 
         const containerRef = useRef<HTMLDivElement | null>(null);
         const topControlsRef = useRef<HTMLDivElement | null>(null);
@@ -1595,22 +1596,23 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                             </label>
                             <ButtonGroup variant="subtle">
                                 <Tooltip title={`Toggle Advanced Edit Panel ${mgr.getActionBindingLabelAsTooltipSuffix('ToggleAdvancedEditPanel')}`}>
-                                <CheckboxButton onClick={() => onSetAdvancedEditPanelOpen(!advancedEditPanelOpen)} checked={advancedEditPanelOpen}>
+                                <CheckboxButton onClick={() => onSetAdvancedEditPanelOpen(!advancedEditPanelOpen)} checked={advancedEditPanelOpen} showCheckmark={false}>
                                     adv
                                 </CheckboxButton>
                                 </Tooltip>
+                             <Divider />
                                 <Tooltip title={`Toggle Show Volume Column ${volumeColumnKeyshortcut}`}>
-                                <CheckboxButton onClick={() => onEditorStateChange((s) => s.setShowVolumeColumn(!s.showVolumeColumn))} checked={editorState.showVolumeColumn}>
+                                <CheckboxButton onClick={() => onEditorStateChange((s) => s.setShowVolumeColumn(!s.showVolumeColumn))} checked={editorState.showVolumeColumn} showCheckmark={false}>
                                     vol
                                 </CheckboxButton>
                                 </Tooltip>
                              <Tooltip title={`Toggle Show Pan Column ${panColumnKeyshortcut}`}>
-                                <CheckboxButton onClick={() => onEditorStateChange((s) => s.setShowPanColumn(!s.showPanColumn))} checked={editorState.showPanColumn}>
+                                <CheckboxButton onClick={() => onEditorStateChange((s) => s.setShowPanColumn(!s.showPanColumn))} checked={editorState.showPanColumn} showCheckmark={false}>
                                    pan
                                 </CheckboxButton>
                              </Tooltip>
                                 <Tooltip title={`Toggle Show Somatic Columns ${somaticColumnsKeyshortcut}`}>
-                                <CheckboxButton onClick={() => onEditorStateChange((s) => s.setShowSomaticColumns(!s.showSomaticColumns))} checked={editorState.showSomaticColumns}>
+                                <CheckboxButton onClick={() => onEditorStateChange((s) => s.setShowSomaticColumns(!s.showSomaticColumns))} checked={editorState.showSomaticColumns} showCheckmark={false}>
                                     som
                                 </CheckboxButton>
                                 </Tooltip>

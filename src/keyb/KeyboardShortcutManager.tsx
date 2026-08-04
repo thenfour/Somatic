@@ -236,7 +236,7 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
         useActionHandler: useActionHandlerScoped,
         getActionBindingLabelAlways: (actionId: TActionId): string => {
             const label = getActionBindingLabel(actionId);
-            return label ?? "Unbound";
+           return label ?? "(Unbound)";
         },
         getActionBindingLabelAsTooltipSuffix: (actionId: TActionId): string => {
             const label = getActionBindingLabel(actionId);

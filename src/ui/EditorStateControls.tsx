@@ -37,10 +37,6 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
         onSongChange({ description: 'Set edit step', undoable: true, mutator: (s) => s.setPatternEditStep(val) });
     };
 
-    const getActionBindingLabel = (actionId: GlobalActionId) => {
-        return mgr.getActionBindingLabel(actionId) || "Unbound";
-    };
-
     const instrumentOptions = React.useMemo(() => {
         return song.instruments.map((instrument, i) => ({
             value: i,
@@ -59,7 +55,7 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
                     onChange={onHighlightRowCountChange}
                 />
             </label>
-            <Tooltip title={`Number of rows the cursor moves after note input. ${getActionBindingLabel("IncreaseEditStep")} / ${getActionBindingLabel("DecreaseEditStep")} to adjust.`}>
+          <Tooltip title={`Number of rows the cursor moves after note input. ${mgr.getActionBindingLabelAlways("IncreaseEditStep")} / ${mgr.getActionBindingLabelAlways("DecreaseEditStep")} to adjust.`}>
                 <label>
                     Edit step
                     <IntegerUpDown
@@ -70,7 +66,7 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
                     />
                 </label>
             </Tooltip>
-            <Tooltip title={`Current octave for note input. ${getActionBindingLabel("IncreaseOctave")} / ${getActionBindingLabel("DecreaseOctave")} to adjust.`}>
+          <Tooltip title={`Current octave for note input. ${mgr.getActionBindingLabelAlways("IncreaseOctave")} / ${mgr.getActionBindingLabelAlways("DecreaseOctave")} to adjust.`}>
                 <label>
                     Octave
                     <IntegerUpDown
@@ -92,7 +88,7 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
                         options={instrumentOptions}
                     />
                 </label>
-                <Tooltip title={`Decrease instrument (${getActionBindingLabel("DecreaseInstrument")}).`}>
+             <Tooltip title={`Decrease instrument (${mgr.getActionBindingLabelAlways("DecreaseInstrument")}).`}>
                     <IconButton
                         // style={{ display: "inline-block", margin: 0, padding: 0 }}
                         onClick={() => {
@@ -103,7 +99,7 @@ export const EditorStateControls: React.FC<EditorStateControlsProps> = ({ song, 
                         }}
                     >{CharMap.LeftTriangle}</IconButton>
                 </Tooltip>
-                <Tooltip title={`Increase instrument (${getActionBindingLabel("IncreaseInstrument")}).`}>
+             <Tooltip title={`Increase instrument (${mgr.getActionBindingLabelAlways("IncreaseInstrument")}).`}>
                     <IconButton
                         // style={{ display: "inline-block", margin: 0, padding: 0 }}
                         onClick={() => {
