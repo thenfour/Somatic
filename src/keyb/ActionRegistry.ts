@@ -166,8 +166,8 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
         description: "show or hide the instruments management panel.",
         category: "View",
         defaultBindings: [
-            // ctrl + i
-            { kind: "character", key: "i", primary: true },
+           // shift + + (basically, shift of the instrument panel toggle key)
+           {kind: "character", key: "+", primary: false, shift: true}
         ],
     },
 
