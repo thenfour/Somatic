@@ -252,7 +252,7 @@ export class Song {
       this.tempo = clamp(data.tempo ?? 120, 1, 255);
       this.speed = clamp(data.speed ?? 6, 1, 31);
       this.name = data.name ?? "New song";
-      this.highlightRowCount = data.highlightRowCount ?? 4;
+      this.highlightRowCount = clamp(data.highlightRowCount ?? 4, 1, 64);
       this.patternEditStep = clamp(data.patternEditStep ?? 1, 0, 32);
       this.useCustomEntrypointLua = CoalesceBoolean(data.useCustomEntrypointLua, false);
       this.customEntrypointLua = data.customEntrypointLua || "";

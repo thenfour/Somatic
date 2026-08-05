@@ -89,9 +89,11 @@ do
 	local function render_waveform_morph(cfg, ticksPlayed, outSamples)
 		local nodes = cfg.morphGradientNodes
 		local n = #nodes
-		if nodes == nil or n == 0 then
-			return false
+		-- BEGIN_DEBUG_ONLY
+		if n == 0 then
+			error("waveform morph requires at least one gradient node")
 		end
+		-- END_DEBUG_ONLY
 		if n == 1 then
 			local s = nodes[1].samples
 			for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
@@ -180,10 +182,10 @@ do
 			return
 		end
 		local scale01 = clamp01(effectStrengthScaleU8 / 255)
-		local lpScale01 = clamp01((lowpassStrengthScaleU8 or 255) / 255)
-		local baseLpAmount01 = clamp01((cfg.lowpassAmountU8 or 0) / 255)
+		local lpScale01 = clamp01(lowpassStrengthScaleU8 / 255)
+		local baseLpAmount01 = clamp01(cfg.lowpassAmountU8 / 255)
 		local lpAmount01 = baseLpAmount01 * lpScale01
-		local effectKind = cfg.effectKind or EFFECT_KIND_NONE
+		local effectKind = cfg.effectKind
 		-- BEGIN_FEATURE_HARDSYNC
 		if effectKind == EFFECT_KIND_HARDSYNC and cfg.effectAmtU8 > 0 and scale01 > 0 then
 			local hsT = 0
@@ -272,25 +274,25 @@ do
 			--if orderEntry then
 			--local columnIndex0b = orderEntry[ch + 1]
 			local columnIndex0b = getColumnIndex(playingSongOrder, ch)
-			local cells = columnIndex0b ~= nil and patternExtra[columnIndex0b] or nil
+			local cells = patternExtra[columnIndex0b]
 			local cell = cells and cells[row + 1] or nil
 			-- E/F/L affect the currently playing voice. Pan and volume are applied after
 			-- the note event below so same-row values control the newly triggered voice.
 			if cell and cell.effectId == 1 then
 				-- 'E': Set effect strength scale
-				ch_effect_strength_scale_u8[ch + 1] = cell.paramU8 or 255
+				ch_effect_strength_scale_u8[ch + 1] = cell.paramU8
 			elseif cell and cell.effectId == 3 then
 				-- 'F': Set lowpass strength scale (00=bypass, FF=max)
-				ch_lowpass_strength_scale_u8[ch + 1] = cell.paramU8 or 255
+				ch_lowpass_strength_scale_u8[ch + 1] = cell.paramU8
 			elseif cell and cell.effectId == 2 then
 				-- 'L': Set LFO phase for the instrument playing on this channel
 				local instId = ch_sfx_id[ch + 1]
 				if instId and instId >= 0 then
-					local cfg = morphMap and morphMap[instId]
+					local cfg = morphMap[instId]
 					local cycle = cfg and cfg.lfoCycleTicks12 or 0
 					if cycle > 0 then
 						-- paramU8 0x00..0xFF maps to phase 0..cycle
-						lfo_ticks_by_sfx[instId] = math.floor((cell.paramU8 or 0) / 255 * cycle)
+						lfo_ticks_by_sfx[instId] = math.floor(cell.paramU8 / 255 * cycle)
 					end
 				end
 				--end
@@ -316,7 +318,7 @@ do
 
 			if cell and cell.effectId == 5 then
 				-- 'P': Per-channel pan override (00=left, 80=center, FF=right)
-				ch_pan_override_u8[ch + 1] = cell.paramU8 or 128
+				ch_pan_override_u8[ch + 1] = cell.paramU8
 			end
 			if cell and cell.panU8 ~= nil then
 				-- Dedicated pan column takes precedence over a same-row legacy Pxx command.
@@ -334,7 +336,7 @@ do
 			return
 		end
 		local ticksPlayed = ch_sfx_ticks[ch + 1]
-		local cfg = morphMap and morphMap[instId]
+		local cfg = morphMap[instId]
 		local lt = lfo_ticks_by_sfx[instId] or 0
 		if cfg_is_k_rate_processing(cfg) then
 			local scaleU8 = ch_effect_strength_scale_u8[ch + 1] or 255
@@ -367,10 +369,6 @@ do
 
 	local function decode_extra_song_data()
 		local m = SOMATIC_MUSIC_DATA.extraSongData
-		if not m then
-			return
-		end
-
 		morphMap = {}
 		patternExtra = {}
 		morphIds = {}
@@ -417,11 +415,7 @@ do
 	end
 
 	local function song_order_row_count(songPosition0b)
-		local rows = SOMATIC_MUSIC_DATA.orderRows and SOMATIC_MUSIC_DATA.orderRows[songPosition0b + 1] or nil
-		if rows == nil or rows <= 0 then
-			return SOMATIC_MUSIC_DATA.rowsPerPattern
-		end
-		return clamp(rows, 1, SOMATIC_MUSIC_DATA.rowsPerPattern)
+		return SOMATIC_MUSIC_DATA.orderRows[songPosition0b + 1]
 	end
 
 	local function song_row_count()
@@ -522,7 +516,7 @@ do
 				break
 			end
 		end
-		local targetFrame = ((playingFrame or 0) + 1) % 16
+		local targetFrame = (playingFrame + 1) % 16
 		local addr = destPointer + chosenCh * PATTERN_BYTES_PER_PATTERN + row * ROW_BYTES
 		poke(addr, ((targetFrame & 0x0f) << 4) | (peek(addr) & 0x0f))
 		poke(addr + 1, (peek(addr + 1) & 0x80) | (3 << 4))
@@ -627,30 +621,11 @@ do
 		return tempo * 6 / speed
 	end
 
-	-- Merge caller overrides with generated song timing.
-	local function somatic_resolve_timing_options(options)
-		options = options or {}
-		local tempo = options.tempo or SOMATIC_MUSIC_DATA.tempo
-		local speed = options.speed or SOMATIC_MUSIC_DATA.speed
-		local rowsPerBeat = SOMATIC_MUSIC_DATA.rowsPerBeat
-		local rowsPerPattern = SOMATIC_MUSIC_DATA.rowsPerPattern
-		if tempo <= 0 then
-			error("SOMATIC_MUSIC_DATA.tempo must be > 0")
-		end
-		if speed <= 0 then
-			error("SOMATIC_MUSIC_DATA.speed must be > 0")
-		end
-		if rowsPerBeat <= 0 then
-			error("SOMATIC_MUSIC_DATA.rowsPerBeat must be > 0")
-		end
-		if rowsPerPattern <= 0 then
-			error("SOMATIC_MUSIC_DATA.rowsPerPattern must be > 0")
-		end
-		return tempo, speed, rowsPerBeat, rowsPerPattern
-	end
-
 	-- Shared state for music playback and demo timing.
-	local baseTempo, baseSpeed, baseRowsPerBeat, baseRowsPerPattern = somatic_resolve_timing_options()
+	local baseTempo = SOMATIC_MUSIC_DATA.tempo
+	local baseSpeed = SOMATIC_MUSIC_DATA.speed
+	local baseRowsPerBeat = SOMATIC_MUSIC_DATA.rowsPerBeat
+	local baseRowsPerPattern = SOMATIC_MUSIC_DATA.rowsPerPattern
 	local baseSongPatternCount = song_order_count()
 	local baseSongRowCount = song_row_count()
 	local baseSongBeatCount = baseSongRowCount / baseRowsPerBeat

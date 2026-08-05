@@ -59,6 +59,36 @@ const debugOptions: OptimizationRuleOptions = {
    tableEntryKeysToRename: [],
 } as const;
 
+function assertPlayroutineSongContract(song: Song): void {
+   const assertIntegerInRange = (name: string, value: number, min: number, max: number) => {
+      assert(
+         Number.isInteger(value) && value >= min && value <= max,
+         `Playroutine ${name} must be an integer in ${min}..${max}; got ${value}`,
+      );
+   };
+
+   assertIntegerInRange("tempo", song.tempo, 1, 255);
+   assertIntegerInRange("speed", song.speed, 1, 31);
+   assertIntegerInRange("rowsPerBeat", song.highlightRowCount, 1, Tic80Caps.pattern.maxRows);
+   assertIntegerInRange("rowsPerPattern", song.rowsPerPattern, 1, Tic80Caps.pattern.maxRows);
+   assert(
+      song.subsystem.channelCount === Tic80Caps.song.audioChannels,
+      `Playroutine songs must have ${Tic80Caps.song.audioChannels} channels; got ${song.subsystem.channelCount}`,
+   );
+   assert(
+      song.songOrder.length >= 1 && song.songOrder.length <= SomaticCaps.maxSongLength,
+      `Playroutine song order length must be in 1..${SomaticCaps.maxSongLength}; got ${song.songOrder.length}`,
+   );
+   song.songOrder.forEach((entry, orderIndex) => {
+      assert(
+         Number.isInteger(entry.patternIndex)
+            && entry.patternIndex >= 0
+            && entry.patternIndex < song.patterns.length,
+         `Playroutine song order ${orderIndex} has invalid pattern index ${entry.patternIndex}`,
+      );
+   });
+}
+
 
 function durationSecondsToTicks10(seconds: number): number {
    const s = Math.max(0, seconds ?? 0);
@@ -697,10 +727,9 @@ function getCode(
       const entry = preparedSong.songOrder[i];
       const base = i * Tic80Caps.song.audioChannels;
       for (let ch = 0; ch < Tic80Caps.song.audioChannels; ch++) {
-         const idx = entry.patternColumnIndices[ch] | 0;
-         songOrderPayload[base + ch] = idx;
+         songOrderPayload[base + ch] = entry.patternColumnIndices[ch];
       }
-      orderRowsPayload[i] = clamp(entry.effectiveRows | 0, 1, song.rowsPerPattern);
+      orderRowsPayload[i] = entry.effectiveRows;
    }
    // lz compress & b85+1 encode.
    const songOrderCompressed = lzCompress(songOrderPayload, gSomaticLZDefaultConfig);
@@ -855,6 +884,8 @@ export function serializeSongToCartDetailed(
 {
    const startTime = performance.now();
 
+   assertPlayroutineSongContract(song);
+
    // sanity: check that patternmem regions are actually contained in pattern mem and don't have any overlaps.
    const reservedRegionsInPatternMem = GetRuntimeReservedRegionsInPatternMemory();
    {
@@ -903,6 +934,7 @@ export function serializeSongToCartDetailed(
       startRow: 0,
    });
    song = bakeResult.bakedSong;
+   assertPlayroutineSongContract(song);
 
    // e.g., remove unused instruments, waveforms, patterns, shift to pack etc.
 

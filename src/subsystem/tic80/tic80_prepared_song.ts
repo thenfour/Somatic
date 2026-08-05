@@ -3,7 +3,7 @@
 import {PatternChannel} from "../../models/pattern";
 import {Song} from "../../models/song";
 import {SomaticCaps, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
-import {assert, clamp} from "../../utils/utils";
+import {assert} from "../../utils/utils";
 
 export type PreparedPatternColumn = {
    sourcePatternIndex: number; //
@@ -24,6 +24,52 @@ export type PreparedSong = {
    songOrder: PreparedSongOrderItem[];
 };
 
+export function assertPreparedSongContract(prepared: PreparedSong): void {
+   assert(
+      Number.isInteger(prepared.rowsPerPattern)
+         && prepared.rowsPerPattern >= 1
+         && prepared.rowsPerPattern <= Tic80Caps.pattern.maxRows,
+      `Prepared song rowsPerPattern must be an integer in 1..${Tic80Caps.pattern.maxRows}; got ${
+         prepared.rowsPerPattern}`,
+   );
+   assert(
+      prepared.channelCount === Tic80Caps.song.audioChannels,
+      `Prepared song must have ${Tic80Caps.song.audioChannels} channels; got ${prepared.channelCount}`,
+   );
+   assert(
+      prepared.songOrder.length >= 1 && prepared.songOrder.length <= SomaticCaps.maxSongLength,
+      `Prepared song order length must be in 1..${SomaticCaps.maxSongLength}; got ${prepared.songOrder.length}`,
+   );
+   assert(
+      prepared.patternColumns.length >= 1 && prepared.patternColumns.length <= SomaticCaps.maxPatternCount,
+      `Prepared pattern column count must be in 1..${SomaticCaps.maxPatternCount}; got ${
+         prepared.patternColumns.length}`,
+   );
+
+   prepared.songOrder.forEach((entry, orderIndex) => {
+      assert(
+         Number.isInteger(entry.effectiveRows)
+            && entry.effectiveRows >= 1
+            && entry.effectiveRows <= prepared.rowsPerPattern,
+         `Prepared song order ${orderIndex} effectiveRows must be an integer in 1..${
+            prepared.rowsPerPattern}; got ${entry.effectiveRows}`,
+      );
+      assert(
+         entry.patternColumnIndices.length === Tic80Caps.song.audioChannels,
+         `Prepared song order ${orderIndex} must have ${Tic80Caps.song.audioChannels} column indices`,
+      );
+      entry.patternColumnIndices.forEach((columnIndex, channelIndex) => {
+         assert(
+            Number.isInteger(columnIndex)
+               && columnIndex >= 0
+               && columnIndex < SomaticCaps.maxPatternCount
+               && columnIndex < prepared.patternColumns.length,
+            `Prepared song order ${orderIndex} channel ${channelIndex} has invalid column index ${columnIndex}`,
+         );
+      });
+   });
+}
+
 // converts a frontend Song model into a column-oriented representation for the playroutines
 export function prepareSongColumns(song: Song): PreparedSong {
    const patternColumns: PreparedPatternColumn[] = [];
@@ -32,9 +78,7 @@ export function prepareSongColumns(song: Song): PreparedSong {
    const getColumnIndex = (patternIndex: number, channel: number): number => {
       const pattern = song.patterns[patternIndex]!;
       const channelObj = pattern.getChannel(channel);
-      if (!channelObj) {
-         return 0;
-      }
+      assert(channelObj !== undefined, `Pattern ${patternIndex} is missing channel ${channel}`);
       const signature = pattern.contentSignatureForColumn(channel);
       const existing = signatureToIndex.get(signature);
       if (existing !== undefined) {
@@ -56,7 +100,11 @@ export function prepareSongColumns(song: Song): PreparedSong {
    const maxPatternIndex = song.patterns.length - 1;
    for (let i = 0; i < song.songOrder.length; i++) {
       const orderEntry = song.songOrder[i];
-      const patternIndex = clamp(orderEntry.patternIndex, 0, maxPatternIndex);
+      const patternIndex = orderEntry.patternIndex;
+      assert(
+         Number.isInteger(patternIndex) && patternIndex >= 0 && patternIndex <= maxPatternIndex,
+         `Song order ${i} has invalid pattern index ${patternIndex}`,
+      );
       const columnIndices: [number, number, number, number] = [0, 0, 0, 0];
       for (let ch = 0; ch < Tic80Caps.song.audioChannels; ch++) {
          columnIndices[ch] = getColumnIndex(patternIndex, ch);
@@ -67,16 +115,20 @@ export function prepareSongColumns(song: Song): PreparedSong {
       });
    }
 
-   return {
+   const prepared: PreparedSong = {
       baseSong: song,
       patternColumns,
       songOrder,
       rowsPerPattern: song.rowsPerPattern,
       channelCount: song.subsystem.channelCount,
    };
+   assertPreparedSongContract(prepared);
+   return prepared;
 }
 
 export function encodePreparedSongOrderForBridge(prepared: PreparedSong): Uint8Array {
+   assertPreparedSongContract(prepared);
+
    const capacity = TicMemoryMap.TF_ORDER_LIST_CAPACITY;
    const entryOffset = 1;
    const rowsOffset = TicMemoryMap.TF_ORDER_LIST_ROWS - TicMemoryMap.TF_ORDER_LIST;
@@ -95,14 +147,9 @@ export function encodePreparedSongOrderForBridge(prepared: PreparedSong): Uint8A
       const entry = prepared.songOrder[i];
       const base = entryOffset + i * Tic80Caps.song.audioChannels;
       for (let ch = 0; ch < Tic80Caps.song.audioChannels; ch++) {
-         const idx = entry.patternColumnIndices[ch] | 0;
-         assert(idx >= 0 && idx < SomaticCaps.maxPatternCount, `songOrderData: column index out of range: ${idx}`);
-         assert(
-            idx < prepared.patternColumns.length,
-            `songOrderData: column index ${idx} >= patternColumns.length ${prepared.patternColumns.length}`);
-         payload[base + ch] = idx;
+         payload[base + ch] = entry.patternColumnIndices[ch];
       }
-      payload[rowsOffset + i] = clamp(entry.effectiveRows | 0, 1, prepared.rowsPerPattern);
+      payload[rowsOffset + i] = entry.effectiveRows;
    }
 
    return payload;

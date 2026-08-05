@@ -11,6 +11,10 @@ import {decodeInstrumentFromBytes66, decodeTrackSpeed, encodeInstrument, encodeT
 import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../bridge/memory_layout";
 import {decodeSomaticExtraSongDataPayload} from "../bridge/morphSchema";
 import {lzDecompress} from "../src/utils/encoding";
+import {
+   encodePreparedSongOrderForBridge,
+   prepareSongColumns,
+} from "../src/subsystem/tic80/tic80_prepared_song";
 
 const testRequire = createRequire(import.meta.url);
 (testRequire as any).extensions[".lua"] = (module: NodeModule, filename: string) => {
@@ -41,6 +45,69 @@ describe("TIC-80 track speed serialization", () => {
          assert.equal(signedDelta + 6, displaySpeed, `TIC-80 runtime speed for ${displaySpeed}`);
          assert.equal(decodeTrackSpeed(encoded), displaySpeed, `round trip for speed ${displaySpeed}`);
       }
+   });
+});
+
+describe("playroutine generated-data contract", () => {
+   it("normalizes rows-per-beat at the Song model boundary", () => {
+      assert.equal(new Song({highlightRowCount: 0}).highlightRowCount, 1);
+      assert.equal(new Song({highlightRowCount: 100}).highlightRowCount, 64);
+   });
+
+   it("rejects invalid song data before generating Lua", async () => {
+      const {serializeSongToCartDetailed} = await import("../src/subsystem/tic80/tic80_cart_serializer");
+      const invalidCases: {label: string; mutate: (song: Song) => void;}[] = [
+         {label: "tempo", mutate: song => { song.tempo = 0; }},
+         {label: "speed", mutate: song => { song.speed = 1.5; }},
+         {label: "rowsPerBeat", mutate: song => { song.highlightRowCount = 0; }},
+         {label: "rowsPerPattern", mutate: song => { song.rowsPerPattern = 65; }},
+         {label: "song order length", mutate: song => { song.songOrder = []; }},
+         {label: "invalid pattern index", mutate: song => { song.songOrder[0].patternIndex = 99; }},
+      ];
+
+      for (const testCase of invalidCases) {
+         const song = new Song();
+         testCase.mutate(song);
+         assert.throws(
+            () => serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible),
+            new RegExp(testCase.label),
+         );
+      }
+   });
+
+   it("rejects malformed prepared rows and indices instead of clamping them", () => {
+      const badRows = prepareSongColumns(new Song());
+      badRows.songOrder[0].effectiveRows = 0;
+      assert.throws(
+         () => encodePreparedSongOrderForBridge(badRows),
+         /effectiveRows must be an integer/,
+      );
+
+      const badIndex = prepareSongColumns(new Song());
+      badIndex.songOrder[0].patternColumnIndices[0] = badIndex.patternColumns.length;
+      assert.throws(
+         () => encodePreparedSongOrderForBridge(badIndex),
+         /invalid column index/,
+      );
+   });
+
+   it("keeps payload sanity errors in debug output but strips them from release", async () => {
+      const {serializeSongToCartDetailed} = await import("../src/subsystem/tic80/tic80_cart_serializer");
+      const song = new Song();
+      const debug = serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible);
+      const release = serializeSongToCartDetailed(song, false, "release", gTic80AllChannelsAudible);
+
+      assert.match(debug.wholePlayroutineCode, /invalid LZ match distance/);
+      assert.doesNotMatch(release.wholePlayroutineCode, /invalid LZ match distance/);
+
+      const playroutineSource = fs.readFileSync(new URL("../bridge/playroutine.lua", import.meta.url), "utf8");
+      const sharedSource = fs.readFileSync(
+         new URL("../bridge/playroutine_shared.inc.lua", import.meta.url),
+         "utf8",
+      );
+      assert.doesNotMatch(playroutineSource, /SOMATIC_MUSIC_DATA\.orderRows and/);
+      assert.doesNotMatch(playroutineSource, /cell\.paramU8 or/);
+      assert.doesNotMatch(sharedSource, /baseVolumeU8 or|bytes\[pos\] or 0/);
    });
 });
 

@@ -9,7 +9,6 @@ local WAVE_ENGINE_MORPH = 0
 local WAVE_ENGINE_NATIVE = 1
 local WAVE_ENGINE_PWM = 2
 
-local EFFECT_KIND_NONE = 0
 local EFFECT_KIND_WAVEFOLD = 1
 local EFFECT_KIND_HARDSYNC = 2
 
@@ -25,7 +24,7 @@ local WAVE_SAMPLES_PER_WAVE = 32
 --  byte1: bit7 = instrument bit5, bits4..6 = command, low nibble = argY
 --  byte2: bits5..7 = octave, low5 = instrument low5
 local function decode_pattern_row(patternId1b, rowIndex)
-	if patternId1b == nil or patternId1b == 0 then
+	if patternId1b == 0 then
 		return 0, 0
 	end
 	local pat0b = patternId1b - 1
@@ -110,9 +109,11 @@ local function lzDecode(src, srcLen, out)
 			local len, distance
 			len, si = readVarint(si)
 			distance, si = readVarint(si)
+			-- BEGIN_DEBUG_ONLY
 			if distance <= 0 or distance > di then
 				error("invalid LZ match distance")
 			end
+			-- END_DEBUG_ONLY
 			for _ = 1, len do
 				out[di + 1] = out[di - distance + 1]
 				di = di + 1
@@ -196,14 +197,14 @@ local function wave_unpack_byte_to_samples(b, outSamples, si)
 end
 
 local function hasBit(bytes, base, bitIndex)
-	local b = bytes[base + (bitIndex // 8)] or 0
+	local b = bytes[base + (bitIndex // 8)]
 	return (b & (1 << (bitIndex % 8))) ~= 0
 end
 
 local function somaticMaskBitCount(bytes, base)
 	local count = 0
 	for i = 0, SOMATIC_PATTERN_MASK_BYTES - 1 do
-		local b = bytes[base + i] or 0
+		local b = bytes[base + i]
 		while b ~= 0 do
 			b = b & (b - 1)
 			count = count + 1
@@ -215,7 +216,7 @@ end
 -- Parse decompressed extra-song table and produce runtime struct.
 local function decodeSomaticExtraSongBytes(bytes)
 	local pos = 1
-	local instrumentCount = bytes[pos] or 0
+	local instrumentCount = bytes[pos]
 	pos = pos + 1
 	local nextMorphMap = {}
 	local nextMorphIds = {}
@@ -223,7 +224,7 @@ local function decodeSomaticExtraSongBytes(bytes)
 	for _ = 1, instrumentCount do
 		local entry = decode_MorphEntry(bytes, pos - 1)
 		pos = pos + MORPH_ENTRY_BYTES
-		local nodeCount = bytes[pos] or 0
+		local nodeCount = bytes[pos]
 		pos = pos + 1
 		local nodes = {}
 		for _ = 1, nodeCount do
@@ -232,7 +233,7 @@ local function decodeSomaticExtraSongBytes(bytes)
 			local samples = {}
 			local sampleIndex = 0
 			for byteIndex = 1, 16 do
-				sampleIndex = wave_unpack_byte_to_samples(node.waveBytes[byteIndex] or 0, samples, sampleIndex)
+				sampleIndex = wave_unpack_byte_to_samples(node.waveBytes[byteIndex], samples, sampleIndex)
 			end
 			node.waveBytes = nil
 			node.samples = samples
@@ -305,8 +306,8 @@ local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, 
 	end
 	-- END_FEATURE_LFO
 
-	if durationTicks == nil or durationTicks <= 0 then
-		return fallbackT or 0
+	if durationTicks <= 0 then
+		return fallbackT
 	end
 	return clamp01(ticksPlayed / durationTicks)
 end
@@ -322,19 +323,19 @@ end
 -- Apply Somatic gain after TIC-80 has produced its native envelope/Mxy stereo levels.
 local function write_channel_mix(channel, baseVolumeU8, basePanU8, depthU8, lfoTicks, lfoCycleTicks)
 	local volumeScaleU8 = ch_volume_scale_u8[channel + 1] or 255
-	local baseVolume = clamp01((baseVolumeU8 or 255) / 255)
+	local baseVolume = clamp01(baseVolumeU8 / 255)
 	local volumeScale = clamp01(volumeScaleU8 / 255)
 	local volume = baseVolume * volumeScale
 	local panU8 = ch_pan_override_u8[channel + 1]
 	if panU8 == nil then
-		panU8 = basePanU8 or 128
+		panU8 = basePanU8
 	end
 	local pan = pan_u8_to_n11(panU8)
 
 	-- BEGIN_FEATURE_LFO
-	local depth = clamp01((depthU8 or 0) / 255)
-	if depth > 0 and (lfoCycleTicks or 0) > 0 then
-		local lfo = calculate_mod_t(MOD_SRC_LFO, 0, 0, lfoTicks or 0, lfoCycleTicks, 0) * 2 - 1
+	local depth = clamp01(depthU8 / 255)
+	if depth > 0 and lfoCycleTicks > 0 then
+		local lfo = calculate_mod_t(MOD_SRC_LFO, 0, 0, lfoTicks, lfoCycleTicks, 0) * 2 - 1
 		pan = clamp(pan + depth * lfo, -1, 1)
 	end
 	-- END_FEATURE_LFO
@@ -423,7 +424,7 @@ end
 
 -- BEGIN_FEATURE_WAVEFOLD
 local function apply_wavefold_effect_to_samples(samples, strength01)
-	local gain = 1 + 20 * clamp01(strength01 or 0)
+	local gain = 1 + 20 * clamp01(strength01)
 	if gain <= 1 then
 		return
 	end
@@ -448,8 +449,7 @@ end
 -- BEGIN_FEATURE_HARDSYNC
 local hs_scratch = {}
 local function apply_hardsync_effect_to_samples(samples, multiplier)
-	local m = multiplier or 1
-	if m <= 1.001 then
+	if multiplier <= 1.001 then
 		return
 	end
 
@@ -460,7 +460,7 @@ local function apply_hardsync_effect_to_samples(samples, multiplier)
 	end
 
 	for i = 0, N - 1 do
-		local u = (i / N) * m -- slave cycles within master cycle
+		local u = (i / N) * multiplier -- slave cycles within master cycle
 		local k = math.floor(u)
 		local frac = u - k -- 0..1
 		local p = frac * N
