@@ -88,7 +88,7 @@ describe("hot-restart baked position mapping", () => {
 });
 
 describe("hot-restart playback fingerprint", () => {
-   it("ignores instrument-only changes but detects pattern and timing changes", async () => {
+   it("ignores instrument-only changes but detects pattern, timing, loop, and audibility changes", async () => {
       const {serializeSongForTic80Bridge} = await import("../src/subsystem/tic80/tic80_cart_serializer");
       const song = makeSong();
       const initial = serializeSongForTic80Bridge(makeArgs(song));
@@ -109,6 +109,14 @@ describe("hot-restart playback fingerprint", () => {
       timingEdit.setTempo(song.tempo + 1);
       const changedTiming = serializeSongForTic80Bridge(makeArgs(timingEdit));
       assert.notEqual(changedTiming.playbackFingerprint, initial.playbackFingerprint);
+
+      const loopOff = serializeSongForTic80Bridge(makeArgs(song, {loopMode: "off"}));
+      assert.notEqual(loopOff.playbackFingerprint, initial.playbackFingerprint);
+
+      const mutedChannel = serializeSongForTic80Bridge(makeArgs(song, {
+         audibleChannels: new Set([1, 2, 3]),
+      }));
+      assert.notEqual(mutedChannel.playbackFingerprint, initial.playbackFingerprint);
    });
 });
 
@@ -220,6 +228,71 @@ describe("Tic80Backend hot restart", () => {
 
       assert.equal(bridge.calls.length, 2);
       assert.equal(bridge.calls.at(-1)?.kind, "transmit");
+   });
+
+   it("applies loop mode changes live and resumes in the new bake", async () => {
+      const {Tic80Backend} = await import("../src/subsystem/tic80/tic80_backend");
+      const bridge = new FakeBridge();
+      const backend = new Tic80Backend(() => bridge.handle);
+      const song = makeSong();
+      await backend.transmitAndPlay(makeArgs(song));
+
+      bridge.setPlayingPosition(1, 7);
+      await backend.transmitEditedSong(makeArgs(song, {
+         loopMode: "pattern",
+         cursorSongOrder: 2,
+      }));
+
+      const patternLoopCall = bridge.calls.at(-1);
+      assert.equal(patternLoopCall?.kind, "play");
+      assert.equal(patternLoopCall?.data?.bakedSong.transportConversion.songOrderOffset, 2);
+      assert.equal(patternLoopCall?.data?.bakedSong.startPosition, 0);
+      assert.equal(patternLoopCall?.data?.bakedSong.startRow, 7);
+
+      await backend.transmitEditedSong(makeArgs(song, {
+         loopMode: "off",
+         cursorSongOrder: 0,
+      }));
+
+      const loopOffCall = bridge.calls.at(-1);
+      assert.equal(loopOffCall?.kind, "play");
+      assert.equal(loopOffCall?.data?.bakedSong.wantSongLoop, false);
+      assert.equal(loopOffCall?.data?.bakedSong.startPosition, 2);
+      assert.equal(loopOffCall?.data?.bakedSong.startRow, 7);
+   });
+
+   it("applies audibility changes without moving the active loop anchor", async () => {
+      const {Tic80Backend} = await import("../src/subsystem/tic80/tic80_backend");
+      const bridge = new FakeBridge();
+      const backend = new Tic80Backend(() => bridge.handle);
+      const song = makeSong();
+      await backend.transmitAndPlay(makeArgs(song, {
+         loopMode: "pattern",
+         cursorSongOrder: 1,
+      }));
+
+      bridge.setPlayingPosition(0, 7);
+      await backend.transmitEditedSong(makeArgs(song, {
+         loopMode: "pattern",
+         cursorSongOrder: 2,
+         audibleChannels: new Set([1, 2, 3]),
+      }));
+
+      const mutedCall = bridge.calls.at(-1);
+      assert.equal(mutedCall?.kind, "play");
+      assert.equal(mutedCall?.data?.bakedSong.transportConversion.songOrderOffset, 1);
+      assert.deepEqual(mutedCall?.data?.bakedSong.bakedSong.patterns[0].getCell(0, 1), {});
+
+      await backend.transmitEditedSong(makeArgs(song, {
+         loopMode: "pattern",
+         cursorSongOrder: 2,
+         audibleChannels: allChannels,
+      }));
+
+      const unmutedCall = bridge.calls.at(-1);
+      assert.equal(unmutedCall?.kind, "play");
+      assert.equal(unmutedCall?.data?.bakedSong.transportConversion.songOrderOffset, 1);
+      assert.equal(unmutedCall?.data?.bakedSong.bakedSong.patterns[0].getCell(0, 1).midiNote, 61);
    });
 
    it("does not revive playback when Stop wins a pending hot-restart race", async () => {

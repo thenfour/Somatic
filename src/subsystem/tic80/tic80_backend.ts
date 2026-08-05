@@ -49,6 +49,19 @@ function clonePlaybackSession(args: BackendPlaySongArgs): PlaybackSession {
    };
 }
 
+// Loop mode and mute/solo state are live playback controls. Audibility can
+// change without affecting the active loop's anchor, while selecting a new
+// loop mode intentionally captures the editor's current cursor/selection.
+function mergeLivePlaybackControls(session: PlaybackSession, args: BackendPlaySongArgs): PlaybackSession {
+   if (session.loopMode !== args.loopMode) {
+      return clonePlaybackSession(args);
+   }
+   return {
+      ...session,
+      audibleChannels: new Set(args.audibleChannels),
+   };
+}
+
 function clampSelection(
    selection: SelectionRect2D | null,
    maxXInclusive: number,
@@ -251,8 +264,9 @@ export class Tic80Backend {
       }
 
       const epoch = this.playbackEpoch;
+      const nextSession = mergeLivePlaybackControls(active.session, args);
       const sessionArgs = makeSessionArgs(
-         active.session,
+         nextSession,
          args.song,
          args.reason,
          currentState.currentSomaticSongPosition,
@@ -264,6 +278,7 @@ export class Tic80Backend {
 
       const reason = `transmitEditedSong: ${args.reason}`;
       let restarted = false;
+      let playbackSessionAccepted = false;
       await b.invokeExclusive(reason, async (tx) => {
          const latestState = this.getSomaticTransportState();
          const canRestart = epoch === this.playbackEpoch && this.activePlayback === active && latestState.isPlaying &&
@@ -273,6 +288,7 @@ export class Tic80Backend {
 
          if (!canRestart || !sequencedPlaybackChanged) {
             await tx.transmit({data: serializedSong, reason});
+            playbackSessionAccepted = canRestart;
             return;
          }
 
@@ -285,10 +301,16 @@ export class Tic80Backend {
          serializedSong.bakedSong.startRow = resumeAt.rowIndex;
          await tx.transmitAndPlay({data: serializedSong, reason});
          restarted = true;
+         playbackSessionAccepted = true;
       });
 
-      if (restarted && epoch === this.playbackEpoch && this.activePlayback === active) {
-         this.activePlayback = {serializedSong, session: active.session};
+      if (playbackSessionAccepted && epoch === this.playbackEpoch && this.activePlayback === active) {
+         this.activePlayback = {
+            // Transmit-only updates do not replace the bake that currently
+            // interprets the bridge's transport counters.
+            serializedSong: restarted ? serializedSong : active.serializedSong,
+            session: nextSession,
+         };
       }
       return serializedSong;
    }

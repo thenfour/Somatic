@@ -347,6 +347,22 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         autoSave.enqueue(song);
     }, [song]);
 
+   // Loop mode and channel mute/solo state are bake inputs rather than
+   // Song fields. Push those editor-only changes through the same serialized
+   // update queue so active playback is re-baked without racing song edits.
+   const livePlaybackControlsKey = `${editorState.loopMode}:${numericRange(0, song.subsystem.channelCount)
+      .filter((channelIndex) => editorState.isChannelAudible(channelIndex))
+      .join(",")}`;
+   const previousLivePlaybackControlsKeyRef = React.useRef(livePlaybackControlsKey);
+   useEffect(() => {
+      if (previousLivePlaybackControlsKeyRef.current === livePlaybackControlsKey) {
+         return;
+      }
+      previousLivePlaybackControlsKeyRef.current = livePlaybackControlsKey;
+      autoSave.enqueue(song);
+      void autoSave.flush();
+   }, [livePlaybackControlsKey]);
+
     const songRef = React.useRef(song);
     const editorRef = React.useRef(editorState);
 
