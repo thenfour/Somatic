@@ -55,4 +55,32 @@ describe("Somatic pattern end command", () => {
       assert.equal(payload[rowsOffset], 4);
       assert.equal(payload[rowsOffset + 1], 8);
    });
+
+   it("prepares only rows reachable through the first Somatic C", () => {
+      const pattern = new Pattern();
+      pattern.setCell(0, 3, {
+         midiNote: 60,
+         instrumentIndex: 0,
+         somaticEffect: kSomaticPatternCommand.key.PatternEnd,
+         somaticParam: 0x12,
+      });
+      pattern.setCell(0, 4, {midiNote: 72, instrumentIndex: 1, panU8: 32});
+
+      const song = new Song({
+         rowsPerPattern: 8,
+         patterns: [pattern.toData()],
+         songOrder: [0],
+      });
+      const prepared = prepareSongColumns(song);
+      const columnIndex = prepared.songOrder[0].patternColumnIndices[0];
+      const preparedChannel = prepared.patternColumns[columnIndex].channel;
+
+      assert.deepEqual(preparedChannel.getCell(3), {midiNote: 60, instrumentIndex: 0});
+      assert.deepEqual(preparedChannel.getCell(4), {});
+      assert.deepEqual(
+         song.patterns[0].getCell(0, 4),
+         {midiNote: 72, instrumentIndex: 1, panU8: 32},
+         "preparation must not mutate the editor song",
+      );
+   });
 });

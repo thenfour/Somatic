@@ -4,7 +4,7 @@ import {gSomaticLZDefaultConfig, lzCompress} from "../../utils/encoding";
 import {encodePatternChannelDirect} from "./tic80_pattern_encoding";
 import {prepareSongColumns} from "./tic80_prepared_song";
 import {SomaticEffectKind, SomaticInstrument} from "../../models/instruments";
-import {Pattern} from "../../models/pattern";
+import {isNoteCut, Pattern} from "../../models/pattern";
 import {Song} from "../../models/song";
 import {SongOrderItem} from "../../models/songOrder";
 import {Tic80Caps} from "../../models/tic80Capabilities";
@@ -46,7 +46,8 @@ export function calculateSongUsage(song: Song): SongUsage {
       for (let ch = 0; ch < channelCount; ch++) {
          for (let r = 0; r < rowLimit; ++r) {
             const cell = pat.getCell(ch, r);
-            if (cell.instrumentIndex === undefined || cell.instrumentIndex === null)
+            if (cell.instrumentIndex === undefined || cell.instrumentIndex === null ||
+               cell.midiNote === undefined || isNoteCut(cell))
                continue;
             const instIdx = clamp(cell.instrumentIndex, 0, maxInstrumentIndex);
             usedInstruments.add(instIdx);
@@ -87,12 +88,12 @@ export function calculateSongUsage(song: Song): SongUsage {
 // returns the 0-based index of the waveform with the highest index that is used by
 // USED instruments in the song.
 export function getMaxWaveformUsedIndex(song: Song): number {
-   //return Tic80Caps.waveform.count - 1;
-   return calculateSongUsage(song).maxWaveform;
+   const usage = calculateSongUsage(song);
+   return usage.usedWaveforms.size === 0 ? -1 : usage.maxWaveform;
 }
 export function getMaxSfxUsedIndex(song: Song): number {
    const usage = calculateSongUsage(song);
-   return usage.maxInstrument;
+   return usage.usedInstruments.size === 0 ? -1 : usage.maxInstrument;
 }
 export function getMaxPatternUsedIndex(song: Song): number {
    //return Tic80Caps.pattern.count - 1;
@@ -268,15 +269,17 @@ export function OptimizeSong(song: Song): OptimizeResult {
    const usedPatternCount = usedPatternSet.size;
    changeLog.push(`Moved ${usedPatternCount} used patterns to the front out of ${newPatterns.length}.`);
 
-   // Step 3: find used instruments (SFX) from used patterns. Always keep 0 and 1 reserved slots.
-   const usedInstrumentSet = new Set<number>([0, 1]);
+   // Step 3: find used Somatic instruments from reachable rows in used patterns.
+   // TIC-80's reserved SFX 0/1 are added later by encodeSfx and are not Somatic instrument slots.
+   const usedInstrumentSet = new Set<number>();
    usedPatternSet.forEach((patternIdx) => {
       const pat = working.patterns[newPatternIndex.get(patternIdx) ?? patternIdx];
       const rowLimit = working.getPatternEffectiveRowCount(newPatternIndex.get(patternIdx) ?? patternIdx);
       for (let ch = 0; ch < channelCount; ch++) {
          for (let r = 0; r < rowLimit; ++r) {
             const cell = pat.getCell(ch, r);
-            if (cell.instrumentIndex !== undefined && cell.instrumentIndex !== null) {
+            if (cell.instrumentIndex !== undefined && cell.instrumentIndex !== null &&
+               cell.midiNote !== undefined && !isNoteCut(cell)) {
                const inst = clamp(cell.instrumentIndex, 0, working.instruments.length - 1);
                usedInstrumentSet.add(inst);
             }
@@ -320,7 +323,7 @@ export function OptimizeSong(song: Song): OptimizeResult {
 
    working.instruments = newInstruments;
    const usedSfxCount = usedInstrumentSet.size;
-   changeLog.push(`Packed instruments: ${usedSfxCount} used (including reserved 0/1) of ${newInstruments.length}.`);
+   changeLog.push(`Packed instruments: ${usedSfxCount} used of ${newInstruments.length}.`);
 
    // find used waveforms from used instruments and pack.
    const usedWaveformSet = new Set<number>();
@@ -335,10 +338,6 @@ export function OptimizeSong(song: Song): OptimizeResult {
          usedWaveformSet.add(waveIdx);
       });
    });
-   if (usedWaveformSet.size === 0) {
-      usedWaveformSet.add(0);
-   }
-
    const newWaveforms: Tic80Waveform[] = [];
    const waveformRemap = new Map<number, number>();
    const appendWave = (oldIndex: number) => {
@@ -363,7 +362,10 @@ export function OptimizeSong(song: Song): OptimizeResult {
    });
 
    // Analyze features and zero unused params for size.
-   newInstruments.forEach((inst) => {
+   newInstruments.forEach((inst, instrumentIndex) => {
+      if (instrumentIndex >= usedSfxCount) {
+         return;
+      }
       // Track usage before zeroing fields.
       if (inst.waveEngine === "morph") {
          featureUsage.waveMorph = true;
@@ -442,7 +444,11 @@ export function OptimizeSong(song: Song): OptimizeResult {
 
 export function analyzePlaybackFeatures(song: Song): PlaybackFeatureUsage {
    const usage = makeFeatureUsage();
-   song.instruments.forEach((inst) => {
+   calculateSongUsage(song).usedInstruments.forEach((instrumentIndex) => {
+      const inst = song.instruments[instrumentIndex];
+      if (!inst) {
+         return;
+      }
       if (inst.waveEngine === "morph")
          usage.waveMorph = true;
       if (inst.waveEngine === "pwm") {

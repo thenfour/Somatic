@@ -111,6 +111,54 @@ describe("playroutine generated-data contract", () => {
    });
 });
 
+describe("playroutine export reachability", () => {
+   it("does not serialize a Somatic instrument or waveform for an empty song", async () => {
+      const {serializeSongToCartDetailed} = await import("../src/subsystem/tic80/tic80_cart_serializer");
+      const details = serializeSongToCartDetailed(new Song(), true, "debug", gTic80AllChannelsAudible);
+
+      assert.equal(details.optimizeResult.usedSfxCount, 0);
+      assert.equal(details.optimizeResult.usedWaveformCount, 0);
+      assert.equal(details.memoryRegions.sfx.name, "0 SFX");
+      assert.equal(details.memoryRegions.waveforms.name, "0 waveforms");
+      assert.equal(details.extraSongDataDetails.krateInstruments.length, 0);
+   });
+
+   it("excludes post-C pattern data and the instruments and features reachable only from it", async () => {
+      const {serializeSongToCartDetailed} = await import("../src/subsystem/tic80/tic80_cart_serializer");
+      const song = new Song({rowsPerPattern: 8});
+      const reachableInstrument = 5;
+      const unreachableInstrument = 6;
+      song.instruments[unreachableInstrument].waveEngine = "pwm";
+      song.instruments[unreachableInstrument].pwmDuty = 12;
+      song.instruments[unreachableInstrument].pwmDepth = 4;
+      song.instruments[unreachableInstrument].lfoRateHz = 2;
+
+      song.patterns[0].setCell(0, 0, {midiNote: 60, instrumentIndex: reachableInstrument});
+      song.patterns[0].setCell(2, 0, {instrumentIndex: unreachableInstrument});
+      song.patterns[0].setCell(1, 1, {somaticEffect: kSomaticPatternCommand.key.PatternEnd});
+      song.patterns[0].setCell(0, 2, {
+         midiNote: 72,
+         instrumentIndex: unreachableInstrument,
+         panU8: 32,
+      });
+
+      const details = serializeSongToCartDetailed(song, true, "debug", gTic80AllChannelsAudible);
+
+      assert.equal(details.optimizeResult.usedSfxCount, 1);
+      assert.equal(details.optimizeResult.featureUsage.pwm, false);
+      assert.equal(details.optimizeResult.featureUsage.lfo, false);
+      assert.equal(details.extraSongDataDetails.krateInstruments.length, 0);
+      assert.deepEqual(decodePatternExtras(details.extraSongDataDetails.binaryPayload), []);
+      assert.ok(
+         details.patternSerializationPlan.patternChunks.every(
+            patternBytes => patternBytes.slice(2 * 3, 3 * 3).every(byte => byte === 0),
+         ),
+         "the encoded pattern columns must clear rows after C",
+      );
+      assert.doesNotMatch(details.wholePlayroutineCode, /render_waveform_pwm/);
+   });
+});
+
 describe("TIC-80 bridge extra-song transaction", () => {
    it("keeps Base85 export-only and has one table-backed Lua codec path", () => {
       const bridgeSource = fs.readFileSync(new URL("../bridge/bridge.lua", import.meta.url), "utf8");

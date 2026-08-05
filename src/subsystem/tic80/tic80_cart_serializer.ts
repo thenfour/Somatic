@@ -16,7 +16,7 @@ import {OptimizationRuleOptions, processLua} from "../../utils/lua/lua_processor
 import {assert, clamp, removeLuaBlockMarkers, replaceLuaBlock, typedKeys} from "../../utils/utils";
 import {getSomaticVersionAndCommitString} from "../../utils/versionString";
 import {BakedSong, BakeSong} from "./bakeSong";
-import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "./SongOptimizer";
+import {analyzePlaybackFeatures, calculateSongUsage, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "./SongOptimizer";
 import {encodePatternChannelDirect} from "./tic80_pattern_encoding";
 import {encodePreparedSongOrderForBridge, PreparedSong, prepareSongColumns} from "./tic80_prepared_song";
 import {createChunk, encodeSfx, encodeTempo, encodeTrackSpeed, encodeWaveforms, packTrackFrame, packWaveformSamplesToBytes16, removeTrailingZerosFn, stringToAsciiPayload, TicChunkType} from "./tic80_serialization";
@@ -134,9 +134,12 @@ function volume01ToU8(volume: number): number {
 }
 
 // Extract the wave-morphing instrument config from the song.
-function getMorphMap(song: Song): MorphEntryInput[] {
+function getMorphMap(song: Song, includedInstrumentIndices?: ReadonlySet<number>): MorphEntryInput[] {
    const entries: MorphEntryInput[] = [];
    for (let instrumentId = 0; instrumentId < (song.instruments.length ?? 0); instrumentId++) {
+      if (includedInstrumentIndices && !includedInstrumentIndices.has(instrumentId)) {
+         continue;
+      }
       const inst = song.instruments[instrumentId];
 
       // Only include instruments that require bridge-side runtime config.
@@ -284,7 +287,7 @@ export interface ExtraSongDataDetails {
 ;
 
 function makeExtraSongDataDetails(song: Song, prepared: PreparedSong): ExtraSongDataDetails {
-   const instruments = getMorphMap(song);
+   const instruments = getMorphMap(song, calculateSongUsage(song).usedInstruments);
    const patterns = getSomaticPatternExtraEntries(prepared);
    const packed = encodeSomaticExtraSongDataPayload({instruments, patterns});
    const compressed = lzCompress(packed, gSomaticLZDefaultConfig);

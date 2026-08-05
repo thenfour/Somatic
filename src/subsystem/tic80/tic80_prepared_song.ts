@@ -2,7 +2,7 @@
 
 import {PatternChannel} from "../../models/pattern";
 import {Song} from "../../models/song";
-import {SomaticCaps, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
+import {kSomaticPatternCommand, SomaticCaps, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
 import {assert} from "../../utils/utils";
 
 export type PreparedPatternColumn = {
@@ -75,11 +75,23 @@ export function prepareSongColumns(song: Song): PreparedSong {
    const patternColumns: PreparedPatternColumn[] = [];
    const signatureToIndex = new Map<string, number>();
 
-   const getColumnIndex = (patternIndex: number, channel: number): number => {
+   const getColumnIndex = (patternIndex: number, channel: number, effectiveRows: number): number => {
       const pattern = song.patterns[patternIndex]!;
-      const channelObj = pattern.getChannel(channel);
-      assert(channelObj !== undefined, `Pattern ${patternIndex} is missing channel ${channel}`);
-      const signature = pattern.contentSignatureForColumn(channel);
+
+      // delete patternEnd commands; they are respected elsewhere so can be omitted here.
+      const rows = Array.from({length: Tic80Caps.pattern.maxRows}, (_, rowIndex) => {
+         if (rowIndex >= effectiveRows) {
+            return {};
+         }
+         const cell = {...(pattern.peekCell(channel, rowIndex) ?? {})};
+         if (cell.somaticEffect === kSomaticPatternCommand.key.PatternEnd) {
+            delete cell.somaticEffect;
+            delete cell.somaticParam;
+         }
+         return cell;
+      });
+      const channelObj = new PatternChannel({rows});
+      const signature = JSON.stringify({channel: channelObj.toData()});
       const existing = signatureToIndex.get(signature);
       if (existing !== undefined) {
          return existing;
@@ -105,13 +117,14 @@ export function prepareSongColumns(song: Song): PreparedSong {
          Number.isInteger(patternIndex) && patternIndex >= 0 && patternIndex <= maxPatternIndex,
          `Song order ${i} has invalid pattern index ${patternIndex}`,
       );
+      const effectiveRows = song.getPatternEffectiveRowCount(patternIndex);
       const columnIndices: [number, number, number, number] = [0, 0, 0, 0];
       for (let ch = 0; ch < Tic80Caps.song.audioChannels; ch++) {
-         columnIndices[ch] = getColumnIndex(patternIndex, ch);
+         columnIndices[ch] = getColumnIndex(patternIndex, ch, effectiveRows);
       }
       songOrder.push({
          patternColumnIndices: columnIndices,
-         effectiveRows: song.getPatternEffectiveRowCount(patternIndex),
+         effectiveRows,
       });
    }
 
