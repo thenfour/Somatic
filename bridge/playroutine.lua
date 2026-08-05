@@ -523,22 +523,19 @@ do
 	end
 
 	local function clearPatternBuffer(destPointer)
-		for i = 0, PATTERN_BUFFER_BYTES - 1 do
-			poke(destPointer + i, 0)
-		end
+		memset(destPointer, 0, PATTERN_BUFFER_BYTES)
 	end
 
 	local function writeMutedPatternBuffer(destPointer)
+		clearPatternBuffer(destPointer)
 		for i = 0, PATTERN_BUFFER_BYTES - 1, 3 do
 			poke(destPointer + i, 1) -- note cut
-			poke(destPointer + i + 1, 0)
-			poke(destPointer + i + 2, 0)
 		end
 	end
 
 	local function clearAllPlaybackBuffers()
 		writeMutedPatternBuffer(bufferALocation)
-		writeMutedPatternBuffer(bufferBLocation)
+		memcpy(bufferBLocation, bufferALocation, PATTERN_BUFFER_BYTES)
 	end
 
 	local function stopAllVoices()

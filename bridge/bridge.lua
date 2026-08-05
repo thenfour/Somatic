@@ -923,9 +923,7 @@ local function getBufferPointer()
 end
 
 local function clearPatternBuffer(destPointer)
-	for i = 0, PATTERN_BUFFER_BYTES - 1 do
-		poke(destPointer + i, 0)
-	end
+	memset(destPointer, 0, PATTERN_BUFFER_BYTES)
 end
 
 tf_music_reset_state = function()
