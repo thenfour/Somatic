@@ -260,6 +260,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                                 }}
                                 className={[
                                     "instruments-panel__row",
+                                   // Keep primary selection on the row so chip style cannot dim it.
                                     isSelected ? "instruments-panel__row--selected" : "",
                                     isInSelection ? "instruments-panel__row--in-selection" : "",
                                     isFirstInSelection ? "instruments-panel__row--selection-first" : "",
@@ -289,8 +290,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                                 <InstrumentChip
                                     instrumentIndex={idx}
                                     instrument={inst}
-                                    // showTooltip={false}
-                                    className={isSelected ? "instruments-panel__chip--selected" : undefined}
+                                 // showTooltip={false}
                                 />
                             </button>
                         );
