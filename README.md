@@ -483,7 +483,7 @@ https://github.com/thenfour/Somatic/milestone/3?closed=1
 
 ## 1.0.15
 
--  #212 fixed: song speed was different between Somatic online editor and exported cart
+- #212 fixed: song speed was different between Somatic online editor and exported cart
 - #203 fixed: tooltips sometimes get stuck on
 - #211 fixed: somatic "C" command was not being respected in bridge (serialization bug)
 - #209 adding additional pattern marker glyphs
@@ -499,3 +499,11 @@ https://github.com/thenfour/Somatic/milestone/3?closed=1
   - pan column
   - volume column
 - #164 #219 #208: formatting tweaks
+
+## 1.0.16
+
+- #227 fixed: SOMATIC_SFX_CONFIG overflow for complex songs
+- #222 fixed: changing loop mode or mute/solo wasn't hot replaying
+- #229 streamline playroutine a bit
+- #225 adding `somatic_position_to_beat` and `somatic_seek_position` APIs
+- #228 #230 #224 UI formatting and keyboard shortcuts
