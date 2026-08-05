@@ -33,9 +33,15 @@ export function isStringLiteral(node: luaparse.Expression|undefined|null): node 
 export function decodeRawString(raw: string|undefined): string|null {
    if (!raw || raw.length < 2)
       return null;
-   // Handle long bracket strings [[...]] (naive but sufficient for folding literals)
-   if (raw.startsWith("[[") && raw.endsWith("]]"))
-      return raw.slice(2, -2);
+   const longBracket = raw.match(/^\[(=*)\[([\s\S]*)\]\1\]$/);
+   if (longBracket) {
+      let value = longBracket[2];
+      if (value.startsWith("\r\n"))
+         value = value.slice(2);
+      else if (value.startsWith("\n") || value.startsWith("\r"))
+         value = value.slice(1);
+      return value.replace(/\r\n?|\n/g, "\n");
+   }
 
    const quote = raw[0];
    const tail = raw[raw.length - 1];

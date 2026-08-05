@@ -1,6 +1,6 @@
-import {toLuaStringLiteral} from "../src/utils/utils";
 import {generateIdenticonDrawList} from "../src/utils/identicon";
 import {getSomaticVersionString, type BuildInfoLike} from "../src/utils/versionString";
+import {toLuaStringLiteral} from "../src/utils/lua/lua_fundamentals";
 
 export function emitBridgeVersionIconLua(
    info: BuildInfoLike, opts?: {resolution?: {w: number; h: number}}): {versionString: string; lua: string;} {

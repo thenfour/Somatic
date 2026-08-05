@@ -3,23 +3,24 @@ import playroutineSharedTemplateTxt from "../../../bridge/playroutine_shared.inc
 import {SelectionRect2D} from "../../hooks/useRectSelection2D";
 import {modSourceToU8, SomaticEffectKind, SomaticInstrumentWaveEngine, ToWaveEngineId} from "../../models/instruments";
 //import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
-import bridgeConfig from "../../../bridge/bridge_config";
 import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../../../bridge/memory_layout";
-import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_EVENT_PAN, SOMATIC_PATTERN_EVENT_VOLUME, SomaticPatternExtrasCodec, WaveformMorphGradientCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked,} from "../../../bridge/morphSchema";
+import {encodeBridgeExtraSongDataTransaction} from "../../../bridge/extraSongBridgeTransaction";
+import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_PATTERN_CELL_COUNT, SOMATIC_PATTERN_MASK_BYTES, SOMATIC_PATTERN_ROW_COUNT, WAVEFORM_MORPH_GRADIENT_NODE_BYTES, WaveformMorphGradientNodeCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked, } from "../../../bridge/morphSchema";
 import {LoopMode} from "../../audio/backend";
 import {buildCueSheet, type CueSheetEntry, type Song} from "../../models/song";
 import {gTic80AllChannelsAudible, kSomaticPatternCommand, SomaticCaps, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
-import {emitLuaBitpackPrelude, emitLuaDecoder} from "../../utils/bitpack/emitLuaDecoder";
+import {emitLuaBitpackPrelude, emitLuaDecoder, emitLuaTableBitpackPrelude} from "../../utils/bitpack/emitLuaDecoder";
 import {MemoryRegion} from "../../utils/bitpack/MemoryRegion";
 import {base85Plus1Encode, gSomaticLZDefaultConfig, lzCompress} from "../../utils/encoding";
 import {OptimizationRuleOptions, processLua} from "../../utils/lua/lua_processor";
-import {assert, clamp, parseAddress, removeLuaBlockMarkers, replaceLuaBlock, toLuaStringLiteral, typedKeys} from "../../utils/utils";
+import {assert, clamp, removeLuaBlockMarkers, replaceLuaBlock, typedKeys} from "../../utils/utils";
 import {getSomaticVersionAndCommitString} from "../../utils/versionString";
 import {BakedSong, BakeSong} from "./bakeSong";
 import {analyzePlaybackFeatures, getMaxSfxUsedIndex, getMaxWaveformUsedIndex, MakeOptimizeResultEmpty, OptimizeResult, OptimizeSong, PlaybackFeatureUsage} from "./SongOptimizer";
 import {encodePatternChannelDirect} from "./tic80_pattern_encoding";
 import {encodePreparedSongOrderForBridge, PreparedSong, prepareSongColumns} from "./tic80_prepared_song";
 import {createChunk, encodeSfx, encodeTempo, encodeTrackSpeed, encodeWaveforms, packTrackFrame, packWaveformSamplesToBytes16, removeTrailingZerosFn, stringToAsciiPayload, TicChunkType} from "./tic80_serialization";
+import {toLuaStringLiteral} from "../../utils/lua/lua_fundamentals";
 
 
 // const releaseOptions: OptimizationRuleOptions = {
@@ -62,18 +63,6 @@ const debugOptions: OptimizationRuleOptions = {
 function durationSecondsToTicks10(seconds: number): number {
    const s = Math.max(0, seconds ?? 0);
    return clamp(Math.floor(s * Tic80Caps.frameRate), 0, 0x03ff);
-}
-
-function getSomaticSfxConfigBytes(): number {
-   const mem = bridgeConfig.memory as Record<string, string|number>;
-   const base = parseAddress(mem.SOMATIC_SFX_CONFIG);
-   const marker = parseAddress(mem.MARKER_ADDR);
-   const bytes = marker - base;
-   assert(
-      bytes > 0,
-      `Invalid bridge_config memory layout: MARKER_ADDR (${marker.toString(16)}) must be > SOMATIC_SFX_CONFIG (${
-         base.toString(16)})`);
-   return bytes;
 }
 
 function curveN11ToS6(curveN11: number|null|undefined): number {
@@ -189,39 +178,29 @@ function getSomaticPatternExtraEntries(prepared: PreparedSong): SomaticPatternEn
    for (let patternIndex0b = 0; patternIndex0b < prepared.patternColumns.length; patternIndex0b++) {
       const col = prepared.patternColumns[patternIndex0b];
       const channel = col.channel;
-      const events: SomaticPatternEntryPacked["events"] = [];
+      const cells: SomaticPatternEntryPacked["cells"] = [];
       for (let row = 0; row < prepared.rowsPerPattern; row++) {
          const cell = channel.getCell(row);
+         const extra: SomaticPatternEntryPacked["cells"][number] = {rowIndex: row};
          const somaticEffectInfo = kSomaticPatternCommand.coerceByKey(cell.somaticEffect);
          if (somaticEffectInfo) {
-            events.push({
-               rowIndex: row,
-               eventId: somaticEffectInfo.tic80SerializedValue,
-               paramU8: (cell.somaticParam ?? 0) & 0xff,
-            });
+            extra.effectId = somaticEffectInfo.tic80SerializedValue;
+            extra.paramU8 = (cell.somaticParam ?? 0) & 0xff;
          }
-         if (cell.volumeU8 !== undefined) {
-            events.push({
-               rowIndex: row,
-               eventId: SOMATIC_PATTERN_EVENT_VOLUME,
-               paramU8: cell.volumeU8 & 0xff,
-            });
-         }
-         if (cell.panU8 !== undefined) {
-            events.push({
-               rowIndex: row,
-               eventId: SOMATIC_PATTERN_EVENT_PAN,
-               paramU8: cell.panU8 & 0xff,
-            });
-         }
+         if (cell.volumeU8 !== undefined)
+            extra.volumeU8 = cell.volumeU8 & 0xff;
+         if (cell.panU8 !== undefined)
+            extra.panU8 = cell.panU8 & 0xff;
+         if (extra.effectId !== undefined || extra.volumeU8 !== undefined || extra.panU8 !== undefined)
+            cells.push(extra);
       }
-      if (events.length === 0)
+      if (cells.length === 0)
          continue;
 
       assert(
          patternIndex0b >= 0 && patternIndex0b < SomaticCaps.maxPatternCount,
          `getSomaticPatternExtraEntries: patternIndex0b out of range: ${patternIndex0b}`);
-      entries.push({patternIndex: patternIndex0b, events});
+      entries.push({patternIndex: patternIndex0b, cells});
    }
 
    return entries;
@@ -230,11 +209,9 @@ function getSomaticPatternExtraEntries(prepared: PreparedSong): SomaticPatternEn
 function encodeExtraSongDataForBridge(song: Song, prepared: PreparedSong): Uint8Array {
    const instruments = getMorphMap(song);
    const patterns = getSomaticPatternExtraEntries(prepared);
-   const totalBytes = getSomaticSfxConfigBytes();
-
-   // Fixed-size buffer so we always fully overwrite the region (avoids stale entries)
-   // and never overwrite the marker/mailboxes above it.
-   return encodeSomaticExtraSongDataPayload({instruments, patterns}, totalBytes);
+   const raw = encodeSomaticExtraSongDataPayload({instruments, patterns});
+   const compressed = lzCompress(raw, gSomaticLZDefaultConfig);
+   return encodeBridgeExtraSongDataTransaction(compressed, raw.length);
 }
 
 function buildCueSheetLua(cueSheet: CueSheetEntry[] | null): string {
@@ -382,7 +359,7 @@ export interface Tic80SerializedSong {
    // column-based payload; each entry is one channel column (192 bytes before compression)
    //patternData: Uint8Array;
 
-   standardBlocksToTransmit: TransmissionBlock[], mapBlocksToTransmit: TransmissionBlock[],
+   standardBlocksToTransmit: TransmissionBlock[], bridgeBlocksToTransmit: TransmissionBlock[],
 }
 
 function makePlaybackFingerprint(bakedSong: BakedSong): string {
@@ -435,6 +412,10 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
 
    const preparedPatternData = encodePreparedPatternColumns(preparedSong); // separate pattern data for playback use
    const patternData = ch_serializePatterns(preparedPatternData);
+   assert(
+      patternData.length <= SomaticCaps.maxPatternLengthToBridge,
+      `Bridge pattern data overflow: need ${patternData.length} bytes, limit ${SomaticCaps.maxPatternLengthToBridge}`,
+   );
 
    return {
       bakedSong,
@@ -461,7 +442,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
             payload: trackData,
          },
       ],
-      mapBlocksToTransmit: [
+      bridgeBlocksToTransmit: [
          {
             region: new MemoryRegion({
                name: "songOrderData",
@@ -483,7 +464,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
          {
             region: new MemoryRegion({
                name: "extraSongData",
-               address: TicMemoryMap.SOMATIC_SFX_CONFIG,
+               address: TicMemoryMap.BRIDGE_EXTRA_SONG_DATA_ADDR,
                size: extraSongData.length,
             }),
             payload: extraSongData,
@@ -766,31 +747,27 @@ local TEMP_BUFFER_A = ${SomaticMemoryLayout.tempBufferA.address}
 local TEMP_BUFFER_B = ${SomaticMemoryLayout.tempBufferB.address}
 local PATTERN_BUFFER_A = ${SomaticMemoryLayout.patternBufferA.address}
 local PATTERN_BUFFER_B = ${SomaticMemoryLayout.patternBufferB.address}
-local SOMATIC_SFX_CONFIG = ${SomaticMemoryLayout.somaticSfxConfig.address}
-local MORPH_HEADER_BYTES = ${MORPH_HEADER_BYTES}
 local MORPH_ENTRY_BYTES = ${MORPH_ENTRY_BYTES}
-local SOMATIC_EXTRA_SONG_HEADER_BYTES = ${SOMATIC_EXTRA_SONG_HEADER_BYTES}
-local SOMATIC_PATTERN_EVENT_VOLUME = ${SOMATIC_PATTERN_EVENT_VOLUME}
-local SOMATIC_PATTERN_EVENT_PAN = ${SOMATIC_PATTERN_EVENT_PAN}
+local WAVEFORM_MORPH_GRADIENT_NODE_BYTES = ${WAVEFORM_MORPH_GRADIENT_NODE_BYTES}
+local SOMATIC_PATTERN_MASK_BYTES = ${SOMATIC_PATTERN_MASK_BYTES}
+local SOMATIC_PATTERN_CELL_COUNT = ${SOMATIC_PATTERN_CELL_COUNT}
+local SOMATIC_PATTERN_ROW_COUNT = ${SOMATIC_PATTERN_ROW_COUNT}
 
 ${emitLuaBitpackPrelude({baseArgName: "base"}).trim()}
+${emitLuaTableBitpackPrelude().trim()}
 
 ${emitLuaDecoder(MorphEntryCodec, {
       functionName: "decode_MorphEntry",
       baseArgName: "base",
       includeLayoutComments: true,
+   readerFactoryName: "_bp_make_table_reader",
    }).trim()}
 
-${emitLuaDecoder(SomaticPatternExtrasCodec, {
-      functionName: "decode_SomaticPatternExtras",
-      baseArgName: "base",
-      includeLayoutComments: true,
-   }).trim()}
-
-${emitLuaDecoder(WaveformMorphGradientCodec, {
-      functionName: "decode_WaveformMorphGradient",
+${emitLuaDecoder(WaveformMorphGradientNodeCodec, {
+   functionName: "decode_WaveformMorphGradientNode",
       baseArgName: "base",
       includeLayoutComments: false,
+   readerFactoryName: "_bp_make_table_reader",
    }).trim()}`;
 
    // Inject shared code, then strip unused feature blocks (so shared feature markers are handled as usual)
@@ -1003,7 +980,6 @@ export function serializeSongToCartDetailed(
       })],
       patternsRuntime: reservedRegionsInPatternMem,
       bridgeMap: [
-         SomaticMemoryLayout.somaticSfxConfig,
          SomaticMemoryLayout.marker,
          SomaticMemoryLayout.registers,
          SomaticMemoryLayout.inbox,

@@ -19,7 +19,7 @@ export const SomaticCaps = {
    maxPatternCount: 256,
    // count is one byte, so an actual song can contain at most 255 orders.
    maxSongLength: 255,
-   maxPatternLengthToBridge: 40000,
+   maxPatternLengthToBridge: parseAddress(mem.MARKER_ADDR) - parseAddress(mem.TF_PATTERN_DATA),
    maxSongTitleLength: 200,
    maxMorphGradientNodes: 16,
    // Reject imported WAVs larger than this
@@ -246,16 +246,15 @@ export const TicMemoryMap = {
    LOG_BASE: parseAddress(mem.OUTBOX_ADDR) + 16,
    LOG_SIZE: mem.LOG_SIZE,
 
-   // NB: IF THIS CHANGES YOU HAVE TO UPDATE maxPatternLengthToBridge IN SomaticCaps
-   //TILE_BASE: parseAddress(mem.TILE_BASE),
    TF_ORDER_LIST: parseAddress(mem.TF_ORDER_LIST),
    TF_ORDER_LIST_CAPACITY: mem.TF_ORDER_LIST_CAPACITY,
    TF_ORDER_LIST_ROWS: parseAddress(mem.TF_ORDER_LIST_ROWS),
-   TF_PATTERN_DATA: parseAddress(
-      mem.TF_PATTERN_DATA), // theoretically you can support the whole tile+sprite+map area for pattern data.
+   TF_PATTERN_DATA: parseAddress(mem.TF_PATTERN_DATA),
 
-   // Packed morphing instrument config (host -> cart). See bridge_config.ts for binary layout.
-   SOMATIC_SFX_CONFIG: parseAddress(mem.SOMATIC_SFX_CONFIG),
+   // LZ-compressed "song extra data" transaction block: [u16le length][payload].
+   BRIDGE_EXTRA_SONG_DATA_ADDR: parseAddress(mem.BRIDGE_EXTRA_SONG_DATA_ADDR),
+   BRIDGE_EXTRA_SONG_DATA_SIZE: mem.BRIDGE_EXTRA_SONG_DATA_SIZE,
+   BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES: mem.BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES,
 
    // RAM destinations for the chunk payloads (bank 0)
    WAVEFORMS_ADDR: parseAddress(mem.WAVEFORMS_ADDR),

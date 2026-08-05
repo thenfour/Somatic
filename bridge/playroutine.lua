@@ -64,36 +64,8 @@ do
 	end
 
 	local morphIds = {}
-	local morph_nodes_cache = {}
-	local MORPH_GRADIENT_BASE = __AUTOGEN_TEMP_PTR_B
 
 	-- BEGIN_FEATURE_WAVEMORPH
-
-	local function morph_get_nodes(offBytes)
-		if offBytes == nil or offBytes <= 0 then
-			return nil
-		end
-		local cached = morph_nodes_cache[offBytes]
-		if cached ~= nil then
-			return cached or nil
-		end
-		local nodes = decode_WaveformMorphGradient(MORPH_GRADIENT_BASE + offBytes)
-		if nodes == nil or #nodes == 0 then
-			morph_nodes_cache[offBytes] = false
-			return nil
-		end
-		for ni = 1, #nodes do
-			local wb = nodes[ni].waveBytes
-			local s = {}
-			local si = 0
-			for bi = 1, 16 do
-				si = wave_unpack_byte_to_samples(wb[bi] or 0, s, si)
-			end
-			nodes[ni].samples = s
-		end
-		morph_nodes_cache[offBytes] = nodes
-		return nodes
-	end
 
 	local function render_waveform_morph(cfg, ticksPlayed, outSamples)
 		local nodes = cfg.morphGradientNodes
@@ -383,46 +355,10 @@ do
 		morphMap = {}
 		patternExtra = {}
 		morphIds = {}
-		morph_nodes_cache = {}
 
-		-- let's use a part of pattern mem for temp storage
-		b85Plus1LZDecodeToMem(m, __AUTOGEN_TEMP_PTR_B)
-		local instrumentCount = peek(__AUTOGEN_TEMP_PTR_B)
-		local off = __AUTOGEN_TEMP_PTR_B + SOMATIC_EXTRA_SONG_HEADER_BYTES
-		for _ = 1, instrumentCount do
-			local entry = decode_MorphEntry(off)
-			local id = entry.instrumentId
-
-			-- adjust fields as needed
-			entry.lowpassEnabled = entry.lowpassEnabled ~= 0
-			-- BEGIN_FEATURE_WAVEMORPH
-			if entry.waveEngineId == WAVE_ENGINE_MORPH then
-				entry.morphGradientNodes = morph_get_nodes(entry.gradientOffsetBytes or 0)
-			end
-			-- END_FEATURE_WAVEMORPH
-
-			morphMap[id] = entry
-			morphIds[#morphIds + 1] = id
-			off = off + MORPH_ENTRY_BYTES
-		end
-		local patternEntries = decode_SomaticPatternExtras(off)
-		for _, entry in ipairs(patternEntries) do
-			local cells = {}
-			for _, event in ipairs(entry.events) do
-				local rowIndex1b = event.rowIndex + 1
-				local cell = cells[rowIndex1b] or {}
-				if event.eventId == SOMATIC_PATTERN_EVENT_VOLUME then
-					cell.volumeU8 = event.paramU8
-				elseif event.eventId == SOMATIC_PATTERN_EVENT_PAN then
-					cell.panU8 = event.paramU8
-				else
-					cell.effectId = event.eventId
-					cell.paramU8 = event.paramU8
-				end
-				cells[rowIndex1b] = cell
-			end
-			patternExtra[entry.patternIndex] = cells
-		end
+		local compressed = base85Plus1DecodeToTable(m)
+		local bytes = lzToTable(compressed, #compressed, false)
+		morphMap, patternExtra, morphIds = decodeSomaticExtraSongBytes(bytes)
 	end
 
 	decode_extra_song_data()

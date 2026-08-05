@@ -478,7 +478,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         // just does the poking
         async function transmitInternal(opts: { data: Tic80SerializedSong, reason: string }) {
 
-            for (const block of [...opts.data.standardBlocksToTransmit, ...opts.data.mapBlocksToTransmit]) {
+            for (const block of [...opts.data.standardBlocksToTransmit, ...opts.data.bridgeBlocksToTransmit]) {
                 pokeBlock(block.region.address, block.payload);
             }
         };

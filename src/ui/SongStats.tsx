@@ -1,7 +1,7 @@
 // TIC-80 specific
 
 import React, { useEffect, useMemo, useState } from "react";
-import { lzCompress, lzDecompress } from "../utils/encoding";
+import { gSomaticLZDefaultConfig, lzCompress, lzDecompress } from "../utils/encoding";
 import { serializeSongForTic80Bridge, serializeSongToCartDetailed, SongCartDetails, Tic80SerializedSong } from "../subsystem/tic80/tic80_cart_serializer";
 import { useClipboard } from "../hooks/useClipboard";
 import { useRenderAlarm } from "../hooks/useRenderAlarm";
@@ -10,7 +10,7 @@ import { Song } from "../models/song";
 import { analyzePatternColumns, OptimizeSong, PatternColumnAnalysisResult } from "../subsystem/tic80/SongOptimizer";
 import {CharMap, compareBuffers, formatBytes} from "../utils/utils";
 //import { generateAllMemoryMaps } from "../utils/memoryMapStats";
-import { Tic80MemoryMap } from "../../bridge/memory_layout";
+import { SomaticMemoryLayout, Tic80MemoryMap } from "../../bridge/memory_layout";
 import { MemoryRegion } from "../utils/bitpack/MemoryRegion";
 import { AppPanelShell } from "./AppPanelShell";
 import { BarValue, SizeValue } from "./basic/BarValue";
@@ -22,6 +22,7 @@ import { ButtonGroup } from "./Buttons/ButtonGroup";
 import { CheckboxButton } from "./Buttons/CheckboxButton";
 import { GlobalActions } from "../keyb/ActionIds";
 import { gTic80AllChannelsAudible } from "../models/tic80Capabilities";
+import {BridgeExtraSongDataOverflowError} from "../../bridge/extraSongBridgeTransaction";
 
 type ChunkInfo = {
     name: string; //
@@ -44,7 +45,8 @@ type Stats = {
 
 type SongSerialized = {
     cartridge: SongCartDetails;
-    bridge: Tic80SerializedSong;
+    bridge: Tic80SerializedSong | null;
+    bridgeError: string | null;
 };
 
 export type SongStatsData = {
@@ -58,10 +60,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
     const [input, setInput] = useState<SongSerialized | null>(null);
 
     // These are tuning constants; we currently don't expose UI to tweak them.
-    const windowSize = 16;
-    const minMatchLength = 4;
-    const maxMatchLength = 30;
-    const useRLE = false;
+    const {windowSize, minMatchLength, maxMatchLength, useRLE} = gSomaticLZDefaultConfig;
 
     const [debouncedSong, setDebouncedSong] = useState<Song | null>(null);
 
@@ -96,20 +95,28 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
             const cartDetails = serializeSongToCartDetailed(debouncedSong, true, variant, gTic80AllChannelsAudible);
 
             const optimizedDoc = OptimizeSong(debouncedSong).optimizedSong;
-            const bridge = serializeSongForTic80Bridge({
-                song: optimizedDoc,
-                loopMode: "off",
-                cursorSongOrder: 0,
-                cursorChannelIndex: 0,
-                cursorRowIndex: 0,
-                patternSelection: null,
-                audibleChannels: gTic80AllChannelsAudible,
-                startPosition: 0,
-                startRow: 0,
-                songOrderSelection: null,
-            });
+            let bridge: Tic80SerializedSong | null = null;
+            let bridgeError: string | null = null;
+            try {
+                bridge = serializeSongForTic80Bridge({
+                    song: optimizedDoc,
+                    loopMode: "off",
+                    cursorSongOrder: 0,
+                    cursorChannelIndex: 0,
+                    cursorRowIndex: 0,
+                    patternSelection: null,
+                    audibleChannels: gTic80AllChannelsAudible,
+                    startPosition: 0,
+                    startRow: 0,
+                    songOrderSelection: null,
+                });
+            } catch (error) {
+                if (!(error instanceof BridgeExtraSongDataOverflowError))
+                    throw error;
+                bridgeError = error.message;
+            }
 
-            setInput({ cartridge: cartDetails, bridge });
+            setInput({ cartridge: cartDetails, bridge, bridgeError });
         } catch (error) {
             console.error("Error generating song stats:", error);
             setInput(null);
@@ -193,8 +200,6 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
     const patternCompressionRatio = breakdown.patternPayload.rawBytes > 0
         ? (breakdown.patternPayload.compressedBytes / breakdown.patternPayload.rawBytes)
         : 1;
-    //const error = (input?.bridge.patternData.length || 0) > SomaticCaps.maxPatternLengthToBridge;
-
     return { input, breakdown, totalSize, patternCompressionRatio };
 };
 
@@ -276,6 +281,7 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                             'Columns used/distinct': `${breakdown.patternColumnStats.totalColumns} / ${breakdown.patternColumnStats.distinctColumns}`,
                             SFX: input.cartridge.optimizeResult.usedSfxCount,
                             Waveforms: input.cartridge.optimizeResult.usedWaveformCount,
+                            'Bridge support': input.bridgeError ?? 'Available',
                         },
                         'Playback Features': {
                             'Wave morph': input.cartridge.optimizeResult.featureUsage.waveMorph,
@@ -306,8 +312,13 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
 
                     const mapBlocks = [
                         ...input.cartridge.memoryRegions.bridgeMap,
-                        ...input.bridge.mapBlocksToTransmit.map(r => r.region),
+                        ...(input.bridge?.bridgeBlocksToTransmit ?? [])
+                            .map(r => r.region)
+                            .filter(r => Tic80MemoryMap.Map.containsRegion(r)),
                     ];
+                    const bridgeExtraSongBlocks = (input.bridge?.bridgeBlocksToTransmit ?? [])
+                        .map(r => r.region)
+                        .filter(r => SomaticMemoryLayout.bridgeExtraSongData.containsRegion(r));
 
                     return (
                         <>
@@ -333,6 +344,12 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                                                     <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Map (Bridge Runtime)</div>
                                                 </Tooltip>
                                                 <MemoryMapVis root={Tic80MemoryMap.Map} regions={mapBlocks} />
+                                            </div>
+                                            <div style={{ marginBottom: 16 }}>
+                                                <Tooltip title={<MemoryMapTextSummary root={SomaticMemoryLayout.bridgeExtraSongData} regions={bridgeExtraSongBlocks} />}>
+                                                    <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Tiles + Sprites (Bridge Extra Song Data)</div>
+                                                </Tooltip>
+                                                <MemoryMapVis root={SomaticMemoryLayout.bridgeExtraSongData} regions={bridgeExtraSongBlocks} />
                                             </div>
                                             <div style={{ marginBottom: 16 }}>
                                                 <Tooltip title={<MemoryMapTextSummary root={Tic80MemoryMap.MusicPatterns} regions={input.cartridge.memoryRegions.patterns} />}>

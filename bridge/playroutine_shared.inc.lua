@@ -144,6 +144,81 @@ local function lzdm(src, srcLen, dst)
 	return di
 end
 
+-- Heap-based variant used by the extra-song payload.
+local function base85Plus1DecodeToTable(s)
+	local miss = s:byte(1) - 33
+	s = s:sub(2)
+	local n = (#s // 5) * 4 - miss
+	local out = {}
+	local i = 1
+	for o = 0, n - 1, 4 do
+		local v = 0
+		for j = i, i + 4 do
+			v = v * 85 + s:byte(j) - 33
+		end
+		i = i + 5
+		for k = 3, 0, -1 do
+			if o + k < n then
+				out[o + k + 1] = v % 256
+			end
+			v = v // 256
+		end
+	end
+	return out
+end
+
+-- Heap-based variant used by the extra-song payload.
+-- Decompress from either a 1-based byte table or TIC-80 memory into a Lua table.
+local function lzToTable(src, srcLen, sourceIsMemory)
+	local function getByte(i)
+		if sourceIsMemory then
+			return peek(src + i)
+		end
+		return src[i + 1]
+	end
+
+	local function readVarint(si)
+		local x, f = 0, 1
+		while true do
+			local b = getByte(si)
+			si = si + 1
+			x = x + (b % 0x80) * f
+			if b < 0x80 then
+				return x, si
+			end
+			f = f * 0x80
+		end
+	end
+
+	local out = {}
+	local si, di = 0, 0
+	while si < srcLen do
+		local tag = getByte(si)
+		si = si + 1
+		if tag == 0 then
+			local len
+			len, si = readVarint(si)
+			for _ = 1, len do
+				out[di + 1] = getByte(si)
+				si = si + 1
+				di = di + 1
+			end
+		else
+			local len, distance
+			len, si = readVarint(si)
+			distance, si = readVarint(si)
+			if distance <= 0 or distance > di then
+				error("invalid LZ match distance")
+			end
+			for _ = 1, len do
+				out[di + 1] = out[di - distance + 1]
+				di = di + 1
+			end
+		end
+	end
+	return out
+end
+
 local function apply_curveN11(t, curveS6)
 	if t <= 0 then
 		return 0
@@ -203,6 +278,103 @@ local function wave_unpack_byte_to_samples(b, outSamples, si)
 	outSamples[si] = b & 0x0f
 	outSamples[si + 1] = (b >> 4) & 0x0f
 	return si + 2
+end
+
+local function hasBit(bytes, base, bitIndex)
+	local b = bytes[base + (bitIndex // 8)] or 0
+	return (b & (1 << (bitIndex % 8))) ~= 0
+end
+
+local function somaticMaskBitCount(bytes, base)
+	local count = 0
+	for i = 0, SOMATIC_PATTERN_MASK_BYTES - 1 do
+		local b = bytes[base + i] or 0
+		while b ~= 0 do
+			b = b & (b - 1)
+			count = count + 1
+		end
+	end
+	return count
+end
+
+-- Parse decompressed extra-song table and produce runtime struct.
+local function decodeSomaticExtraSongBytes(bytes)
+	local pos = 1
+	local instrumentCount = bytes[pos] or 0
+	pos = pos + 1
+	local nextMorphMap = {}
+	local nextMorphIds = {}
+
+	for _ = 1, instrumentCount do
+		local entry = decode_MorphEntry({ data = bytes, offset = pos - 1 })
+		pos = pos + MORPH_ENTRY_BYTES
+		local nodeCount = bytes[pos] or 0
+		pos = pos + 1
+		local nodes = {}
+		for _ = 1, nodeCount do
+			-- BEGIN_FEATURE_WAVEMORPH
+			local node = decode_WaveformMorphGradientNode({ data = bytes, offset = pos - 1 })
+			local samples = {}
+			local sampleIndex = 0
+			for byteIndex = 1, 16 do
+				sampleIndex = wave_unpack_byte_to_samples(node.waveBytes[byteIndex] or 0, samples, sampleIndex)
+			end
+			node.waveBytes = nil
+			node.samples = samples
+			nodes[#nodes + 1] = node
+			-- END_FEATURE_WAVEMORPH
+			pos = pos + WAVEFORM_MORPH_GRADIENT_NODE_BYTES
+		end
+		entry.lowpassEnabled = entry.lowpassEnabled ~= 0
+		-- BEGIN_FEATURE_WAVEMORPH
+		entry.morphGradientNodes = nodes
+		-- END_FEATURE_WAVEMORPH
+		nextMorphMap[entry.instrumentId] = entry
+		nextMorphIds[#nextMorphIds + 1] = entry.instrumentId
+	end
+
+	local volumeMask = pos
+	local panMask = volumeMask + SOMATIC_PATTERN_MASK_BYTES
+	local effectMask = panMask + SOMATIC_PATTERN_MASK_BYTES
+	pos = effectMask + SOMATIC_PATTERN_MASK_BYTES
+
+	local volumeValuePos = pos
+	local panValuePos = volumeValuePos + somaticMaskBitCount(bytes, volumeMask)
+	local effectValuePos = panValuePos + somaticMaskBitCount(bytes, panMask)
+	local paramValuePos = effectValuePos + somaticMaskBitCount(bytes, effectMask)
+	local nextPatternExtra = {}
+
+	for bitIndex = 0, SOMATIC_PATTERN_CELL_COUNT - 1 do
+		local cell = nil
+		if hasBit(bytes, volumeMask, bitIndex) then
+			cell = cell or {}
+			cell.volumeU8 = bytes[volumeValuePos]
+			volumeValuePos = volumeValuePos + 1
+		end
+		if hasBit(bytes, panMask, bitIndex) then
+			cell = cell or {}
+			cell.panU8 = bytes[panValuePos]
+			panValuePos = panValuePos + 1
+		end
+		if hasBit(bytes, effectMask, bitIndex) then
+			cell = cell or {}
+			cell.effectId = bytes[effectValuePos]
+			cell.paramU8 = bytes[paramValuePos]
+			effectValuePos = effectValuePos + 1
+			paramValuePos = paramValuePos + 1
+		end
+		if cell ~= nil then
+			local patternIndex = bitIndex // SOMATIC_PATTERN_ROW_COUNT
+			local cells = nextPatternExtra[patternIndex]
+			if cells == nil then
+				cells = {}
+				nextPatternExtra[patternIndex] = cells
+			end
+			cells[(bitIndex % SOMATIC_PATTERN_ROW_COUNT) + 1] = cell
+		end
+	end
+
+	return nextMorphMap, nextPatternExtra, nextMorphIds
 end
 
 local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, lfoCycleTicks, fallbackT)

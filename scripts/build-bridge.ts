@@ -16,8 +16,8 @@ import fs from "fs";
 import path from "path";
 import {BUILD_INFO, getBridgeCartFilename} from "./buildInfo";
 import bridgeConfig, {BridgeConfig} from "../bridge/bridge_config";
-import {emitLuaBitpackPrelude, emitLuaDecoder} from "../src/utils/bitpack/emitLuaDecoder";
-import {MorphEntryCodec, MORPH_ENTRY_BYTES, MORPH_HEADER_BYTES, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_EVENT_PAN, SOMATIC_PATTERN_EVENT_VOLUME, SomaticPatternExtrasCodec, WaveformMorphGradientCodec,} from "../bridge/morphSchema";
+import {emitLuaBitpackPrelude, emitLuaDecoder, emitLuaTableBitpackPrelude} from "../src/utils/bitpack/emitLuaDecoder";
+import {MorphEntryCodec, MORPH_ENTRY_BYTES, SOMATIC_PATTERN_CELL_COUNT, SOMATIC_PATTERN_MASK_BYTES, SOMATIC_PATTERN_ROW_COUNT, WAVEFORM_MORPH_GRADIENT_NODE_BYTES, WaveformMorphGradientNodeCodec,} from "../bridge/morphSchema";
 import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../bridge/memory_layout";
 import {emitBridgeVersionIconLua} from "./bridgeVersionIcon";
 import {replaceLuaBlock} from "../src/utils/utils";
@@ -96,7 +96,8 @@ function generateLuaAutogenBlock(config: BridgeConfig): string {
    lines.push(`local TEMP_BUFFER_B = ${SomaticMemoryLayout.tempBufferB.address}`);
    lines.push(`local PATTERN_BUFFER_A = ${SomaticMemoryLayout.patternBufferA.address}`);
    lines.push(`local PATTERN_BUFFER_B = ${SomaticMemoryLayout.patternBufferB.address}`);
-   lines.push(`local SOMATIC_SFX_CONFIG = ${SomaticMemoryLayout.somaticSfxConfig.address}`);
+   lines.push(`local BRIDGE_EXTRA_SONG_DATA_ADDR = ${SomaticMemoryLayout.bridgeExtraSongData.address}`);
+   lines.push(`local BRIDGE_EXTRA_SONG_DATA_SIZE = ${SomaticMemoryLayout.bridgeExtraSongData.size}`);
    lines.push(`local MARKER_ADDR = ${SomaticMemoryLayout.marker.address}`);
    lines.push(`local REGISTERS_ADDR = ${SomaticMemoryLayout.registers.address}`);
    lines.push(`local INBOX_ADDR = ${SomaticMemoryLayout.inbox.address}`);
@@ -105,31 +106,27 @@ function generateLuaAutogenBlock(config: BridgeConfig): string {
    lines.push(`local LOG_SIZE = ${SomaticMemoryLayout.sizes.LOG_BUFFER_SIZE}`);
    lines.push("");
    lines.push("-- Morph schema (generated)");
-   lines.push(`local MORPH_HEADER_BYTES = ${MORPH_HEADER_BYTES}`);
    lines.push(`local MORPH_ENTRY_BYTES = ${MORPH_ENTRY_BYTES}`);
-   lines.push(`local SOMATIC_EXTRA_SONG_HEADER_BYTES = ${SOMATIC_EXTRA_SONG_HEADER_BYTES}`);
-   lines.push(`local SOMATIC_PATTERN_EVENT_VOLUME = ${SOMATIC_PATTERN_EVENT_VOLUME}`);
-   lines.push(`local SOMATIC_PATTERN_EVENT_PAN = ${SOMATIC_PATTERN_EVENT_PAN}`);
+   lines.push(`local WAVEFORM_MORPH_GRADIENT_NODE_BYTES = ${WAVEFORM_MORPH_GRADIENT_NODE_BYTES}`);
+   lines.push(`local SOMATIC_PATTERN_MASK_BYTES = ${SOMATIC_PATTERN_MASK_BYTES}`);
+   lines.push(`local SOMATIC_PATTERN_CELL_COUNT = ${SOMATIC_PATTERN_CELL_COUNT}`);
+   lines.push(`local SOMATIC_PATTERN_ROW_COUNT = ${SOMATIC_PATTERN_ROW_COUNT}`);
    lines.push("");
    lines.push(emitLuaBitpackPrelude({baseArgName: "base"}));
+   lines.push(emitLuaTableBitpackPrelude());
    lines.push("");
    lines.push(emitLuaDecoder(MorphEntryCodec, {
                  functionName: "decode_MorphEntry",
                  baseArgName: "base",
                  includeLayoutComments: true,
+                 readerFactoryName: "_bp_make_table_reader",
               }).trim());
    lines.push("");
-   lines.push(emitLuaDecoder(SomaticPatternExtrasCodec, {
-                 functionName: "decode_SomaticPatternExtras",
-                 baseArgName: "base",
-                 includeLayoutComments: true,
-              }).trim());
-   lines.push("");
-
-   lines.push(emitLuaDecoder(WaveformMorphGradientCodec, {
-                 functionName: "decode_WaveformMorphGradient",
+   lines.push(emitLuaDecoder(WaveformMorphGradientNodeCodec, {
+                 functionName: "decode_WaveformMorphGradientNode",
                  baseArgName: "base",
                  includeLayoutComments: false,
+                 readerFactoryName: "_bp_make_table_reader",
               }).trim());
    lines.push("");
 

@@ -1,9 +1,35 @@
 //import { assert } from "../errorHandling";
 
-// takes string contents, returns Lua string literal with quotes and escapes.
-export function toLuaStringLiteral(str: string): string {
+function toLuaQuotedStringLiteral(str: string): string {
   const escaped = str.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\r/g, "\\r");
   return `"${escaped}"`;
+}
+
+function toLuaLongBracketStringLiteral(str: string): string | null {
+   // https://www.lua.org/manual/5.3/manual.html#3.1
+   // Lua normalizes line endings in long strings and discards an initial newline.
+   // Restrict this compact form to single-line data so this helper remains exact
+   // for arbitrary UI strings as well as Base85 payloads.
+   if (/[\r\n]/.test(str))
+      return null;
+
+   // if "]]" appears in the string, we have to use a different terminator.
+   // lua allows "]=]" where number of equal signs is arbitrary.
+   // find the first one that produces a valid string.
+   for (let equalsCount = 0; ; equalsCount++) {
+      const equals = "=".repeat(equalsCount);
+      const close = `]${equals}]`;
+      if (!str.includes(close))
+         return `[${equals}[${str}${close}`;
+   }
+}
+
+// Return the shortest exact Lua representation. Base85 frequently contains
+// quotes and backslashes, where a long-bracket literal avoids escape overhead.
+export function toLuaStringLiteral(str: string): string {
+   const quoted = toLuaQuotedStringLiteral(str);
+   const longBracket = toLuaLongBracketStringLiteral(str);
+   return longBracket !== null && longBracket.length < quoted.length ? longBracket : quoted;
 }
 
 // Replace one or more Lua "blocks" delimited by begin/end marker lines.

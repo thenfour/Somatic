@@ -23,7 +23,7 @@ local ADDR = {
 	TF_ORDER_LIST_ENTRIES = BRIDGE_CONFIG.memory.TF_ORDER_LIST_ENTRIES,
 	TF_ORDER_LIST_ROWS = BRIDGE_CONFIG.memory.TF_ORDER_LIST_ROWS,
 	TF_PATTERN_DATA = BRIDGE_CONFIG.memory.TF_PATTERN_DATA,
-	SOMATIC_SFX_CONFIG = BRIDGE_CONFIG.memory.SOMATIC_SFX_CONFIG,
+	EXTRA_SONG_DATA = BRIDGE_CONFIG.memory.BRIDGE_EXTRA_SONG_DATA_ADDR,
 }
 
 -- Inbox command IDs (host -> cart)
@@ -197,16 +197,9 @@ local lastCmd = 0
 local lastCmdResult = 0
 local host_last_seq = 0
 
-local MORPH_MAP_BASE = ADDR.SOMATIC_SFX_CONFIG
-
--- SOMATIC_SFX_CONFIG lives below the MARKER region; fail fast if layout or payload is inconsistent.
-local MORPH_MAP_BYTES = ADDR.MARKER - MORPH_MAP_BASE
-
-local pattern_extra_cache = {}
-local pattern_extra_loaded = false
-local morph_nodes_cache = {}
-local sfx_cfg_cache = {}
-local MORPH_GRADIENT_BASE = MORPH_MAP_BASE
+local morphMap = {}
+local morphIds = {}
+local patternExtra = {}
 
 local function lerp(a, b, t)
 	return a + (b - a) * t
@@ -226,148 +219,34 @@ end
 -- equal power (sqrt or sine law) makes a better xfade, but it doesn't preserve the waveshapes at either end so... not the best idea
 local lerp_nibble = lerp_nibble_lin
 
-local function morph_get_nodes(offBytes)
-	if offBytes == nil or offBytes <= 0 then
-		return nil
-	end
-	local cached = morph_nodes_cache[offBytes]
-	if cached ~= nil then
-		return cached or nil
-	end
-	local nodes = decode_WaveformMorphGradient(MORPH_GRADIENT_BASE + offBytes)
-	if nodes == nil or #nodes == 0 then
-		morph_nodes_cache[offBytes] = false
-		return nil
-	end
-	for ni = 1, #nodes do
-		local wb = nodes[ni].waveBytes
-		local s = {}
-		local si = 0
-		for bi = 1, 16 do
-			si = wave_unpack_byte_to_samples(wb[bi] or 0, s, si)
-		end
-		nodes[ni].samples = s
-	end
-	morph_nodes_cache[offBytes] = nodes
-	return nodes
-end
-
-local function read_extra_song_instrument_count()
-	local instrumentCount = peek(MORPH_MAP_BASE)
-	local needed = SOMATIC_EXTRA_SONG_HEADER_BYTES
-		+ instrumentCount * MORPH_ENTRY_BYTES
-	assert(MORPH_MAP_BYTES > 0, "Invalid bridge memory map: SOMATIC_SFX_CONFIG must be below MARKER")
-	assert(
-		needed <= MORPH_MAP_BYTES,
-		"SOMATIC_SFX_CONFIG overflow: need="
-			.. tostring(needed)
-			.. " have="
-			.. tostring(MORPH_MAP_BYTES)
-			.. " (instrumentCount="
-			.. tostring(instrumentCount)
-			.. ")"
-	)
-	return instrumentCount
-end
-
-local function u8_to_s8(b)
-	if b > 0x7f then
-		return b - 0x100
-	end
-	return b
-end
-
 local function read_sfx_cfg(instrumentId)
 	if instrumentId == nil then
 		return nil
 	end
-	local cached = sfx_cfg_cache[instrumentId]
-	if cached ~= nil then
-		return cached or nil
-	end
-
-	local count = read_extra_song_instrument_count()
-
-	for i = 0, count - 1 do
-		local off = MORPH_MAP_BASE + SOMATIC_EXTRA_SONG_HEADER_BYTES + i * MORPH_ENTRY_BYTES
-		local entry = decode_MorphEntry(off)
-		if entry.instrumentId == instrumentId then
-			local effectKindId = entry.effectKind -- EFFECT_KIND_* values
-
-			-- adjust fields as needed.
-			entry.lowpassEnabled = entry.lowpassEnabled ~= 0
-
-			-- Shape matches makeMorphMapLua(): values are numeric IDs.
-			local cfg = {
-				waveEngineId = entry.waveEngineId,
-				sourceWaveformIndex = entry.sourceWaveformIndex,
-				gradientOffsetBytes = entry.gradientOffsetBytes,
-				pwmDuty = entry.pwmDuty5,
-				pwmDepth = entry.pwmDepth5,
-				lowpassEnabled = entry.lowpassEnabled,
-				lowpassAmountU8 = entry.lowpassAmountU8,
-				lowpassDurationInTicks = entry.lowpassDurationTicks12,
-				lowpassCurveS6 = entry.lowpassCurveS6,
-				effectKind = effectKindId,
-				effectAmtU8 = entry.effectAmtU8,
-				effectDurationInTicks = entry.effectDurationTicks12,
-				effectCurveS6 = entry.effectCurveS6,
-				effectModSource = entry.effectModSource,
-				lfoCycleInTicks = entry.lfoCycleTicks12,
-				panU8 = entry.panU8,
-				panLfoDepthU8 = entry.panLfoDepthU8,
-				volumeU8 = entry.volumeU8,
-				lowpassModSource = entry.lowpassModSource,
-			}
-
-			-- BEGIN_FEATURE_WAVEMORPH
-			if cfg.waveEngineId == WAVE_ENGINE_MORPH then
-				local offBytes = cfg.gradientOffsetBytes or 0
-				if offBytes <= 0 then
-					error("morph instrument is missing gradientOffsetBytes")
-				end
-				assert(offBytes < MORPH_MAP_BYTES, "morph gradient offset out of range: " .. tostring(offBytes))
-				cfg.morphGradientNodes = morph_get_nodes(offBytes)
-			end
-			-- END_FEATURE_WAVEMORPH
-
-			return cfg
-		end
-	end
-
-	sfx_cfg_cache[instrumentId] = false
-	return nil
+	return morphMap[instrumentId]
 end
 
 local function read_pattern_extra_cells(patternIndex0b)
 	if patternIndex0b == nil then
 		return nil
 	end
-	if not pattern_extra_loaded then
-		local instrumentCount = read_extra_song_instrument_count()
-		local patternsBase = MORPH_MAP_BASE + SOMATIC_EXTRA_SONG_HEADER_BYTES + instrumentCount * MORPH_ENTRY_BYTES
-		local patternEntries = decode_SomaticPatternExtras(patternsBase)
-		for _, entry in ipairs(patternEntries) do
-			local cells = {}
-			for _, event in ipairs(entry.events) do
-				local rowIndex1b = event.rowIndex + 1
-				local cell = cells[rowIndex1b] or {}
-				if event.eventId == SOMATIC_PATTERN_EVENT_VOLUME then
-					cell.volumeU8 = event.paramU8
-				elseif event.eventId == SOMATIC_PATTERN_EVENT_PAN then
-					cell.panU8 = event.paramU8
-				else
-					cell.effectId = event.eventId
-					cell.paramU8 = event.paramU8
-				end
-				cells[rowIndex1b] = cell
-			end
-			pattern_extra_cache[entry.patternIndex] = cells
-		end
-		pattern_extra_loaded = true
-	end
+	return patternExtra[patternIndex0b]
+end
 
-	return pattern_extra_cache[patternIndex0b]
+local function decode_bridge_extra_song_data()
+	local compressedLength = peek(ADDR.EXTRA_SONG_DATA) | (peek(ADDR.EXTRA_SONG_DATA + 1) << 8)
+	local limit = BRIDGE_CONFIG.memory.BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES
+	if compressedLength <= 0 or compressedLength > limit then
+		error(
+			"Bridge extra-song payload length out of range: "
+				.. tostring(compressedLength)
+				.. " (limit "
+				.. tostring(limit)
+				.. ")"
+		)
+	end
+	local bytes = lzToTable(ADDR.EXTRA_SONG_DATA + 2, compressedLength, true)
+	return decodeSomaticExtraSongBytes(bytes)
 end
 
 local function render_waveform_morph(cfg, ticksPlayed, outSamples)
@@ -410,7 +289,7 @@ end
 
 local function render_waveform_pwm(cfg, ticksPlayed, instrumentId, lfoTicks, outSamples)
 	-- PWM is driven by the per-instrument LFO
-	local cycle = cfg.lfoCycleInTicks or 0
+	local cycle = cfg.lfoCycleTicks12 or 0
 	local phase
 	if cycle <= 0 then
 		phase = 0
@@ -423,7 +302,7 @@ local function render_waveform_pwm(cfg, ticksPlayed, instrumentId, lfoTicks, out
 	else
 		tri = 3 - phase * 4 -- +1..-1
 	end
-	local duty = (cfg.pwmDuty or 0) + (cfg.pwmDepth or 0) * tri
+	local duty = (cfg.pwmDuty5 or 0) + (cfg.pwmDepth5 or 0) * tri
 	-- Avoid generating a constant waveform (all -1 / all +1).
 	-- TIC-80 treats that as a special case; we force at least one sample of each polarity.
 	if duty < 1 then
@@ -476,10 +355,10 @@ local function render_tick_cfg(cfg, instrumentId, channel, ticksPlayed, lfoTicks
 		if effectModSource ~= MOD_SRC_NONE then
 			hsT = calculate_mod_t(
 				effectModSource,
-				cfg.effectDurationInTicks,
+				cfg.effectDurationTicks12,
 				ticksPlayed,
 				lfoTicks,
-				cfg.lfoCycleInTicks,
+				cfg.lfoCycleTicks12,
 				0
 			)
 		end
@@ -491,18 +370,18 @@ local function render_tick_cfg(cfg, instrumentId, channel, ticksPlayed, lfoTicks
 	-- Wavefold first (adds harmonics), then lowpass (smooths)
 	local wavefoldModSource = cfg.effectModSource or MOD_SRC_ENVELOPE
 	local wavefoldHasTime = (wavefoldModSource == MOD_SRC_NONE)
-		or (wavefoldModSource == MOD_SRC_LFO and (cfg.lfoCycleInTicks or 0) > 0)
-		or ((cfg.effectDurationInTicks or 0) > 0)
+		or (wavefoldModSource == MOD_SRC_LFO and (cfg.lfoCycleTicks12 or 0) > 0)
+		or ((cfg.effectDurationTicks12 or 0) > 0)
 	if (cfg.effectKind == EFFECT_KIND_WAVEFOLD) and cfg.effectAmtU8 > 0 and wavefoldHasTime and scale01 > 0 then
 		local maxAmt = clamp01(cfg.effectAmtU8 / 255) * scale01
 		local wfT = 0
 		if wavefoldModSource ~= MOD_SRC_NONE then
 			wfT = calculate_mod_t(
 				wavefoldModSource,
-				cfg.effectDurationInTicks,
+				cfg.effectDurationTicks12,
 				ticksPlayed,
 				lfoTicks,
-				cfg.lfoCycleInTicks,
+				cfg.lfoCycleTicks12,
 				0
 			)
 		end
@@ -517,7 +396,7 @@ local function render_tick_cfg(cfg, instrumentId, channel, ticksPlayed, lfoTicks
 		if lpModSource == MOD_SRC_NONE then
 			t = 1
 		else
-			t = calculate_mod_t(lpModSource, cfg.lowpassDurationInTicks, ticksPlayed, lfoTicks, cfg.lfoCycleInTicks, 1)
+			t = calculate_mod_t(lpModSource, cfg.lowpassDurationTicks12, ticksPlayed, lfoTicks, cfg.lfoCycleTicks12, 1)
 		end
 
 		-- Close over time: start bypassed (amount=0) and increase toward lpAmount01.
@@ -550,15 +429,14 @@ local function sfx_tick_channel(channel)
 		cfg and cfg.panU8 or 128,
 		cfg and cfg.panLfoDepthU8 or 0,
 		lt,
-		cfg and cfg.lfoCycleInTicks or 0
+		cfg and cfg.lfoCycleTicks12 or 0
 	)
 	ch_sfx_ticks[channel + 1] = ticksPlayed + 1
 end
 
 local function advance_all_lfo_ticks()
-	local count = read_extra_song_instrument_count()
-	for i = 0, count - 1 do
-		local id = peek(MORPH_MAP_BASE + SOMATIC_EXTRA_SONG_HEADER_BYTES + i * MORPH_ENTRY_BYTES)
+	for i = 1, #morphIds do
+		local id = morphIds[i]
 		lfo_ticks_by_sfx[id] = (lfo_ticks_by_sfx[id] or 0) + 1
 	end
 end
@@ -613,7 +491,7 @@ local function apply_music_row_to_sfx_state(track, frame, row)
 				local instId = ch_sfx_id[ch + 1]
 				if instId and instId >= 0 then
 					local cfg = read_sfx_cfg(instId)
-					local cycle = cfg and cfg.lfoCycleInTicks or 0
+					local cycle = cfg and cfg.lfoCycleTicks12 or 0
 					if cycle > 0 then
 						-- paramU8 0x00..0xFF maps to phase 0..cycle
 						lfo_ticks_by_sfx[instId] = math.floor((cell.paramU8 or 0) / 255 * cycle)
@@ -675,16 +553,17 @@ end
 -- =========================
 -- Commands
 local function handle_transmit()
+	local nextMorphMap, nextPatternExtra, nextMorphIds = decode_bridge_extra_song_data()
 	sync(24, 0, true)
-	pattern_extra_cache = {}
-	pattern_extra_loaded = false
-	morph_nodes_cache = {}
-	sfx_cfg_cache = {}
+	morphMap = nextMorphMap
+	patternExtra = nextPatternExtra
+	morphIds = nextMorphIds
 	publish_cmd(CMD_TRANSMIT, 0)
 end
 
 local function handle_play()
 	-- assumes host has uploaded music data already to RAM.
+	local nextMorphMap, nextPatternExtra, nextMorphIds = decode_bridge_extra_song_data()
 
 	-- Force reload of music data
 	-- https://github.com/nesbox/TIC-80/wiki/sync
@@ -692,10 +571,9 @@ local function handle_play()
 	-- bank = 0 (default)
 	-- true means sync from runtime -> cart.
 	sync(24, 0, true)
-	pattern_extra_cache = {}
-	pattern_extra_loaded = false
-	morph_nodes_cache = {}
-	sfx_cfg_cache = {}
+	morphMap = nextMorphMap
+	patternExtra = nextPatternExtra
+	morphIds = nextMorphIds
 
 	local songPosition = peek(INBOX.SONG_POSITION)
 	local startRow = peek(INBOX.ROW)
@@ -1058,8 +936,6 @@ tf_music_reset_state = function()
 	ch_lowpass_strength_scale_u8 = { 255, 255, 255, 255 }
 	ch_pan_override_u8 = { nil, nil, nil, nil }
 	ch_volume_scale_u8 = { nil, nil, nil, nil }
-	pattern_extra_cache = {}
-	pattern_extra_loaded = false
 	log("reset_state: Music state reset.")
 	ch_set_playroutine_regs(0xFF)
 end

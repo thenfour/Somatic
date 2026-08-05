@@ -7,7 +7,7 @@ export const Tic80MemoryMap = {
    VRam: new MemoryRegion({name: "VRam", address: 0x00000, size: 0x4000}),
    Tiles: new MemoryRegion({name: "Tiles", address: 0x04000, size: 0x2000}),
    Sprites: new MemoryRegion({name: "Sprites", address: 0x06000, size: 0x2000}),
-   Map: new MemoryRegion({name: "Map", address: 0x08000, size: 0x7FF0}),
+   Map: new MemoryRegion({name: "Map", address: 0x08000, size: 0x7F80}),
    Gamepads: new MemoryRegion({name: "Gamepads", address: 0x0FF80, size: 0x04}),
    Mouse: new MemoryRegion({name: "Mouse", address: 0x0FF84, size: 0x04}),
    Keyboard: new MemoryRegion({name: "Keyboard", address: 0x0FF88, size: 0x04}),
@@ -58,18 +58,22 @@ const PATTERN_BUFFER_SIZE = Tic80Constants.BYTES_PER_MUSIC_PATTERN * Tic80Consta
 
 const LOG_BUFFER_SIZE = 240; // Log buffer for cart->host messages
 
-// SFX configuration storage
-// Worst case: 64 instruments * ~14 bytes each = 896 bytes
-// Round up to 1KB for safety and future expansion
-const SOMATIC_SFX_CONFIG_SIZE = 0x400; // 1KB
+// Bridge-only compressed extra-song transaction arena. Tiles and Sprites are
+// contiguous and the bridge cart does not need their visual data.
+if (Tic80MemoryMap.Tiles.endAddress() !== Tic80MemoryMap.Sprites.beginAddress())
+   throw new Error("TIC-80 Tiles and Sprites regions must be contiguous");
+const BRIDGE_EXTRA_SONG_DATA_HEADER_SIZE = 2; // u16 little-endian compressed byte length
+const bridgeExtraSongDataRegion = new MemoryRegion({
+   name: "BridgeExtraSongData",
+   address: Tic80MemoryMap.Tiles.beginAddress(),
+   size: Tic80MemoryMap.Tiles.size + Tic80MemoryMap.Sprites.size,
+});
 
 const patternMem = Tic80MemoryMap.MusicPatterns;
 
-// Temp buffers for decompression/decoding operations
-// We need 2 buffers to support operations like:
-// - Buffer A: decompress base85 -> compressed data
-// - Buffer B: decompress LZ -> final data
-const TEMP_BUFFER_SIZE = 0x400; // 1KB per buffer (needed for SFX config decompression - up to 32 instruments)
+// Temp buffers retained for RAM-backed pattern decoding. Extra-song data now
+// decodes and materializes on the Lua heap instead.
+const TEMP_BUFFER_SIZE = 0x400;
 //const TEMP_BUFFER_COUNT = 2;
 
 const tempBufferB = patternMem.getTopAlignedCellFromTop(TEMP_BUFFER_SIZE, 0).withName("TempBufferB");
@@ -161,11 +165,6 @@ const MARKER_SIZE = 32;
 const markerRegion = new MemoryRegion({name: "Marker", address: currentTop - MARKER_SIZE, size: MARKER_SIZE});
 currentTop = markerRegion.address;
 
-// SFX config (krate stuff) (1KB for instrument morph configurations)
-const somaticSfxConfigRegion = new MemoryRegion(
-   {name: "SomaticSfxConfig", address: currentTop - SOMATIC_SFX_CONFIG_SIZE, size: SOMATIC_SFX_CONFIG_SIZE});
-
-
 export const SomaticMemoryLayout = {
    tempBufferA,
    tempBufferB,
@@ -173,7 +172,7 @@ export const SomaticMemoryLayout = {
    patternBufferB,
    compressedPatterns: compressedPatternsRegion,
 
-   somaticSfxConfig: somaticSfxConfigRegion,
+   bridgeExtraSongData: bridgeExtraSongDataRegion,
    marker: markerRegion,
    registers: registersRegion,
    inbox: inboxRegion,
@@ -189,7 +188,10 @@ export const SomaticMemoryLayout = {
       TEMP_BUFFER_A_ADDR: tempBufferA.address,
       TEMP_BUFFER_B_ADDR: tempBufferB.address,
 
-      SOMATIC_SFX_CONFIG: somaticSfxConfigRegion.address,
+      BRIDGE_EXTRA_SONG_DATA_ADDR: bridgeExtraSongDataRegion.address,
+      BRIDGE_EXTRA_SONG_DATA_SIZE: bridgeExtraSongDataRegion.size,
+      BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES:
+         bridgeExtraSongDataRegion.size - BRIDGE_EXTRA_SONG_DATA_HEADER_SIZE,
       MARKER_ADDR: markerRegion.address,
       REGISTERS_ADDR: registersRegion.address,
       INBOX_ADDR: inboxRegion.address,
@@ -202,6 +204,6 @@ export const SomaticMemoryLayout = {
       TEMP_BUFFER_SIZE,
       PATTERN_BUFFER_SIZE,
       LOG_BUFFER_SIZE,
-      SOMATIC_SFX_CONFIG_SIZE,
+      BRIDGE_EXTRA_SONG_DATA_HEADER_SIZE,
    },
 };

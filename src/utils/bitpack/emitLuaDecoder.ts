@@ -1,8 +1,9 @@
-// Lua decoder code generator for TIC-80 RAM (peek-based) readers.
-// Emits a Lua function that decodes a bitpack `Codec` starting at a base address.
+// Lua decoder code generator for TIC-80 bit readers. The default reader is
+// RAM/peek-based; callers can select a table-backed reader factory.
 
 import type {Codec, BitSize, CodecNode} from "./bitpack";
 import bitpackPreludeLua from "./bitpack.lua";
+import bitpackTablePreludeLua from "./bitpack_table.lua";
 
 const BITPACK_BASE_PLACEHOLDER = "__BP_BASE__";
 
@@ -12,6 +13,7 @@ type LuaDecoderOptions = {
    returnName?: string;
    includeLayoutComments?: boolean;
    localReaderName?: string;
+   readerFactoryName?: string;
    //includePrelude?: boolean;
 };
 
@@ -168,6 +170,10 @@ export function emitLuaBitpackPrelude(opt: Pick<LuaDecoderOptions, "baseArgName"
    return emitLuaPrelude(baseArgName) + "\n";
 }
 
+export function emitLuaTableBitpackPrelude(): string {
+   return bitpackTablePreludeLua + "\n";
+}
+
 export function emitLuaDecoder(codec: Codec<unknown>, opt: LuaDecoderOptions = {}): string {
    const {
       functionName = `decode_${
@@ -178,6 +184,7 @@ export function emitLuaDecoder(codec: Codec<unknown>, opt: LuaDecoderOptions = {
       returnName = "out",
       includeLayoutComments = true,
       localReaderName = "r",
+      readerFactoryName = "_bp_make_reader",
    } = opt;
 
    if (!codec || !codec.node)
@@ -186,7 +193,7 @@ export function emitLuaDecoder(codec: Codec<unknown>, opt: LuaDecoderOptions = {
       throw new Error(`emitLuaDecoder: root codec must be struct/array/varArray, got ${codec.node.kind}`);
 
    const layoutComment = emitLayoutComment(codec, includeLayoutComments);
-   const body = `local function ${functionName}(${baseArgName})\n  local ${localReaderName} = _bp_make_reader(${
+   const body = `local function ${functionName}(${baseArgName})\n  local ${localReaderName} = ${readerFactoryName}(${
       baseArgName})\n${indent(emitStatementsForCodec(codec, returnName, localReaderName, returnName), 2)}\nend`;
 
    return [layoutComment, body].filter(Boolean).join("\n\n") + "\n";

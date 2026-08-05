@@ -330,9 +330,9 @@ export function lzDecompress(encoded: Uint8Array): Uint8Array {
 // for example it does NOT support RLE (0x81) opcodes.
 // Also the window size affects decoder memory usage.
 export const gSomaticLZDefaultConfig: LZConfig = {
-   windowSize: 16,
+   windowSize: 2048,
    minMatchLength: 4,
-   maxMatchLength: 30,
+   maxMatchLength: 16384,
    useRLE: false,
 };
 

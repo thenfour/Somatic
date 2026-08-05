@@ -5,22 +5,19 @@ import {describe, it} from "node:test";
 
 import {Song} from "../src/models/song";
 import {SomaticInstrument} from "../src/models/instruments";
-import {gTic80AllChannelsAudible, kSomaticPatternCommand} from "../src/models/tic80Capabilities";
+import {gTic80AllChannelsAudible, kSomaticPatternCommand, TicMemoryMap} from "../src/models/tic80Capabilities";
 import {decodeInstrumentFromBytes66, decodeTrackSpeed, encodeInstrument, encodeTrackSpeed} from "../src/subsystem/tic80/tic80_serialization";
 import {Tic80Constants, Tic80MemoryMap} from "../bridge/memory_layout";
-import {MORPH_ENTRY_BYTES, SOMATIC_EXTRA_SONG_HEADER_BYTES, SOMATIC_PATTERN_EVENT_PAN, SOMATIC_PATTERN_EVENT_VOLUME, SomaticPatternExtrasCodec} from "../bridge/morphSchema";
-import {BitReader, MemoryRegion} from "../src/utils/bitpack/bitpack";
+import {decodeSomaticExtraSongDataPayload} from "../bridge/morphSchema";
+import {lzDecompress} from "../src/utils/encoding";
 
 const testRequire = createRequire(import.meta.url);
 (testRequire as any).extensions[".lua"] = (module: NodeModule, filename: string) => {
    (module as any).exports = fs.readFileSync(filename, "utf8");
 };
 
-function decodePatternExtras(payload: Uint8Array, instrumentCount: number) {
-   const offset = SOMATIC_EXTRA_SONG_HEADER_BYTES + instrumentCount * MORPH_ENTRY_BYTES;
-   const bytes = payload.subarray(offset);
-   const region = new MemoryRegion({name: "pattern extras", address: 0, size: bytes.length});
-   return SomaticPatternExtrasCodec.decode(new BitReader(bytes, region));
+function decodePatternExtras(payload: Uint8Array) {
+   return decodeSomaticExtraSongDataPayload(payload).patterns;
 }
 
 describe("TIC-80 track speed serialization", () => {
@@ -43,6 +40,46 @@ describe("TIC-80 track speed serialization", () => {
          assert.equal(signedDelta + 6, displaySpeed, `TIC-80 runtime speed for ${displaySpeed}`);
          assert.equal(decodeTrackSpeed(encoded), displaySpeed, `round trip for speed ${displaySpeed}`);
       }
+   });
+});
+
+describe("TIC-80 bridge extra-song transaction", () => {
+   it("uploads one length-prefixed LZ block to the contiguous Tiles+Sprites arena", async () => {
+      const {serializeSongForTic80Bridge} = await import("../src/subsystem/tic80/tic80_cart_serializer");
+      const song = new Song();
+      song.patterns[0].setCell(0, 0, {volumeU8: 0, panU8: 128});
+      const serialized = serializeSongForTic80Bridge({
+         song,
+         loopMode: "off",
+         cursorSongOrder: 0,
+         cursorChannelIndex: 0,
+         cursorRowIndex: 0,
+         patternSelection: null,
+         audibleChannels: gTic80AllChannelsAudible,
+         startPosition: 0,
+         startRow: 0,
+         songOrderSelection: null,
+      });
+
+      const block = serialized.bridgeBlocksToTransmit.find(
+         entry => entry.region.address === TicMemoryMap.BRIDGE_EXTRA_SONG_DATA_ADDR,
+      );
+      assert.ok(block);
+      const compressedLength = block.payload[0] | block.payload[1] << 8;
+      assert.equal(compressedLength, block.payload.length - 2);
+      assert.ok(compressedLength <= TicMemoryMap.BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES);
+      const decoded = decodeSomaticExtraSongDataPayload(lzDecompress(block.payload.subarray(2)));
+      assert.deepEqual(decoded.patterns, [{
+         patternIndex: 0,
+         cells: [{rowIndex: 0, volumeU8: 0, panU8: 128}],
+      }]);
+   });
+
+   it("keeps Map bridge state and tracker pattern data within the real Map boundary", () => {
+      assert.equal(Tic80MemoryMap.Map.endAddress(), 0xff80);
+      assert.equal(TicMemoryMap.MUSIC_STATE_SOMATIC_SONG_POSITION, TicMemoryMap.REGISTERS_ADDR);
+      assert.equal(TicMemoryMap.FPS, TicMemoryMap.REGISTERS_ADDR + 1);
+      assert.equal(TicMemoryMap.TF_PATTERN_DATA + 30975, TicMemoryMap.MARKER_ADDR);
    });
 });
 
@@ -137,18 +174,15 @@ describe("TIC-80 per-channel panning", () => {
       assert.equal(details.extraSongDataDetails.krateInstruments[0].cfg.panLfoDepthU8, 128);
 
       const payload = details.extraSongDataDetails.binaryPayload;
-      const patternExtras = decodePatternExtras(payload, 1);
+      const patternExtras = decodePatternExtras(payload);
       assert.equal(patternExtras.length, 2, "one Somatic pattern event group per panned channel");
       assert.deepEqual(patternExtras[0], {
          patternIndex: 0,
-         events: [
-            {rowIndex: 0, eventId: 5, paramU8: 0},
-            {rowIndex: 0, eventId: SOMATIC_PATTERN_EVENT_PAN, paramU8: 32},
-         ],
+         cells: [{rowIndex: 0, panU8: 32, effectId: 5, paramU8: 0}],
       });
       assert.deepEqual(patternExtras[1], {
          patternIndex: 1,
-         events: [{rowIndex: 0, eventId: SOMATIC_PATTERN_EVENT_PAN, paramU8: 255}],
+         cells: [{rowIndex: 0, panU8: 255}],
       });
 
       assert.match(
@@ -226,17 +260,15 @@ describe("TIC-80 per-instrument volume", () => {
       assert.equal(song.clone().patterns[0].getCell(0, 0).volumeU8, 0);
 
       const details = serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible);
-      const patternExtras = decodePatternExtras(details.extraSongDataDetails.binaryPayload, 0);
+      const patternExtras = decodePatternExtras(details.extraSongDataDetails.binaryPayload);
       assert.deepEqual(patternExtras, [{
          patternIndex: 0,
-         events: [
-            {rowIndex: 0, eventId: 5, paramU8: 64},
-            {rowIndex: 0, eventId: SOMATIC_PATTERN_EVENT_VOLUME, paramU8: 0},
-            {rowIndex: 0, eventId: SOMATIC_PATTERN_EVENT_PAN, paramU8: 128},
-            {rowIndex: 4, eventId: SOMATIC_PATTERN_EVENT_VOLUME, paramU8: 255},
+         cells: [
+            {rowIndex: 0, volumeU8: 0, panU8: 128, effectId: 5, paramU8: 64},
+            {rowIndex: 4, volumeU8: 255},
          ],
       }]);
-      assert.match(details.wholePlayroutineCode, /decode_SomaticPatternExtras/);
+      assert.match(details.wholePlayroutineCode, /decodeSomaticExtraSongBytes/);
       assert.match(details.wholePlayroutineCode, /cell\.volumeU8\s*~=\s*nil/);
       assert.match(details.wholePlayroutineCode, /ch_volume_scale_u8\[ch\s*\+\s*1\]\s*=\s*cell\.volumeU8/);
       assert.match(details.wholePlayroutineCode, /baseVolume\s*=\s*clamp01/);

@@ -107,13 +107,6 @@ export function polarToCartesian(centerX: number, centerY: number, radius: numbe
 }
 
 
-// takes string contents, returns Lua string literal with quotes and escapes.
-export function toLuaStringLiteral(str: string): string {
-   const escaped = str.replace(/\\/g, "\\\\").replace(/"/g, "\\\"").replace(/\n/g, "\\n").replace(/\r/g, "\\r");
-   return `"${escaped}"`;
-};
-
-
 // Replace one or more Lua "blocks" delimited by begin/end marker lines.
 // - Markers are matched as substrings within their lines (so callers can pass "-- BEGIN_BLARG").
 // - The entire block (including marker lines and inner contents) is replaced with `replacement`.

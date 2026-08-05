@@ -96,20 +96,25 @@ const bridgeConfig = {
       PATTERN_BUFFER_A_ADDR: SomaticMemoryLayout.computed.PATTERN_BUFFER_A_ADDR,
       PATTERN_BUFFER_B_ADDR: SomaticMemoryLayout.computed.PATTERN_BUFFER_B_ADDR,
 
+      // Compressed Somatic extra-song data uses one contiguous bridge-only
+      // transaction arena spanning Tiles + Sprites.
+      BRIDGE_EXTRA_SONG_DATA_ADDR: SomaticMemoryLayout.computed.BRIDGE_EXTRA_SONG_DATA_ADDR,
+      BRIDGE_EXTRA_SONG_DATA_SIZE: SomaticMemoryLayout.computed.BRIDGE_EXTRA_SONG_DATA_SIZE,
+      BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES:
+         SomaticMemoryLayout.computed.BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES,
+
       // Somatic bridge state lives in the top of MAP (0x8000..0x0ff7f),
       // above all tracker-format pattern data.
       //
       // Layout within MAP:
       //   See memory_layout.ts for complete allocation strategy
-      SOMATIC_SFX_CONFIG: SomaticMemoryLayout.computed.SOMATIC_SFX_CONFIG,
       MARKER_ADDR: SomaticMemoryLayout.computed.MARKER_ADDR,
       REGISTERS_ADDR: SomaticMemoryLayout.computed.REGISTERS_ADDR,
       INBOX_ADDR: SomaticMemoryLayout.computed.INBOX_ADDR,
       OUTBOX_ADDR: SomaticMemoryLayout.computed.OUTBOX_ADDR,
       LOG_SIZE: SomaticMemoryLayout.computed.LOG_SIZE,
 
-      // Tracker-format (Somatic) song data encoded into TIC-80 RAM
-      //TILE_BASE: 0x4000,
+      // Tracker-format (Somatic) song data encoded into Map RAM.
       TF_ORDER_LIST: Tic80MemoryMap.Map.beginAddress(),
       TF_ORDER_LIST_COUNT: Tic80MemoryMap.Map.addressWithOffset(0),
       TF_ORDER_LIST_CAPACITY: TIC80_BRIDGE_SONG_ORDER_CAPACITY,
@@ -126,20 +131,15 @@ const bridgeConfig = {
       MUSIC_STATE_FLAGS: 0x13fff,
 
       // Somatic playroutine state (kept in REGISTERS_ADDR region above)
-      MUSIC_STATE_SOMATIC_SONG_POSITION: 0x0f020,
-      FPS: 0x0f021,
+      MUSIC_STATE_SOMATIC_SONG_POSITION: SomaticMemoryLayout.computed.REGISTERS_ADDR,
+      FPS: SomaticMemoryLayout.computed.REGISTERS_ADDR + 1,
 
-      // temp buffer for decompressing and decoding.
-      // We can use pattern memory for anything we want but it's limited. These 2 buffers need to be
-      // large enough to hold things like pattern columns, sfx, waveform.
-      // but the biggest payload to be used here is the sfx config payload (~1kb).
-      // we can't aim to support ALL 64 sfx at once, but a reasonable limit is 32.
-      // for us, pattern memory looks like:
+      // Pattern decoding retains two 1 KiB scratch buffers. Extra-song data is
+      // decoded separately to Lua heap tables. Pattern memory looks like:
       // [compressed_pattern_data]
       // [8 patterns to be actually be played, used as front/back buffers]
-      // [temp buffer A, must be able to hold sfx cfg after decompression]
-      // [temp buffer B, must also be able to hold sfx cfg after decompression]
-      MAX_KRATE_SFX: 32, // At 17 bytes per runtime entry, 32 SFX = 544 bytes + overhead.
+      // [temp buffer A]
+      // [temp buffer B]
       __AUTOGEN_TEMP_PTR_A: SomaticMemoryLayout.computed.TEMP_BUFFER_A_ADDR,
       __AUTOGEN_TEMP_PTR_B: SomaticMemoryLayout.computed.TEMP_BUFFER_B_ADDR
    }
