@@ -302,6 +302,8 @@ export const CharMap = {
    RightArrow: "➡",
    UpDown: "↕",
    Flag: "⚑",
+   Half: "½",
+   Quarter: "¼",
 };
 
 

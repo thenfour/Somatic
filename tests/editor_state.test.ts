@@ -80,3 +80,23 @@ describe("pan-column app action", () => {
       assert.deepEqual(gActionRegistry.TogglePanColumn.defaultBindings, []);
    });
 });
+
+describe("loop-mode app actions", () => {
+   it("registers every concrete loop mode as a configurable Transport action", () => {
+      const actionIds = [
+         "SetLoopOff",
+         "SetLoopSong",
+         "SetLoopSelectionInSongOrder",
+         "SetLoopPattern",
+         "SetLoopHalfPattern",
+         "SetLoopQuarterPattern",
+         "SetLoopSelectionInPattern",
+      ] as const;
+
+      for (const actionId of actionIds) {
+         assert.equal(GlobalActions[actionId], actionId);
+         assert.equal(gActionRegistry[actionId].category, "Transport");
+         assert.deepEqual(gActionRegistry[actionId].defaultBindings, []);
+      }
+   });
+});

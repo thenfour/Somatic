@@ -12,12 +12,12 @@ export interface RadioButtonProps extends React.ButtonHTMLAttributes<HTMLButtonE
 }
 
 export const RadioButton = React.forwardRef<HTMLButtonElement, RadioButtonProps>(
-    ({ children, className, ...props }, ref) => {
+    ({ children, className, selected, ...props }, ref) => {
         return (
             <ButtonBase
                 ref={ref}
                 className={`somatic-radio-button ${className}`}
-                highlighted={props.selected}
+                highlighted={selected}
                 {...props}
             >
                 {children}

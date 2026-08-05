@@ -894,13 +894,25 @@ option {
     color: var(--accent);
 }
 
-.loop-mode-select {
-    color: var(--text);
+/* this ends up being redundant with radio button styling but necessary
+due to being embedded in a menu which overrides button styling */
+
+.menu-transport .loop-controls .somatic-button-base--highlighted {
+   background-color: var(--panel-strong);
 }
 
-.loop-mode-select--off {
-    color: var(--muted);
+.menu-transport .loop-controls .somatic-button-base--not-highlighted {
+   color: var(--button-foreground-disabled);
 }
+
+.menu-transport .loop-controls .somatic-button-base--disabled {
+   color: var(--button-background-disabled);
+}
+.menu-transport .loop-controls .somatic-button-base--highlighted.somatic-button-base--disabled {
+   color: var(--button-foreground-disabled);
+   background-color: var(--panel);
+}
+
 
 .bar-value {
     --bar-value-fill-percent: 0%;
@@ -990,13 +1002,13 @@ legend {
     font-weight: bold;
 }
 
-.header-song-title .song-metadata-in-header svg {
+.header-song-title svg {
     height: 24px;
     width: 24px;
     color: var(--accent);
 }
 
-.header-song-title:hover .song-metadata-in-header svg {
+.header-song-title:hover svg {
     color: var(--text);
 }
 

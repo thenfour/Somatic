@@ -1288,11 +1288,11 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             className="raw-button header-song-title"
                             onClick={() => setSongSettingsPanelOpen((x) => !x)}
                         >
+                      <Icon path={mdiCog} size={1} />
                             <span>{song.name}</span>
                             <div className='song-metadata-in-header'>
                                 <div>Tempo: {song.tempo}</div>
-                                <div>Speed: {song.speed}</div>
-                                <Icon path={mdiCog} className='song-metadata-in-header-gear-icon' />
+                         <div>Speed: {song.speed}</div>
                             </div>
                         </div>
                     </Tooltip>
