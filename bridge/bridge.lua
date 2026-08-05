@@ -23,7 +23,7 @@ local ADDR = {
 	TF_ORDER_LIST_ENTRIES = BRIDGE_CONFIG.memory.TF_ORDER_LIST_ENTRIES,
 	TF_ORDER_LIST_ROWS = BRIDGE_CONFIG.memory.TF_ORDER_LIST_ROWS,
 	TF_PATTERN_DATA = BRIDGE_CONFIG.memory.TF_PATTERN_DATA,
-	EXTRA_SONG_DATA = BRIDGE_CONFIG.memory.BRIDGE_EXTRA_SONG_DATA_ADDR,
+	TRANSFER_BUFFER = BRIDGE_CONFIG.memory.BRIDGE_TRANSFER_BUFFER_ADDR,
 }
 
 -- Inbox command IDs (host -> cart)
@@ -234,8 +234,10 @@ local function read_pattern_extra_cells(patternIndex0b)
 end
 
 local function decode_bridge_extra_song_data()
-	local compressedLength = peek(ADDR.EXTRA_SONG_DATA) | (peek(ADDR.EXTRA_SONG_DATA + 1) << 8)
-	local limit = BRIDGE_CONFIG.memory.BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES
+	local addr = ADDR.TRANSFER_BUFFER
+	local headerBytes = BRIDGE_CONFIG.extraSongData.compressedLengthHeaderBytes
+	local compressedLength = peek(addr) | (peek(addr + 1) << 8)
+	local limit = BRIDGE_CONFIG.extraSongData.maxCompressedBytes
 	if compressedLength <= 0 or compressedLength > limit then
 		error(
 			"Bridge extra-song payload length out of range: "
@@ -245,7 +247,7 @@ local function decode_bridge_extra_song_data()
 				.. ")"
 		)
 	end
-	local bytes = lzToTable(ADDR.EXTRA_SONG_DATA + 2, compressedLength, true)
+	local bytes = lzMemoryToTable(addr + headerBytes, compressedLength)
 	return decodeSomaticExtraSongBytes(bytes)
 end
 
@@ -833,8 +835,8 @@ local function blitPattern(patternIndex0b, destPointer)
 	local patternSize = len_lo + (len_hi * 256)
 	readPos = readPos + 2 -- skip past length header
 
-	-- Decompress directly into destination buffer
-	local decompressedSize = lzdm(readPos, patternSize, destPointer)
+	-- Decompress through the shared heap codec, then copy into the playback buffer.
+	local decompressedSize = lzMemoryToMemory(readPos, patternSize, destPointer)
 
 	-- -- check payload.
 	-- log("pattern " .. tostring(patternIndex0b) .. " blitted")

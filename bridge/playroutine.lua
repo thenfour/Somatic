@@ -50,17 +50,36 @@ do
 	local morphMap = {}
 	local patternExtra = {}
 
-	-- decodes a b85+1 string, then LZ-decompresses it into dst.
-	-- uses __AUTOGEN_TEMP_PTR_A as temp storage
-	-- returns number of bytes written to dst.
-	local function b85Plus1LZDecodeToMem(s, dst)
-		-- BEGIN_DEBUG_ONLY
-		-- assert that dst is not overlapping
-		if dst >= __AUTOGEN_TEMP_PTR_A and dst < (__AUTOGEN_TEMP_PTR_A + 256) then -- reasonable temp buffer size
-			error("b85Plus1LZDecodeToMem: dst overlaps with temp buffer")
+	-- Base85+1 is only needed by exported carts. Decode to the canonical byte
+	-- table representation and copy to TIC memory only at the final boundary.
+	local function base85Plus1Decode(s, out)
+		local miss = s:byte(1) - 33
+		local n = ((#s - 1) // 5) * 4 - miss
+		local i = 2
+		for o = 0, n - 1, 4 do
+			local v = 0
+			for j = i, i + 4 do
+				v = v * 85 + s:byte(j) - 33
+			end
+			i = i + 5
+			for k = 3, 0, -1 do
+				if o + k < n then
+					out[o + k + 1] = v % 256
+				end
+				v = v // 256
+			end
 		end
-		-- END_DEBUG_ONLY
-		return lzdm(__AUTOGEN_TEMP_PTR_A, base85Plus1Decode(s, __AUTOGEN_TEMP_PTR_A), dst)
+		return out, n
+	end
+
+	local function b85Plus1LZDecode(s)
+		local _, compressedLen = base85Plus1Decode(s, codecSrc)
+		return lzDecode(codecSrc, compressedLen, codecDst)
+	end
+
+	local function b85Plus1LZDecodeToMemory(s, dst)
+		local bytes, len = b85Plus1LZDecode(s)
+		return tableToMemory(bytes, len, dst)
 	end
 
 	local morphIds = {}
@@ -356,8 +375,7 @@ do
 		patternExtra = {}
 		morphIds = {}
 
-		local compressed = base85Plus1DecodeToTable(m)
-		local bytes = lzToTable(compressed, #compressed, false)
+		local bytes = b85Plus1LZDecode(m)
 		morphMap, patternExtra, morphIds = decodeSomaticExtraSongBytes(bytes)
 	end
 
@@ -425,8 +443,8 @@ do
 
 	-- decode b85+1 LZ-compressed data into a table of integers with 'bits' bits each.
 	local function decodeBits(blob, bits)
-		local n = b85Plus1LZDecodeToMem(blob, __AUTOGEN_TEMP_PTR_B)
-		local r = _bp_make_reader(__AUTOGEN_TEMP_PTR_B)
+		local bytes, n = b85Plus1LZDecode(blob)
+		local r = _bp_make_reader(bytes)
 		local out = {}
 		local count = (n * 8) // bits
 		for i = 1, count do
@@ -456,7 +474,7 @@ do
 			-- 		destPointer -- DEBUG_ONLY
 			-- 	) -- DEBUG_ONLY
 			-- ) -- DEBUG_ONLY
-			lzdm(
+			lzMemoryToMemory(
 				PATTERNS_BASE + rp[columnIndex0b * 2 + 1], -- src ptr
 				rp[columnIndex0b * 2 + 2], -- src len
 				destPointer
@@ -477,7 +495,7 @@ do
 		end
 		-- pattern in string literal
 		local entry = SOMATIC_MUSIC_DATA.cp[columnIndex0b + 1 - ramPatternCount]
-		b85Plus1LZDecodeToMem(entry, destPointer)
+		b85Plus1LZDecodeToMemory(entry, destPointer)
 	end
 
 	local function swapInPlayorder(songPosition0b, destPointer)

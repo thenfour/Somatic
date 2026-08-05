@@ -1,7 +1,6 @@
--- support system for our bitpacking/schema stuff
--- LSB-first bits within each byte; assembled LSB-first into integers.
-local function _bp_make_reader(__BP_BASE__)
-	local bytePos = 0
+-- LSB-first bit reader for a 1-based Lua byte table.
+local function _bp_make_reader(data, byteOffset)
+	local bytePos = byteOffset or 0
 	local bitPos = 0
 
 	local function _bp_align_byte()
@@ -15,7 +14,7 @@ local function _bp_make_reader(__BP_BASE__)
 		local v = 0
 		local shift = 0
 		while n > 0 do
-			local b = peek(__BP_BASE__ + bytePos)
+			local b = data[bytePos + 1] or 0
 			local avail = 8 - bitPos
 			local k = (n < avail) and n or avail
 			local mask = (1 << k) - 1

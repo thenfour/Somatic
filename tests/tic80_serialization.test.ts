@@ -5,9 +5,10 @@ import {describe, it} from "node:test";
 
 import {Song} from "../src/models/song";
 import {SomaticInstrument} from "../src/models/instruments";
+import {BRIDGE_EXTRA_SONG_DATA_HEADER_BYTES, BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES} from "../bridge/extraSongBridgeTransaction";
 import {gTic80AllChannelsAudible, kSomaticPatternCommand, TicMemoryMap} from "../src/models/tic80Capabilities";
 import {decodeInstrumentFromBytes66, decodeTrackSpeed, encodeInstrument, encodeTrackSpeed} from "../src/subsystem/tic80/tic80_serialization";
-import {Tic80Constants, Tic80MemoryMap} from "../bridge/memory_layout";
+import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../bridge/memory_layout";
 import {decodeSomaticExtraSongDataPayload} from "../bridge/morphSchema";
 import {lzDecompress} from "../src/utils/encoding";
 
@@ -44,6 +45,17 @@ describe("TIC-80 track speed serialization", () => {
 });
 
 describe("TIC-80 bridge extra-song transaction", () => {
+   it("keeps Base85 export-only and has one table-backed Lua codec path", () => {
+      const bridgeSource = fs.readFileSync(new URL("../bridge/bridge.lua", import.meta.url), "utf8");
+      const sharedSource = fs.readFileSync(
+         new URL("../bridge/playroutine_shared.inc.lua", import.meta.url),
+         "utf8",
+      );
+      assert.doesNotMatch(bridgeSource + sharedSource, /base85/i);
+      assert.match(sharedSource, /local function lzDecode\(src, srcLen, out\)/);
+      assert.doesNotMatch(sharedSource, /\blzdm\b|lzToTable|_bp_make_table_reader/);
+   });
+
    it("uploads one length-prefixed LZ block to the contiguous Tiles+Sprites arena", async () => {
       const {serializeSongForTic80Bridge} = await import("../src/subsystem/tic80/tic80_cart_serializer");
       const song = new Song();
@@ -62,13 +74,15 @@ describe("TIC-80 bridge extra-song transaction", () => {
       });
 
       const block = serialized.bridgeBlocksToTransmit.find(
-         entry => entry.region.address === TicMemoryMap.BRIDGE_EXTRA_SONG_DATA_ADDR,
+         entry => entry.region.address === TicMemoryMap.BRIDGE_TRANSFER_BUFFER_ADDR,
       );
       assert.ok(block);
       const compressedLength = block.payload[0] | block.payload[1] << 8;
-      assert.equal(compressedLength, block.payload.length - 2);
-      assert.ok(compressedLength <= TicMemoryMap.BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES);
-      const decoded = decodeSomaticExtraSongDataPayload(lzDecompress(block.payload.subarray(2)));
+      assert.equal(compressedLength, block.payload.length - BRIDGE_EXTRA_SONG_DATA_HEADER_BYTES);
+      assert.ok(compressedLength <= BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES);
+      const decoded = decodeSomaticExtraSongDataPayload(
+         lzDecompress(block.payload.subarray(BRIDGE_EXTRA_SONG_DATA_HEADER_BYTES)),
+      );
       assert.deepEqual(decoded.patterns, [{
          patternIndex: 0,
          cells: [{rowIndex: 0, volumeU8: 0, panU8: 128}],
@@ -80,6 +94,8 @@ describe("TIC-80 bridge extra-song transaction", () => {
       assert.equal(TicMemoryMap.MUSIC_STATE_SOMATIC_SONG_POSITION, TicMemoryMap.REGISTERS_ADDR);
       assert.equal(TicMemoryMap.FPS, TicMemoryMap.REGISTERS_ADDR + 1);
       assert.equal(TicMemoryMap.TF_PATTERN_DATA + 30975, TicMemoryMap.MARKER_ADDR);
+      assert.equal(TicMemoryMap.PATTERN_MEM_LIMIT, SomaticMemoryLayout.patternBufferA.address);
+      assert.equal(SomaticMemoryLayout.compressedPatterns.size, 9984);
    });
 });
 
@@ -260,6 +276,12 @@ describe("TIC-80 per-instrument volume", () => {
       assert.equal(song.clone().patterns[0].getCell(0, 0).volumeU8, 0);
 
       const details = serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible);
+      assert.match(details.wholePlayroutineCode, /local function base85Plus1Decode\(s,\s*out\)/);
+      assert.match(details.wholePlayroutineCode, /local function lzDecode\(src,\s*srcLen,\s*out\)/);
+      assert.doesNotMatch(
+         details.wholePlayroutineCode,
+         /\blzdm\b|lzToTable|base85Plus1DecodeToTable|_bp_make_table_reader|__AUTOGEN_TEMP/,
+      );
       const patternExtras = decodePatternExtras(details.extraSongDataDetails.binaryPayload);
       assert.deepEqual(patternExtras, [{
          patternIndex: 0,

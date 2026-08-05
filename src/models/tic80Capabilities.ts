@@ -251,10 +251,9 @@ export const TicMemoryMap = {
    TF_ORDER_LIST_ROWS: parseAddress(mem.TF_ORDER_LIST_ROWS),
    TF_PATTERN_DATA: parseAddress(mem.TF_PATTERN_DATA),
 
-   // LZ-compressed "song extra data" transaction block: [u16le length][payload].
-   BRIDGE_EXTRA_SONG_DATA_ADDR: parseAddress(mem.BRIDGE_EXTRA_SONG_DATA_ADDR),
-   BRIDGE_EXTRA_SONG_DATA_SIZE: mem.BRIDGE_EXTRA_SONG_DATA_SIZE,
-   BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES: mem.BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES,
+   // Generic bridge transaction arena. Individual transactions own their framing.
+   BRIDGE_TRANSFER_BUFFER_ADDR: parseAddress(mem.BRIDGE_TRANSFER_BUFFER_ADDR),
+   BRIDGE_TRANSFER_BUFFER_SIZE: mem.BRIDGE_TRANSFER_BUFFER_SIZE,
 
    // RAM destinations for the chunk payloads (bank 0)
    WAVEFORMS_ADDR: parseAddress(mem.WAVEFORMS_ADDR),
@@ -267,8 +266,6 @@ export const TicMemoryMap = {
    PATTERN_BUFFER_B_ADDR: parseAddress(mem.PATTERN_BUFFER_B_ADDR),
    TRACKS_ADDR: parseAddress(mem.TRACKS_ADDR),
 
-   __AUTOGEN_TEMP_PTR_A: parseAddress(mem.__AUTOGEN_TEMP_PTR_A),
-   __AUTOGEN_TEMP_PTR_B: parseAddress(mem.__AUTOGEN_TEMP_PTR_B),
    __AUTOGEN_BUF_PTR_A: parseAddress(mem.PATTERN_BUFFER_A_ADDR),
    __AUTOGEN_BUF_PTR_B: parseAddress(mem.PATTERN_BUFFER_B_ADDR),
 

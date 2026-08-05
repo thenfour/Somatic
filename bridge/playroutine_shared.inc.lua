@@ -39,8 +39,14 @@ local function decode_pattern_row(patternId1b, rowIndex)
 end
 
 local function decode_track_frame_patterns(trackIndex, frameIndex)
-	local r = _bp_make_reader(TRACKS_BASE + trackIndex * TRACK_BYTES_PER_TRACK + frameIndex * 3)
-	return r.u(6), r.u(6), r.u(6), r.u(6)
+	local addr = TRACKS_BASE + trackIndex * TRACK_BYTES_PER_TRACK + frameIndex * 3
+	local b0 = peek(addr)
+	local b1 = peek(addr + 1)
+	local b2 = peek(addr + 2)
+	return b0 & 0x3f,
+		((b0 >> 6) | (b1 << 2)) & 0x3f,
+		((b1 >> 4) | (b2 << 4)) & 0x3f,
+		(b2 >> 2) & 0x3f
 end
 
 local function clamp(x, minVal, maxVal)
@@ -55,132 +61,30 @@ local function clamp_nibble_round(v)
 	return math.floor(clamp(v, 0, 15) + 0.5)
 end
 
--- base85 decode (ASCII85-style) for TIC-80 Lua
--- Decodes 's' into memory starting at 'dst', writing exactly expectedLen bytes.
--- Returns the number of bytes written (should equal expectedLen or error).
+-- Codecs use Lua byte tables as their one canonical representation. These
+-- scratch tables are reused; callers must carry the returned explicit lengths.
+local codecSrc = {}
+local codecDst = {}
 
--- BTW, justification for using this instead of typical tonumber() method:
--- ASCII85 is 1.25 chars per byte
--- HEX is 2 chars per byte
--- the ascii85 lua decoder is about 600 bytes.
--- so in lua,
--- ascii85's payload is 600 + (1.25 * N) bytes
--- hex's payload is 2 * N bytes, and probably some tiny amount of decoder like 30 bytes.
--- the break-even point is @
---      let d85 = ascii85 decoder size 600 bytes
---      let d16 = hex decoder size / 30 bytes
---      d85 + 1.25 * N < d16 + 2 * N
---      2 N - 1.25 N > d85 - d16
---      0.75 N > d85 - d16
--- 	    N > (d85 - d16) / 0.75
--- -> Break-even point = (ascii85 decoder size - hex decoder size) / 0.75
--- -> (600 - 30) / 0.75 = 760 bytes
--- So for patterns larger than that, ascii85 is more size-efficient.
-
-local function base85Plus1Decode(s, d)
-	local miss = s:byte(1) - 33
-	s = s:sub(2)
-	local n = (#s // 5) * 4 - miss
-	local i = 1
-	for o = 0, n - 1, 4 do
-		local v = 0
-		for j = i, i + 4 do
-			v = v * 85 + s:byte(j) - 33
-		end
-		i = i + 5
-		for k = 3, 0, -1 do
-			if o + k < n then
-				poke(d + o + k, v % 256)
-			end
-			v = v // 256
-		end
+local function memoryToTable(src, len, out)
+	for i = 1, len do
+		out[i] = peek(src + i - 1)
 	end
-	return n
+	return out, len
 end
 
--- Read unsigned LEB128 varint from memory.
--- base:   start address of encoded stream
--- si:     current offset (0-based) into the stream
--- srcLen: total length of the encoded stream (in bytes)
--- Returns: value, next_si
-local function varint(base, si, srcLen)
-	local x, f = 0, 1
-	while true do
-		local b = peek(base + si)
-		si = si + 1
-		x = x + (b % 0x80) * f
-		if b < 0x80 then
-			return x, si
-		end
-		f = f * 0x80
+local function tableToMemory(src, len, dst)
+	for i = 1, len do
+		poke(dst + i - 1, src[i])
 	end
+	return len
 end
 
--- LZ-Decompress from [src .. src+srcLen-1] into [dst ..).
--- Returns number of decompressed bytes written.
-local function lzdm(src, srcLen, dst)
-	local si, di = 0, 0
-	while si < srcLen do
-		local t = peek(src + si)
-		si = si + 1
-		if t == 0 then
-			local l
-			l, si = varint(src, si, srcLen)
-			for j = 1, l do
-				poke(dst + di, peek(src + si))
-				si = si + 1
-				di = di + 1
-			end
-		else
-			local l, d
-			l, si = varint(src, si, srcLen)
-			d, si = varint(src, si, srcLen)
-			for j = 1, l do
-				poke(dst + di, peek(dst + di - d))
-				di = di + 1
-			end
-		end
-	end
-	return di
-end
-
--- Heap-based variant used by the extra-song payload.
-local function base85Plus1DecodeToTable(s)
-	local miss = s:byte(1) - 33
-	s = s:sub(2)
-	local n = (#s // 5) * 4 - miss
-	local out = {}
-	local i = 1
-	for o = 0, n - 1, 4 do
-		local v = 0
-		for j = i, i + 4 do
-			v = v * 85 + s:byte(j) - 33
-		end
-		i = i + 5
-		for k = 3, 0, -1 do
-			if o + k < n then
-				out[o + k + 1] = v % 256
-			end
-			v = v // 256
-		end
-	end
-	return out
-end
-
--- Heap-based variant used by the extra-song payload.
--- Decompress from either a 1-based byte table or TIC-80 memory into a Lua table.
-local function lzToTable(src, srcLen, sourceIsMemory)
-	local function getByte(i)
-		if sourceIsMemory then
-			return peek(src + i)
-		end
-		return src[i + 1]
-	end
-
+local function lzDecode(src, srcLen, out)
 	local function readVarint(si)
 		local x, f = 0, 1
 		while true do
-			local b = getByte(si)
+			local b = src[si + 1]
 			si = si + 1
 			x = x + (b % 0x80) * f
 			if b < 0x80 then
@@ -190,16 +94,15 @@ local function lzToTable(src, srcLen, sourceIsMemory)
 		end
 	end
 
-	local out = {}
 	local si, di = 0, 0
 	while si < srcLen do
-		local tag = getByte(si)
+		local tag = src[si + 1]
 		si = si + 1
 		if tag == 0 then
 			local len
 			len, si = readVarint(si)
 			for _ = 1, len do
-				out[di + 1] = getByte(si)
+				out[di + 1] = src[si + 1]
 				si = si + 1
 				di = di + 1
 			end
@@ -216,7 +119,17 @@ local function lzToTable(src, srcLen, sourceIsMemory)
 			end
 		end
 	end
-	return out
+	return out, di
+end
+
+local function lzMemoryToTable(src, srcLen)
+	memoryToTable(src, srcLen, codecSrc)
+	return lzDecode(codecSrc, srcLen, codecDst)
+end
+
+local function lzMemoryToMemory(src, srcLen, dst)
+	local bytes, len = lzMemoryToTable(src, srcLen)
+	return tableToMemory(bytes, len, dst)
 end
 
 local function apply_curveN11(t, curveS6)
@@ -257,9 +170,11 @@ local last_music_frame = -1
 local last_music_row = -1
 
 local function wave_read_samples(waveIndex, outSamples)
-	local r = _bp_make_reader(WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE)
-	for i = 0, WAVE_SAMPLES_PER_WAVE - 1 do
-		outSamples[i] = r.u(4)
+	local base = WAVE_BASE + waveIndex * WAVE_BYTES_PER_WAVE
+	for i = 0, WAVE_BYTES_PER_WAVE - 1 do
+		local b = peek(base + i)
+		outSamples[i * 2] = b & 0x0f
+		outSamples[i * 2 + 1] = (b >> 4) & 0x0f
 	end
 end
 
@@ -306,14 +221,14 @@ local function decodeSomaticExtraSongBytes(bytes)
 	local nextMorphIds = {}
 
 	for _ = 1, instrumentCount do
-		local entry = decode_MorphEntry({ data = bytes, offset = pos - 1 })
+		local entry = decode_MorphEntry(bytes, pos - 1)
 		pos = pos + MORPH_ENTRY_BYTES
 		local nodeCount = bytes[pos] or 0
 		pos = pos + 1
 		local nodes = {}
 		for _ = 1, nodeCount do
 			-- BEGIN_FEATURE_WAVEMORPH
-			local node = decode_WaveformMorphGradientNode({ data = bytes, offset = pos - 1 })
+			local node = decode_WaveformMorphGradientNode(bytes, pos - 1)
 			local samples = {}
 			local sampleIndex = 0
 			for byteIndex = 1, 16 do

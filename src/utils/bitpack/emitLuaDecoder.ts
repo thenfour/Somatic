@@ -1,11 +1,7 @@
-// Lua decoder code generator for TIC-80 bit readers. The default reader is
-// RAM/peek-based; callers can select a table-backed reader factory.
+// Lua decoder code generator for TIC-80 table-backed bit readers.
 
 import type {Codec, BitSize, CodecNode} from "./bitpack";
 import bitpackPreludeLua from "./bitpack.lua";
-import bitpackTablePreludeLua from "./bitpack_table.lua";
-
-const BITPACK_BASE_PLACEHOLDER = "__BP_BASE__";
 
 type LuaDecoderOptions = {
    functionName?: string;
@@ -13,7 +9,7 @@ type LuaDecoderOptions = {
    returnName?: string;
    includeLayoutComments?: boolean;
    localReaderName?: string;
-   readerFactoryName?: string;
+   offsetArgName?: string;
    //includePrelude?: boolean;
 };
 
@@ -160,18 +156,9 @@ function emitLayoutComment(codec: Codec<unknown>, include: boolean): string {
    return lines.join("\n");
 }
 
-function emitLuaPrelude(baseArgName: string): string {
-   return bitpackPreludeLua.split(BITPACK_BASE_PLACEHOLDER).join(baseArgName);
-}
-
 // Emit the shared Lua bitpack reader helpers. Intended to be included once per generated Lua file.
-export function emitLuaBitpackPrelude(opt: Pick<LuaDecoderOptions, "baseArgName"> = {}): string {
-   const {baseArgName = "base"} = opt;
-   return emitLuaPrelude(baseArgName) + "\n";
-}
-
-export function emitLuaTableBitpackPrelude(): string {
-   return bitpackTablePreludeLua + "\n";
+export function emitLuaBitpackPrelude(): string {
+   return bitpackPreludeLua + "\n";
 }
 
 export function emitLuaDecoder(codec: Codec<unknown>, opt: LuaDecoderOptions = {}): string {
@@ -184,7 +171,7 @@ export function emitLuaDecoder(codec: Codec<unknown>, opt: LuaDecoderOptions = {
       returnName = "out",
       includeLayoutComments = true,
       localReaderName = "r",
-      readerFactoryName = "_bp_make_reader",
+      offsetArgName,
    } = opt;
 
    if (!codec || !codec.node)
@@ -193,8 +180,10 @@ export function emitLuaDecoder(codec: Codec<unknown>, opt: LuaDecoderOptions = {
       throw new Error(`emitLuaDecoder: root codec must be struct/array/varArray, got ${codec.node.kind}`);
 
    const layoutComment = emitLayoutComment(codec, includeLayoutComments);
-   const body = `local function ${functionName}(${baseArgName})\n  local ${localReaderName} = ${readerFactoryName}(${
-      baseArgName})\n${indent(emitStatementsForCodec(codec, returnName, localReaderName, returnName), 2)}\nend`;
+   const args = offsetArgName ? `${baseArgName}, ${offsetArgName}` : baseArgName;
+   const readerArgs = offsetArgName ? `${baseArgName}, ${offsetArgName}` : baseArgName;
+   const body = `local function ${functionName}(${args})\n  local ${localReaderName} = _bp_make_reader(${
+      readerArgs})\n${indent(emitStatementsForCodec(codec, returnName, localReaderName, returnName), 2)}\nend`;
 
    return [layoutComment, body].filter(Boolean).join("\n\n") + "\n";
 }

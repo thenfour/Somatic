@@ -16,7 +16,7 @@ import fs from "fs";
 import path from "path";
 import {BUILD_INFO, getBridgeCartFilename} from "./buildInfo";
 import bridgeConfig, {BridgeConfig} from "../bridge/bridge_config";
-import {emitLuaBitpackPrelude, emitLuaDecoder, emitLuaTableBitpackPrelude} from "../src/utils/bitpack/emitLuaDecoder";
+import {emitLuaBitpackPrelude, emitLuaDecoder} from "../src/utils/bitpack/emitLuaDecoder";
 import {MorphEntryCodec, MORPH_ENTRY_BYTES, SOMATIC_PATTERN_CELL_COUNT, SOMATIC_PATTERN_MASK_BYTES, SOMATIC_PATTERN_ROW_COUNT, WAVEFORM_MORPH_GRADIENT_NODE_BYTES, WaveformMorphGradientNodeCodec,} from "../bridge/morphSchema";
 import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../bridge/memory_layout";
 import {emitBridgeVersionIconLua} from "./bridgeVersionIcon";
@@ -92,12 +92,8 @@ function generateLuaAutogenBlock(config: BridgeConfig): string {
    lines.push(`local SFX_BASE = ${Tic80MemoryMap.Sfx.address}`);
    lines.push(`local PATTERNS_BASE = ${Tic80MemoryMap.MusicPatterns.address}`);
    lines.push(`local TRACKS_BASE = ${Tic80MemoryMap.MusicTracks.address}`);
-   lines.push(`local TEMP_BUFFER_A = ${SomaticMemoryLayout.tempBufferA.address}`);
-   lines.push(`local TEMP_BUFFER_B = ${SomaticMemoryLayout.tempBufferB.address}`);
    lines.push(`local PATTERN_BUFFER_A = ${SomaticMemoryLayout.patternBufferA.address}`);
    lines.push(`local PATTERN_BUFFER_B = ${SomaticMemoryLayout.patternBufferB.address}`);
-   lines.push(`local BRIDGE_EXTRA_SONG_DATA_ADDR = ${SomaticMemoryLayout.bridgeExtraSongData.address}`);
-   lines.push(`local BRIDGE_EXTRA_SONG_DATA_SIZE = ${SomaticMemoryLayout.bridgeExtraSongData.size}`);
    lines.push(`local MARKER_ADDR = ${SomaticMemoryLayout.marker.address}`);
    lines.push(`local REGISTERS_ADDR = ${SomaticMemoryLayout.registers.address}`);
    lines.push(`local INBOX_ADDR = ${SomaticMemoryLayout.inbox.address}`);
@@ -112,21 +108,20 @@ function generateLuaAutogenBlock(config: BridgeConfig): string {
    lines.push(`local SOMATIC_PATTERN_CELL_COUNT = ${SOMATIC_PATTERN_CELL_COUNT}`);
    lines.push(`local SOMATIC_PATTERN_ROW_COUNT = ${SOMATIC_PATTERN_ROW_COUNT}`);
    lines.push("");
-   lines.push(emitLuaBitpackPrelude({baseArgName: "base"}));
-   lines.push(emitLuaTableBitpackPrelude());
+   lines.push(emitLuaBitpackPrelude());
    lines.push("");
    lines.push(emitLuaDecoder(MorphEntryCodec, {
                  functionName: "decode_MorphEntry",
-                 baseArgName: "base",
+                 baseArgName: "bytes",
+                 offsetArgName: "offset",
                  includeLayoutComments: true,
-                 readerFactoryName: "_bp_make_table_reader",
               }).trim());
    lines.push("");
    lines.push(emitLuaDecoder(WaveformMorphGradientNodeCodec, {
                  functionName: "decode_WaveformMorphGradientNode",
-                 baseArgName: "base",
+                 baseArgName: "bytes",
+                 offsetArgName: "offset",
                  includeLayoutComments: false,
-                 readerFactoryName: "_bp_make_table_reader",
               }).trim());
    lines.push("");
 

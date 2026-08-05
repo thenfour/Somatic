@@ -9,7 +9,7 @@ import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MorphEntryCodec, M
 import {LoopMode} from "../../audio/backend";
 import {buildCueSheet, type CueSheetEntry, type Song} from "../../models/song";
 import {gTic80AllChannelsAudible, kSomaticPatternCommand, SomaticCaps, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
-import {emitLuaBitpackPrelude, emitLuaDecoder, emitLuaTableBitpackPrelude} from "../../utils/bitpack/emitLuaDecoder";
+import {emitLuaBitpackPrelude, emitLuaDecoder} from "../../utils/bitpack/emitLuaDecoder";
 import {MemoryRegion} from "../../utils/bitpack/MemoryRegion";
 import {base85Plus1Encode, gSomaticLZDefaultConfig, lzCompress} from "../../utils/encoding";
 import {OptimizationRuleOptions, processLua} from "../../utils/lua/lua_processor";
@@ -464,7 +464,7 @@ export function serializeSongForTic80Bridge(args: Tic80SerializeSongArgs): Tic80
          {
             region: new MemoryRegion({
                name: "extraSongData",
-               address: TicMemoryMap.BRIDGE_EXTRA_SONG_DATA_ADDR,
+               address: TicMemoryMap.BRIDGE_TRANSFER_BUFFER_ADDR,
                size: extraSongData.length,
             }),
             payload: extraSongData,
@@ -549,8 +549,6 @@ export function GetRuntimeReservedRegionsInPatternMemory(): MemoryRegion[] {
    return [
       SomaticMemoryLayout.patternBufferA,
       SomaticMemoryLayout.patternBufferB,
-      SomaticMemoryLayout.tempBufferA,
-      SomaticMemoryLayout.tempBufferB,
    ];
 }
 
@@ -559,7 +557,6 @@ export function GetMemoryRegionForCompressedPatternData(): MemoryRegion {
    // We also use that region for other things, so we need to calculate the available space based on
    // our other uses.
    // - pattern buffer A & B
-   // - temp buffer A & B
    // so basically, find the lowest address that's not touched by those buffers, and use that as the limit.
    const reservedRegionsInPatternMem = GetRuntimeReservedRegionsInPatternMemory();
    const minAddress = Math.min(...reservedRegionsInPatternMem.map((r) => r.address));
@@ -743,8 +740,6 @@ local STEREO_VOLUME_BASE = ${Tic80MemoryMap.StereoVolume.address}
 local SFX_BASE = ${Tic80MemoryMap.Sfx.address}
 local PATTERNS_BASE = ${Tic80MemoryMap.MusicPatterns.address}
 local TRACKS_BASE = ${Tic80MemoryMap.MusicTracks.address}
-local TEMP_BUFFER_A = ${SomaticMemoryLayout.tempBufferA.address}
-local TEMP_BUFFER_B = ${SomaticMemoryLayout.tempBufferB.address}
 local PATTERN_BUFFER_A = ${SomaticMemoryLayout.patternBufferA.address}
 local PATTERN_BUFFER_B = ${SomaticMemoryLayout.patternBufferB.address}
 local MORPH_ENTRY_BYTES = ${MORPH_ENTRY_BYTES}
@@ -753,22 +748,21 @@ local SOMATIC_PATTERN_MASK_BYTES = ${SOMATIC_PATTERN_MASK_BYTES}
 local SOMATIC_PATTERN_CELL_COUNT = ${SOMATIC_PATTERN_CELL_COUNT}
 local SOMATIC_PATTERN_ROW_COUNT = ${SOMATIC_PATTERN_ROW_COUNT}
 
-${emitLuaBitpackPrelude({baseArgName: "base"}).trim()}
-${emitLuaTableBitpackPrelude().trim()}
+${emitLuaBitpackPrelude().trim()}
 
 ${emitLuaDecoder(MorphEntryCodec, {
-      functionName: "decode_MorphEntry",
-      baseArgName: "base",
-      includeLayoutComments: true,
-   readerFactoryName: "_bp_make_table_reader",
-   }).trim()}
+   functionName: "decode_MorphEntry",
+   baseArgName: "bytes",
+   offsetArgName: "offset",
+   includeLayoutComments: true,
+}).trim()}
 
 ${emitLuaDecoder(WaveformMorphGradientNodeCodec, {
    functionName: "decode_WaveformMorphGradientNode",
-      baseArgName: "base",
-      includeLayoutComments: false,
-   readerFactoryName: "_bp_make_table_reader",
-   }).trim()}`;
+   baseArgName: "bytes",
+   offsetArgName: "offset",
+   includeLayoutComments: false,
+}).trim()}`;
 
    // Inject shared code, then strip unused feature blocks (so shared feature markers are handled as usual)
    const playroutineTemplateWithShared = replaceLuaBlock(
@@ -797,11 +791,8 @@ ${emitLuaDecoder(WaveformMorphGradientNodeCodec, {
       }
    }
 
-   // Replace tokens __AUTOGEN_TEMP_PTR_A and __AUTOGEN_TEMP_PTR_B to be replaced in the lua code.
-   // with numeric hex literals like 0x1234
-   code = code.replace(/__AUTOGEN_TEMP_PTR_A/g, `0x${TicMemoryMap.__AUTOGEN_TEMP_PTR_A.toString(16)}`)
-             .replace(/__AUTOGEN_TEMP_PTR_B/g, `0x${TicMemoryMap.__AUTOGEN_TEMP_PTR_B.toString(16)}`)
-             .replace(/__AUTOGEN_BUF_PTR_A/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_A.toString(16)}`)
+   // Replace playback buffer tokens with numeric hex literals like 0x1234.
+   code = code.replace(/__AUTOGEN_BUF_PTR_A/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_A.toString(16)}`)
              .replace(/__AUTOGEN_BUF_PTR_B/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_B.toString(16)}`);
 
    if (song.useCustomEntrypointLua) {

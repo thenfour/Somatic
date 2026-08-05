@@ -58,68 +58,28 @@ const PATTERN_BUFFER_SIZE = Tic80Constants.BYTES_PER_MUSIC_PATTERN * Tic80Consta
 
 const LOG_BUFFER_SIZE = 240; // Log buffer for cart->host messages
 
-// Bridge-only compressed extra-song transaction arena. Tiles and Sprites are
-// contiguous and the bridge cart does not need their visual data.
+// Generic bridge transfer arena. Tiles and Sprites are contiguous and the
+// bridge cart does not need their visual data.
 if (Tic80MemoryMap.Tiles.endAddress() !== Tic80MemoryMap.Sprites.beginAddress())
    throw new Error("TIC-80 Tiles and Sprites regions must be contiguous");
-const BRIDGE_EXTRA_SONG_DATA_HEADER_SIZE = 2; // u16 little-endian compressed byte length
-const bridgeExtraSongDataRegion = new MemoryRegion({
-   name: "BridgeExtraSongData",
+const bridgeTransferBuffer = new MemoryRegion({
+   name: "BridgeTransferBuffer",
    address: Tic80MemoryMap.Tiles.beginAddress(),
    size: Tic80MemoryMap.Tiles.size + Tic80MemoryMap.Sprites.size,
 });
 
 const patternMem = Tic80MemoryMap.MusicPatterns;
 
-// Temp buffers retained for RAM-backed pattern decoding. Extra-song data now
-// decodes and materializes on the Lua heap instead.
-const TEMP_BUFFER_SIZE = 0x400;
-//const TEMP_BUFFER_COUNT = 2;
+// The two playback buffers occupy the final eight pattern slots. Codec scratch
+// data lives on the Lua heap, so all preceding pattern memory can hold compressed columns.
+const patternBufferB = patternMem.getTopAlignedCellFromTop(PATTERN_BUFFER_SIZE, 0).withName("PatternBufferB");
+const patternBufferA = patternMem.getTopAlignedCellFromTop(PATTERN_BUFFER_SIZE, 1).withName("PatternBufferA");
 
-const tempBufferB = patternMem.getTopAlignedCellFromTop(TEMP_BUFFER_SIZE, 0).withName("TempBufferB");
-const tempBufferA = patternMem.getTopAlignedCellFromTop(TEMP_BUFFER_SIZE, 1).withName("TempBufferA");
-// pattern playback buffers are the last whole PATTERN_BUFFER_SIZE-sized, pattern-aligned regions before the temp buffers
-const maxPossiblePatternBufferAddr = Math.min(tempBufferA.address, tempBufferB.address) - PATTERN_BUFFER_SIZE;
-
-const patternBufferB =
-   patternMem.getCellBeforeAddress(Tic80Constants.BYTES_PER_MUSIC_PATTERN, maxPossiblePatternBufferAddr)
-      .withSize(PATTERN_BUFFER_SIZE)
-      .withName("PatternBufferA");
-
-const patternBufferA =
-   patternMem
-      .getCellBeforeAddress(
-         Tic80Constants.BYTES_PER_MUSIC_PATTERN,
-         maxPossiblePatternBufferAddr,
-         -Tic80Constants
-             .MUSIC_CHANNELS // because each pattern buffer is 4 patterns (one per channel) and we are walking in cells of 1 pattern
-         )
-      .withSize(PATTERN_BUFFER_SIZE)
-      .withName("PatternBufferB");
-
-const reservedPatternMemRuntimeRegions = [patternBufferA, patternBufferB, tempBufferA, tempBufferB];
+const reservedPatternMemRuntimeRegions = [patternBufferA, patternBufferB];
 const firstPatternMemReservedAddress = reservedPatternMemRuntimeRegions.reduce(
    (minAddr, region) => Math.min(minAddr, region.address), Number.MAX_SAFE_INTEGER);
 
 const compressedPatternsRegion = patternMem.getRegionFromBottomUntilExclusiveAddress(firstPatternMemReservedAddress);
-
-// const patternBufferAAddr = 0x13324; // Pattern 45 (hard-coded to match original)
-// const patternBufferBAddr = 0x13624; // Pattern 49 (hard-coded to match original)
-// const tempBufferAAddr = 0x13A64;    // Hard-coded to match original
-// const tempBufferBAddr = 0x13C64;    // Hard-coded to match original
-
-// Create regions based on these hard-coded addresses
-// const patternBufferA =
-//    new MemoryRegion({name: "PatternBufferA", address: patternBufferAAddr, size: PATTERN_BUFFER_SIZE});
-// const patternBufferB =
-//    new MemoryRegion({name: "PatternBufferB", address: patternBufferBAddr, size: PATTERN_BUFFER_SIZE});
-// const tempBufferA = new MemoryRegion({name: "TempBufferA", address: tempBufferAAddr, size: TEMP_BUFFER_SIZE});
-// const tempBufferB = new MemoryRegion({name: "TempBufferB", address: tempBufferBAddr, size: TEMP_BUFFER_SIZE});
-
-// Available space for compressed patterns (everything before pattern buffer A)
-// const compressedPatternsRegion = new MemoryRegion(
-//    {name: "CompressedPatterns", address: patternMem.address, size: patternBufferAAddr - patternMem.address});
-
 
 // Calculate which TIC-80 pattern indices these buffers correspond to
 // 1+ because TIC-80 pattern indices are 1-based (0 = no pattern)
@@ -166,13 +126,11 @@ const markerRegion = new MemoryRegion({name: "Marker", address: currentTop - MAR
 currentTop = markerRegion.address;
 
 export const SomaticMemoryLayout = {
-   tempBufferA,
-   tempBufferB,
    patternBufferA,
    patternBufferB,
    compressedPatterns: compressedPatternsRegion,
 
-   bridgeExtraSongData: bridgeExtraSongDataRegion,
+   bridgeTransferBuffer,
    marker: markerRegion,
    registers: registersRegion,
    inbox: inboxRegion,
@@ -185,13 +143,8 @@ export const SomaticMemoryLayout = {
       PATTERN_BUFFER_B_INDEX: patternBufferBIndex,
       PATTERN_BUFFER_A_ADDR: patternBufferA.address,
       PATTERN_BUFFER_B_ADDR: patternBufferB.address,
-      TEMP_BUFFER_A_ADDR: tempBufferA.address,
-      TEMP_BUFFER_B_ADDR: tempBufferB.address,
-
-      BRIDGE_EXTRA_SONG_DATA_ADDR: bridgeExtraSongDataRegion.address,
-      BRIDGE_EXTRA_SONG_DATA_SIZE: bridgeExtraSongDataRegion.size,
-      BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES:
-         bridgeExtraSongDataRegion.size - BRIDGE_EXTRA_SONG_DATA_HEADER_SIZE,
+      BRIDGE_TRANSFER_BUFFER_ADDR: bridgeTransferBuffer.address,
+      BRIDGE_TRANSFER_BUFFER_SIZE: bridgeTransferBuffer.size,
       MARKER_ADDR: markerRegion.address,
       REGISTERS_ADDR: registersRegion.address,
       INBOX_ADDR: inboxRegion.address,
@@ -201,9 +154,7 @@ export const SomaticMemoryLayout = {
    },
 
    sizes: {
-      TEMP_BUFFER_SIZE,
       PATTERN_BUFFER_SIZE,
       LOG_BUFFER_SIZE,
-      BRIDGE_EXTRA_SONG_DATA_HEADER_SIZE,
    },
 };

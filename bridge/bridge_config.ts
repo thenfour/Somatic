@@ -1,4 +1,5 @@
 import {RegionForMusicPattern, RegionForSfx, RegionForWaveform, SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "./memory_layout";
+import {BRIDGE_EXTRA_SONG_DATA_HEADER_BYTES, BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES} from "./extraSongBridgeTransaction";
 
 export const TIC80_BRIDGE_SONG_ORDER_CAPACITY = 256;
 const TF_ORDER_LIST_ENTRIES_OFFSET = 1;
@@ -76,6 +77,11 @@ const bridgeConfig = {
 
    tic80MemoryMap: Tic80MemoryMap,
 
+   extraSongData: {
+      compressedLengthHeaderBytes: BRIDGE_EXTRA_SONG_DATA_HEADER_BYTES,
+      maxCompressedBytes: BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES,
+   },
+
    RegionForMusicPattern,
    RegionForSfx,
    RegionForWaveform,
@@ -89,19 +95,16 @@ const bridgeConfig = {
       TRACKS_ADDR: Tic80MemoryMap.MusicTracks.beginAddress(),
 
       // Pattern memory usable for packed compressed columns ends before PATTERN_MEM_LIMIT.
-      // Front blit buffer uses patterns 46-49 (pattern 46 at 0x133e4); back buffer uses 50-53 (pattern 50 at 0x136e4).
+      // The final eight pattern slots are the front/back playback buffers.
       PATTERN_MEM_LIMIT: SomaticMemoryLayout.computed.PATTERN_MEM_LIMIT,
       PATTERN_BUFFER_A_INDEX: SomaticMemoryLayout.computed.PATTERN_BUFFER_A_INDEX,
       PATTERN_BUFFER_B_INDEX: SomaticMemoryLayout.computed.PATTERN_BUFFER_B_INDEX,
       PATTERN_BUFFER_A_ADDR: SomaticMemoryLayout.computed.PATTERN_BUFFER_A_ADDR,
       PATTERN_BUFFER_B_ADDR: SomaticMemoryLayout.computed.PATTERN_BUFFER_B_ADDR,
 
-      // Compressed Somatic extra-song data uses one contiguous bridge-only
-      // transaction arena spanning Tiles + Sprites.
-      BRIDGE_EXTRA_SONG_DATA_ADDR: SomaticMemoryLayout.computed.BRIDGE_EXTRA_SONG_DATA_ADDR,
-      BRIDGE_EXTRA_SONG_DATA_SIZE: SomaticMemoryLayout.computed.BRIDGE_EXTRA_SONG_DATA_SIZE,
-      BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES:
-         SomaticMemoryLayout.computed.BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES,
+      // Generic contiguous bridge transaction arena spanning Tiles + Sprites.
+      BRIDGE_TRANSFER_BUFFER_ADDR: SomaticMemoryLayout.computed.BRIDGE_TRANSFER_BUFFER_ADDR,
+      BRIDGE_TRANSFER_BUFFER_SIZE: SomaticMemoryLayout.computed.BRIDGE_TRANSFER_BUFFER_SIZE,
 
       // Somatic bridge state lives in the top of MAP (0x8000..0x0ff7f),
       // above all tracker-format pattern data.
@@ -134,14 +137,9 @@ const bridgeConfig = {
       MUSIC_STATE_SOMATIC_SONG_POSITION: SomaticMemoryLayout.computed.REGISTERS_ADDR,
       FPS: SomaticMemoryLayout.computed.REGISTERS_ADDR + 1,
 
-      // Pattern decoding retains two 1 KiB scratch buffers. Extra-song data is
-      // decoded separately to Lua heap tables. Pattern memory looks like:
+      // Codec scratch data lives on the Lua heap. Pattern memory looks like:
       // [compressed_pattern_data]
       // [8 patterns to be actually be played, used as front/back buffers]
-      // [temp buffer A]
-      // [temp buffer B]
-      __AUTOGEN_TEMP_PTR_A: SomaticMemoryLayout.computed.TEMP_BUFFER_A_ADDR,
-      __AUTOGEN_TEMP_PTR_B: SomaticMemoryLayout.computed.TEMP_BUFFER_B_ADDR
    }
 };
 

@@ -12,6 +12,8 @@ import {
 } from "../bridge/morphSchema";
 import {SomaticMemoryLayout} from "../bridge/memory_layout";
 import {
+   BRIDGE_EXTRA_SONG_DATA_HEADER_BYTES,
+   BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES,
    BridgeExtraSongDataOverflowError,
    encodeBridgeExtraSongDataTransaction,
 } from "../bridge/extraSongBridgeTransaction";
@@ -173,12 +175,13 @@ describe("Somatic extra-song binary payload", () => {
 
 describe("bridge extra-song transaction", () => {
    it("accepts exactly the Tiles+Sprites compressed limit and rejects one byte more", () => {
-      const limit = SomaticMemoryLayout.computed.BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES;
+      const limit = BRIDGE_EXTRA_SONG_DATA_MAX_COMPRESSED_BYTES;
       assert.equal(limit, 16382);
 
       const transaction = encodeBridgeExtraSongDataTransaction(new Uint8Array(limit), 99999);
-      assert.equal(transaction.length, SomaticMemoryLayout.bridgeExtraSongData.size);
+      assert.equal(transaction.length, SomaticMemoryLayout.bridgeTransferBuffer.size);
       assert.equal(transaction[0] | transaction[1] << 8, limit);
+      assert.equal(BRIDGE_EXTRA_SONG_DATA_HEADER_BYTES, 2);
 
       assert.throws(
          () => encodeBridgeExtraSongDataTransaction(new Uint8Array(limit + 1), 99999),

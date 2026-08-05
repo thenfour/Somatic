@@ -316,9 +316,9 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                             .map(r => r.region)
                             .filter(r => Tic80MemoryMap.Map.containsRegion(r)),
                     ];
-                    const bridgeExtraSongBlocks = (input.bridge?.bridgeBlocksToTransmit ?? [])
+                    const bridgeTransferBlocks = (input.bridge?.bridgeBlocksToTransmit ?? [])
                         .map(r => r.region)
-                        .filter(r => SomaticMemoryLayout.bridgeExtraSongData.containsRegion(r));
+                        .filter(r => SomaticMemoryLayout.bridgeTransferBuffer.containsRegion(r));
 
                     return (
                         <>
@@ -346,10 +346,10 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
                                                 <MemoryMapVis root={Tic80MemoryMap.Map} regions={mapBlocks} />
                                             </div>
                                             <div style={{ marginBottom: 16 }}>
-                                                <Tooltip title={<MemoryMapTextSummary root={SomaticMemoryLayout.bridgeExtraSongData} regions={bridgeExtraSongBlocks} />}>
-                                                    <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Tiles + Sprites (Bridge Extra Song Data)</div>
+                                                <Tooltip title={<MemoryMapTextSummary root={SomaticMemoryLayout.bridgeTransferBuffer} regions={bridgeTransferBlocks} />}>
+                                                    <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--muted)' }}>Tiles + Sprites (Bridge Transfer Buffer)</div>
                                                 </Tooltip>
-                                                <MemoryMapVis root={SomaticMemoryLayout.bridgeExtraSongData} regions={bridgeExtraSongBlocks} />
+                                                <MemoryMapVis root={SomaticMemoryLayout.bridgeTransferBuffer} regions={bridgeTransferBlocks} />
                                             </div>
                                             <div style={{ marginBottom: 16 }}>
                                                 <Tooltip title={<MemoryMapTextSummary root={Tic80MemoryMap.MusicPatterns} regions={input.cartridge.memoryRegions.patterns} />}>
