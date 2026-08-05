@@ -107,6 +107,8 @@ somatic_get_time(syncOffsetMS)                      -- read state without advanc
 somatic_get_raw_time()                              -- read music transport state without sync correction
 somatic_project_time(state, syncOffsetMS)           -- project a state through a time offset
 somatic_seek(beat, syncOffsetMS)                    -- seek to an external beat, including fractional beats
+somatic_position_to_beat(songOrderIndex, row)       -- convert a 0-based song position and row to a beat
+somatic_seek_position(songOrderIndex, row, syncOffsetMS) -- seek to a zero-based song position and row
 somatic_set_options(options)                        -- tempo/speed/isPlaying/isMuted/loopSongForever/syncOffsetMS
 somatic_advance_frame()                             -- advance paused demo time by one 60Hz frame
 somatic_end_frame()                                 -- for internal bookkeeping
@@ -115,6 +117,9 @@ somatic_end_frame()                                 -- for internal bookkeeping
 `somatic_seek()` keeps `demoBeats` / `demoMillis` continuous for animation. TIC-80 audio can
 only start on integer rows, so a fractional seek may produce a short silence until the next row
 boundary before music resumes.
+
+Song positions and rows are zero-based. A song position is an index into
+the rendered song order, not the index of an underlying pattern.
 
 `syncOffsetMS` is a presentation-only latency correction in system milliseconds. Positive values
 advance the returned external transport time. It does not change internal music playback state;

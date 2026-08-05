@@ -794,10 +794,15 @@ do
 		somatic_write_position_fields()
 	end
 
-	-- sync transport from a somatic position.
+	-- 0-based song order index and row --> demo beats.
+	function somatic_position_to_beat(songOrderIndex, row)
+		local absRow = song_position_to_abs_row(songOrderIndex, row)
+		return absRow / somatic_transport.rowsPerBeat
+	end
+
+	-- Sync transport from a somatic position.
 	local function somatic_set_time_from_position(songPosition, row)
-		local absRow = song_position_to_abs_row(songPosition, row)
-		local beat = absRow / somatic_transport.rowsPerBeat
+		local beat = somatic_position_to_beat(songPosition, row)
 		local state = somatic_transport.time
 		state.demoBeats = beat
 		state.demoMillis = somatic_get_millis_at_beat(beat)
@@ -1046,7 +1051,8 @@ do
 
 	-- seek by beat; fractional seeks keep public time exact and delay TIC audio to the next row.
 	function somatic_seek(beat, syncOffsetMS)
-		local _, _, normalizedBeat = somatic_beat_to_audio_position((beat or 0) - somatic_get_sync_offset_beats(syncOffsetMS))
+		local _, _, normalizedBeat =
+			somatic_beat_to_audio_position((beat or 0) - somatic_get_sync_offset_beats(syncOffsetMS))
 		local state = somatic_transport.time
 		state.demoBeats = normalizedBeat
 		state.demoMillis = somatic_get_millis_at_beat(normalizedBeat)
@@ -1061,6 +1067,11 @@ do
 			stop_music(false)
 		end
 		return somatic_project_time(state)
+	end
+
+	-- seek by zero-based song-order index and row while preserving play/pause state.
+	function somatic_seek_position(songOrderIndex, row, syncOffsetMS)
+		return somatic_seek(somatic_position_to_beat(songOrderIndex, row), syncOffsetMS)
 	end
 
 	-- apply timing/play state; restarts music when needed.

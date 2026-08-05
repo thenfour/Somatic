@@ -109,6 +109,23 @@ describe("playroutine generated-data contract", () => {
       assert.doesNotMatch(playroutineSource, /cell\.paramU8 or/);
       assert.doesNotMatch(sharedSource, /baseVolumeU8 or|bytes\[pos\] or 0/);
    });
+
+   it("exports position seeking through the effective order-row conversion", async () => {
+      const {serializeSongToCartDetailed} = await import("../src/subsystem/tic80/tic80_cart_serializer");
+      const song = new Song({rowsPerPattern: 8, highlightRowCount: 4, songOrder: [0, 0]});
+      song.patterns[0].setCell(0, 3, {somaticEffect: kSomaticPatternCommand.key.PatternEnd});
+      assert.equal(song.getAbsRowAtSongPosition(1, 0), 4, "fixture must use the shortened first order");
+
+      const details = serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible);
+      assert.match(
+         details.wholePlayroutineCode,
+         /function somatic_position_to_beat\(songOrderIndex,\s*row\)[\s\S]*?song_position_to_abs_row\(songOrderIndex,\s*row\)/,
+      );
+      assert.match(
+         details.wholePlayroutineCode,
+         /function somatic_seek_position\(songOrderIndex,\s*row,\s*syncOffsetMS\)[\s\S]*?return somatic_seek\(somatic_position_to_beat\(songOrderIndex,\s*row\),\s*syncOffsetMS\)/,
+      );
+   });
 });
 
 describe("playroutine export reachability", () => {
