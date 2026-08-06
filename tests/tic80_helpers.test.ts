@@ -25,6 +25,14 @@ import {
    tic80PitchOffsetFromParam,
    tic80WrapFrequencyRegister,
 } from "../src/utils/music/tic80Pitch";
+import {linearGainToDecibels} from "../src/utils/music/dsp";
+import {
+   tic80AnalyzeArpeggio,
+   tic80AnalyzeSlide,
+   tic80AnalyzeStereoVolume,
+   tic80AnalyzeVibrato,
+   tic80VibratoPitchOffsets,
+} from "../src/utils/music/tic80EffectAnalysis";
 
 describe("TIC-80 timing", () => {
    it("formats decimal values and second-based timing values", () => {
@@ -171,6 +179,125 @@ describe("TIC-80 timed effect insights", () => {
    });
 });
 
+describe("TIC-80 musical effect insights", () => {
+   const timing = {tempo: 120, speed: 6};
+
+   function contextForCurrentNote(midiNote: number, activeBeforeMidiNote?: number) {
+      return {
+         activeBeforeRow: activeBeforeMidiNote === undefined ? undefined :
+            {midiNote: activeBeforeMidiNote, songPosition: 0, rowIndex: 0},
+         activeAfterNoteColumn: {midiNote, songPosition: 0, rowIndex: 0},
+         source: "current-cell" as const,
+         rowReachable: true,
+      };
+   }
+
+   it("shows independent M gains as linear levels and decibels", () => {
+      const insight = describeTic80Effect({
+         tic80Effect: kTic80EffectCommand.key.M,
+         tic80EffectX: 8,
+         tic80EffectY: 15,
+      });
+
+      assert.ok(insight);
+      assert.equal(
+         formatTic80EffectInsight(insight),
+         "M8F: Volume: L 8/15 (-5.5dB), R 15/15 (0dB)",
+      );
+      assert.match(formatTic80EffectTooltip(insight) ?? "", /linear amplitude multipliers/);
+   });
+
+   it("shows silence as negative infinity dB", () => {
+      const insight = describeTic80Effect({
+         tic80Effect: kTic80EffectCommand.key.M,
+         tic80EffectX: 0,
+         tic80EffectY: 15,
+      });
+
+      assert.ok(insight);
+      assert.equal(
+         formatTic80EffectInsight(insight),
+         "M0F: Volume: L 0/15 (-∞dB), R 15/15 (0dB)",
+      );
+   });
+
+   it("shows C notes and native cadence", () => {
+      const insight = describeTic80Effect({
+         tic80Effect: kTic80EffectCommand.key.C,
+         tic80EffectX: 3,
+         tic80EffectY: 7,
+      }, contextForCurrentNote(60));
+
+      assert.ok(insight);
+      assert.equal(
+         formatTic80EffectInsight(insight),
+         "C37: Arpeggio: C-4 D#4 G-4 (3 TIC cycle, 50ms)",
+      );
+      assert.match(formatTic80EffectTooltip(insight) ?? "", /one step per 60 Hz TIC/);
+   });
+
+   it("shows Cy0 as TIC-80's two-step arpeggio", () => {
+      const insight = describeTic80Effect({
+         tic80Effect: kTic80EffectCommand.key.C,
+         tic80EffectX: 3,
+         tic80EffectY: 0,
+      }, contextForCurrentNote(60));
+
+      assert.ok(insight);
+      assert.equal(
+         formatTic80EffectInsight(insight),
+         "C30: Arpeggio: C-4 D#4 (2 TIC cycle, 33ms)",
+      );
+   });
+
+   it("shows S endpoints, interval, and duration", () => {
+      const insight = describeTic80Effect({
+         midiNote: 67,
+         tic80Effect: kTic80EffectCommand.key.S,
+         tic80EffectX: 0,
+         tic80EffectY: 8,
+      }, contextForCurrentNote(67, 60), timing);
+
+      assert.ok(insight);
+      assert.equal(
+         formatTic80EffectInsight(insight),
+         "S08: Slide: C-4 → G-4 (+7 st) over 8 ticks (1.07 rows, 133ms)",
+      );
+      assert.match(formatTic80EffectTooltip(insight) ?? "", /not semitones/);
+   });
+
+   it("shows V cadence and its actual note-dependent sampled range", () => {
+      const insight = describeTic80Effect({
+         tic80Effect: kTic80EffectCommand.key.V,
+         tic80EffectX: 3,
+         tic80EffectY: 4,
+      }, contextForCurrentNote(60));
+
+      assert.ok(insight);
+      assert.equal(
+         formatTic80EffectInsight(insight),
+         "V34: Vibrato: 6 TIC cycle (100ms, 10Hz), depth 4 (-27/+20c)",
+      );
+      const tooltip = formatTic80EffectTooltip(insight);
+      assert.match(tooltip ?? "", /32-point native vibrato waveform/);
+      assert.match(tooltip ?? "", /offsets -4 to \+3/);
+   });
+
+   it("reveals vibrato periods that sample no pitch movement", () => {
+      const insight = describeTic80Effect({
+         tic80Effect: kTic80EffectCommand.key.V,
+         tic80EffectX: 1,
+         tic80EffectY: 4,
+      }, contextForCurrentNote(60));
+
+      assert.ok(insight);
+      assert.equal(
+         formatTic80EffectInsight(insight),
+         "V14: Vibrato: 2 TIC cycle (33ms, 30Hz), depth 4 (0c)",
+      );
+   });
+});
+
 describe("TIC-80 pitch effect insights", () => {
    function contextFor(midiNote: number) {
       return {
@@ -297,5 +424,63 @@ describe("TIC-80 native pitch calculations", () => {
       assert.equal(analysis.unwrappedTargetFrequencyRegister, -44);
       assert.equal(analysis.targetFrequencyRegister, 4052);
       assert.equal(analysis.wrapped, true);
+   });
+});
+
+describe("TIC-80 native effect calculations", () => {
+   it("converts linear gain to amplitude decibels", () => {
+      assert.equal(linearGainToDecibels(1), 0);
+      assert.ok(Math.abs(linearGainToDecibels(8 / 15) - -5.460025441274753) < 1e-12);
+      assert.equal(linearGainToDecibels(0), Number.NEGATIVE_INFINITY);
+   });
+
+   it("analyzes TIC-80's independent stereo volume", () => {
+      const analysis = tic80AnalyzeStereoVolume(8, 15);
+      assert.equal(analysis.leftGain, 8 / 15);
+      assert.equal(analysis.rightGain, 1);
+      assert.ok(Math.abs(analysis.leftDecibels - -5.460025441274753) < 1e-12);
+      assert.equal(analysis.rightDecibels, 0);
+   });
+
+   it("analyzes three-step and two-step native arpeggios", () => {
+      assert.deepEqual(tic80AnalyzeArpeggio(3, 7), {
+         noteOffsets: [0, 3, 7],
+         cycleTicks: 3,
+         cycleSeconds: 0.05,
+      });
+      assert.deepEqual(tic80AnalyzeArpeggio(3, 0), {
+         noteOffsets: [0, 3],
+         cycleTicks: 2,
+         cycleSeconds: 1 / 30,
+      });
+   });
+
+   it("analyzes native slide endpoints in frequency-register units", () => {
+      assert.deepEqual(tic80AnalyzeSlide(60, 67, 8), {
+         fromMidiNote: 60,
+         toMidiNote: 67,
+         intervalSemitones: 7,
+         fromFrequencyRegister: 262,
+         toFrequencyRegister: 392,
+         frequencyRegisterDelta: 130,
+         durationTicks: 8,
+      });
+   });
+
+   it("matches TIC-80's sampled, asymmetric V34 offsets", () => {
+      assert.deepEqual(tic80VibratoPitchOffsets(3, 4), [0, 3, 3, 0, -4, -4]);
+      const analysis = tic80AnalyzeVibrato(3, 4, 60);
+      assert.ok(analysis);
+      assert.equal(analysis.cycleTicks, 6);
+      assert.equal(analysis.cycleSeconds, 0.1);
+      assert.equal(analysis.cyclesPerSecond, 10);
+      assert.equal(analysis.minPitchOffset, -4);
+      assert.equal(analysis.maxPitchOffset, 3);
+      assert.ok(Math.abs((analysis.minCents ?? 0) - -26.634895337035434) < 1e-12);
+      assert.ok(Math.abs((analysis.maxCents ?? 0) - 19.710657495733628) < 1e-12);
+   });
+
+   it("matches the zero-crossings sampled by a one-tick vibrato period", () => {
+      assert.deepEqual(tic80VibratoPitchOffsets(1, 4), [0, 0]);
    });
 });

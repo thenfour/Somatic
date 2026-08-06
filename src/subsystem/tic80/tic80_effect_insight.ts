@@ -6,14 +6,21 @@ import {
    formatTicMidiNote,
 } from "../../utils/music/noteRegistry";
 import {
+   TIC80_EFFECT_TICK_RATE_HZ,
    formatTic80Timing,
    type Tic80Timing
 } from "../../utils/music/tic80Music";
 import {
+   tic80AnalyzeArpeggio,
+   tic80AnalyzeSlide,
+   tic80AnalyzeStereoVolume,
+   tic80AnalyzeVibrato,
+} from "../../utils/music/tic80EffectAnalysis";
+import {
    tic80AnalyzePitchOffset,
    tic80PitchOffsetFromParam,
 } from "../../utils/music/tic80Pitch";
-import {formatToDecimalPlaces} from "../../utils/utils";
+import {CharMap, formatTiming, formatToDecimalPlaces} from "../../utils/utils";
 
 export type Tic80EffectInsight = {
    code: string;
@@ -31,13 +38,26 @@ function formatSigned(value: number): string {
    return value > 0 ? `+${value}` : value.toString();
 }
 
-function appendWarning(current: string|undefined, next: string): string {
-   return current ? `${current} ${next}` : next;
-}
-
 // fixed # of decimal places with sign for positive.
 function formatSignedFixed(value: number, decimalPlaces: number): string {
    return `${value > 0 ? "+" : ""}${formatToDecimalPlaces(value, decimalPlaces)}`;
+}
+
+function formatDecibels(value: number): string {
+   return value === Number.NEGATIVE_INFINITY ?
+      "silence" : `${formatToDecimalPlaces(value, 1)}dB`;
+}
+
+function formatCentsRange(minCents: number, maxCents: number): string {
+   const roundedMin = Math.round(minCents);
+   const roundedMax = Math.round(maxCents);
+   return roundedMin === roundedMax ?
+      `${formatSigned(roundedMin)}c` :
+      `${formatSigned(roundedMin)}/${formatSigned(roundedMax)}c`;
+}
+
+function appendWarning(current: string | undefined, next: string): string {
+   return current ? `${current} ${next}` : next;
 }
 
 function formatPitchTarget(effectiveMidiNote: number): string {
@@ -131,30 +151,153 @@ function describeChord(
       return {
          code,
          summary: "Arpeggio off",
-         //detail
+         explanation: `${code} clears the channel's native arpeggio offsets.`,
       };
    }
 
-   // TIC-80 deliberately uses a two-step [0, x] sequence when y is zero.
-   const offsets = y === 0 ? [0, x] : [0, x, y];
+   const analysis = tic80AnalyzeArpeggio(x, y);
+   const cadence = `${analysis.cycleTicks} TIC cycle, ${formatTiming(analysis.cycleSeconds)}`;
+   const offsetText = analysis.noteOffsets.map(formatSigned).join(", ");
+   const explanation =
+      `${code} cycles semitone offsets ${offsetText}, one step per ` +
+      `${TIC80_EFFECT_TICK_RATE_HZ} Hz TIC.`;
    if (baseMidiNote === undefined) {
-      const offsetLabels = offsets.map(offset => offset === 0 ? "root" : `+${offset}`);
+      const offsetLabels = analysis.noteOffsets.map(
+         offset => offset === 0 ? "root" : formatSigned(offset));
       return {
          code,
          summary: "Arpeggio",
-         detail: offsetLabels.join(` `),
-         warning: "No known base note",
+         detail: `${offsetLabels.join(" ")} (${cadence})`,
+         explanation,
+         warning: "No known base note.",
       };
    }
 
-   const noteLabels = offsets.map((offset) => {
-      const note = baseMidiNote + offset;
-      return formatTicMidiNote(note);
-   });
+   const noteLabels = analysis.noteOffsets.map(offset => formatMidiNoteFixedWidth(baseMidiNote + offset));
    return {
       code,
       summary: "Arpeggio",
-      detail: noteLabels.join(` `),
+      detail: `${noteLabels.join(" ")} (${cadence})`,
+      explanation,
+   };
+}
+
+function describeStereoVolume(code: string, x: number, y: number): Tic80EffectInsight {
+   const analysis = tic80AnalyzeStereoVolume(x, y);
+   return {
+      code,
+      summary: "Volume",
+      detail:
+         `L ${x}/15 (${formatDecibels(analysis.leftDecibels)}), ` +
+         `R ${y}/15 (${formatDecibels(analysis.rightDecibels)})`,
+      explanation:
+         `${code} sets this channel's left and right linear gains independently.`,
+   };
+}
+
+function describeSlide(
+   code: string,
+   x: number,
+   y: number,
+   cell: PatternCell,
+   context: SongChannelNoteContext | undefined,
+   timing: Tic80Timing | undefined,
+): Tic80EffectInsight {
+   const ticks = paramByte(x, y);
+   if (ticks === 0)
+      return {code, summary: "Slide off", explanation: `${code} clears the native slide duration.`};
+
+   const duration = formatTic80Timing(ticks, timing);
+   const fromMidiNote = context?.activeBeforeRow?.midiNote;
+   const toMidiNote = cell.noteOff ? undefined : cell.midiNote;
+   const analysis = fromMidiNote === undefined || toMidiNote === undefined ? undefined :
+      tic80AnalyzeSlide(fromMidiNote, toMidiNote, ticks);
+   // no note known; talk only in detail about duration.
+   if (!analysis) {
+      return {
+         code,
+         summary: "Slide",
+         detail: `duration ${duration}`,
+         explanation:
+            `${code} sets the native slide duration. Interpolation is over integral frequency register units.`,
+      };
+   }
+
+   const fromNoteText = formatMidiNoteFixedWidth(analysis.fromMidiNote);
+   const toNoteText = formatMidiNoteFixedWidth(analysis.toMidiNote);
+   return {
+      code,
+      summary: "Slide",
+      detail:
+         `${fromNoteText} ${CharMap.RightArrow} ${toNoteText} (${formatSigned(analysis.intervalSemitones)} st) ` +
+         `over ${duration}`,
+      explanation:
+         `${code} interpolates from frequency register ` +
+         `${analysis.fromFrequencyRegister} to ${analysis.toFrequencyRegister} over ` +
+         `${ticks} ticks at ${TIC80_EFFECT_TICK_RATE_HZ} Hz. Linear in integer ` +
+         `frequency-register units, not semitones.`,
+   };
+}
+
+function describeVibrato(
+   code: string,
+   x: number,
+   y: number,
+   context: SongChannelNoteContext | undefined,
+): Tic80EffectInsight {
+   if (x === 0 || y === 0) {
+      return {
+         code,
+         summary: "Vibrato off",
+         explanation: `${code} disables native vibrato.`,
+      };
+   }
+
+   const baseMidiNote = context?.activeAfterNoteColumn?.midiNote;
+   const analysis = tic80AnalyzeVibrato(x, y, baseMidiNote)!;
+   const cycleText =
+      `${analysis.cycleTicks} TIC cycle (${formatTiming(analysis.cycleSeconds)}, ` +
+      `${formatToDecimalPlaces(analysis.cyclesPerSecond, 2)}Hz)`;
+   const centsText = analysis.minCents === null || analysis.maxCents === null ? undefined :
+      formatCentsRange(analysis.minCents, analysis.maxCents);
+   const detail = `${cycleText}, depth ${analysis.depth}${centsText ? ` (${centsText})` : ""}`;
+   const registerRange =
+      `${formatSigned(analysis.minPitchOffset)} to ${formatSigned(analysis.maxPitchOffset)}`;
+   const explanationPrefix =
+      `${code} samples TIC-80's 32-point native vibrato waveform over ` +
+      `${analysis.cycleTicks} ticks at ${TIC80_EFFECT_TICK_RATE_HZ} Hz. Depth ${y} produces ` +
+      `sampled frequency-register offsets ${registerRange}.`;
+   const explanationSuffix =
+      ` Pitch units are linear, so the cents range depends on the base note. ` +
+      `A V command replaces the previous vibrato; V commands do not accumulate.`;
+
+   if (baseMidiNote === undefined) {
+      return {
+         code,
+         summary: "Vibrato",
+         detail,
+         explanation: `${explanationPrefix}${explanationSuffix}`,
+         warning: "No known base note; cents range unavailable.",
+      };
+   }
+
+   if (analysis.wrapped || centsText === undefined) {
+      return {
+         code,
+         summary: "Vibrato",
+         detail,
+         explanation: `${explanationPrefix}${explanationSuffix}`,
+         warning: "The frequency register overflows or reaches zero across this vibrato range.",
+      };
+   }
+
+   return {
+      code,
+      summary: "Vibrato",
+      detail,
+      explanation:
+         `${explanationPrefix} At base ${formatMidiNoteFixedWidth(baseMidiNote)}, this is ` +
+         `${centsText}.${explanationSuffix}`,
    };
 }
 
@@ -175,11 +318,7 @@ export function describeTic80Effect(
 
    switch (command) {
       case kTic80EffectCommand.key.M:
-         insight = {
-            code,
-            summary: "Master volume",
-            detail: `L ${x}/15, R ${y}/15`,
-         };
+         insight = describeStereoVolume(code, x, y);
          break;
 
       case kTic80EffectCommand.key.C:
@@ -196,23 +335,7 @@ export function describeTic80Effect(
          break;
 
       case kTic80EffectCommand.key.S: {
-         const ticks = paramByte(x, y);
-         const duration = formatTic80Timing(ticks, timing);
-         if (ticks === 0) {
-            insight = {code, summary: "Slide off"};
-         } else if (
-            context?.activeBeforeRow !== undefined &&
-            cell.midiNote !== undefined &&
-            !cell.noteOff
-         ) {
-            insight = {
-               code,
-               summary: "Slide",
-               detail: `${formatTicMidiNote(context.activeBeforeRow.midiNote)} to ${formatTicMidiNote(cell.midiNote)} over ${duration}`,
-            };
-         } else {
-            insight = {code, summary: "Slide", detail: `duration ${duration}`};
-         }
+         insight = describeSlide(code, x, y, cell, context, timing);
          break;
       }
 
@@ -222,9 +345,7 @@ export function describeTic80Effect(
       }
 
       case kTic80EffectCommand.key.V:
-         insight = x === 0 || y === 0 ?
-            {code, summary: "Vibrato off"} :
-            {code, summary: "Vibrato", detail: `${x * 2}-tick cycle, depth ${y}`};
+         insight = describeVibrato(code, x, y, context);
          break;
 
       case kTic80EffectCommand.key.D: {
