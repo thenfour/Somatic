@@ -13,13 +13,14 @@ function toLuaLongBracketStringLiteral(str: string): string | null {
    if (/[\r\n]/.test(str))
       return null;
 
-   // if "]]" appears in the string, we have to use a different terminator.
-   // lua allows "]=]" where number of equal signs is arbitrary.
-   // find the first one that produces a valid string.
+   // Lua allows "]=]" where the number of equal signs is arbitrary. Find the
+   // first delimiter whose closing marker occurs only after the full payload.
+   // Searching the combined text also catches a marker that starts at the end
+   // of the payload and finishes inside the appended closing delimiter.
    for (let equalsCount = 0; ; equalsCount++) {
       const equals = "=".repeat(equalsCount);
       const close = `]${equals}]`;
-      if (!str.includes(close))
+      if ((str + close).indexOf(close) === str.length)
          return `[${equals}[${str}${close}`;
    }
 }

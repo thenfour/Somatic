@@ -7,14 +7,17 @@
 
 todo:
 
-- i think we also need to add at least 1 more phrase for demonstration
+x i think we also need to add at least 1 more phrase for demonstration
 - Harmonic source–filter wavetable synthesis sounds very interesting, because
   it will make better use of the
   very limited bandwidth available to us, and probably will mix better with
   noise-based fricatives, aspirants, bursts
 - add fricatives, aspirants, bursts; this would likely help add character pulling
   more towards speech and less towards "stacked sine waves" sound.
-
+  -> note that this is NOT part of original SWS; explore this via another algo
+   - Klatt cascade/parallel formant synthesis
+   - SAM (common in C64)
+   - Votrax SC-01-A
 
 --]]
 

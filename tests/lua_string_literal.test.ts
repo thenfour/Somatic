@@ -40,6 +40,27 @@ describe("compact Lua string literals", () => {
       assert.equal(toLuaStringLiteral('""""""" ]] and ]=]'), `[==[""""""" ]] and ]=]]==]`);
    });
 
+   it("does not form a premature terminator across the payload boundary", () => {
+      for (let suffixEqualsCount = 0; suffixEqualsCount < 5; suffixEqualsCount++) {
+         const embeddedTerminators = Array.from(
+            {length: suffixEqualsCount},
+            (_, equalsCount) => `]${"=".repeat(equalsCount)}]`,
+         ).join(" payload ");
+         const value = [
+            '"'.repeat(5 + suffixEqualsCount * 2),
+            embeddedTerminators,
+            `tail]${"=".repeat(suffixEqualsCount)}`,
+         ].filter(Boolean).join(" ");
+         const delimiterEquals = "=".repeat(suffixEqualsCount + 1);
+         const literal = `[${delimiterEquals}[${value}]${delimiterEquals}]`;
+         const actual = toLuaStringLiteral(value);
+
+         assert.equal(actual, literal);
+         assert.equal(decodeRawString(literal), value);
+         assert.ok(processLua(`local payload=${actual}\n`, printOnlyOptions).includes(literal));
+      }
+   });
+
    it("preserves long-bracket payloads through parse and print", () => {
       const value = '"""\\\\payload]]tail';
       const literal = toLuaStringLiteral(value);
