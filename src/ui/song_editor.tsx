@@ -6,7 +6,13 @@ import type {ArrangementThumbnailSize, CueSheetField} from '../models/song';
 import {CueSheetFieldValues, Song} from '../models/song';
 import {SomaticCaps} from '../models/tic80Capabilities';
 import {kSubsystem, SubsystemTypeKey} from '../subsystem/base/SubsystemBackendBase';
-import {clamp} from '../utils/utils';
+import {
+   tic80AnalyzeRuntimeCadence,
+   tic80EffectTicksToSeconds,
+   tic80RowsToEffectTicks,
+   tic80RuntimeTicksForRows,
+} from '../utils/music/tic80Music';
+import {clamp, formatTiming, formatToDecimalPlaces} from '../utils/utils';
 import {IntegerUpDown} from './basic/NumericUpDown';
 import {Tooltip} from './basic/tooltip';
 import {ButtonGroup} from './Buttons/ButtonGroup';
@@ -30,6 +36,16 @@ const CueSheetFieldLabels: Record<CueSheetField, string> = {
    note: "Pattern name (note)",
 };
 
+const formatRowTiming = (rowCount: number, tempo: number, speed: number): string => {
+   const ticks = tic80RowsToEffectTicks(rowCount, {tempo, speed});
+   const seconds = tic80EffectTicksToSeconds(ticks);
+   const runtimeTicks = tic80RuntimeTicksForRows(rowCount, {tempo, speed});
+   const timingErrorSeconds = tic80EffectTicksToSeconds(runtimeTicks - ticks);
+   const timingError = formatTiming(timingErrorSeconds);
+   return `${rowCount} rows = ${formatToDecimalPlaces(ticks, 2)} TICs `
+      + `(${formatTiming(seconds)}; error: ${timingError})`;
+};
+
 export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSongChange, onEditorStateChange, audio}) => {
    const patternId = song.songOrder[editorState.activeSongPosition].patternIndex ?? 0;
    //const pattern = song.patterns[patternId]!;
@@ -51,7 +67,14 @@ export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSong
       onSongChange({description: 'Set rows per pattern', undoable: true, mutator: (s) => s.setRowsPerPattern(val)});
    };
 
-   const bpm = song.subsystem.calculateBpm({songTempo: song.tempo, songSpeed: song.speed, rowsPerBeat: 4});
+   const rowsPerBeat = song.getRowsPerBeat();
+   const bpm = song.subsystem.calculateBpm({songTempo: song.tempo, songSpeed: song.speed, rowsPerBeat});
+   const tic80RuntimeCadence = song.subsystemType === kSubsystem.key.TIC80
+      ? tic80AnalyzeRuntimeCadence({tempo: song.tempo, speed: song.speed}, song.rowsPerPattern)
+      : null;
+   const runtimePatternTicks = tic80RuntimeCadence
+      ? tic80RuntimeTicksForRows(song.rowsPerPattern, {tempo: song.tempo, speed: song.speed})
+      : null;
 
    const thumbnailSize: ArrangementThumbnailSize = song.arrangementThumbnailSize ?? "normal";
 
@@ -133,7 +156,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSong
                />
             </div>
          </Tooltip>
-         <Tooltip title={`Song speed (${bpm} BPM) (ticks per row). ${mgr.getActionBindingLabelAlways("IncreaseSpeed")} / ${mgr.getActionBindingLabelAlways("DecreaseSpeed")} to adjust.`}>
+         <Tooltip title={`Song speed; combined with tempo, this determines TIC-80 row duration. ${mgr.getActionBindingLabelAlways("IncreaseSpeed")} / ${mgr.getActionBindingLabelAlways("DecreaseSpeed")} to adjust.`}>
             <div className="field-row">
                <label htmlFor="song-speed">Speed</label>
                <IntegerUpDown
@@ -156,6 +179,36 @@ export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSong
                />
             </div>
          </Tooltip>
+
+         {tic80RuntimeCadence && runtimePatternTicks !== null && (
+            <fieldset className="song-tic80-timing">
+               <legend>
+                  <Tooltip title="One TIC is one 60 Hz TIC-80 runtime tick (16.667 ms)">
+                     <span className="song-tic80-timing__legend" tabIndex={0}>TIC-80 timing</span>
+                  </Tooltip>
+               </legend>
+               <div>{formatToDecimalPlaces(bpm, 2)} BPM</div>
+               <div>{formatRowTiming(1, song.tempo, song.speed)}</div>
+               <div>{formatRowTiming(rowsPerBeat, song.tempo, song.speed)}</div>
+               <div>{formatRowTiming(song.rowsPerPattern, song.tempo, song.speed)}</div>
+               <div className="song-tic80-timing__cadence">
+                  Runtime cadence (TICs/row): {tic80RuntimeCadence.ticksPerRow.join(', ')}
+               </div>
+               <div>
+                  Period: {tic80RuntimeCadence.periodRows} rows
+               </div>
+               <div>
+                  Actual pattern runtime ={' '}
+                  {runtimePatternTicks} TICs ({formatTiming(
+                     tic80EffectTicksToSeconds(runtimePatternTicks))})
+               </div>
+               <div>
+                  Worst row error: {formatToDecimalPlaces(tic80RuntimeCadence.worstRowErrorTicks, 2)} TICs ({formatTiming(
+                     tic80EffectTicksToSeconds(tic80RuntimeCadence.worstRowErrorTicks),
+                  )})
+               </div>
+            </fieldset>
+         )}
 
          <fieldset>
             <legend>Arrangement Pattern Thumbnails</legend>

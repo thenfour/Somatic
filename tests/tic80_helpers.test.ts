@@ -2,17 +2,27 @@ import assert from "node:assert/strict";
 import {describe, it} from "node:test";
 
 import {
+   tic80AnalyzeRuntimeCadence,
    tic80EffectTicksToRows,
    tic80EffectTicksToSeconds,
    tic80MeasureRowDuration,
    tic80RowsToEffectTicks,
    tic80RowsToSeconds,
+   tic80RuntimeTicksForRows,
    tic80TempoSpeedToBpm,
 } from "../src/utils/music/tic80Music";
 import {kTic80EffectCommand} from "../src/models/tic80Capabilities";
 import {describeTic80Effect, formatTic80EffectInsight} from "../src/subsystem/tic80/tic80_effect_insight";
+import {formatTiming, formatToDecimalPlaces} from "../src/utils/utils";
 
 describe("TIC-80 timing", () => {
+   it("formats decimal values and second-based timing values", () => {
+      assert.equal(formatToDecimalPlaces(7.2, 2), "7.2");
+      assert.equal(formatTiming(7.2 / 60), "120ms");
+      assert.equal(formatTiming(28.8 / 60), "480ms");
+      assert.equal(formatTiming(460.8 / 60), "7.68s");
+   });
+
    it("converts rows to 60 Hz effect ticks at the default tempo", () => {
       assert.equal(tic80RowsToEffectTicks(4, {tempo: 150, speed: 6}), 24);
       assert.equal(tic80RowsToSeconds(4, {tempo: 150, speed: 6}), 0.4);
@@ -22,6 +32,39 @@ describe("TIC-80 timing", () => {
       assert.equal(tic80RowsToEffectTicks(1, {tempo: 120, speed: 6}), 7.5);
       assert.equal(tic80RowsToEffectTicks(8, {tempo: 120, speed: 6}), 60);
       assert.equal(tic80RowsToSeconds(8, {tempo: 120, speed: 6}), 1);
+   });
+
+   it("reports TIC-80's integer runtime cadence", () => {
+      assert.deepEqual(tic80AnalyzeRuntimeCadence({tempo: 120, speed: 6}), {
+         nominalTicksPerRow: 7.5,
+         periodRows: 2,
+         ticksPerRow: [8, 7],
+         worstRowErrorTicks: 0.5,
+      });
+      assert.equal(tic80RuntimeTicksForRows(64, {tempo: 120, speed: 6}), 480);
+
+      const cadence125 = tic80AnalyzeRuntimeCadence({tempo: 125, speed: 6});
+      assert.equal(cadence125.nominalTicksPerRow, 7.2);
+      assert.equal(cadence125.periodRows, 5);
+      assert.deepEqual(cadence125.ticksPerRow, [8, 7, 7, 7, 7]);
+      assert.ok(Math.abs(cadence125.worstRowErrorTicks - 0.8) < 1e-12);
+      assert.equal(tic80RuntimeTicksForRows(64, {tempo: 125, speed: 6}), 461);
+   });
+
+   it("reports a one-row period when rows align exactly to runtime ticks", () => {
+      assert.deepEqual(tic80AnalyzeRuntimeCadence({tempo: 150, speed: 6}), {
+         nominalTicksPerRow: 6,
+         periodRows: 1,
+         ticksPerRow: [6],
+         worstRowErrorTicks: 0,
+      });
+   });
+
+   it("limits the runtime cadence to the rows encountered before a pattern reset", () => {
+      const cadence = tic80AnalyzeRuntimeCadence({tempo: 254, speed: 1}, 4);
+      assert.equal(cadence.periodRows, 4);
+      assert.deepEqual(cadence.ticksPerRow, [1, 1, 0, 1]);
+      assert.ok(Math.abs(cadence.worstRowErrorTicks - 150 / 254) < 1e-12);
    });
 
    it("converts effect ticks to seconds at TIC-80's 60 Hz tick rate", () => {
@@ -68,7 +111,7 @@ describe("TIC-80 timing", () => {
 describe("TIC-80 timed effect insights", () => {
    const timing = {tempo: 120, speed: 6};
 
-   it("describes slide ticks in rows and seconds", () => {
+   it("describes slide ticks in rows and elapsed time", () => {
       const insight = describeTic80Effect({
          tic80Effect: kTic80EffectCommand.key.S,
          tic80EffectX: 0,
@@ -78,11 +121,11 @@ describe("TIC-80 timed effect insights", () => {
       assert.ok(insight);
       assert.equal(
          formatTic80EffectInsight(insight),
-         "S08: Slide: duration 8 ticks (1.067 rows, 0.133 s)",
+         "S08: Slide: duration 8 ticks (1.07 rows, 133ms)",
       );
    });
 
-   it("describes delayed notes in rows and seconds", () => {
+   it("describes delayed notes in rows and elapsed time", () => {
       const insight = describeTic80Effect({
          midiNote: 60,
          tic80Effect: kTic80EffectCommand.key.D,
@@ -93,7 +136,7 @@ describe("TIC-80 timed effect insights", () => {
       assert.ok(insight);
       assert.equal(
          formatTic80EffectInsight(insight),
-         "D08: Delay: C-4 after 8 ticks (1.067 rows, 0.133 s)",
+         "D08: Delay: C-4 after 8 ticks (1.07 rows, 133ms)",
       );
    });
 

@@ -5,8 +5,8 @@ import {formatPatternIndex, Song} from "../models/song";
 import {kSomaticPatternCommand, kTic80EffectCommand} from "../models/tic80Capabilities";
 import {kSubsystem} from "../subsystem/base/SubsystemBackendBase";
 import {
-    describeTic80Effect,
-    formatTic80EffectInsight,
+   describeTic80Effect,
+   formatTic80EffectInsight,
 } from "../subsystem/tic80/tic80_effect_insight";
 import {
    formatTic80Timing,
@@ -14,10 +14,9 @@ import {
    TIC80_EFFECT_TICK_RATE_HZ,
    tic80MeasureRowDuration,
 } from "../utils/music/tic80Music";
-import {CharMap, clamp, formatSeconds} from "../utils/utils";
+import {clamp, formatToDecimalPlaces} from "../utils/utils";
 import {Tooltip} from "./basic/tooltip";
 import {IconButton} from "./Buttons/IconButton";
-import {TransportTime} from "./transportTime";
 
 
 const LinkButton: React.FC<{href: string; children: React.ReactNode;}> = ({href, children}) => {
@@ -135,7 +134,7 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
                    title={(
                       <div>
                          <div>
-                            {formatSeconds(selectionTiming.nominalEffectTicks)} TIC-80 ticks at {TIC80_EFFECT_TICK_RATE_HZ} Hz.
+                            {formatToDecimalPlaces(selectionTiming.nominalEffectTicks, 2)} TIC-80 ticks at {TIC80_EFFECT_TICK_RATE_HZ} Hz.
                          </div>
                          {selectionEffectParamHex !== null ? (
                             <div>

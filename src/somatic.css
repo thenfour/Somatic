@@ -483,6 +483,24 @@ option {
     flex-direction: column;
 }
 
+.song-tic80-timing {
+    line-height: 1.4;
+}
+
+.song-tic80-timing__legend {
+    cursor: help;
+    outline: none;
+}
+
+.song-tic80-timing__legend:focus-visible {
+    outline: 1px solid currentColor;
+    outline-offset: 2px;
+}
+
+.song-tic80-timing__cadence {
+    overflow-wrap: anywhere;
+}
+
 .toolbar {
     background-color: var(--panel-strong);
     padding: 4px;

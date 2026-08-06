@@ -320,10 +320,18 @@ export const formatBytes = (n: number|null) => {
 
 
 // up to 3 decimal places but removing trailing zeros / decimal point.
-export function formatSeconds(value: number): string {
-   return value.toFixed(3).replace(/\.?0+$/, "");
+// (is this really the best ???)
+export function formatToDecimalPlaces(value: number, decimalPlaces: number): string {
+   return value.toFixed(decimalPlaces).replace(/\.?0+$/, "");
 }
 
+// returns in seconds or milliseconds, a string like "1.5s", "125ms"
+// seconds is up to 2 decimal places, milliseconds is integral.
+export function formatTiming(seconds: number): string {
+   if (seconds < 1)
+      return `${Math.round(seconds * 1000)}ms`;
+   return `${formatToDecimalPlaces(seconds, 2)}s`;
+}
 
 export const inclusiveRangeStartEnd = (start: number, end: number): number[] => {
    const lower = Math.min(start, end);

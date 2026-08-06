@@ -1,4 +1,4 @@
-import {formatSeconds} from "../utils";
+import {formatTiming, formatToDecimalPlaces} from "../utils";
 
 export const TIC80_EFFECT_TICK_RATE_HZ = 60;
 export const TIC80_DEFAULT_TEMPO = 150;
@@ -30,6 +30,53 @@ export function tic80EffectTicksToRows(ticks: number, timing: Tic80Timing): numb
 
 export function tic80RowsToSeconds(rowCount: number, timing: Tic80Timing): number {
    return tic80EffectTicksToSeconds(tic80RowsToEffectTicks(rowCount, timing));
+}
+
+function greatestCommonDivisor(a: number, b: number): number {
+   a = Math.abs(a);
+   b = Math.abs(b);
+   while (b !== 0) {
+      const remainder = a % b;
+      a = b;
+      b = remainder;
+   }
+   return a;
+}
+
+/**
+ * TIC-80 derives the current row from the accumulated integer 60 Hz tick:
+ * floor(tick * tempo / (speed * 150)). A row boundary therefore occurs at
+ * ceil(row * speed * 150 / tempo).
+ */
+export function tic80RuntimeTicksForRows(rowCount: number, timing: Tic80Timing): number {
+   return Math.ceil(rowCount * timing.speed * TIC80_DEFAULT_TEMPO / timing.tempo);
+}
+
+export type Tic80RuntimeCadence = Readonly<{
+   nominalTicksPerRow: number;
+   periodRows: number;
+   ticksPerRow: readonly number[];
+   worstRowErrorTicks: number;
+}>;
+
+export function tic80AnalyzeRuntimeCadence(timing: Tic80Timing, maxRows = Number.POSITIVE_INFINITY): Tic80RuntimeCadence {
+   const ticksNumerator = timing.speed * TIC80_DEFAULT_TEMPO;
+   const basePeriodRows = timing.tempo / greatestCommonDivisor(ticksNumerator, timing.tempo);
+   const periodRows = Math.min(basePeriodRows, Math.max(1, Math.floor(maxRows)));
+   const ticksPerRow = Array.from({length: periodRows}, (_, rowIndex) =>
+      tic80RuntimeTicksForRows(rowIndex + 1, timing) - tic80RuntimeTicksForRows(rowIndex, timing));
+   const nominalTicksPerRow = ticksNumerator / timing.tempo;
+   const worstRowErrorTicks = ticksPerRow.reduce(
+      (worst, runtimeTicks) => Math.max(worst, Math.abs(runtimeTicks - nominalTicksPerRow)),
+      0,
+   );
+
+   return {
+      nominalTicksPerRow,
+      periodRows,
+      ticksPerRow,
+      worstRowErrorTicks,
+   };
 }
 
 export type Tic80RowDurationMeasurement = Readonly<{
@@ -64,7 +111,7 @@ export function formatTic80Timing(ticks: number, timing: Tic80Timing | undefined
    const rows = tic80EffectTicksToRows(ticks, timing);
    const seconds = tic80EffectTicksToSeconds(ticks);
    const rowUnit = Math.abs(rows - 1) <= 1e-9 ? "row" : "rows";
-   return `${tickText} (${formatSeconds(rows)} ${rowUnit}, ${formatSeconds(seconds)} s)`;
+   return `${tickText} (${formatToDecimalPlaces(rows, 2)} ${rowUnit}, ${formatTiming(seconds)})`;
 }
 
 

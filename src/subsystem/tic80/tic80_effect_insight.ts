@@ -1,14 +1,11 @@
 import {PatternCell} from "../../models/pattern";
 import type {SongChannelNoteContext} from "../../models/song";
-import {kTic80EffectCommand, Tic80Caps, Tic80EffectCommand} from "../../models/tic80Capabilities";
+import {kTic80EffectCommand, Tic80EffectCommand} from "../../models/tic80Capabilities";
 import {formatTicMidiNote} from "../../utils/music/noteRegistry";
 import {
    formatTic80Timing,
-   tic80EffectTicksToRows,
-   tic80EffectTicksToSeconds,
-   type Tic80Timing,
+   type Tic80Timing
 } from "../../utils/music/tic80Music";
-import {formatSeconds} from "../../utils/utils";
 
 export type Tic80EffectInsight = {
    code: string;
