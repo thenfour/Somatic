@@ -558,14 +558,20 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
         title: "next loop mode",
         description: "switch to the next loop mode.",
         category: "Transport",
-        defaultBindings: [],
+       defaultBindings: [
+          // shift+)
+          {"kind": "character", "key": ")", "primary": false, "secondary": false, "alt": false, "shift": true}
+       ],
     },
     PreviousLoopMode: {
         id: "PreviousLoopMode",
         title: "previous loop mode",
         description: "switch to the previous loop mode.",
         category: "Transport",
-        defaultBindings: [],
+       defaultBindings: [
+          // shift+(
+          {"kind": "character", "key": "(", "primary": false, "secondary": false, "alt": false, "shift": true}
+       ],
     },
     SetLoopOff: {
         id: "SetLoopOff",
