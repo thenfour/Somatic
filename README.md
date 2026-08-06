@@ -110,6 +110,7 @@ somatic_seek(beat, syncOffsetMS)                    -- seek to an external beat,
 somatic_position_to_beat(songOrderIndex, row)       -- convert a 0-based song position and row to a beat
 somatic_seek_position(songOrderIndex, row, syncOffsetMS) -- seek to a zero-based song position and row
 somatic_set_options(options)                        -- tempo/speed/isPlaying/isMuted/loopSongForever/syncOffsetMS
+somatic_set_completion_callback(callback)           -- register a natural song-completion callback; nil unregisters
 somatic_advance_frame()                             -- advance paused demo time by one 60Hz frame
 somatic_end_frame()                                 -- for internal bookkeeping
 ```
@@ -120,6 +121,17 @@ boundary before music resumes.
 
 Song positions and rows are zero-based. A song position is an index into
 the rendered song order, not the index of an underlying pattern.
+
+`somatic_set_completion_callback()` keeps one callback registered until it is replaced or
+unregistered with `nil`. The callback runs once after each natural, non-looping song completion,
+after playback has stopped. Pausing, muting, seeking, and explicit stops do not invoke it. Register
+the callback before the first `somatic_tick()` if the song could finish before later setup runs.
+
+```lua
+somatic_set_completion_callback(function()
+	-- quit, change scene, or start another track
+end)
+```
 
 `syncOffsetMS` is a presentation-only latency correction in system milliseconds. Positive values
 advance the returned external transport time. It does not change internal music playback state;

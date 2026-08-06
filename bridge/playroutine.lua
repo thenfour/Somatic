@@ -41,6 +41,7 @@ do
 	local stopPlayingOnNextFrame = false
 	local loopSongForeverEnabled = false
 	local playbackMuted = false
+	local completionCallback = nil
 	local PATTERN_BUFFER_BYTES = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
 	local bufferALocation = __AUTOGEN_BUF_PTR_A -- pattern 46
 	local bufferBLocation = __AUTOGEN_BUF_PTR_B -- pattern 50
@@ -174,7 +175,15 @@ do
 		return false
 	end
 
-	local function render_tick_cfg(cfg, instId, ch, ticksPlayed, lfoTicks, effectStrengthScaleU8, lowpassStrengthScaleU8)
+	local function render_tick_cfg(
+		cfg,
+		instId,
+		ch,
+		ticksPlayed,
+		lfoTicks,
+		effectStrengthScaleU8,
+		lowpassStrengthScaleU8
+	)
 		if not cfg_is_k_rate_processing(cfg) then
 			return
 		end
@@ -916,6 +925,12 @@ do
 		return somatic_project_time(somatic_transport.time, syncOffsetMS)
 	end
 
+	-- single callback for future natural, non-looping song completions.
+	-- A new callback replaces the previous one; nil unregisters it.
+	function somatic_set_completion_callback(callback)
+		completionCallback = callback
+	end
+
 	-- Clear one-frame flags after demo code consumes them.
 	function somatic_end_frame()
 		somatic_transport.time.didSeek = false
@@ -1079,8 +1094,7 @@ do
 		options = options or {}
 		somatic_sync_offset_ms(options.syncOffsetMS)
 		local wasPlaying = somatic_transport.isPlaying
-		local restartsMusic = wasPlaying
-			and (options.tempo ~= nil or options.speed ~= nil)
+		local restartsMusic = wasPlaying and (options.tempo ~= nil or options.speed ~= nil)
 		somatic_apply_options(options)
 
 		if wasPlaying and not somatic_transport.isPlaying then
@@ -1139,6 +1153,9 @@ do
 				-- We already cleared the upcoming buffer when we hit end-of-song;
 				-- once the music engine advances again, stop cleanly.
 				stop_music(true)
+				if completionCallback ~= nil then
+					completionCallback()
+				end
 				return somatic_project_time(state)
 			end
 
