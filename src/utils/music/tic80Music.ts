@@ -104,7 +104,7 @@ export function tic80MeasureRowDuration(rowCount: number, timing: Tic80Timing): 
 
 export function formatTic80Timing(ticks: number, timing: Tic80Timing | undefined): string {
    const tickUnit = ticks === 1 ? "tick" : "ticks";
-   const tickText = `${ticks} ${tickUnit}`;
+   const tickText = `${formatToDecimalPlaces(ticks, 2)} ${tickUnit}`;
    if (!timing)
       return tickText;
 
