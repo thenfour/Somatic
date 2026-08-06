@@ -26,6 +26,12 @@
     text-align: right;
 }
 
+.waveform-editor__usage-tooltip {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
 /* 
 .waveform-editor-controls__button {
     font-size: 11px;

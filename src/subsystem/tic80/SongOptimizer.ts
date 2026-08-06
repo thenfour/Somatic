@@ -15,7 +15,7 @@ export type SongUsage = {
    usedPatterns: Set<number>;       // whole-pattern usage
    usedPatternColumns: Set<number>; // column-oriented usage
    usedInstruments: Set<number>;    //
-   usedWaveforms: Set<number>;      //
+   usedWaveforms: Map<number, number[]>; // waveform index -> used instrument indices
    maxPattern: number;              // whole-pattern max index
    maxPatternColumn: number;        // max column index
    maxInstrument: number;           //
@@ -26,7 +26,7 @@ export type SongUsage = {
 export function calculateSongUsage(song: Song): SongUsage {
    const usedPatterns = new Set<number>();
    const usedInstruments = new Set<number>();
-   const usedWaveforms = new Set<number>();
+   const usedWaveforms = new Map<number, number[]>();
    const channelCount = song.subsystem.channelCount;
 
    // patterns that appear in the order list
@@ -60,9 +60,16 @@ export function calculateSongUsage(song: Song): SongUsage {
       const inst = song.instruments[instIdx];
       const u = inst.getUsedWaveformIndices();
       u.forEach((waveIdx) => {
-         usedWaveforms.add(waveIdx);
+         const instrumentIndices = usedWaveforms.get(waveIdx);
+         if (instrumentIndices) {
+            instrumentIndices.push(instIdx);
+         } else {
+            usedWaveforms.set(waveIdx, [instIdx]);
+         }
       });
    });
+
+   usedWaveforms.forEach((instrumentIndices) => instrumentIndices.sort((a, b) => a - b));
 
    const maxPattern = usedPatterns.size === 0 ? 0 : Math.max(...usedPatterns);
    const prepared = prepareSongColumns(song);
@@ -71,7 +78,7 @@ export function calculateSongUsage(song: Song): SongUsage {
    );
    const maxPatternColumn = usedPatternColumns.size === 0 ? 0 : Math.max(...usedPatternColumns);
    const maxInstrument = usedInstruments.size === 0 ? 0 : Math.max(...usedInstruments);
-   const maxWaveform = usedWaveforms.size === 0 ? 0 : Math.max(...usedWaveforms);
+   const maxWaveform = usedWaveforms.size === 0 ? 0 : Math.max(...usedWaveforms.keys());
 
    return {
       usedPatterns,
@@ -180,7 +187,7 @@ export function MakeOptimizeResultEmpty(song: Song): OptimizeResult {
          usedPatterns: new Set(),
          usedPatternColumns: new Set(),
          usedInstruments: new Set(),
-         usedWaveforms: new Set(),
+         usedWaveforms: new Map(),
          maxPattern: 0,
          maxPatternColumn: 0,
          maxInstrument: 0,

@@ -18,13 +18,15 @@ import { IconButton } from "./Buttons/IconButton";
 import { mdiContentCopy, mdiContentPaste } from "@mdi/js";
 import { Tooltip } from "./basic/tooltip";
 import { GlobalActions } from "../keyb/ActionIds";
+import { InstrumentChip } from "./InstrumentChip";
 
 export const WaveformSelect: React.FC<{
     song: Song;
     onClickWaveform: (waveformId: number) => void;
     getWaveformDisplayStyle: (waveformId: number) => WaveformSwatchDisplayStyle;
     getOverlayText: (waveformId: number) => string;
-}> = ({ getWaveformDisplayStyle, getOverlayText, song, onClickWaveform }) => {
+    getTooltipContent?: (waveformId: number) => React.ReactNode;
+}> = ({ getWaveformDisplayStyle, getOverlayText, getTooltipContent, song, onClickWaveform }) => {
     const waveformCount = Math.min(song.waveforms.length, Tic80Caps.waveform.count);
     const scale = 3;
 
@@ -32,7 +34,7 @@ export const WaveformSelect: React.FC<{
         <div className="waveform-select">
             {Array.from({ length: waveformCount }, (_, index) => {
                 const waveform = song.waveforms[index];
-                return (
+                const swatch = (
                     <WaveformSwatch
                         key={index}
                         value={waveform}
@@ -41,6 +43,14 @@ export const WaveformSelect: React.FC<{
                         onClick={() => onClickWaveform(index)}
                         overlayText={getOverlayText(index)}
                     />
+                );
+                if (!getTooltipContent) {
+                    return swatch;
+                }
+                return (
+                    <Tooltip key={index} title={getTooltipContent(index)}>
+                        {swatch}
+                    </Tooltip>
                 );
             })}
         </div>
@@ -299,6 +309,25 @@ export const WaveformEditorPanel: React.FC<{
                     const used = songUsage ? songUsage.usedWaveforms.has(waveformIndex) : false;
                     const isNoise = song.waveforms[waveformIndex]?.isNoise() ?? false;
                     return `${waveformIndex.toString(16).toUpperCase()}${used ? '*' : ''}${isNoise ? ' (Noise)' : ''}`;
+                }}
+                getTooltipContent={(waveformIndex) => {
+                    const instrumentIndices = songUsage?.usedWaveforms.get(waveformIndex);
+                    if (!instrumentIndices?.length) {
+                        return null;
+                    }
+                    return (
+                        <div className="waveform-editor__usage-tooltip">
+                            <strong>Used by {instrumentIndices.length === 1 ? 'instrument' : 'instruments'}</strong>
+                            {instrumentIndices.map((instrumentIndex) => (
+                                <InstrumentChip
+                                    key={instrumentIndex}
+                                    instrumentIndex={instrumentIndex}
+                                    instrument={song.instruments[instrumentIndex]}
+                                    showTooltip={false}
+                                />
+                            ))}
+                        </div>
+                    );
                 }}
                 song={song}
             />

@@ -1,18 +1,26 @@
+import React from "react";
 import { Tic80Caps } from "../models/tic80Capabilities";
 import { Tic80Waveform } from "../models/waveform";
 import { clamp } from "../utils/utils";
 
 export type WaveformSwatchDisplayStyle = "normal" | "selected" | "muted";
 
-export const WaveformSwatch: React.FC<{
+export type WaveformSwatchProps = {
     value: Tic80Waveform;
     scale: number;
     //isSelected?: boolean;
     displayStyle: WaveformSwatchDisplayStyle;
     /** Optional small overlay label, similar to WaveformCanvas coordinates. */
     overlayText?: string;
-    onClick?: () => void;
-}> = ({ value, scale, displayStyle, overlayText, onClick }) => {
+} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children" | "className" | "style" | "type" | "value">;
+
+export const WaveformSwatch = React.forwardRef<HTMLButtonElement, WaveformSwatchProps>(({
+    value,
+    scale,
+    displayStyle,
+    overlayText,
+    ...buttonProps
+}, ref) => {
     const pointCount = Tic80Caps.waveform.pointCount;
     const amplitudeRange = Tic80Caps.waveform.amplitudeRange;
     const width = scale * pointCount;
@@ -41,7 +49,7 @@ export const WaveformSwatch: React.FC<{
     const className = `interactable waveform-swatch waveform-swatch--${displayStyle}`;
 
     return (
-        <button type="button" className={className} onClick={onClick} style={{ width, height }}>
+        <button {...buttonProps} ref={ref} type="button" className={className} style={{ width, height }}>
             <svg
                 className="waveform-swatch__svg"
                 viewBox={`0 0 ${width} ${height}`}
@@ -62,4 +70,6 @@ export const WaveformSwatch: React.FC<{
             </svg>
         </button>
     );
-};
+});
+
+WaveformSwatch.displayName = "WaveformSwatch";
