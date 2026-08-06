@@ -550,6 +550,7 @@
 .pattern-grid-container--editMode .pattern-grid td:focus {
     outline: 1px solid var(--border-strong);
     background-color: var(--accent);
+    color: var(--bg);
 }
 
 .pattern-grid-container--locked .pattern-grid td:focus:before {
