@@ -3,6 +3,7 @@ import React, { useId, useState } from "react";
 import { GlobalActionId } from "../keyb/ActionIds";
 import { useShortcutManager } from "../keyb/KeyboardShortcutManager";
 import { Song } from "../models/song";
+import {kSubsystem} from "../subsystem/base/SubsystemBackendBase";
 import { CharMap } from "../utils/utils";
 import { Divider } from "./basic/Divider";
 import { Dropdown } from "./basic/Dropdown";
@@ -21,6 +22,7 @@ export type PatternAdvancedPanelProps = {
     onSetInstrument: (instrument: number, scope: AdvancedEditScope) => void;
     onNudgeInstrument: (amount: number, scope: AdvancedEditScope) => void;
     onInterpolate: (target: InterpolateTarget, scope: AdvancedEditScope) => void;
+   onEvenlyDistributeNotes: (scope: AdvancedEditScope) => void;
 
     onClearNotes: (scope: AdvancedEditScope) => void;
     onClearInstrument: (scope: AdvancedEditScope) => void;
@@ -72,6 +74,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     onSetInstrument,
     onNudgeInstrument,
     onInterpolate,
+   onEvenlyDistributeNotes,
     onClearNotes,
     onClearInstrument,
     onClearVolume,
@@ -102,6 +105,12 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
             instrumentIndex: scopeInstrumentIndex,
         };
     }, [scopeInstrumentIndex, scopeValue]);
+
+   const evenlyDistributeDisabledReason = !enabled
+      ? "editing is disabled"
+      : scopeValue !== "selection"
+         ? "Even note distribution is available only for Selection scope."
+         : null;
 
     const handleInterpolateNotes = () => {
         onInterpolate("notes", scope);
@@ -258,6 +267,20 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                             <Button onClick={handleInterpolateNotes}>Interpolate</Button>
                             <Button onClick={handleClearNotes}>Clear</Button>
                         </ButtonGroup>
+                   <ButtonGroup>
+                      <Tooltip
+                         title={evenlyDistributeDisabledReason ?? "Evenly space notes across the selected duration (approx)."}
+                      >
+                         <span style={{display: "inline-flex"}}>
+                            <Button
+                               onClick={() => onEvenlyDistributeNotes(scope)}
+                               disabled={evenlyDistributeDisabledReason !== null}
+                            >
+                               Distribute (tuplet)
+                            </Button>
+                         </span>
+                      </Tooltip>
+                   </ButtonGroup>
                     </section>
                 </fieldset>
                 <fieldset>

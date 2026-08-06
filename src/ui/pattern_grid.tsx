@@ -14,8 +14,8 @@ import { analyzePatternPlaybackForGrid, analyzePatternRowIssues, isNoteCut, Patt
 import { formatPatternIndex, Song } from '../models/song';
 import { kSomaticPatternCommand, kTic80EffectCommand, SomaticPatternCommand, Tic80EffectCommand } from '../models/tic80Capabilities';
 import { PatternGridHighlightStyle, kPatternGridHighlightStyle } from '../models/patternGridHighlightStyle';
-import { interpolatePatternValues, nudgeInstrumentInPattern, RowRange, setInstrumentInPattern, transposeCellsInPattern } from '../utils/advancedPatternEdit';
-import { CharMap, clamp, Coord2D, includesOf, numericRange } from '../utils/utils';
+import {evenlyDistributeNotesInPattern, interpolatePatternValues, nudgeInstrumentInPattern, RowRange, setInstrumentInPattern, transposeCellsInPattern} from '../utils/advancedPatternEdit';
+import {assert, CharMap, clamp, Coord2D, includesOf, numericRange} from '../utils/utils';
 import { Tooltip } from './basic/tooltip';
 import './pattern_grid.css';
 import { AdvancedEditScope, InterpolateTarget, PatternAdvancedPanel, ScopeValue } from './PatternAdvancedPanel';
@@ -414,6 +414,64 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 }
             }
         }, [onSongChange, pushToast, resolveScopeTargets]);
+
+      const handleEvenlyDistributeNotes = useCallback((scope: AdvancedEditScope) => {
+         assert(scope.scope === 'selection', 'Evenly distribute notes is only available for Selection scope.');
+
+         const targets = resolveScopeTargets('selection');
+         if (!targets) return;
+         const {patternIndices, channels, rowRange} = targets;
+         if (patternIndices.length === 0 || channels.length === 0) {
+            pushToast({message: 'Nothing to distribute in that selection.', variant: 'error'});
+            return;
+         }
+
+         let totalMutated = false;
+         let eligibleNoteCount = 0;
+         let fixedNoteCollisionChannelCount = 0;
+         let unrepresentableDelayChannelCount = 0;
+         onSongChange({
+            description: 'Evenly distribute notes',
+            undoable: true,
+            mutator: (nextSong) => {
+               for (const patternIndex of patternIndices) {
+                  const targetPattern = nextSong.patterns[patternIndex];
+                  if (!targetPattern) continue;
+                  const result = evenlyDistributeNotesInPattern(
+                     nextSong.subsystem,
+                     targetPattern,
+                     channels,
+                     rowRange,
+                     nextSong.rowsPerPattern,
+                     {tempo: nextSong.tempo, speed: nextSong.speed},
+                     scope.instrumentIndex,
+                  );
+                  totalMutated ||= result.mutated;
+                  eligibleNoteCount += result.eligibleNoteCount;
+                  fixedNoteCollisionChannelCount += result.fixedNoteCollisionChannelCount;
+                  unrepresentableDelayChannelCount += result.unrepresentableDelayChannelCount;
+               }
+            },
+         });
+
+         if (fixedNoteCollisionChannelCount > 0) {
+            const channelsLabel = fixedNoteCollisionChannelCount === 1 ? 'channel was' : 'channels were';
+            pushToast({
+               message: `${fixedNoteCollisionChannelCount} ${channelsLabel} skipped because a target row contains a fixed note or note cut.`,
+               variant: totalMutated ? 'info' : 'error',
+            });
+         } else if (unrepresentableDelayChannelCount > 0) {
+            const channelsLabel = unrepresentableDelayChannelCount === 1 ? 'channel was' : 'channels were';
+            pushToast({
+               message: `${unrepresentableDelayChannelCount} ${channelsLabel} skipped because the required Dxx delay exceeds FF.`,
+               variant: totalMutated ? 'info' : 'error',
+            });
+         } else if (eligibleNoteCount === 0) {
+            pushToast({message: 'No notes found to distribute in the selection.', variant: 'info'});
+         } else if (!totalMutated) {
+            pushToast({message: 'The selected notes are already evenly distributed.', variant: 'info'});
+         }
+      }, [onSongChange, pushToast, resolveScopeTargets]);
 
         const clearPatternFieldInScope = useCallback((
             scope: AdvancedEditScope,
@@ -1553,6 +1611,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         onSetInstrument={handleSetInstrument}
                         onNudgeInstrument={nudgeInstrumentInSelection}
                         onInterpolate={handleInterpolate}
+                    onEvenlyDistributeNotes={handleEvenlyDistributeNotes}
                         onClearNotes={handleClearNotes}
                         onClearInstrument={handleClearInstrument}
                         onClearVolume={handleClearVolume}
