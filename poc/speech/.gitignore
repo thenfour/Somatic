@@ -1,0 +1,18 @@
+# local / secret settings
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# generated
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+

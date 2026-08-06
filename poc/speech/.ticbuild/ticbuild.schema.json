@@ -1,0 +1,428 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TIC-80 Build Manifest",
+  "description": "Configuration file for ticbuild projects",
+  "type": "object",
+  "required": [
+    "project",
+    "imports",
+    "assembly"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Path to the manifest JSON schema for editor support"
+    },
+    "project": {
+      "type": "object",
+      "required": [
+        "name",
+        "binDir",
+        "objDir",
+        "outputCartName"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Project name"
+        },
+        "launchArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Arguments passed to TIC-80 when launching"
+        },
+        "includeDirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Directories to include in source file lookup"
+        },
+        "importDirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Directories to include in resource import lookup"
+        },
+        "additionalWatchGlobs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional glob patterns to watch during ticbuild watch, relative to the manifest directory unless absolute"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "TIC-80 cart metadata comments emitted at the top of the final Lua source"
+        },
+        "binDir": {
+          "type": "string",
+          "description": "Output directory for built cartridges"
+        },
+        "objDir": {
+          "type": "string",
+          "description": "Output directory for build artifacts"
+        },
+        "outputCartName": {
+          "type": "string",
+          "description": "Name of the output cartridge file"
+        },
+        "autoUpdateManifestSchema": {
+          "type": "boolean",
+          "description": "Whether ticbuild should keep the project's copied manifest schema in sync during builds"
+        }
+      }
+    },
+    "variables": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "User-defined variables for substitution"
+    },
+    "preprocessor": {
+      "type": "object",
+      "properties": {
+        "defines": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "description": "Preprocessor defines available to directives like #if, #ifdef, and #ifndef"
+        }
+      },
+      "description": "Lua preprocessor configuration"
+    },
+    "imports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Symbolic identifier for this import"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path to the source file or cartridge"
+          },
+          "value": {
+            "type": "string",
+            "description": "Inline value for text or encoded binary imports"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "LuaCode",
+              "Tic80Cartridge",
+              "binary",
+              "text"
+            ],
+            "description": "Type of import"
+          },
+          "sourceEncoding": {
+            "type": "string",
+            "enum": [
+              "raw",
+              "lz",
+              "hex",
+              "ascii",
+              "utf8",
+              "b85+1",
+              "base64"
+            ],
+            "description": "Source encoding for binary imports"
+          },
+          "chunks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "TILES",
+                "MAP",
+                "CODE",
+                "FLAGS",
+                "SFX",
+                "WAVEFORMS",
+                "PALETTE",
+                "MUSIC_TRACKS",
+                "MUSIC_PATTERNS",
+                "CODE_COMPRESSED",
+                "DEFAULT",
+                "SCREEN",
+                "CODE_WASM"
+              ]
+            },
+            "description": "Specific chunks to import from cartridges"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "path"
+            ]
+          },
+          {
+            "required": [
+              "value"
+            ]
+          }
+        ]
+      },
+      "description": "Import definitions for external assets"
+    },
+    "assembly": {
+      "type": "object",
+      "required": [
+        "blocks"
+      ],
+      "properties": {
+        "lua": {
+          "type": "object",
+          "properties": {
+            "minify": {
+              "type": "boolean",
+              "description": "Whether to minify Lua code"
+            },
+            "minification": {
+              "type": "object",
+              "properties": {
+                "stripComments": {
+                  "type": "boolean"
+                },
+                "maxIndentLevel": {
+                  "type": "number"
+                },
+                "lineBehavior": {
+                  "type": "string",
+                  "enum": [
+                    "pretty",
+                    "tight",
+                    "single-line-blocks"
+                  ]
+                },
+                "maxLineLength": {
+                  "type": "number"
+                },
+                "aliasRepeatedExpressions": {
+                  "type": "boolean"
+                },
+                "renameLocalVariables": {
+                  "type": "boolean"
+                },
+                "aliasLiterals": {
+                  "type": "boolean"
+                },
+                "packLocalDeclarations": {
+                  "type": "boolean"
+                },
+                "simplifyExpressions": {
+                  "type": "boolean"
+                },
+                "removeUnusedLocals": {
+                  "type": "boolean"
+                },
+                "removeUnusedFunctions": {
+                  "type": "boolean"
+                },
+                "functionNamesToKeep": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "renameTableFields": {
+                  "type": "boolean"
+                },
+                "tableEntryKeysToRename": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "globalSymbolsToRename": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "renameSpecifiedGlobalSymbols": {
+                  "type": "boolean"
+                }
+              },
+              "description": "Minification options (OptimizationRuleOptions)"
+            },
+            "globals": {
+              "type": "object",
+              "additionalProperties": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "description": "Global variables to emit as local declarations at the top of Lua code"
+            }
+          }
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "asset"
+            ],
+            "properties": {
+              "chunks": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "TILES",
+                    "SPRITES",
+                    "MAP",
+                    "CODE",
+                    "FLAGS",
+                    "SFX",
+                    "WAVEFORMS",
+                    "PALETTE",
+                    "MUSIC_TRACKS",
+                    "MUSIC_PATTERNS",
+                    "CODE_COMPRESSED",
+                    "DEFAULT",
+                    "SCREEN",
+                    "CODE_WASM"
+                  ]
+                }
+              },
+              "bank": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "description": "Bank index (defaults to 0). Standard TIC-80 chunks support banks 0..7; CODE banks 8..15 require code.extendedCodeBanks, and CODE_COMPRESSED banks 1..15 require code.multiBankCompressedCode and the private TIC-80 build"
+              },
+              "asset": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "import"
+                    ],
+                    "properties": {
+                      "import": {
+                        "type": "string"
+                      },
+                      "chunks": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "code": {
+                "type": "object",
+                "properties": {
+                  "emitGlobals": {
+                    "type": "boolean",
+                    "description": "Whether to emit assembly.lua.globals for this code block"
+                  },
+                  "compressionMode": {
+                    "type": "string",
+                    "enum": [
+                      "default",
+                      "zlib-max",
+                      "zopfli"
+                    ],
+                    "description": "Compression mode for CODE_COMPRESSED chunks emitted by this code block"
+                  },
+                  "extendedCodeBanks": {
+                    "type": "boolean",
+                    "description": "Allow CODE chunks to use private TIC-80 extended banks 8..15. Carts built with this option are not compatible with stock TIC-80"
+                  },
+                  "multiBankCompressedCode": {
+                    "type": "boolean",
+                    "description": "Allow CODE_COMPRESSED output to split across private TIC-80 compressed code banks. Carts that need more than one compressed bank are not compatible with stock TIC-80"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Assembly configuration"
+    },
+    "buildConfigurations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "object"
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "preprocessor": {
+            "type": "object",
+            "properties": {
+              "defines": {
+                "type": "object",
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "assembly": {
+            "type": "object"
+          }
+        }
+      },
+      "description": "Build configuration overrides"
+    }
+  }
+}

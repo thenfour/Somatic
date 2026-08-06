@@ -1,0 +1,28 @@
+{
+    "$schema": "./.ticbuild/ticbuild.schema.json",
+    "project": {
+        "name": "speech",
+        "importDirs": [
+            "assets"
+        ],
+        "includeDirs": [
+            "src"
+        ],
+        "binDir": "./build/$(buildConfiguration)-bin",
+        "objDir": "./build/$(buildConfiguration)-obj",
+        "outputCartName": "$(project.name).tic"
+    },
+    "imports": [
+        {
+            "name": "maincode",
+            "path": "src/sinewave_speech.lua"
+        }
+    ],
+    "assembly": {
+        "blocks": [
+            {
+                "asset": "maincode"
+            }
+        ]
+    }
+}
