@@ -23,6 +23,8 @@ export type PatternAdvancedPanelProps = {
     onNudgeInstrument: (amount: number, scope: AdvancedEditScope) => void;
     onInterpolate: (target: InterpolateTarget, scope: AdvancedEditScope) => void;
    onEvenlyDistributeNotes: (scope: AdvancedEditScope) => void;
+    onExpand: (scope: AdvancedEditScope) => void;
+    onContract: (scope: AdvancedEditScope) => void;
 
     onClearNotes: (scope: AdvancedEditScope) => void;
     onClearInstrument: (scope: AdvancedEditScope) => void;
@@ -75,6 +77,8 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
     onNudgeInstrument,
     onInterpolate,
    onEvenlyDistributeNotes,
+    onExpand,
+    onContract,
     onClearNotes,
     onClearInstrument,
     onClearVolume,
@@ -111,6 +115,15 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
       : scopeValue !== "selection"
          ? "Even note distribution is available only for Selection scope."
          : null;
+
+    const isPatternLocalScope = scopeValue === "selection" || scopeValue === "channel-pattern" || scopeValue === "pattern";
+    const rowScaleDisabledReason = !enabled
+        ? "editing is disabled"
+        : !isPatternLocalScope
+          ? "Expand and Contract are available only within one pattern."
+          : scopeInstrumentIndex !== null
+            ? "Expand and Contract move complete cells, so Filter instrument must be off."
+            : null;
 
     const handleInterpolateNotes = () => {
         onInterpolate("notes", scope);
@@ -237,6 +250,36 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                         </div>
                     </ButtonGroup>
                     {/* </div> */}
+                </fieldset>
+
+                <fieldset>
+                    <legend>Rows</legend>
+                    <ButtonGroup>
+                        <Tooltip
+                            title={rowScaleDisabledReason ?? "Double the vertical length, inserting an empty cell after every source row."}
+                        >
+                            <span style={{display: "inline-flex"}}>
+                                <Button
+                                    onClick={() => onExpand(scope)}
+                                    disabled={rowScaleDisabledReason !== null}
+                                >
+                                    Expand
+                                </Button>
+                            </span>
+                        </Tooltip>
+                        <Tooltip
+                            title={rowScaleDisabledReason ?? "Halve the vertical length, keeping every other row and clearing the remainder."}
+                        >
+                            <span style={{display: "inline-flex"}}>
+                                <Button
+                                    onClick={() => onContract(scope)}
+                                    disabled={rowScaleDisabledReason !== null}
+                                >
+                                    Contract
+                                </Button>
+                            </span>
+                        </Tooltip>
+                    </ButtonGroup>
                 </fieldset>
 
                 <fieldset>

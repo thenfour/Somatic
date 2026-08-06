@@ -4,7 +4,84 @@ import {describe, it} from "node:test";
 import {Pattern} from "../src/models/pattern";
 import {Song} from "../src/models/song";
 import {kSomaticPatternCommand, kTic80EffectCommand} from "../src/models/tic80Capabilities";
-import {evenlyDistributeNotesInPattern} from "../src/utils/advancedPatternEdit";
+import {contractPatternRows, evenlyDistributeNotesInPattern, expandPatternRows} from "../src/utils/advancedPatternEdit";
+
+describe("scale pattern rows", () => {
+   it("expands complete cells downward and clears every inserted row", () => {
+      const pattern = new Pattern();
+      pattern.setCell(0, 1, {midiNote: 60, instrumentIndex: 1});
+      pattern.setCell(0, 3, {midiNote: 62, tic80Effect: kTic80EffectCommand.key.P});
+      pattern.setCell(0, 4, {midiNote: 63, somaticParam: 24});
+      pattern.setCell(0, 5, {midiNote: 70});
+      pattern.setCell(0, 9, {midiNote: 71});
+      pattern.setCell(1, 2, {midiNote: 72});
+
+      const result = expandPatternRows(pattern, [0], {start: 1, end: 4}, 10);
+
+      assert.deepEqual(result, {mutated: true, resultingRowRange: {start: 1, end: 8}});
+      assert.deepEqual(
+         Array.from({length: 8}, (_, offset) => pattern.getCell(0, offset + 1)),
+         [
+            {midiNote: 60, instrumentIndex: 1},
+            {},
+            {},
+            {},
+            {midiNote: 62, tic80Effect: kTic80EffectCommand.key.P},
+            {},
+            {midiNote: 63, somaticParam: 24},
+            {},
+         ],
+      );
+      assert.deepEqual(pattern.getCell(0, 9), {midiNote: 71});
+      assert.deepEqual(pattern.getCell(1, 2), {midiNote: 72});
+   });
+
+   it("clips expansion and its resulting range at the pattern boundary", () => {
+      const pattern = new Pattern();
+      pattern.setCell(0, 5, {midiNote: 60});
+      pattern.setCell(0, 6, {midiNote: 62});
+      pattern.setCell(0, 7, {midiNote: 64});
+
+      const result = expandPatternRows(pattern, [0], {start: 5, end: 7}, 8);
+
+      assert.deepEqual(result.resultingRowRange, {start: 5, end: 7});
+      assert.deepEqual(pattern.getCell(0, 5), {midiNote: 60});
+      assert.deepEqual(pattern.getCell(0, 6), {});
+      assert.deepEqual(pattern.getCell(0, 7), {midiNote: 62});
+   });
+
+   it("contracts every other row into the first half and clears the second half", () => {
+      const pattern = new Pattern();
+      for (let row = 1; row <= 8; row++)
+         pattern.setCell(0, row, {midiNote: 59 + row});
+      pattern.setCell(0, 9, {midiNote: 80});
+
+      const result = contractPatternRows(pattern, [0], {start: 1, end: 8}, 10);
+
+      assert.deepEqual(result, {mutated: true, resultingRowRange: {start: 1, end: 4}});
+      assert.deepEqual(
+         [1, 2, 3, 4].map((row) => pattern.getCell(0, row).midiNote),
+         [60, 62, 64, 66],
+      );
+      assert.deepEqual([5, 6, 7, 8].map((row) => pattern.getCell(0, row)), [{}, {}, {}, {}]);
+      assert.deepEqual(pattern.getCell(0, 9), {midiNote: 80});
+   });
+
+   it("round-trips an odd clipped expansion and contracts its selection with ceiling division", () => {
+      const pattern = new Pattern();
+      pattern.setCell(0, 3, {midiNote: 60});
+      pattern.setCell(0, 4, {midiNote: 62});
+      pattern.setCell(0, 5, {midiNote: 64});
+
+      const expanded = expandPatternRows(pattern, [0], {start: 3, end: 5}, 8);
+      const contracted = contractPatternRows(pattern, [0], expanded.resultingRowRange!, 8);
+
+      assert.deepEqual(contracted.resultingRowRange, {start: 3, end: 5});
+      assert.deepEqual([3, 4, 5].map((row) => pattern.getCell(0, row).midiNote), [60, 62, 64]);
+      assert.deepEqual(pattern.getCell(0, 6), {});
+      assert.deepEqual(pattern.getCell(0, 7), {});
+   });
+});
 
 describe("evenly distribute pattern notes", () => {
    it("fills the selected duration and synthesizes row-local Dxx delays", () => {

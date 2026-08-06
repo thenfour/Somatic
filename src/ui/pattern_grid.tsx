@@ -14,7 +14,7 @@ import { analyzePatternPlaybackForGrid, analyzePatternRowIssues, isNoteCut, Patt
 import { formatPatternIndex, Song } from '../models/song';
 import { kSomaticPatternCommand, kTic80EffectCommand, SomaticPatternCommand, Tic80EffectCommand } from '../models/tic80Capabilities';
 import { PatternGridHighlightStyle, kPatternGridHighlightStyle } from '../models/patternGridHighlightStyle';
-import {evenlyDistributeNotesInPattern, interpolatePatternValues, nudgeInstrumentInPattern, RowRange, setInstrumentInPattern, transposeCellsInPattern} from '../utils/advancedPatternEdit';
+import {contractPatternRows, evenlyDistributeNotesInPattern, expandPatternRows, interpolatePatternValues, nudgeInstrumentInPattern, PatternRowScaleMode, planPatternRowScale, RowRange, setInstrumentInPattern, transposeCellsInPattern} from '../utils/advancedPatternEdit';
 import {assert, CharMap, clamp, Coord2D, includesOf, numericRange} from '../utils/utils';
 import { Tooltip } from './basic/tooltip';
 import './pattern_grid.css';
@@ -414,6 +414,62 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 }
             }
         }, [onSongChange, pushToast, resolveScopeTargets]);
+
+        const handleScaleRows = useCallback((mode: PatternRowScaleMode, scope: AdvancedEditScope) => {
+            const isPatternLocalScope = scope.scope === 'selection' || scope.scope === 'channel-pattern' || scope.scope === 'pattern';
+            if (!isPatternLocalScope) {
+                pushToast({message: 'Expand and Contract are available only within one pattern.', variant: 'error'});
+                return;
+            }
+            if (scope.instrumentIndex !== null) {
+                pushToast({message: 'Turn off Filter instrument before expanding or contracting rows.', variant: 'error'});
+                return;
+            }
+
+            const targets = resolveScopeTargets(scope.scope);
+            if (!targets)
+                return;
+            const {patternIndices, channels, rowRange} = targets;
+            const plan = planPatternRowScale(rowRange, song.rowsPerPattern, mode);
+            if (patternIndices.length !== 1 || channels.length === 0 || !plan) {
+                pushToast({message: 'Nothing to scale in that scope.', variant: 'error'});
+                return;
+            }
+
+            onSongChange({
+                description: mode === 'expand' ? 'Expand pattern rows' : 'Contract pattern rows',
+                undoable: true,
+                mutator: (nextSong) => {
+                    const targetPattern = nextSong.patterns[patternIndices[0]];
+                    if (!targetPattern)
+                        return;
+                    if (mode === 'expand') {
+                        expandPatternRows(targetPattern, channels, rowRange, nextSong.rowsPerPattern);
+                    } else {
+                        contractPatternRows(targetPattern, channels, rowRange, nextSong.rowsPerPattern);
+                    }
+                },
+            });
+
+            const left = Math.min(...channels);
+            const right = Math.max(...channels);
+            onEditorStateChange((state) => state.setPatternSelection(new SelectionRect2D({
+                start: {x: left, y: plan.resultingRowRange.start},
+                size: {
+                    width: right - left + 1,
+                    height: plan.resultingRowRange.end - plan.resultingRowRange.start + 1,
+                },
+            })));
+        }, [onEditorStateChange, onSongChange, pushToast, resolveScopeTargets, song.rowsPerPattern]);
+
+        const handleExpandRows = useCallback(
+            (scope: AdvancedEditScope) => handleScaleRows('expand', scope),
+            [handleScaleRows],
+        );
+        const handleContractRows = useCallback(
+            (scope: AdvancedEditScope) => handleScaleRows('contract', scope),
+            [handleScaleRows],
+        );
 
       const handleEvenlyDistributeNotes = useCallback((scope: AdvancedEditScope) => {
          assert(scope.scope === 'selection', 'Evenly distribute notes is only available for Selection scope.');
@@ -1612,6 +1668,8 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         onNudgeInstrument={nudgeInstrumentInSelection}
                         onInterpolate={handleInterpolate}
                     onEvenlyDistributeNotes={handleEvenlyDistributeNotes}
+                        onExpand={handleExpandRows}
+                        onContract={handleContractRows}
                         onClearNotes={handleClearNotes}
                         onClearInstrument={handleClearInstrument}
                         onClearVolume={handleClearVolume}

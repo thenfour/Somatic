@@ -15,6 +15,19 @@ export type RowRange = {
    end: number
 };
 
+export type PatternRowScaleMode = "expand" | "contract";
+
+export type PatternRowScalePlan = {
+   sourceRowRange: RowRange;
+   affectedRowRange: RowRange;
+   resultingRowRange: RowRange;
+};
+
+export type PatternRowScaleResult = {
+   mutated: boolean;
+   resultingRowRange: RowRange | null;
+};
+
 export type EvenlyDistributeNotesResult = {
    mutated: boolean;
    eligibleNoteCount: number;
@@ -42,6 +55,95 @@ const cellsEqual = (a: PatternCell, b: PatternCell): boolean =>
    a.tic80EffectY === b.tic80EffectY &&
    a.somaticEffect === b.somaticEffect &&
    a.somaticParam === b.somaticParam;
+
+export const planPatternRowScale = (
+   rowRange: RowRange,
+   rowsPerPattern: number,
+   mode: PatternRowScaleMode,
+): PatternRowScalePlan | null => {
+   const rowCount = Math.max(0, Math.trunc(rowsPerPattern));
+   if (rowCount === 0)
+      return null;
+
+   const maxRow = rowCount - 1;
+   const sourceStart = clamp(Math.min(rowRange.start, rowRange.end), 0, maxRow);
+   const sourceEnd = clamp(Math.max(rowRange.start, rowRange.end), 0, maxRow);
+   const sourceCount = sourceEnd - sourceStart + 1;
+   const resultingCount = mode === "expand"
+      ? Math.min(sourceCount * 2, rowCount - sourceStart)
+      : Math.ceil(sourceCount / 2);
+   const resultingEnd = sourceStart + resultingCount - 1;
+
+   return {
+      sourceRowRange: {start: sourceStart, end: sourceEnd},
+      affectedRowRange: {
+         start: sourceStart,
+         end: mode === "expand" ? resultingEnd : sourceEnd,
+      },
+      resultingRowRange: {start: sourceStart, end: resultingEnd},
+   };
+};
+
+const scalePatternRows = (
+   pattern: Pattern,
+   channels: number[],
+   rowRange: RowRange,
+   rowsPerPattern: number,
+   mode: PatternRowScaleMode,
+): PatternRowScaleResult => {
+   const plan = planPatternRowScale(rowRange, rowsPerPattern, mode);
+   if (!plan)
+      return {mutated: false, resultingRowRange: null};
+
+   const sourceCount = plan.sourceRowRange.end - plan.sourceRowRange.start + 1;
+   const resultingCount = plan.resultingRowRange.end - plan.resultingRowRange.start + 1;
+   const affectedCount = plan.affectedRowRange.end - plan.affectedRowRange.start + 1;
+   let mutated = false;
+
+   for (const channelIndex of channels) {
+      // Snapshot first: expansion writes across later source rows, while odd-sized
+      // contraction can write into a row that is still needed as input.
+      const sourceCells = Array.from({length: sourceCount}, (_, rowOffset) => ({
+         ...(pattern.peekCell(channelIndex, plan.sourceRowRange.start + rowOffset) ?? {}),
+      }));
+
+      for (let rowOffset = 0; rowOffset < affectedCount; rowOffset++) {
+         let sourceOffset: number | null = null;
+         if (mode === "expand") {
+            if (rowOffset % 2 === 0)
+               sourceOffset = rowOffset / 2;
+         } else if (rowOffset < resultingCount) {
+            sourceOffset = rowOffset * 2;
+         }
+
+         const nextCell = sourceOffset !== null && sourceOffset < sourceCells.length
+            ? sourceCells[sourceOffset]
+            : {};
+         const rowIndex = plan.affectedRowRange.start + rowOffset;
+         const oldCell = pattern.peekCell(channelIndex, rowIndex) ?? {};
+         if (cellsEqual(oldCell, nextCell))
+            continue;
+         pattern.setCell(channelIndex, rowIndex, nextCell);
+         mutated = true;
+      }
+   }
+
+   return {mutated, resultingRowRange: plan.resultingRowRange};
+};
+
+export const expandPatternRows = (
+   pattern: Pattern,
+   channels: number[],
+   rowRange: RowRange,
+   rowsPerPattern: number,
+): PatternRowScaleResult => scalePatternRows(pattern, channels, rowRange, rowsPerPattern, "expand");
+
+export const contractPatternRows = (
+   pattern: Pattern,
+   channels: number[],
+   rowRange: RowRange,
+   rowsPerPattern: number,
+): PatternRowScaleResult => scalePatternRows(pattern, channels, rowRange, rowsPerPattern, "contract");
 
 const compactPatternCell = (cell: PatternCell): PatternCell =>
    Object.fromEntries(Object.entries(cell).filter(([, value]) => value !== undefined)) as PatternCell;
