@@ -252,7 +252,8 @@ export interface SomaticInstrumentDto {
    waveLoopLength: number; // 0-29
 
    // pitch frames
-   pitchFrames: number[];   // pitch frames (-8 to +7)
+   // Biased editor storage 0..15; semantic/native pitch is value - 8 (-8..+7).
+   pitchFrames: number[];
    pitchLoopStart: number;  // 0-29
    pitchLoopLength: number; // 0-29
    pitch16x: boolean;
@@ -317,6 +318,7 @@ export class SomaticInstrument {
    waveLoopLength: number; // 0-29
 
    // pitch frames
+   // Biased editor storage 0..15; semantic/native pitch is value - 8 (-8..+7).
    pitchFrames: Int8Array;
    pitchLoopStart: number;  // 0-29
    pitchLoopLength: number; // 0-29
@@ -355,7 +357,7 @@ export class SomaticInstrument {
       this.highlightColor = data.highlightColor ?? null;
       this.highlightFg = data.highlightFg ?? null;
 
-      this.speed = clamp(data.speed ?? 3, 0, Tic80Caps.sfx.speedMax);
+      this.speed = clamp(data.speed ?? 3, Tic80Caps.sfx.speedMin, Tic80Caps.sfx.speedMax);
 
       // because this is a tracker, you'll never trigger an sfx using its base note. it's always specified
       // in pattern data. therefore baseNote & octave are actually ignored.

@@ -201,7 +201,9 @@ export const Tic80Caps = {
       //count: 64,
       maxSupported: 62, // 0/1 are reserved for 0 and 1 (note-cut)
       envelopeFrameCount: 30,
+      speedMin: 0,
       speedMax: 7,
+      speedSignedBias: 4,
       volumeMax: 15,
       pitchMin: -8,
       pitchMax: 7,

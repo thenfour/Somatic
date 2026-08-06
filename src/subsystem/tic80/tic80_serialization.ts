@@ -150,21 +150,22 @@ export const packLoop = (start: number, length: number): number => {
    return (loopSize << 4) | loopStart;
 };
 
+const wrapInstrumentSpeedValue = (value: number): number => {
+   const valueCount = Tic80Caps.sfx.speedMax - Tic80Caps.sfx.speedMin + 1;
+   return ((value % valueCount) + valueCount) % valueCount;
+};
+
 export const encodeInstrumentSpeed = (speed: number): number => {
    // speed is an 3-bit value; in the editor it's 0..7
    // but stored differently:
    // "The sample speed bytes should added to 4 and then you should preform the modulus operation with 8 on it ((S + 4) % 8)"
    // so effectively minus 4 with wrapping.
-   let val = speed - 4;
-   if (val < 0) {
-      val += 8;
-   }
-   return val & 0x07;
+   return wrapInstrumentSpeedValue(speed - Tic80Caps.sfx.speedSignedBias);
 };
 
 export const decodeInstrumentSpeed = (byte: number): number => {
    // Inverse of encodeInstrumentSpeed: (S + 4) % 8
-   return (byte + 4) & 0x07;
+   return wrapInstrumentSpeedValue(byte + Tic80Caps.sfx.speedSignedBias);
 };
 
 function decodeSignedNibble4(v: number): number {

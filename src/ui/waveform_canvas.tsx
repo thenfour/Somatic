@@ -7,9 +7,23 @@ export type WaveformCanvasHover = {
     actualValue: number;
 };
 
+export type WaveformCanvasHorizontalGuide = Readonly<{
+    value: number;
+    label?: string;
+    variant: "zero";
+}>;
+
+export type WaveformCanvasVerticalGuide = Readonly<{
+    position: number;
+    title?: string;
+    variant: "row" | "beat";
+}>;
+
 export type WaveformCanvasProps = {
     values: ReadonlyArray<number>;
-    /** Inclusive max value for a sample, e.g. 15 for 0-15. */
+    /** Inclusive minimum value for a sample; defaults to zero. */
+    minValue?: number;
+    /** Inclusive maximum value for a sample, e.g. 15 for 0-15. */
     maxValue: number;
     /** Pixel scale factor; controls overall size (number or {x,y}). */
     scale?: number | { x: number; y: number };
@@ -25,10 +39,15 @@ export type WaveformCanvasProps = {
     loopLength?: number;
     /** Called when hover state changes (index and value, or null for no hover). */
     onHoverChange?: (hover: WaveformCanvasHover | null) => void;
+    /** Optional semantic formatting for the in-canvas cursor readout. */
+    formatCoordinates?: (hover: WaveformCanvasHover) => string | readonly string[];
+    horizontalGuides?: readonly WaveformCanvasHorizontalGuide[];
+    verticalGuides?: readonly WaveformCanvasVerticalGuide[];
 };
 
 export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     values,
+    minValue = 0,
     maxValue,
     scale,
     className,
@@ -37,9 +56,12 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     loopStart = 0,
     loopLength = 0,
     onHoverChange,
+    formatCoordinates,
+    horizontalGuides = [],
+    verticalGuides = [],
 }) => {
     const pointCount = values.length;
-    const amplitudeRange = maxValue + 1;
+    const amplitudeRange = maxValue - minValue + 1;
 
     const [isDrawing, setIsDrawing] = useState(false);
     const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -50,7 +72,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     const lastValueRef = useRef<number | null>(null);
     const anchorIndexRef = useRef<number | null>(null);
     const anchorValueRef = useRef<number | null>(null);
-    const bufferRef = useRef<number[]>(values.map((v) => (Number.isFinite(v) ? v : 0)));
+    const bufferRef = useRef<number[]>(values.map((v) => (Number.isFinite(v) ? v : minValue)));
 
     const classNamePrefix = "waveform-editor";
 
@@ -66,14 +88,14 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     }
 
     const clampValue = (v: number) => {
-        return clamp(v, 0, maxValue);
+        return clamp(v, minValue, maxValue);
     };
 
     // Keep an internal mutable buffer in sync with props whenever we're not actively drawing.
     useEffect(() => {
         if (isDrawing) return;
         bufferRef.current = values.map((v) => clampValue(v));
-    }, [values, maxValue, isDrawing]);
+    }, [values, minValue, maxValue, isDrawing]);
 
     const getPointFromClientPosition = (clientX: number, clientY: number) => {
         const element = svgRef.current ?? canvasRef.current;
@@ -97,7 +119,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         // Map Y into discrete value rows aligned with SVG grid cells.
         const relYFromBottom = rect.height - y; // 0 at bottom, rect.height at top
         const cellHeight = rect.height / amplitudeRange;
-        let value = Math.floor(relYFromBottom / cellHeight);
+        let value = minValue + Math.floor(relYFromBottom / cellHeight);
         value = clampValue(value);
 
         return { index, value };
@@ -182,7 +204,11 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         if (point) {
             setHoverIndex(point.index);
             setHoverValue(point.value);
-            onHoverChange?.({ index: point.index, value: point.value, actualValue: values[point.index] });
+            onHoverChange?.({
+                index: point.index,
+                value: point.value,
+                actualValue: clampValue(values[point.index] ?? minValue),
+            });
         } else {
             setHoverIndex(null);
             setHoverValue(null);
@@ -210,7 +236,11 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
             if (point) {
                 setHoverIndex(point.index);
                 setHoverValue(point.value);
-                onHoverChange?.({ index: point.index, value: point.value, actualValue: values[point.index] });
+                onHoverChange?.({
+                    index: point.index,
+                    value: point.value,
+                    actualValue: clampValue(values[point.index] ?? minValue),
+                });
                 handleDrawAtPosition(event.clientX, event.clientY, event.shiftKey);
             } else {
                 setHoverIndex(null);
@@ -270,6 +300,50 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         );
     }
 
+    const horizontalGuideElements = horizontalGuides.map((guide, index) => {
+        const value = clampValue(guide.value);
+        const cellHeight = height / amplitudeRange;
+        const y = height - ((value - minValue + 1) * cellHeight);
+        return (
+            <g key={`horizontal-guide-${index}`}>
+                <rect
+                    x={0}
+                    y={y}
+                    width={width}
+                    height={cellHeight}
+                    className={`${classNamePrefix}__horizontal-guide ${classNamePrefix}__horizontal-guide--${guide.variant}`}
+                />
+                {guide.label && (
+                    <text
+                        x={width - 4}
+                        y={y + cellHeight / 2}
+                        dominantBaseline="middle"
+                        textAnchor="end"
+                        className={`${classNamePrefix}__guide-label`}
+                    >
+                        {guide.label}
+                    </text>
+                )}
+            </g>
+        );
+    });
+
+    const verticalGuideElements = verticalGuides.map((guide, index) => {
+        const x = clamp(guide.position, 0, pointCount) * width / pointCount;
+        return (
+            <line
+                key={`vertical-guide-${index}`}
+                x1={x}
+                x2={x}
+                y1={0}
+                y2={height}
+                className={`${classNamePrefix}__vertical-guide ${classNamePrefix}__vertical-guide--${guide.variant}`}
+            >
+                {guide.title && <title>{guide.title}</title>}
+            </line>
+        );
+    });
+
     const loopLines: JSX.Element[] = [];
     if (supportsLoop && loopLength > 0) {
         const start = clamp(loopStart, 0, pointCount - 1);
@@ -300,9 +374,9 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
     const points: JSX.Element[] = [];
     for (let i = 0; i < pointCount; i += 1) {
-        const value = clampValue(values[i] ?? 0);
+        const value = clampValue(values[i] ?? minValue);
         const x = (i + 0.5) * (width / pointCount);
-        const y = height - ((value + 0.5) * height) / amplitudeRange;
+        const y = height - ((value - minValue + 0.5) * height) / amplitudeRange;
         const isHovered = hoverIndex === i;
         points.push(
             <rect
@@ -321,7 +395,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     let hoverPreview: JSX.Element | null = null;
     if (hoverIndex != null && hoverValue != null) {
         const x = (hoverIndex + 0.5) * (width / pointCount);
-        const y = height - ((hoverValue + 0.5) * height) / amplitudeRange;
+        const y = height - ((hoverValue - minValue + 0.5) * height) / amplitudeRange;
         hoverPreview = (
             <rect
                 x={x - scaleX * 0.4}
@@ -335,13 +409,23 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
     let cursorCoordinates: JSX.Element | null = null;
     if (hoverIndex != null && hoverValue != null) {
+        const hover = {
+            index: hoverIndex,
+            value: hoverValue,
+            actualValue: clampValue(values[hoverIndex] ?? minValue),
+        };
+        const formattedCoordinates = formatCoordinates?.(hover) ?? `[${hoverIndex}, ${hoverValue}]`;
+        const coordinateLines = typeof formattedCoordinates === "string" ?
+            [formattedCoordinates] : formattedCoordinates;
         cursorCoordinates = (
             <text
                 x={8}
                 y={16}
                 className={`${classNamePrefix}__coordinates`}
             >
-                [{hoverIndex}, {hoverValue}]
+                {coordinateLines.map((line, index) => (
+                    <tspan key={index} x={8} dy={index === 0 ? 0 : 16}>{line}</tspan>
+                ))}
             </text>
         );
     }
@@ -376,7 +460,9 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
                         height={height}
                         className={`${classNamePrefix}__background`}
                     />
+                    {horizontalGuideElements}
                     {gridLines}
+                    {verticalGuideElements}
                     {loopLines}
                     {points}
                     {hoverPreview}

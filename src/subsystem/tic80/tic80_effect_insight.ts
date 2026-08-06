@@ -20,7 +20,7 @@ import {
    tic80AnalyzePitchOffset,
    tic80PitchOffsetFromParam,
 } from "../../utils/music/tic80Pitch";
-import {CharMap, formatTiming, formatToDecimalPlaces} from "../../utils/utils";
+import {CharMap, formatDecibels, formatSigned, formatSignedFixed, formatTiming, formatToDecimalPlaces, paramByte} from "../../utils/utils";
 
 export type Tic80EffectInsight = {
    code: string;
@@ -29,24 +29,6 @@ export type Tic80EffectInsight = {
    explanation?: string;
    warning?: string;
 };
-
-function paramByte(x: number, y: number): number {
-   return (x << 4) | y;
-}
-
-function formatSigned(value: number): string {
-   return value > 0 ? `+${value}` : value.toString();
-}
-
-// fixed # of decimal places with sign for positive.
-function formatSignedFixed(value: number, decimalPlaces: number): string {
-   return `${value > 0 ? "+" : ""}${formatToDecimalPlaces(value, decimalPlaces)}`;
-}
-
-function formatDecibels(value: number): string {
-   return value === Number.NEGATIVE_INFINITY ?
-      "silence" : `${formatToDecimalPlaces(value, 1)}dB`;
-}
 
 function formatCentsRange(minCents: number, maxCents: number): string {
    const roundedMin = Math.round(minCents);

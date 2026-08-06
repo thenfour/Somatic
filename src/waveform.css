@@ -68,6 +68,35 @@
     stroke-width: 1;
 }
 
+.waveform-editor__horizontal-guide,
+.waveform-editor__vertical-guide,
+.waveform-editor__guide-label {
+    pointer-events: none;
+}
+
+.waveform-editor__horizontal-guide--zero {
+    fill: var(--waveform-edit-highlight);
+    opacity: 0.12; /* we avoid opacity in this project but sometimes exceptions have to be made in very detailed components. */
+}
+
+.waveform-editor__vertical-guide {
+    stroke: var(--waveform-edit-coordinate-text);
+    stroke-width: 1;
+    opacity: 0.24; /* we avoid opacity in this project but sometimes exceptions have to be made in very detailed components. */
+}
+
+.waveform-editor__vertical-guide--beat {
+    stroke-width: 2;
+    opacity: 0.42; /* we avoid opacity in this project but sometimes exceptions have to be made in very detailed components. */
+}
+
+.waveform-editor__guide-label {
+    fill: var(--waveform-edit-coordinate-text);
+    font-family: monospace;
+    font-size: 12px;
+    opacity: 0.7; /* we avoid opacity in this project but sometimes exceptions have to be made in very detailed components. */
+}
+
 .waveform-editor__loop-line {
     stroke: var(--waveform-edit-loop-line);
     stroke-width: 2.5;

@@ -170,7 +170,10 @@ export class Tic80Backend {
             continue;
          }
 
-         const speed = Math.max(0, Math.min(7, instrument.speed ?? 0));
+         const speed = Math.max(
+            Tic80Caps.sfx.speedMin,
+            Math.min(Tic80Caps.sfx.speedMax, instrument.speed ?? Tic80Caps.sfx.speedMin),
+         );
 
          requests.push({
             channel: channelIndex,

@@ -35,7 +35,25 @@
 }
 
 .instrument-envelope-editor__header h4 {
-    margin-bottom: 4px;
+    margin: 0 0 4px;
+}
+
+.instrument-envelope-editor__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    max-width: 480px;
+}
+
+.instrument-envelope-editor__loop-controls {
+    display: flex;
+    gap: 4px;
+}
+
+.instrument-envelope-editor__timing {
+    color: var(--muted);
+    font-size: 13px;
+    font-family: var(--ff-mono);
 }
 
 .instrument-panel label {

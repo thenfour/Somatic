@@ -17,7 +17,7 @@ import {
    formatTic80EffectInsight,
    formatTic80EffectTooltip,
 } from "../src/subsystem/tic80/tic80_effect_insight";
-import {formatTiming, formatToDecimalPlaces} from "../src/utils/utils";
+import {CharMap, formatTiming, formatToDecimalPlaces} from "../src/utils/utils";
 import {
    semitonesBetweenFrequencies,
    tic80AnalyzePitchOffset,
@@ -33,6 +33,18 @@ import {
    tic80AnalyzeVibrato,
    tic80VibratoPitchOffsets,
 } from "../src/utils/music/tic80EffectAnalysis";
+import {
+   tic80AnalyzeEnvelopeColumnTiming,
+   tic80AnalyzeEnvelopeRate,
+   tic80AnalyzeEnvelopeRowGuides,
+   tic80ArpeggioEnvelopeSemitones,
+   tic80EnvelopeColumnAtTick,
+   tic80EnvelopeSemanticToStoredValue,
+   tic80EnvelopeStoredToSemanticValue,
+   tic80EnvelopeVolumeDecibels,
+   tic80InstrumentSpeedToNativeSpeed,
+   tic80PitchEnvelopeFrequencyOffset,
+} from "../src/utils/music/tic80Envelope";
 
 describe("TIC-80 timing", () => {
    it("formats decimal values and second-based timing values", () => {
@@ -127,6 +139,101 @@ describe("TIC-80 timing", () => {
    });
 });
 
+describe("TIC-80 instrument envelope timing", () => {
+   it("maps Somatic instrument speed to TIC-80's signed speed", () => {
+      assert.deepEqual(
+         Array.from({length: 8}, (_, speed) => tic80InstrumentSpeedToNativeSpeed(speed)),
+         [-4, -3, -2, -1, 0, 1, 2, 3],
+      );
+   });
+
+   it("reports the native column rate for slow, normal, and skipping speeds", () => {
+      assert.deepEqual(tic80AnalyzeEnvelopeRate(0), {
+         instrumentSpeed: 0,
+         nativeSpeed: -4,
+         columnsPerTick: 0.2,
+         ticksPerColumn: 5,
+         secondsPerColumn: 1 / 12,
+      });
+      assert.deepEqual(tic80AnalyzeEnvelopeRate(4), {
+         instrumentSpeed: 4,
+         nativeSpeed: 0,
+         columnsPerTick: 1,
+         ticksPerColumn: 1,
+         secondsPerColumn: 1 / 60,
+      });
+      assert.deepEqual(tic80AnalyzeEnvelopeRate(7), {
+         instrumentSpeed: 7,
+         nativeSpeed: 3,
+         columnsPerTick: 4,
+         ticksPerColumn: 0.25,
+         secondsPerColumn: 1 / 240,
+      });
+   });
+
+   it("matches TIC-80's exact unlooped column selection", () => {
+      assert.deepEqual(
+         Array.from({length: 7}, (_, tick) => tic80EnvelopeColumnAtTick(0, tick)),
+         [0, 0, 0, 0, 0, 1, 1],
+      );
+      assert.deepEqual(
+         Array.from({length: 4}, (_, tick) => tic80EnvelopeColumnAtTick(3, tick)),
+         [0, 0, 1, 1],
+      );
+      assert.deepEqual(
+         Array.from({length: 4}, (_, tick) => tic80EnvelopeColumnAtTick(7, tick)),
+         [0, 4, 8, 12],
+      );
+   });
+
+   it("maps a column to nominal TIC, elapsed-time, and song-row coordinates", () => {
+      const analysis = tic80AnalyzeEnvelopeColumnTiming(7, 3, {tempo: 120, speed: 6});
+      assert.equal(analysis.columnIndex, 7);
+      assert.equal(analysis.nominalTicks, 14);
+      assert.equal(analysis.seconds, 14 / 60);
+      assert.ok(Math.abs(analysis.rows - 1.8666666666666667) < 1e-12);
+   });
+
+   it("projects actual integer row boundaries onto the first-pass envelope axis", () => {
+      const guides = tic80AnalyzeEnvelopeRowGuides(30, 3, {tempo: 120, speed: 6}, 4, 64);
+      assert.deepEqual(guides.map(guide => ({
+         rowOffset: guide.rowOffset,
+         runtimeTick: guide.runtimeTick,
+         columnPosition: guide.columnPosition,
+         beatBoundary: guide.beatBoundary,
+      })), [
+         {rowOffset: 1, runtimeTick: 8, columnPosition: 4, beatBoundary: false},
+         {rowOffset: 2, runtimeTick: 15, columnPosition: 7.5, beatBoundary: false},
+         {rowOffset: 3, runtimeTick: 23, columnPosition: 11.5, beatBoundary: false},
+         {rowOffset: 4, runtimeTick: 30, columnPosition: 15, beatBoundary: true},
+         {rowOffset: 5, runtimeTick: 38, columnPosition: 19, beatBoundary: false},
+         {rowOffset: 6, runtimeTick: 45, columnPosition: 22.5, beatBoundary: false},
+         {rowOffset: 7, runtimeTick: 53, columnPosition: 26.5, beatBoundary: false},
+         {rowOffset: 8, runtimeTick: 60, columnPosition: 30, beatBoundary: true},
+      ]);
+   });
+
+   it("round-trips biased pitch rows through semantic -8..+7 values", () => {
+      assert.equal(tic80EnvelopeStoredToSemanticValue(0, -8, 7), -8);
+      assert.equal(tic80EnvelopeStoredToSemanticValue(8, -8, 7), 0);
+      assert.equal(tic80EnvelopeStoredToSemanticValue(15, -8, 7), 7);
+      assert.equal(tic80EnvelopeSemanticToStoredValue(-8, -8, 7), 0);
+      assert.equal(tic80EnvelopeSemanticToStoredValue(0, -8, 7), 8);
+      assert.equal(tic80EnvelopeSemanticToStoredValue(7, -8, 7), 15);
+   });
+
+   it("analyzes volume, arpeggio, and pitch envelope values", () => {
+      assert.equal(tic80EnvelopeVolumeDecibels(15), 0);
+      assert.ok(Math.abs(tic80EnvelopeVolumeDecibels(8) - -5.460025441274753) < 1e-12);
+      assert.equal(tic80EnvelopeVolumeDecibels(0), Number.NEGATIVE_INFINITY);
+      assert.equal(tic80ArpeggioEnvelopeSemitones(7, false), 7);
+      assert.equal(tic80ArpeggioEnvelopeSemitones(7, true), -7);
+      assert.equal(tic80PitchEnvelopeFrequencyOffset(4, false), 4);
+      assert.equal(tic80PitchEnvelopeFrequencyOffset(4, true), 64);
+      assert.equal(tic80PitchEnvelopeFrequencyOffset(-8, true), -128);
+   });
+});
+
 describe("TIC-80 timed effect insights", () => {
    const timing = {tempo: 120, speed: 6};
 
@@ -204,7 +311,7 @@ describe("TIC-80 musical effect insights", () => {
          formatTic80EffectInsight(insight),
          "M8F: Volume: L 8/15 (-5.5dB), R 15/15 (0dB)",
       );
-      assert.match(formatTic80EffectTooltip(insight) ?? "", /linear amplitude multipliers/);
+      assert.match(formatTic80EffectTooltip(insight) ?? "", /linear gains independently/);
    });
 
    it("shows silence as negative infinity dB", () => {
@@ -217,7 +324,7 @@ describe("TIC-80 musical effect insights", () => {
       assert.ok(insight);
       assert.equal(
          formatTic80EffectInsight(insight),
-         "M0F: Volume: L 0/15 (-∞dB), R 15/15 (0dB)",
+         "M0F: Volume: L 0/15 (silence), R 15/15 (0dB)",
       );
    });
 
@@ -261,7 +368,7 @@ describe("TIC-80 musical effect insights", () => {
       assert.ok(insight);
       assert.equal(
          formatTic80EffectInsight(insight),
-         "S08: Slide: C-4 → G-4 (+7 st) over 8 ticks (1.07 rows, 133ms)",
+         `S08: Slide: C-4 ${CharMap.RightArrow} G-4 (+7 st) over 8 ticks (1.07 rows, 133ms)`,
       );
       assert.match(formatTic80EffectTooltip(insight) ?? "", /not semitones/);
    });

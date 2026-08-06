@@ -6,7 +6,28 @@ import { ModSource, SomaticEffectKind, SomaticInstrumentWaveEngine, SomaticInstr
 import { Song } from '../models/song';
 import { SomaticCaps, Tic80Caps } from '../models/tic80Capabilities';
 import { gTic80Palette } from '../theme/ticPalette';
-import { assert, clamp, kNullKey, secondsTo60HzFrames } from '../utils/utils';
+import {
+   tic80AnalyzeEnvelopeColumnTiming,
+   tic80AnalyzeEnvelopeRate,
+   tic80AnalyzeEnvelopeRowGuides,
+   tic80ArpeggioEnvelopeSemitones,
+   tic80EnvelopeVolumeDecibels,
+   tic80EnvelopeSemanticToStoredValue,
+   tic80EnvelopeStoredToSemanticValue,
+   tic80PitchEnvelopeFrequencyOffset,
+} from '../utils/music/tic80Envelope';
+import type {Tic80Timing} from '../utils/music/tic80Music';
+import {
+   CharMap,
+   assert,
+   clamp,
+   formatDecibels,
+   formatSigned,
+   formatTiming,
+   formatToDecimalPlaces,
+   kNullKey,
+   secondsTo60HzFrames,
+} from '../utils/utils';
 import { AppPanelShell } from './AppPanelShell';
 import { ButtonGroup } from './Buttons/ButtonGroup';
 import { CheckboxButton } from './Buttons/CheckboxButton';
@@ -37,11 +58,13 @@ const PWMDutyConfig: ContinuousParamConfig = {
 };
 
 const SpeedConfig: ContinuousParamConfig = {
-    resolutionSteps: Tic80Caps.sfx.speedMax + 1,
-    default: 0,
-    center: 0,
-    convertTo01: (v) => v / Tic80Caps.sfx.speedMax,
-    convertFrom01: (v01) => v01 * Tic80Caps.sfx.speedMax,
+    resolutionSteps: Tic80Caps.sfx.speedMax - Tic80Caps.sfx.speedMin + 1,
+    default: Tic80Caps.sfx.speedMin,
+    center: Tic80Caps.sfx.speedMin,
+    convertTo01: (v) => (v - Tic80Caps.sfx.speedMin) /
+       (Tic80Caps.sfx.speedMax - Tic80Caps.sfx.speedMin),
+    convertFrom01: (v01) => Tic80Caps.sfx.speedMin +
+       v01 * (Tic80Caps.sfx.speedMax - Tic80Caps.sfx.speedMin),
     format: (v) => v.toFixed(0),
 };
 
@@ -209,31 +232,123 @@ const PanLfoDepthConfig: ContinuousParamConfig = {
  refer also to Tic80Caps where we try to avoid hardcoding TIC-80 system limits/values.
 
 */
+type InstrumentEnvelopeTiming = Readonly<{
+   instrumentSpeed: number;
+   songTiming: Tic80Timing;
+   rowsPerBeat: number;
+   maxRows: number;
+}>;
+
+type InstrumentEnvelopeValueFormatter = (
+   semanticValue: number,
+   storedValue: number,
+) => string;
+
+function formatEnvelopeRate(instrumentSpeed: number): string {
+   const rate = tic80AnalyzeEnvelopeRate(instrumentSpeed);
+   const columnTime = `${formatTiming(rate.secondsPerColumn)}/column`;
+   if (rate.columnsPerTick <= 1) {
+      return `${formatToDecimalPlaces(rate.ticksPerColumn, 2)} TIC/column ` +
+         `${CharMap.Bullet} ${columnTime}`;
+   }
+   return `${formatToDecimalPlaces(rate.columnsPerTick, 2)} columns/TIC ` +
+      `${CharMap.Bullet} ${columnTime} nominal`;
+}
+
 export const InstrumentEnvelopeEditor: React.FC<{
     title: string;
     className?: string;
     frames: Int8Array;
     loopStart: number;
     loopLength: number;
-    minValue: number; // min value (inclusive) per frame
-    maxValue: number; // max value (inclusive) per frame
+   minValue: number; // semantic minimum value (inclusive) per frame
+   maxValue: number; // semantic maximum value (inclusive) per frame
     onChange: (frames: Int8Array, loopStart: number, loopLength: number) => void;
     onHoverChange?: (hover: WaveformCanvasHover | null) => void;
-}> = ({ title, className, frames, loopStart, loopLength, minValue, maxValue, onChange, onHoverChange }) => {
+   timing?: InstrumentEnvelopeTiming;
+   zeroValue?: number;
+   formatValue?: InstrumentEnvelopeValueFormatter;
+}> = ({
+   title,
+   className,
+   frames,
+   loopStart,
+   loopLength,
+   minValue,
+   maxValue,
+   onChange,
+   onHoverChange,
+   timing,
+   zeroValue,
+   formatValue,
+}) => {
     const frameCount = frames.length;
-    const valueRange = maxValue - minValue;
-    const canvasMaxValue = valueRange <= 0 ? 0 : valueRange;
+   const valueRange = Math.max(0, maxValue - minValue);
     const clipboard = useClipboard();
 
     const handleCanvasChange = (nextValues: number[]) => {
         assert(nextValues.length === frameCount, 'Unexpected frame count in canvas change');
-        const nextFrames = new Int8Array(nextValues);
+       const nextFrames = new Int8Array(nextValues.map(
+          value => tic80EnvelopeSemanticToStoredValue(value, minValue, maxValue)));
         onChange(nextFrames, loopStart, loopLength);
     };
 
     const canvasValues = useMemo(() => {
-        return [...frames]; // canvas does its own internal clamping.
-    }, [frames]);
+       return Array.from(
+          frames,
+          value => tic80EnvelopeStoredToSemanticValue(value, minValue, maxValue),
+       );
+    }, [frames, minValue, maxValue]);
+
+   const rowGuides = useMemo(() => timing ? tic80AnalyzeEnvelopeRowGuides(
+      frameCount,
+      timing.instrumentSpeed,
+      timing.songTiming,
+      timing.rowsPerBeat,
+      timing.maxRows,
+   ) : [], [
+      frameCount,
+      timing?.instrumentSpeed,
+      timing?.songTiming.tempo,
+      timing?.songTiming.speed,
+      timing?.rowsPerBeat,
+      timing?.maxRows,
+   ]);
+
+   const verticalGuides = rowGuides.map(guide => ({
+      position: guide.columnPosition,
+      variant: guide.beatBoundary ? 'beat' as const : 'row' as const,
+      title:
+         `Row +${guide.rowOffset}: ${guide.runtimeTick} TIC ` +
+         `(${formatTiming(guide.seconds)})${guide.beatBoundary ? ' · beat boundary' : ''}`,
+   }));
+
+   const horizontalGuides = zeroValue === undefined ? [] : [{
+      value: zeroValue,
+      label: '0',
+      variant: 'zero' as const,
+   }];
+
+   const formatCoordinates = (hover: WaveformCanvasHover): readonly string[] => {
+      const storedValue = tic80EnvelopeSemanticToStoredValue(hover.value, minValue, maxValue);
+      const valueText = formatValue?.(hover.value, storedValue) ?? `y ${hover.value}`;
+      if (!timing)
+         return [`x ${hover.index}`, valueText];
+
+      const columnTiming = tic80AnalyzeEnvelopeColumnTiming(
+         hover.index,
+         timing.instrumentSpeed,
+         timing.songTiming,
+      );
+      const rowUnit = Math.abs(columnTiming.rows - 1) < 1e-9 ? 'row' : 'rows';
+      return [
+         `x ${hover.index} ${CharMap.Bullet} ` +
+         `${formatToDecimalPlaces(columnTiming.nominalTicks, 2)} TIC ${CharMap.Bullet} ` +
+         `${formatTiming(columnTiming.seconds)} ${CharMap.Bullet} ` +
+         `${formatToDecimalPlaces(columnTiming.rows, 2)} ${rowUnit}`,
+         valueText,
+      ];
+   };
 
     const loopStartConfig: ContinuousParamConfig = useMemo(() => ({
         resolutionSteps: Math.max(1, frameCount),
@@ -267,12 +382,12 @@ export const InstrumentEnvelopeEditor: React.FC<{
     };
 
     const handleRotateUp = () => {
-        const nextFrames = new Int8Array(frames.map(v => clamp(v + 1, minValue, maxValue)));
+       const nextFrames = new Int8Array(frames.map(v => clamp(v + 1, 0, valueRange)));
         onChange(nextFrames, loopStart, loopLength);
     };
 
     const handleRotateDown = () => {
-        const nextFrames = new Int8Array(frames.map(v => clamp(v - 1, minValue, maxValue)));
+       const nextFrames = new Int8Array(frames.map(v => clamp(v - 1, 0, valueRange)));
         onChange(nextFrames, loopStart, loopLength);
     };
 
@@ -310,7 +425,7 @@ export const InstrumentEnvelopeEditor: React.FC<{
         }>();
         if (!data || !Array.isArray(data.frames)) return;
         const nextFrames = new Int8Array(
-            data.frames.slice(0, frameCount).map(v => clamp(v, minValue, maxValue))
+           data.frames.slice(0, frameCount).map(v => clamp(v, 0, valueRange))
         );
         // Pad with zeros if pasted data is shorter
         if (nextFrames.length < frameCount) {
@@ -325,7 +440,14 @@ export const InstrumentEnvelopeEditor: React.FC<{
     return (
         <div className={`instrument-envelope-editor ${className || ''}`}>
             <div className="instrument-envelope-editor__header">
+             <div>
                 <h4>{title}</h4>
+                {timing && (
+                   <div className="instrument-envelope-editor__timing">
+                      {formatEnvelopeRate(timing.instrumentSpeed)}
+                   </div>
+                )}
+             </div>
                 <div className="instrument-envelope-editor__loop-controls">
                     <ContinuousKnob
                         label='Loop start'
@@ -344,7 +466,8 @@ export const InstrumentEnvelopeEditor: React.FC<{
             <div className="instrument-envelope-editor__content">
                 <WaveformCanvas
                     values={canvasValues}
-                    maxValue={canvasMaxValue}
+                minValue={minValue}
+                maxValue={maxValue}
                     // Envelopes tend to be more compact than full waveforms.
                     scale={{ x: 16, y: 12 }}
                     className="instrument-envelope"
@@ -353,6 +476,9 @@ export const InstrumentEnvelopeEditor: React.FC<{
                     loopStart={loopStart}
                     loopLength={loopLength}
                     onHoverChange={onHoverChange}
+                formatCoordinates={formatCoordinates}
+                horizontalGuides={horizontalGuides}
+                verticalGuides={verticalGuides}
                 />
                 <ButtonGroup>
                     <IconButton onClick={handleRotateUp} title="Rotate up" iconPath={mdiArrowUp}></IconButton>
@@ -389,6 +515,18 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
     const [hoveredWaveform, setHoveredWaveform] = useState<WaveformCanvasHover | null>(null);
     const [selectedTab, setSelectedTab] = useState<string>('volume');
     const [selectedMorphSubtab, setSelectedMorphSubtab] = useState<string>('gradient');
+   const envelopeTiming: InstrumentEnvelopeTiming = useMemo(() => ({
+      instrumentSpeed: instrument.speed,
+      songTiming: {tempo: song.tempo, speed: song.speed},
+      rowsPerBeat: song.getRowsPerBeat(),
+      maxRows: song.rowsPerPattern,
+   }), [
+      instrument.speed,
+      song.tempo,
+      song.speed,
+      song.highlightRowCount,
+      song.rowsPerPattern,
+   ]);
 
     const songOrderKey = useMemo(
         () => song.songOrder.map((item) => clamp(item.patternIndex ?? 0, 0, song.patterns.length - 1)).join(','),
@@ -582,7 +720,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
             undoable: true,
             mutator: (s) => {
                 const inst = s.instruments[instrumentIndex];
-                inst.speed = clamp(value, 0, Tic80Caps.sfx.speedMax);
+                inst.speed = clamp(value, Tic80Caps.sfx.speedMin, Tic80Caps.sfx.speedMax);
             },
         });
     };
@@ -909,6 +1047,12 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                             minValue={0}
                             maxValue={Tic80Caps.sfx.volumeMax}
                             onChange={handleVolumeEnvelopeChange}
+                      timing={envelopeTiming}
+                      formatValue={(_, storedValue) => {
+                         const decibels = tic80EnvelopeVolumeDecibels(storedValue);
+                         return `y ${storedValue}/${Tic80Caps.sfx.volumeMax} ` +
+                            `${CharMap.Bullet} ${formatDecibels(decibels)}`;
+                      }}
                         />
                     </div>
                 </Tab>
@@ -1029,6 +1173,10 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                                         maxValue={Tic80Caps.waveform.count - 1}
                                         onChange={handleWaveEnvelopeChange}
                                         onHoverChange={(hover) => setHoveredWaveform(hover)}
+                               timing={envelopeTiming}
+                               formatValue={(_, storedValue) =>
+                                  `y ${storedValue} ${CharMap.Bullet} waveform ` +
+                                  storedValue.toString(16).toUpperCase()}
                                     />
 
                                     <div>
@@ -1226,6 +1374,15 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                             minValue={0}
                             maxValue={Tic80Caps.sfx.arpeggioMax}
                             onChange={handleArpeggioEnvelopeChange}
+                      timing={envelopeTiming}
+                      formatValue={(semanticValue, storedValue) => {
+                         const effectiveSemitones = tic80ArpeggioEnvelopeSemitones(
+                            semanticValue,
+                            instrument.arpeggioDown,
+                         );
+                         return `y ${storedValue} ${CharMap.Bullet} ` +
+                            `${formatSigned(effectiveSemitones)} st`;
+                      }}
                         />
                         <div className="field-row">
                             <label>
@@ -1245,6 +1402,18 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                             minValue={Tic80Caps.sfx.pitchMin}
                             maxValue={Tic80Caps.sfx.pitchMax}
                             onChange={handlePitchEnvelopeChange}
+                      timing={envelopeTiming}
+                      zeroValue={0}
+                      formatValue={(semanticValue, storedValue) => {
+                         const effectivePitch = tic80PitchEnvelopeFrequencyOffset(
+                            semanticValue,
+                            instrument.pitch16x,
+                         );
+                         const multiplierText = instrument.pitch16x ?
+                            ` (${formatSigned(semanticValue)} ${CharMap.Mul} 16)` : '';
+                         return `y ${storedValue} ${CharMap.Bullet} ` +
+                            `${formatSigned(effectivePitch)} pitch units${multiplierText}`;
+                      }}
                         />
                         <div className="field-row">
                             <label>

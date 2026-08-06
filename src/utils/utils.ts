@@ -305,6 +305,7 @@ export const CharMap = {
    Half: "½",
    Quarter: "¼",
    ApproximatelyEquals: "≈",
+   Infinity: "∞",
 };
 
 
@@ -319,11 +320,32 @@ export const formatBytes = (n: number|null) => {
 };
 
 
+
+export function paramByte(x: number, y: number): number {
+   return (x << 4) | y;
+}
+
+
 // up to 3 decimal places but removing trailing zeros / decimal point.
 // (is this really the best ???)
 export function formatToDecimalPlaces(value: number, decimalPlaces: number): string {
    return value.toFixed(decimalPlaces).replace(/\.?0+$/, "");
 }
+
+export function formatSigned(value: number): string {
+   return value > 0 ? `+${value}` : value.toString();
+}
+
+// fixed # of decimal places with sign for positive.
+export function formatSignedFixed(value: number, decimalPlaces: number): string {
+   return `${value > 0 ? "+" : ""}${formatToDecimalPlaces(value, decimalPlaces)}`;
+}
+
+export function formatDecibels(value: number): string {
+   return value === Number.NEGATIVE_INFINITY ?
+      "silence" : `${formatToDecimalPlaces(value, 1)}dB`;
+}
+
 
 // returns in seconds or milliseconds, a string like "1.5s", "125ms"
 // seconds is up to 2 decimal places, milliseconds is integral.
