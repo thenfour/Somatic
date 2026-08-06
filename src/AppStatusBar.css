@@ -30,6 +30,23 @@
     align-items:center;
 }
 
+.app-status-bar-selection {
+    color: var(--text);
+    white-space: nowrap;
+}
+
+.app-status-bar-selection-measure {
+    outline-offset: 2px;
+}
+
+.app-status-bar-selection-label {
+    color: var(--muted);
+}
+
+.app-status-bar-selection-ticks {
+    color: var(--cell-command);
+}
+
 .app-status-bar-commands {
     /* margin-left: 12px; */
     color: var(--cell-command);

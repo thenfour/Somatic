@@ -3,12 +3,21 @@ import {useAppStatusBar} from "../hooks/useAppStatusBar";
 import {EditorState} from "../models/editor_state";
 import {formatPatternIndex, Song} from "../models/song";
 import {kSomaticPatternCommand, kTic80EffectCommand} from "../models/tic80Capabilities";
+import {kSubsystem} from "../subsystem/base/SubsystemBackendBase";
 import {
     describeTic80Effect,
     formatTic80EffectInsight,
 } from "../subsystem/tic80/tic80_effect_insight";
-import {clamp} from "../utils/utils";
+import {
+   formatTic80Timing,
+   TIC80_EFFECT_DURATION_MAX_TICKS,
+   TIC80_EFFECT_TICK_RATE_HZ,
+   tic80MeasureRowDuration,
+} from "../utils/music/tic80Music";
+import {CharMap, clamp, formatSeconds} from "../utils/utils";
+import {Tooltip} from "./basic/tooltip";
 import {IconButton} from "./Buttons/IconButton";
+import {TransportTime} from "./transportTime";
 
 
 const LinkButton: React.FC<{href: string; children: React.ReactNode;}> = ({href, children}) => {
@@ -71,6 +80,14 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
     // Column description
     const columnDesc = currentColumnType ? (COLUMN_DESCRIPTIONS[currentColumnType] || currentColumnType) : '';
 
+   const selectionRowCount = editorState.patternSelection?.rowCount() ?? null;
+   const selectionTiming = song.subsystemType === kSubsystem.key.TIC80 && selectionRowCount !== null && selectionRowCount > 0
+      ? tic80MeasureRowDuration(selectionRowCount, {tempo: song.tempo, speed: song.speed})
+      : null;
+   const selectionEffectParamHex = selectionTiming?.effectParam === null || selectionTiming?.effectParam === undefined
+      ? null
+      : selectionTiming.effectParam.toString(16).toUpperCase().padStart(2, '0');
+
     // Command descriptions
     const commandDescParts: CommandDescription[] = [];
 
@@ -78,7 +95,11 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
         // TIC-80 effect command
         if (kTic80EffectCommand.isValidKey(editingCell.tic80Effect)) {
             const noteContext = song.getChannelNoteContext(songPosition, channel, row);
-            const tic80EffectInsight = describeTic80Effect(editingCell, noteContext);
+            const tic80EffectInsight = describeTic80Effect(
+               editingCell,
+               noteContext,
+               {tempo: song.tempo, speed: song.speed},
+            );
             if (tic80EffectInsight) {
                 commandDescParts.push({
                     text: formatTic80EffectInsight(tic80EffectInsight),
@@ -108,6 +129,40 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
                 <span className="app-status-bar-label">{positionStr}</span>
                 {columnDesc && <span className="app-status-bar-column">{columnDesc}</span>}
             </div>
+          {selectionTiming && (
+             <div className="app-status-bar-group app-status-bar-selection">
+                <Tooltip
+                   title={(
+                      <div>
+                         <div>
+                            {formatSeconds(selectionTiming.nominalEffectTicks)} TIC-80 ticks at {TIC80_EFFECT_TICK_RATE_HZ} Hz.
+                         </div>
+                         {selectionEffectParamHex !== null ? (
+                            <div>
+                               {selectionTiming.approximate ? 'Nearest' : 'Matching'} effect durations: S{selectionEffectParamHex}.
+                            </div>
+                         ) : (
+                            <div>
+                               Longer than FF ({TIC80_EFFECT_DURATION_MAX_TICKS} ticks).
+                            </div>
+                         )}
+                      </div>
+                   )}
+                >
+                   <span className="app-status-bar-selection-measure" tabIndex={0}>
+                      <span className="app-status-bar-selection-label">Selection:</span>{' '}
+                      {/* {selectionTiming.rowCount} {selectionTiming.rowCount === 1 ? 'row' : 'rows'}
+                      (
+                        <span className="app-status-bar-selection-ticks">
+                         {selectionTiming.nominalEffectTicks} ticks
+                      </span>
+                      <TransportTime positionSeconds={selectionTiming.seconds} />
+                      ) */}
+                      {formatTic80Timing(selectionTiming.nominalEffectTicks, {tempo: song.tempo, speed: song.speed})}
+                   </span>
+                </Tooltip>
+             </div>
+          )}
             <div className="app-status-bar-group app-status-bar-commands">
                 {commandDescParts.map((part, index) => (
                     <span key={index} title={part.tooltip}>

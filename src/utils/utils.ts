@@ -304,6 +304,7 @@ export const CharMap = {
    Flag: "⚑",
    Half: "½",
    Quarter: "¼",
+   ApproximatelyEquals: "≈",
 };
 
 
@@ -316,6 +317,12 @@ export const formatBytes = (n: number|null) => {
       return `${(n / 1024).toFixed(1)} KB`;
    return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 };
+
+
+// up to 3 decimal places but removing trailing zeros / decimal point.
+export function formatSeconds(value: number): string {
+   return value.toFixed(3).replace(/\.?0+$/, "");
+}
 
 
 export const inclusiveRangeStartEnd = (start: number, end: number): number[] => {

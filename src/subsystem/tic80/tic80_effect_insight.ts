@@ -2,6 +2,13 @@ import {PatternCell} from "../../models/pattern";
 import type {SongChannelNoteContext} from "../../models/song";
 import {kTic80EffectCommand, Tic80Caps, Tic80EffectCommand} from "../../models/tic80Capabilities";
 import {formatTicMidiNote} from "../../utils/music/noteRegistry";
+import {
+   formatTic80Timing,
+   tic80EffectTicksToRows,
+   tic80EffectTicksToSeconds,
+   type Tic80Timing,
+} from "../../utils/music/tic80Music";
+import {formatSeconds} from "../../utils/utils";
 
 export type Tic80EffectInsight = {
    code: string;
@@ -64,6 +71,7 @@ function describeChord(
 export function describeTic80Effect(
    cell: PatternCell,
    context?: SongChannelNoteContext,
+   timing?: Tic80Timing,
    ): Tic80EffectInsight|null {
    const effectInfo = kTic80EffectCommand.coerceByKey(cell.tic80Effect);
    if (!effectInfo)
@@ -99,6 +107,7 @@ export function describeTic80Effect(
 
       case kTic80EffectCommand.key.S: {
          const ticks = paramByte(x, y);
+         const duration = formatTic80Timing(ticks, timing);
          if (ticks === 0) {
             insight = {code, summary: "Slide off"};
          } else if (
@@ -109,10 +118,10 @@ export function describeTic80Effect(
             insight = {
                code,
                summary: "Slide",
-               detail: `${formatTicMidiNote(context.activeBeforeRow.midiNote)} to ${formatTicMidiNote(cell.midiNote)} over ${ticks} ticks`,
+               detail: `${formatTicMidiNote(context.activeBeforeRow.midiNote)} to ${formatTicMidiNote(cell.midiNote)} over ${duration}`,
             };
          } else {
-            insight = {code, summary: "Slide", detail: `duration ${ticks} ticks`};
+            insight = {code, summary: "Slide", detail: `duration ${duration}`};
          }
          break;
       }
@@ -132,11 +141,12 @@ export function describeTic80Effect(
 
       case kTic80EffectCommand.key.D: {
          const ticks = paramByte(x, y);
+         const duration = formatTic80Timing(ticks, timing);
          if (cell.noteOff) {
             insight = {
                code,
                summary: "Delay",
-               detail: ticks === 0 ? "note cut immediately" : `note cut after ${ticks} ticks`,
+               detail: ticks === 0 ? "note cut immediately" : `note cut after ${duration}`,
             };
          } else if (cell.midiNote !== undefined) {
             insight = {
@@ -144,12 +154,12 @@ export function describeTic80Effect(
                summary: "Delay",
                detail: ticks === 0 ?
                   `${formatTicMidiNote(cell.midiNote)} immediately` :
-                  `${formatTicMidiNote(cell.midiNote)} after ${ticks} ticks`,
+                  `${formatTicMidiNote(cell.midiNote)} after ${duration}`,
             };
          } else {
             insight = ticks === 0 ?
                {code, summary: "Delay off"} :
-               {code, summary: "Delay", detail: `row event after ${ticks} ticks`};
+               {code, summary: "Delay", detail: `row event after ${duration}`};
          }
          break;
       }

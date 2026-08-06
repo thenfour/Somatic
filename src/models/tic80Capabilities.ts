@@ -4,6 +4,7 @@
 import {clamp, parseAddress} from "../utils/utils";
 import bridgeConfig from "../../bridge/bridge_config";
 import {defineEnum} from "../utils/enum";
+import {TIC80_DEFAULT_TEMPO, TIC80_EFFECT_TICK_RATE_HZ} from "../utils/music/tic80Music";
 
 
 // Matches defs.ts MIDI_FOR_TIC_NOTE0 mapping (C0) and TIC-80's 8 octaves of pattern range.
@@ -147,7 +148,7 @@ export const kSomaticPatternCommand = defineEnum({
 export type SomaticPatternCommand = typeof kSomaticPatternCommand.$key;
 
 export const Tic80Caps = {
-   frameRate: 60,
+   frameRate: TIC80_EFFECT_TICK_RATE_HZ,
 
    // song general aka "track".
    song: {
@@ -157,7 +158,7 @@ export const Tic80Caps = {
       songSpeedMax: 7,   // todo: verify
       minTempo: 32,      // todo: verify
       maxTempo: 254,     // todo: verify
-      defaultTempo: 150,
+      defaultTempo: TIC80_DEFAULT_TEMPO,
       defaultSpeed: 4,
       defaultRowsPerPattern: 64,
    },

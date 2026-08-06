@@ -1,3 +1,80 @@
+import {formatSeconds} from "../utils";
+
+export const TIC80_EFFECT_TICK_RATE_HZ = 60;
+export const TIC80_DEFAULT_TEMPO = 150;
+export const TIC80_EFFECT_DURATION_MAX_TICKS = 0xff;
+
+export type Tic80Timing = Readonly<{
+   tempo: number;
+   speed: number;
+}>;
+
+/**
+ * Converts a row span to 60 Hz ticks.
+ *
+ * At the default tempo (150), speed is the number of effect ticks per row.
+ * Other tempos rescale the row duration while Sxx/Dxx durations remain in
+ * 60 Hz effect ticks.
+ */
+export function tic80RowsToEffectTicks(rowCount: number, timing: Tic80Timing): number {
+   return rowCount * timing.speed * TIC80_DEFAULT_TEMPO / timing.tempo;
+}
+
+export function tic80EffectTicksToSeconds(ticks: number): number {
+   return ticks / TIC80_EFFECT_TICK_RATE_HZ;
+}
+
+export function tic80EffectTicksToRows(ticks: number, timing: Tic80Timing): number {
+   return ticks * timing.tempo / (timing.speed * TIC80_DEFAULT_TEMPO);
+}
+
+export function tic80RowsToSeconds(rowCount: number, timing: Tic80Timing): number {
+   return tic80EffectTicksToSeconds(tic80RowsToEffectTicks(rowCount, timing));
+}
+
+export type Tic80RowDurationMeasurement = Readonly<{
+   rowCount: number;
+   nominalEffectTicks: number;
+   nearestEffectTicks: number;
+   approximate: boolean;
+   seconds: number;
+   effectParam: number | null;
+}>;
+
+export function tic80MeasureRowDuration(rowCount: number, timing: Tic80Timing): Tic80RowDurationMeasurement {
+   const nominalEffectTicks = tic80RowsToEffectTicks(rowCount, timing);
+   const nearestEffectTicks = Math.max(0, Math.round(nominalEffectTicks));
+   return {
+      rowCount,
+      nominalEffectTicks,
+      nearestEffectTicks,
+      approximate: Math.abs(nominalEffectTicks - nearestEffectTicks) > 1e-9,
+      seconds: tic80EffectTicksToSeconds(nominalEffectTicks),
+      effectParam: nearestEffectTicks <= TIC80_EFFECT_DURATION_MAX_TICKS ? nearestEffectTicks : null,
+   };
+}
+
+
+export function formatTic80Timing(ticks: number, timing: Tic80Timing | undefined): string {
+   const tickUnit = ticks === 1 ? "tick" : "ticks";
+   const tickText = `${ticks} ${tickUnit}`;
+   if (!timing)
+      return tickText;
+
+   const rows = tic80EffectTicksToRows(ticks, timing);
+   const seconds = tic80EffectTicksToSeconds(ticks);
+   const rowUnit = Math.abs(rows - 1) <= 1e-9 ? "row" : "rows";
+   return `${tickText} (${formatSeconds(rows)} ${rowUnit}, ${formatSeconds(seconds)} s)`;
+}
+
+
+// https://itch.io/t/197936/music-editor-how-spd-relates-to-tempo-beats-per-minute
+// that formula assumes 4 rows per beat.
+// so for arbitrary rows per beat,
+// bpm = 24 * T / S L
+export function tic80TempoSpeedToBpm(timing: Tic80Timing, rowsPerBeat: number): number {
+   return (24 * timing.tempo) / (timing.speed * rowsPerBeat);
+}
 
 // ------------------------------------------------------------------------------------------------
 // TIC-80 pitch codec (octave 0..7, note nibble 4..15)
