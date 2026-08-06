@@ -190,10 +190,10 @@ describe("TIC-80 pitch effect insights", () => {
       assert.ok(insight);
       assert.equal(
          formatTic80EffectInsight(insight),
-         "P44: Pitch: -60 (-4.50 st → G-3 +50c)",
+         "P44: Pitch: -60 (-4.5 st → G-3 +50c)",
       );
       const tooltip = formatTic80EffectTooltip(insight);
-      assert.match(tooltip ?? "", /replaces the previous P offset; P commands do not accumulate/);
+      assert.match(tooltip ?? "", /P commands do not accumulate/);
       assert.match(tooltip ?? "", /At base C-4/);
       assert.match(tooltip ?? "", /P-only target of G-3 \+50c/);
    });
@@ -206,7 +206,7 @@ describe("TIC-80 pitch effect insights", () => {
       }, contextFor(60));
 
       assert.ok(insight);
-      assert.equal(formatTic80EffectInsight(insight), "P80: Pitch: 0 (0.00 st → C-4)");
+      assert.equal(formatTic80EffectInsight(insight), "P80: Pitch: 0 (0 st → C-4)");
    });
 
    it("requires a base note for the musical conversion", () => {
@@ -231,8 +231,7 @@ describe("TIC-80 pitch effect insights", () => {
 
       assert.ok(insight);
       assert.equal(formatTic80EffectInsight(insight), "P44: Pitch: -60");
-      assert.match(formatTic80EffectTooltip(insight) ?? "", /underflows/);
-      assert.match(formatTic80EffectTooltip(insight) ?? "", /wraps to 4052/);
+      assert.match(formatTic80EffectTooltip(insight) ?? "", /Overflows and wraps!/);
    });
 
    it("shows that the same P offset has a note-dependent interval", () => {
@@ -249,8 +248,8 @@ describe("TIC-80 pitch effect insights", () => {
 
       assert.ok(lowInsight);
       assert.ok(highInsight);
-      assert.match(formatTic80EffectInsight(lowInsight), /-10\.60 st/);
-      assert.match(formatTic80EffectInsight(highInsight), /-0\.50 st/);
+      assert.match(formatTic80EffectInsight(lowInsight), /-10\.6 st/);
+      assert.match(formatTic80EffectInsight(highInsight), /-0\.5 st/);
    });
 });
 

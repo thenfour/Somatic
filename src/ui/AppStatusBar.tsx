@@ -132,6 +132,7 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
           {selectionTiming && (
              <div className="app-status-bar-group app-status-bar-selection">
                 <Tooltip
+                   showInStatusBar={false}
                    title={(
                       <div>
                          <div>
@@ -165,7 +166,7 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
           )}
             <div className="app-status-bar-group app-status-bar-commands">
              {commandDescParts.map((part, index) => part.tooltip ? (
-                <Tooltip key={index} title={part.tooltip}>
+                <Tooltip key={index} title={part.tooltip} showInStatusBar={false}>
                    <span tabIndex={0}>
                       {index > 0 ? ", " : ""}{part.text}
                    </span>

@@ -62,6 +62,11 @@ type TooltipProps = {
     placement?: Side;
     className?: string;
     disabled?: boolean;
+    /**
+     * Mirrors string tooltip text into the global app status message. Disable
+     * this for triggers inside the status bar to avoid a layout feedback loop.
+     */
+    showInStatusBar?: boolean;
 };
 
 export const Tooltip: React.FC<TooltipProps> = ({
@@ -70,6 +75,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
     placement = "bottom",
     className,
     disabled = false,
+    showInStatusBar = true,
 }) => {
     const triggerRef = React.useRef<HTMLElement | null>(null);
     const tooltipRef = React.useRef<HTMLSpanElement | null>(null);
@@ -87,13 +93,13 @@ export const Tooltip: React.FC<TooltipProps> = ({
     const { setMessage, clearMessage } = useAppStatusBar();
 
     React.useEffect(() => {
-        if (open && typeof title === "string" && title.trim()) {
+        if (showInStatusBar && open && typeof title === "string" && title.trim()) {
             setMessage(title, 10);
         } else {
             clearMessage();
         }
         return () => clearMessage();
-    }, [open, title, setMessage, clearMessage]);
+    }, [open, title, showInStatusBar, setMessage, clearMessage]);
 
     React.useEffect(() => {
         // any time open state changes, we begin not-ready (opacity 0)
