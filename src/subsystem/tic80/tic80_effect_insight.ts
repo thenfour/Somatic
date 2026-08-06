@@ -1,19 +1,27 @@
 import {PatternCell} from "../../models/pattern";
 import type {SongChannelNoteContext} from "../../models/song";
 import {kTic80EffectCommand, Tic80EffectCommand} from "../../models/tic80Capabilities";
-import {formatTicMidiNote} from "../../utils/music/noteRegistry";
+import {
+   formatMidiNoteFixedWidth,
+   formatTicMidiNote,
+} from "../../utils/music/noteRegistry";
 import {
    formatTic80Timing,
    type Tic80Timing
 } from "../../utils/music/tic80Music";
+import {
+   tic80AnalyzePitchOffset,
+   tic80PitchOffsetFromParam,
+} from "../../utils/music/tic80Pitch";
+import {formatToDecimalPlaces} from "../../utils/utils";
 
 export type Tic80EffectInsight = {
    code: string;
    summary: string;
    detail?: string;
+   explanation?: string;
    warning?: string;
 };
-
 
 function paramByte(x: number, y: number): number {
    return (x << 4) | y;
@@ -25,6 +33,91 @@ function formatSigned(value: number): string {
 
 function appendWarning(current: string|undefined, next: string): string {
    return current ? `${current} ${next}` : next;
+}
+
+// fixed # of decimal places with sign for positive.
+function formatSignedFixed(value: number, decimalPlaces: number): string {
+   return `${value > 0 ? "+" : ""}${formatToDecimalPlaces(value, decimalPlaces)}`;
+}
+
+function formatPitchTarget(effectiveMidiNote: number): string {
+   const nearestMidiNote = Math.round(effectiveMidiNote);
+   const cents = Math.round((effectiveMidiNote - nearestMidiNote) * 100);
+   const centsText = cents === 0 ? "" : ` ${formatSigned(cents)}c`;
+   return `${formatMidiNoteFixedWidth(nearestMidiNote)}${centsText}`;
+}
+
+function describePitch(
+   code: string,
+   x: number,
+   y: number,
+   context: SongChannelNoteContext | undefined,
+): Tic80EffectInsight {
+   const offset = tic80PitchOffsetFromParam(paramByte(x, y));
+   const offsetText = formatSigned(offset);
+   const explanationPrefix =
+      `${code} sets the pitch offset to ${offsetText} TIC-80 frequency units (P80 = 0). ` +
+      `P commands do not accumulate.`;
+   const baseMidiNote = context?.activeAfterNoteColumn?.midiNote;
+
+   if (baseMidiNote === undefined) {
+      return {
+         code,
+         summary: "Pitch",
+         detail: offsetText,
+         explanation:
+            `${explanationPrefix} A base note is needed to convert this linear offset ` +
+            `to a semitone interval and target note.`,
+         warning: "No known base note.",
+      };
+   }
+
+   const baseNoteText = formatMidiNoteFixedWidth(baseMidiNote);
+   const pitchAnalysis = tic80AnalyzePitchOffset(baseMidiNote, offset);
+   if (!pitchAnalysis) {
+      return {
+         code,
+         summary: "Pitch",
+         detail: offsetText,
+         explanation: explanationPrefix,
+         warning: `Base note ${baseNoteText} is out of range.`,
+      };
+   }
+
+   if (pitchAnalysis.wrapped) {
+      return {
+         code,
+         summary: "Pitch",
+         detail: offsetText,
+         explanation: explanationPrefix,
+         warning:
+            `Overflows and wraps!`
+      };
+   }
+
+   if (pitchAnalysis.relativeSemitones === null || pitchAnalysis.effectiveMidiNote === null) {
+      return {
+         code,
+         summary: "Pitch",
+         detail: offsetText,
+         explanation: explanationPrefix,
+         warning:
+            `At base ${baseNoteText}, this sets TIC-80's frequency register to zero.`
+      };
+   }
+
+   const targetNoteText = formatPitchTarget(pitchAnalysis.effectiveMidiNote);
+   const semitoneText = formatSignedFixed(pitchAnalysis.relativeSemitones, 2);
+
+   return {
+      code,
+      summary: "Pitch",
+      detail: `${offsetText} (${semitoneText} st → ${targetNoteText})`,
+      explanation:
+         `${explanationPrefix} At base ${baseNoteText}, this is ${semitoneText} semitones ` +
+         `and a P-only target of ${targetNoteText}. TIC-80 pitch units are linear, so the ` +
+         `semitone interval depends on the base note.`,
+   };
 }
 
 function describeChord(
@@ -124,9 +217,7 @@ export function describeTic80Effect(
       }
 
       case kTic80EffectCommand.key.P: {
-         const offset = paramByte(x, y) - 0x80;
-         insight =
-            {code, summary: "Pitch", detail: `offset ${formatSigned(offset)}`};
+         insight = describePitch(code, x, y, context);
          break;
       }
 
@@ -175,4 +266,9 @@ export function describeTic80Effect(
 
 export function formatTic80EffectInsight(insight: Tic80EffectInsight): string {
    return `${insight.code}: ${insight.summary}${insight.detail ? `: ${insight.detail}` : ""}`;
+}
+
+export function formatTic80EffectTooltip(insight: Tic80EffectInsight): string | undefined {
+   const parts = [insight.explanation, insight.warning].filter((part): part is string => !!part);
+   return parts.length > 0 ? parts.join(" ") : undefined;
 }

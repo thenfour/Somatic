@@ -132,7 +132,15 @@ export const NoteRegistry = (() => {
    return api;
 })();
 
+export function formatMidiNoteFixedWidth(midiNote: number): string {
+   const roundedMidiNote = Math.round(midiNote);
+   const registeredNote = NoteRegistry.get(roundedMidiNote);
+   if (registeredNote)
+      return registeredNote.labelFixedWidth;
+   return roundedMidiNote.toString();
+}
+
 export function formatTicMidiNote(midiNote: number): string {
    const clamped = clamp(midiNote, Tic80Caps.pattern.minMidiNote, Tic80Caps.pattern.maxMidiNote);
-   return NoteRegistry.get(clamped)?.labelFixedWidth ?? clamped.toString();
+   return formatMidiNoteFixedWidth(clamped);
 }

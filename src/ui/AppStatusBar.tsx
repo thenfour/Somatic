@@ -7,6 +7,7 @@ import {kSubsystem} from "../subsystem/base/SubsystemBackendBase";
 import {
    describeTic80Effect,
    formatTic80EffectInsight,
+   formatTic80EffectTooltip,
 } from "../subsystem/tic80/tic80_effect_insight";
 import {
    formatTic80Timing,
@@ -102,7 +103,7 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
             if (tic80EffectInsight) {
                 commandDescParts.push({
                     text: formatTic80EffectInsight(tic80EffectInsight),
-                    tooltip: tic80EffectInsight.warning,
+                   tooltip: formatTic80EffectTooltip(tic80EffectInsight),
                 });
             }
         }
@@ -163,8 +164,14 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
              </div>
           )}
             <div className="app-status-bar-group app-status-bar-commands">
-                {commandDescParts.map((part, index) => (
-                    <span key={index} title={part.tooltip}>
+             {commandDescParts.map((part, index) => part.tooltip ? (
+                <Tooltip key={index} title={part.tooltip}>
+                   <span tabIndex={0}>
+                      {index > 0 ? ", " : ""}{part.text}
+                   </span>
+                </Tooltip>
+             ) : (
+                <span key={index}>
                         {index > 0 ? ", " : ""}{part.text}
                     </span>
                 ))}

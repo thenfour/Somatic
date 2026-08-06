@@ -12,8 +12,19 @@ import {
    tic80TempoSpeedToBpm,
 } from "../src/utils/music/tic80Music";
 import {kTic80EffectCommand} from "../src/models/tic80Capabilities";
-import {describeTic80Effect, formatTic80EffectInsight} from "../src/subsystem/tic80/tic80_effect_insight";
+import {
+   describeTic80Effect,
+   formatTic80EffectInsight,
+   formatTic80EffectTooltip,
+} from "../src/subsystem/tic80/tic80_effect_insight";
 import {formatTiming, formatToDecimalPlaces} from "../src/utils/utils";
+import {
+   semitonesBetweenFrequencies,
+   tic80AnalyzePitchOffset,
+   tic80FrequencyRegisterForPatternMidiNote,
+   tic80PitchOffsetFromParam,
+   tic80WrapFrequencyRegister,
+} from "../src/utils/music/tic80Pitch";
 
 describe("TIC-80 timing", () => {
    it("formats decimal values and second-based timing values", () => {
@@ -157,5 +168,135 @@ describe("TIC-80 timed effect insights", () => {
       assert.ok(delay);
       assert.equal(formatTic80EffectInsight(slide), "S00: Slide off");
       assert.equal(formatTic80EffectInsight(delay), "D00: Delay: C-4 immediately");
+   });
+});
+
+describe("TIC-80 pitch effect insights", () => {
+   function contextFor(midiNote: number) {
+      return {
+         activeAfterNoteColumn: {midiNote, songPosition: 0, rowIndex: 0},
+         source: "current-cell" as const,
+         rowReachable: true,
+      };
+   }
+
+   it("shows raw, relative, and P-only target pitch", () => {
+      const insight = describeTic80Effect({
+         tic80Effect: kTic80EffectCommand.key.P,
+         tic80EffectX: 4,
+         tic80EffectY: 4,
+      }, contextFor(60));
+
+      assert.ok(insight);
+      assert.equal(
+         formatTic80EffectInsight(insight),
+         "P44: Pitch: -60 (-4.50 st → G-3 +50c)",
+      );
+      const tooltip = formatTic80EffectTooltip(insight);
+      assert.match(tooltip ?? "", /replaces the previous P offset; P commands do not accumulate/);
+      assert.match(tooltip ?? "", /At base C-4/);
+      assert.match(tooltip ?? "", /P-only target of G-3 \+50c/);
+   });
+
+   it("keeps P80 musically neutral", () => {
+      const insight = describeTic80Effect({
+         tic80Effect: kTic80EffectCommand.key.P,
+         tic80EffectX: 8,
+         tic80EffectY: 0,
+      }, contextFor(60));
+
+      assert.ok(insight);
+      assert.equal(formatTic80EffectInsight(insight), "P80: Pitch: 0 (0.00 st → C-4)");
+   });
+
+   it("requires a base note for the musical conversion", () => {
+      const insight = describeTic80Effect({
+         tic80Effect: kTic80EffectCommand.key.P,
+         tic80EffectX: 4,
+         tic80EffectY: 4,
+      });
+
+      assert.ok(insight);
+      assert.equal(formatTic80EffectInsight(insight), "P44: Pitch: -60");
+      assert.match(formatTic80EffectTooltip(insight) ?? "", /base note is needed/i);
+      assert.match(formatTic80EffectTooltip(insight) ?? "", /No known base note/);
+   });
+
+   it("does not report a conventional note when the frequency register wraps", () => {
+      const insight = describeTic80Effect({
+         tic80Effect: kTic80EffectCommand.key.P,
+         tic80EffectX: 4,
+         tic80EffectY: 4,
+      }, contextFor(12));
+
+      assert.ok(insight);
+      assert.equal(formatTic80EffectInsight(insight), "P44: Pitch: -60");
+      assert.match(formatTic80EffectTooltip(insight) ?? "", /underflows/);
+      assert.match(formatTic80EffectTooltip(insight) ?? "", /wraps to 4052/);
+   });
+
+   it("shows that the same P offset has a note-dependent interval", () => {
+      const lowInsight = describeTic80Effect({
+         tic80Effect: kTic80EffectCommand.key.P,
+         tic80EffectX: 4,
+         tic80EffectY: 4,
+      }, contextFor(48));
+      const highInsight = describeTic80Effect({
+         tic80Effect: kTic80EffectCommand.key.P,
+         tic80EffectX: 4,
+         tic80EffectY: 4,
+      }, contextFor(96));
+
+      assert.ok(lowInsight);
+      assert.ok(highInsight);
+      assert.match(formatTic80EffectInsight(lowInsight), /-10\.60 st/);
+      assert.match(formatTic80EffectInsight(highInsight), /-0\.50 st/);
+   });
+});
+
+describe("TIC-80 native pitch calculations", () => {
+   it("matches representative values from TIC-80's native NoteFreqs table", () => {
+      assert.equal(tic80FrequencyRegisterForPatternMidiNote(12), 0x10); // C-0
+      assert.equal(tic80FrequencyRegisterForPatternMidiNote(60), 0x106); // C-4
+      assert.equal(tic80FrequencyRegisterForPatternMidiNote(69), 0x1b8); // A-4
+      assert.equal(tic80FrequencyRegisterForPatternMidiNote(11), undefined);
+      assert.equal(tic80FrequencyRegisterForPatternMidiNote(108), undefined);
+   });
+
+   it("decodes Pxx around neutral P80", () => {
+      assert.equal(tic80PitchOffsetFromParam(0x44), -60);
+      assert.equal(tic80PitchOffsetFromParam(0x80), 0);
+      assert.equal(tic80PitchOffsetFromParam(0xff), 127);
+   });
+
+   it("models TIC-80's 12-bit frequency register", () => {
+      assert.equal(tic80WrapFrequencyRegister(-1), 4095);
+      assert.equal(tic80WrapFrequencyRegister(4095), 4095);
+      assert.equal(tic80WrapFrequencyRegister(4096), 0);
+   });
+
+   it("converts frequency ratios to semitone intervals", () => {
+      assert.equal(semitonesBetweenFrequencies(440, 880), 12);
+      assert.equal(semitonesBetweenFrequencies(440, 220), -12);
+   });
+
+   it("analyzes P44 from C-4 without wrapping", () => {
+      const analysis = tic80AnalyzePitchOffset(60, -60);
+      assert.ok(analysis);
+      assert.equal(analysis.baseFrequencyRegister, 262);
+      assert.equal(analysis.unwrappedTargetFrequencyRegister, 202);
+      assert.equal(analysis.targetFrequencyRegister, 202);
+      assert.equal(analysis.wrapped, false);
+      assert.ok(Math.abs((analysis.relativeSemitones ?? 0) - -4.502538225427868) < 1e-12);
+      assert.ok(Math.abs((analysis.effectiveMidiNote ?? 0) - 55.49746177457213) < 1e-12);
+   });
+
+   it("reports native register underflow separately from musical conversion", () => {
+      const analysis = tic80AnalyzePitchOffset(12, -60);
+      assert.ok(analysis);
+      assert.equal(analysis.baseFrequencyRegister, 16);
+      assert.equal(analysis.unwrappedTargetFrequencyRegister, -44);
+      assert.equal(analysis.targetFrequencyRegister, 4052);
+      assert.equal(analysis.wrapped, true);
    });
 });
