@@ -253,13 +253,6 @@ Somatic has 2 main goals:
 1. be an ultra-ergonomic UX. to be "the ultimate tracker UX"
 2. provide reasonably-musical playroutine that augments the built-in TIC-80 music routine.
 
-## Song schema versioning
-
-Somatic song JSON includes a top-level `schemaVersion` number.
-
-- `schemaVersion = 1` (current):
-  - pattern cells represent note-off as a boolean flag (`noteOff: true`) and instrument indices are Somatic-owned (`instrumentIndex` is 0-based and may be `null`). TIC-80 reserved instruments (0 and 1) are injected only during TIC-80 serialization.
-
 ## issues / limitations
 
 this was made like, yesterday. it has bugs. file them @ https://github.com/thenfour/Somatic/issues
@@ -268,9 +261,7 @@ Other stuff worth metioning:
 
 - Mobile: Absolutely will not be a good experience on mobile / small screens. This thing works like a
   desktop app and wants mouse + keyboard.
-- There are quirks due to using the embedded TIC-80, and the goofy playroutine. Instrument/waveform
-  updates tend to be updated in real-time, but pattern/order changes, or changing looping mode
-  requires stopping / playing again to hear the change.
+- There are quirks due to using the embedded TIC-80, and the goofy playroutine.
 
 ## How does it work
 
@@ -380,90 +371,6 @@ conversion that goes on between Somatic and the exported cartridge.
 ### export cart / song stats
 
 ![Song stats](.attachments/image-8.png)
-
-# Versioning
-
-Somatic uses npm-style `package.json` versioning for the app version, e.g. `v1.0.10`.
-The About dialog also displays useful git build info like commit hash, commit date, and whether
-the build was dirty.
-
-# Pattern end somatic pattern / "cut to next pattern" command.
-
-Somatic effect `C` cuts to the next pattern.
-
-## Why no param?
-
-Traditional trackers (IT, FT / xm / s3m) accept a parameter for `Cxx` / `Dxx` where `xx`
-is the row number of the next pattern to play.
-
-For us that introduces complexity and it's currently not forseen to need it.
-
-It can be a feature to build afterwards anyway, as needed.
-
-## Spec / details
-
-Current row plays (the row containing the `C` command), and
-the next row to be played is the 1st row in the next play order's pattern.
-
-If there's no next order, the song ends.
-
-This command can only appear in the "somatic effect" column; not the TIC-80 effect column.
-The tic-80 native `J` pattern effect command remains unsupported.
-
-Scope: The somatic `C` command affects all channels.
-
-Multiple `C` commands: the first one encountered wins. Subsequent would be unreachable and untouched.
-
-`C` on last row is effectively a NOP. No special handling is needed in this case but worth noting.
-
-## Implementation notes
-
-- `Song` and other models shall need methods to calculate timings. While previously
-  we could rely on simple arithmetic for converting between rows/beats/patterns/time,
-  now the song needs to be walked; each pattern will expose a method to get
-  effective rows.
-- All timing-based calcs in Somatic shall use methods for calculation to centralize
-  the logic, no longer relying on assumptions regarding fixed rows-per-pattern.
-- Any reliance on `song.rowsPerPattern` need updating. All use of
-  `song.rowsPerPattern` as a means to calculate timings or transport details should be
-  updated to calculate. The song conceptually turns into "each pattern has its own
-  length"; this should be how the app shall feel. And `song.rowsPerPattern` becomes a
-  tic80 detail / pattern default.
-- To simplify the changes needed for the playroutine, we can export a mapping of
-  pattern -> effective pattern rows. When the playroutines encounter a playroutine
-  that needs cutting short, a `J` command can be synthesized.
-- Playroutine (bridge + playroutine.lua) will need to synthesize a native `J` command
-  to the next pattern during playback.
-- We should document practical constraints if they exist (for example is a 1-row pattern
-  possible; does that give the playroutine enough time to do the pattern blit?).
-  We should allow `C` on all rows, but at least document if this could cause playback
-  glitches / undefined behavior.
-- Pattern editor should indicate unreachable rows with minimal code changes: we
-  can just show a simple indication similar to other row-based warnings.
-- Pattern editor still uses `song.rowsPerPattern`, and even allows editing beyond
-  the usable pattern area; unreachable area is dimmed. Transport and song
-  export/playback/render use the effective length.
-- All loop modes shall be aware of pattern length for calculating the loop region.
-- Public transport API (`somatic_get_time` et al) can still expose `rowsPerPattern`.
-  Consumers are expected to understand constraints on its use.
-- Cue sheet shall include the effective row count (as a `rows` field) per entry.
-
-## Semantics of `Jxy` Tic-80 command
-
-https://github.com/nesbox/TIC-80/wiki/Music-editor
-
-`Jxy`: Jump to frame/beat
-
-- Jumps to frame (pattern) x, beat (row) y.
-- `J00` jumps to the beginning of the song, so if you use it, remember to remove
-  the rule before exporting the music track.
-
-Testing shows that:
-
-- Like our `Cxx` command, `Jxy` performs the jump after the current row.
-- `x` is the frame number (0-15)
-- `y` is the row number (0-15; rows 16... are unable to be jumped to)
-
 
 # Change log
 
