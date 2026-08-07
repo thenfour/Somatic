@@ -29,6 +29,10 @@ Live @ https://somatic.tenfourmusic.net
   - allow highlight color for specific instruments
   - allow naming patterns, instruments
   - allow markers for song order
+  - show musically-relevant/useful insights
+   - Delay shows time in milliseconds and ticks
+   - Vibrato shows range in semitones/cents and frequency
+   - Song speed/tempo show how it will affect row timings and show timing quantization error.
 - Light/dark mode themes
 - Keyboard support
   - keyboard note input should be more keyboard-layout-agnostic
@@ -519,3 +523,15 @@ https://github.com/thenfour/Somatic/milestone/3?closed=1
 - #229 streamline playroutine a bit
 - #225 adding `somatic_position_to_beat` and `somatic_seek_position` APIs
 - #228 #230 #224 UI formatting and keyboard shortcuts
+
+## 1.0.17
+
+- #247 fixed serialization when using bracketed Lua string representation
+- #242 fixed pattern grid cursor formatting
+- #245 #251 #251 #248 #233 Adding musically-useful insights for pattern effect commands, selection in pattern, waveform editors, and song speed/tempo in song settings.
+- #246 added default key binding for prev/next loop mode
+- #239 waveform selector shows which instruments are referencing it
+- #238 expand & contract advanced edit actions
+- #237 evenly distribute notes advanced edit action - for making tuplets
+- #235 adding unity line for bipolar envelopes
+- #226 playroutine public API adds a song completion callback

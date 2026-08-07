@@ -1,6 +1,6 @@
 {
    "name": "somatic",
-   "version": "1.0.16",
+   "version": "1.0.17",
    "description": "TIC-80 music tracker and editor for demoscene, chiptune, and video game music composers",
    "main": "src/index.tsx",
    "scripts": {
