@@ -281,6 +281,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 loopMode: editorState.loopMode,
                 patternSelection: editorState.patternSelection,
                 songOrderSelection: editorState.selectedArrangementPositions,
+                auditionSongOrder: editorState.activeSongPosition,
                 startPosition: editorState.activeSongPosition,
                 startRow: editorState.patternEditRow,
             });
@@ -897,7 +898,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     };
 
     const playSongWithFlush = useCallback(
-        async (reason: string, startPosition: number, startRow: number) => {
+        async (reason: string, startPosition: number, startRow: number, auditionSongOrder: number|null) => {
             gLog.info(`playSongWithFlush: song is ${somaticTransportState.isPlaying ? "playing" : "stopped"}`);
             if (somaticTransportState.isPlaying) {
                 audio.panic();
@@ -914,6 +915,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     startRow,
                     loopMode: editorRef.current.loopMode,
                     songOrderSelection: editorRef.current.selectedArrangementPositions,
+                    auditionSongOrder,
                 });
             }
         },
@@ -922,16 +924,21 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const onPlayPattern = () => {
         const ed = editorRef.current;
-        void playSongWithFlush("play pattern", ed.activeSongPosition, 0);
+        void playSongWithFlush("play pattern", ed.activeSongPosition, 0, ed.activeSongPosition);
     };
 
     const onPlayAll = () => {
-        void playSongWithFlush("play all", 0, 0);
+        void playSongWithFlush("play all", 0, 0, null);
     };
 
     const onPlayFromPosition = () => {
         const ed = editorRef.current;
-        void playSongWithFlush("play from position", ed.activeSongPosition, ed.patternEditRow);
+        void playSongWithFlush(
+            "play from position",
+            ed.activeSongPosition,
+            ed.patternEditRow,
+            ed.activeSongPosition,
+        );
     };
 
     useActionHandler<GlobalActionId>("ToggleDebugMode", () => setDebugMode((d) => !d));

@@ -356,6 +356,7 @@ export interface Tic80SerializeSongArgs {
       startPosition: number, //
       startRow: number,      //
       songOrderSelection: SelectionRect2D|null,
+      auditionSongOrder: number|null,
 }
 
 // upon sending to the tic80, we send a payload which includes all the song data in a single chunk.
@@ -933,6 +934,7 @@ export function serializeSongToCartDetailed(
       patternSelection: null,
       loopMode: "off",
       songOrderSelection: null,
+      auditionSongOrder: null,
       startPosition: 0,
       startRow: 0,
    });

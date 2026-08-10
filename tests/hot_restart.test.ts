@@ -11,7 +11,7 @@ import {
    Tic80Caps,
    TicMemoryMap,
 } from "../src/models/tic80Capabilities";
-import {BakeSong, getBakedSongPosition} from "../src/subsystem/tic80/bakeSong";
+import {BakeSong, convertTic80MusicStateToSomatic, getBakedSongPosition} from "../src/subsystem/tic80/bakeSong";
 import type {BackendPlaySongArgs} from "../src/subsystem/tic80/tic80_backend";
 import type {Tic80BridgeHandle, Tic80BridgeTransaction} from "../src/subsystem/tic80/Tic80Bridged";
 import type {Tic80SerializedSong} from "../src/subsystem/tic80/tic80_cart_serializer";
@@ -45,6 +45,7 @@ function makeArgs(song: Song, overrides: Partial<BackendPlaySongArgs> = {}): Bac
       startRow: 0,
       loopMode: "song",
       songOrderSelection: null,
+      auditionSongOrder: null,
       ...overrides,
    };
 }
@@ -88,6 +89,103 @@ describe("hot-restart baked position mapping", () => {
 
       const quarter = BakeSong(makeArgs(song, {loopMode: "quarterPattern", cursorRowIndex: 20}));
       assert.deepEqual(getBakedSongPosition(quarter, 1, 21), {songPosition: 0, rowIndex: 5});
+   });
+
+   it("maps across disabled gaps in both transport directions", () => {
+      const song = makeSong();
+      song.songOrder[1].enabled = false;
+      const baked = BakeSong(makeArgs(song, {loopMode: "song"}));
+
+      assert.deepEqual(baked.transportConversion.sourceSongOrderIndices, [0, 2]);
+      assert.equal(baked.bakedSong.songOrder.length, 2);
+      assert.deepEqual(getBakedSongPosition(baked, 2, 9), {songPosition: 1, rowIndex: 9});
+      assert.deepEqual(
+         getBakedSongPosition(baked, 1, 9),
+         {songPosition: 1, rowIndex: 0},
+         "a removed position advances to the next enabled order at row zero",
+      );
+
+      const transport = convertTic80MusicStateToSomatic(baked, {
+         isPlaying: true,
+         reportedSongPosition: 1,
+         tic80RowIndex: 9,
+      });
+      assert.equal(transport.currentSomaticSongPosition, 2);
+      assert.equal(transport.currentSomaticRowIndex, 9);
+   });
+
+   it("auditions only the requested disabled order and keeps pattern-scoped loops playable", () => {
+      const song = makeSong();
+      song.songOrder[1].enabled = false;
+      song.songOrder[2].enabled = false;
+
+      const audition = BakeSong(makeArgs(song, {
+         loopMode: "off",
+         startPosition: 1,
+         startRow: 7,
+         auditionSongOrder: 1,
+      }));
+      assert.deepEqual(audition.transportConversion.sourceSongOrderIndices, [0, 1]);
+      assert.equal(audition.startPosition, 1);
+      assert.equal(audition.startRow, 7);
+
+      const songLoopAudition = BakeSong(makeArgs(song, {
+         loopMode: "song",
+         startPosition: 1,
+         auditionSongOrder: 1,
+      }));
+      assert.equal(songLoopAudition.wantSongLoop, false, "the audition is not added to the whole-song loop");
+
+      const patternLoop = BakeSong(makeArgs(song, {
+         loopMode: "pattern",
+         cursorSongOrder: 1,
+      }));
+      assert.equal(patternLoop.wantSongLoop, true);
+      assert.deepEqual(patternLoop.transportConversion.sourceSongOrderIndices, [1]);
+   });
+
+   it("filters order selections and turns an all-disabled selected loop off", () => {
+      const song = makeSong();
+      song.songOrder[1].enabled = false;
+      const wholeSelection = new SelectionRect2D({
+         start: {x: 0, y: 0},
+         size: {width: 1, height: 3},
+      });
+      const mixed = BakeSong(makeArgs(song, {
+         loopMode: "selectionInSongOrder",
+         songOrderSelection: wholeSelection,
+         audibleChannels: new Set([1, 2, 3]),
+      }));
+      assert.equal(mixed.wantSongLoop, true);
+      assert.deepEqual(mixed.transportConversion.sourceSongOrderIndices, [0, 2]);
+      assert.equal(mixed.transportConversion.somaticSongOrderLoop?.loopLength, 2);
+      assert.deepEqual(mixed.bakedSong.patterns[0].getCell(0, 0), {});
+
+      const disabledSelection = new SelectionRect2D({
+         start: {x: 0, y: 1},
+         size: {width: 1, height: 1},
+      });
+      const emptyLoop = BakeSong(makeArgs(song, {
+         loopMode: "selectionInSongOrder",
+         songOrderSelection: disabledSelection,
+         startPosition: 1,
+         auditionSongOrder: 1,
+      }));
+      assert.equal(emptyLoop.wantSongLoop, false);
+      assert.equal(emptyLoop.transportConversion.somaticSongOrderLoop, null);
+      assert.deepEqual(emptyLoop.transportConversion.sourceSongOrderIndices, [0, 1, 2]);
+      assert.equal(emptyLoop.startPosition, 1, "the disabled current order is auditioned once");
+   });
+
+   it("uses a minimal non-looping silent bake when the entire song is disabled", () => {
+      const song = makeSong();
+      song.songOrder.forEach((item) => { item.enabled = false; });
+
+      const baked = BakeSong(makeArgs(song, {loopMode: "song"}));
+      assert.equal(baked.wantSongLoop, false);
+      assert.equal(baked.bakedSong.songOrder.length, 1);
+      assert.equal(baked.bakedSong.rowsPerPattern, 1);
+      assert.deepEqual(baked.bakedSong.patterns[0].getCell(0, 0), {});
    });
 });
 
@@ -284,6 +382,29 @@ describe("Tic80Backend hot restart", () => {
       assert.equal(progress.fraction01, 71 / 192);
    });
 
+   it("renders and reports progress over enabled orders only", async () => {
+      const {Tic80Backend} = await import("../src/subsystem/tic80/tic80_backend");
+      const {calculateAudioRenderProgress} = await import("../src/subsystem/tic80/Tic80Bridged");
+      const bridge = new FakeBridge();
+      const backend = new Tic80Backend(() => bridge.handle);
+      const song = makeSong();
+      song.songOrder[1].enabled = false;
+
+      await backend.renderSongToWav({
+         reason: "test disabled order",
+         song,
+         audibleChannels: allChannels,
+      });
+
+      const renderCall = bridge.calls.at(-1)!;
+      assert.deepEqual(renderCall.data!.bakedSong.transportConversion.sourceSongOrderIndices, [0, 2]);
+      assert.equal(renderCall.data!.bakedSong.bakedSong.songOrder.length, 2);
+      const progress = calculateAudioRenderProgress(renderCall.data!, 1, 7);
+      assert.equal(progress.completedRows, 71);
+      assert.equal(progress.totalRows, 128);
+      assert.equal(progress.fraction01, 71 / 128);
+   });
+
    it("restarts changed pattern data at the latest logical playhead", async () => {
       const {Tic80Backend} = await import("../src/subsystem/tic80/tic80_backend");
       const bridge = new FakeBridge();
@@ -298,6 +419,55 @@ describe("Tic80Backend hot restart", () => {
 
       const call = bridge.calls.at(-1);
       assert.equal(call?.kind, "play");
+      assert.equal(call?.data?.bakedSong.startPosition, 1);
+      assert.equal(call?.data?.bakedSong.startRow, 7);
+   });
+
+   it("hot-restarts through a non-contiguous enabled-order mapping", async () => {
+      const {Tic80Backend} = await import("../src/subsystem/tic80/tic80_backend");
+      const bridge = new FakeBridge();
+      const backend = new Tic80Backend(() => bridge.handle);
+      const song = makeSong();
+      await backend.transmitAndPlay(makeArgs(song));
+
+      bridge.setPlayingPosition(0, 7);
+      const disabledMiddle = song.clone();
+      disabledMiddle.songOrder[1].enabled = false;
+      await backend.transmitEditedSong(makeArgs(disabledMiddle));
+      const compactedCall = bridge.calls.at(-1);
+      assert.equal(compactedCall?.kind, "play");
+      assert.deepEqual(
+         compactedCall?.data?.bakedSong.transportConversion.sourceSongOrderIndices,
+         [0, 2],
+      );
+      assert.equal(compactedCall?.data?.bakedSong.startPosition, 0);
+
+      bridge.setPlayingPosition(1, 11);
+      const patternEdit = disabledMiddle.clone();
+      patternEdit.patterns[2].setCell(0, 12, {midiNote: 75, instrumentIndex: 0});
+      await backend.transmitEditedSong(makeArgs(patternEdit));
+      const resumedCall = bridge.calls.at(-1);
+      assert.equal(resumedCall?.kind, "play");
+      assert.equal(resumedCall?.data?.bakedSong.startPosition, 1);
+      assert.equal(resumedCall?.data?.bakedSong.startRow, 11);
+   });
+
+   it("finishes a newly disabled current order once without adding it to the song loop", async () => {
+      const {Tic80Backend} = await import("../src/subsystem/tic80/tic80_backend");
+      const bridge = new FakeBridge();
+      const backend = new Tic80Backend(() => bridge.handle);
+      const song = makeSong();
+      await backend.transmitAndPlay(makeArgs(song));
+
+      bridge.setPlayingPosition(1, 7);
+      const edited = song.clone();
+      edited.songOrder[1].enabled = false;
+      await backend.transmitEditedSong(makeArgs(edited));
+
+      const call = bridge.calls.at(-1);
+      assert.equal(call?.kind, "play");
+      assert.equal(call?.data?.bakedSong.wantSongLoop, false);
+      assert.deepEqual(call?.data?.bakedSong.transportConversion.sourceSongOrderIndices, [0, 1, 2]);
       assert.equal(call?.data?.bakedSong.startPosition, 1);
       assert.equal(call?.data?.bakedSong.startRow, 7);
    });

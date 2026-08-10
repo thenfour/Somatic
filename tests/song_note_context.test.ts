@@ -25,6 +25,27 @@ describe("Song channel note context", () => {
       });
    });
 
+   it("skips disabled neighbours while retaining local context for disabled-order editing", () => {
+      const first = new Pattern();
+      first.setCell(0, 2, {midiNote: 60});
+      const experiment = new Pattern();
+      experiment.setCell(0, 0, {midiNote: 65});
+      const final = new Pattern();
+      const song = new Song({
+         rowsPerPattern: 4,
+         patterns: [first.toData(), experiment.toData(), final.toData()],
+         songOrder: [0, 1, 2],
+      });
+      song.songOrder[1].enabled = false;
+
+      assert.equal(song.getChannelNoteContext(1, 0, 1).activeAfterNoteColumn?.midiNote, 65);
+      assert.deepEqual(song.getChannelNoteContext(2, 0, 0).activeBeforeRow, {
+         midiNote: 60,
+         songPosition: 0,
+         rowIndex: 2,
+      });
+   });
+
    it("distinguishes the entering note from a current-row note", () => {
       const pattern = new Pattern();
       pattern.setCell(0, 0, {midiNote: 60});

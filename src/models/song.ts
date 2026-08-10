@@ -2,7 +2,7 @@ import {kSubsystem, SomaticSubsystemBackend, SubsystemTypeKey} from "../subsyste
 import {Tic80SubsystemBackend} from "../subsystem/tic80/tic80SubsystemBackend";
 import {AmigaModSubsystemBackend} from "../subsystem/AmigaMod/AmigaModSubsystemBackend";
 import {SidSubsystemBackend} from "../subsystem/Sid/SidSubsystemBackend";
-import {clamp, CoalesceBoolean, NormalizeClampedFloat, SanitizeFilename} from "../utils/utils";
+import {assert, clamp, CoalesceBoolean, NormalizeClampedFloat, SanitizeFilename} from "../utils/utils";
 
 import {makeDefaultInstrumentForIndex, SomaticInstrument, SomaticInstrumentDto} from "./instruments";
 import {isNoteCut, Pattern, PatternDto} from "./pattern";
@@ -722,8 +722,20 @@ export class Song {
       }
    }
 
+   // only counts enabled song orders
    getSongLengthRows(): number {
-      return this.songOrder.reduce((sum, _, orderIndex) => sum + this.getOrderEffectiveRowCount(orderIndex), 0);
+      return this.songOrder.reduce((sum, orderItem, orderIndex) =>
+         sum + (orderItem.enabled ? this.getOrderEffectiveRowCount(orderIndex) : 0), 0);
+   }
+
+   getEnabledSongOrderIndices(): number[] {
+      const result: number[] = [];
+      for (let orderIndex = 0; orderIndex < this.songOrder.length; orderIndex++) {
+         if (this.songOrder[orderIndex]!.enabled) {
+            result.push(orderIndex);
+         }
+      }
+      return result;
    }
 
    getRowsPerBeat(): number {
@@ -756,6 +768,10 @@ export class Song {
       ): SongChannelNoteOccurrence|undefined {
       for (let orderIndex = songPosition; orderIndex >= 0; orderIndex--) {
          const orderItem = this.songOrder[orderIndex];
+         assert(!!orderItem, `Invalid song order index ${orderIndex}`);
+         // this respects the "current song order always acts as enabled" rule.
+         if (orderIndex !== songPosition && !orderItem.enabled)
+            continue;
          const pattern = orderItem ? this.patterns[orderItem.patternIndex] : undefined;
          if (!pattern)
             continue;
@@ -824,12 +840,17 @@ export class Song {
       };
    }
 
+   // skips disabled orders, mimicing real playback.
    getAbsRowAtSongPosition(songPosition: number, rowIndex = 0): number {
       const safePosition = clamp(songPosition | 0, 0, Math.max(0, this.songOrder.length - 1));
       let absRow = 0;
       for (let i = 0; i < safePosition; i++) {
-         absRow += this.getOrderEffectiveRowCount(i);
+         if (this.songOrder[i]!.enabled) {
+            absRow += this.getOrderEffectiveRowCount(i);
+         }
       }
+      if (!this.songOrder[safePosition]?.enabled)
+         return absRow;
       const rowsInOrder = this.getOrderEffectiveRowCount(safePosition);
       return absRow + clamp(rowIndex | 0, 0, Math.max(0, rowsInOrder - 1));
    }
@@ -839,15 +860,25 @@ export class Song {
       if (orderCount <= 0) {
          return {songPosition: 0, rowIndex: 0};
       }
+      const enabledOrderIndices = this.getEnabledSongOrderIndices();
+      if (enabledOrderIndices.length === 0) {
+         return {songPosition: 0, rowIndex: 0};
+      }
       let remaining = clamp(Math.floor(absRow), 0, Math.max(0, this.getSongLengthRows() - 1));
       for (let orderIndex = 0; orderIndex < orderCount; orderIndex++) {
+         if (!this.songOrder[orderIndex]!.enabled)
+            continue;
          const rows = this.getOrderEffectiveRowCount(orderIndex);
          if (remaining < rows) {
             return {songPosition: orderIndex, rowIndex: remaining};
          }
          remaining -= rows;
       }
-      return {songPosition: orderCount - 1, rowIndex: Math.max(0, this.getOrderEffectiveRowCount(orderCount - 1) - 1)};
+      const lastEnabledOrderIndex = enabledOrderIndices[enabledOrderIndices.length - 1]!;
+      return {
+         songPosition: lastEnabledOrderIndex,
+         rowIndex: Math.max(0, this.getOrderEffectiveRowCount(lastEnabledOrderIndex) - 1),
+      };
    }
 
    //  "transport": {
@@ -942,6 +973,8 @@ export function buildCueSheet(song: Song): CueSheetEntry[] | null {
    const maxPatternIndex = song.patterns.length - 1;
    for (let orderIndex = 0; orderIndex < song.songOrder.length; orderIndex++) {
       const orderItem = song.songOrder[orderIndex]!;
+      if (!orderItem.enabled)
+         continue;
       const patternIndex = clamp(orderItem.patternIndex ?? 0, 0, maxPatternIndex);
       const patternName = song.patterns[patternIndex]?.name ?? "";
       const entry: CueSheetEntry = {};

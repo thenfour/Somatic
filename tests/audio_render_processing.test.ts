@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import {describe, it} from "node:test";
 
 import {
-   amplitudeToDbfs,
    createAudioRenderPreview,
    PCM16_MASTERING_SILENCE_ABS_SAMPLE,
    Pcm16AudioAnalyzer,
 } from "../src/audio/audio_render_processing";
 import type {AudioRenderSettings} from "../src/models/song";
+import {linearGainToDecibels} from "../src/utils/music/dsp";
 
 const settings = (overrides: Partial<AudioRenderSettings> = {}): AudioRenderSettings => ({
    format: "wav",
@@ -37,7 +37,7 @@ describe("PCM16 audio render processing", () => {
       assert.equal(analysis.trimStartFrame, 2);
       assert.equal(analysis.trimEndFrame, 4);
       assert.equal(analysis.peakAmplitude, 3 / 32768);
-      assert.equal(analysis.peakDbfs, amplitudeToDbfs(3 / 32768));
+      assert.equal(analysis.peakDbfs, linearGainToDecibels(3 / 32768));
    });
 
    it("trims first, normalizes with one gain, then adds frame-rounded padding", () => {

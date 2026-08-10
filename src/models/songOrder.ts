@@ -2,6 +2,8 @@
 
 // https://github.com/nesbox/TIC-80/wiki/.tic-File-Format
 
+import {CoalesceBoolean} from "../utils/utils";
+
 // these should be semi-semantic, not just random symbols.
 // NOTE: keep in sync with
 // - theme vars
@@ -54,19 +56,23 @@ export type SongOrderMarkerVariant = typeof SongOrderMarkerVariantValues[number]
 export interface SongOrderDto {
    patternIndex: number;
    markerVariant: SongOrderMarkerVariant;
+   enabled: boolean;
 }
 
 export class SongOrderItem {
    patternIndex: number;
    markerVariant: SongOrderMarkerVariant;
+   enabled: boolean;
 
-   constructor(data: Partial<SongOrderDto|number> = {}) {
+   constructor(data: Partial<SongOrderDto | number> = {}) {
       if (typeof data === "number") {
          this.patternIndex = data;
          this.markerVariant = "default";
+         this.enabled = true;
       } else {
          this.patternIndex = data.patternIndex ?? 0;
          this.markerVariant = data.markerVariant ?? "default";
+         this.enabled = CoalesceBoolean(data.enabled, true);
       }
    }
 
@@ -77,7 +83,8 @@ export class SongOrderItem {
    toData(): SongOrderDto {
       return {
          patternIndex: this.patternIndex,  //
-         markerVariant: this.markerVariant //
+         markerVariant: this.markerVariant, //
+         enabled: this.enabled,
       };
    }
 

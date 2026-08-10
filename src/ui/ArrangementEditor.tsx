@@ -4,6 +4,7 @@ import {
    mdiAsterisk,
    mdiClose,
    mdiContentDuplicate,
+   mdiEye,
    mdiPlus,
    mdiTableRowPlusAfter,
    mdiTableRowPlusBefore
@@ -426,6 +427,22 @@ export const ArrangementEditor: React.FC<{
         nudgeSelection(1);
     };
 
+   const handleToggleEnabled = () => {
+      const selection = getSelectionRange();
+      if (selection.length === 0) return;
+
+      onSongChange({
+         description: 'Toggle enabled for arrangement selection',
+         undoable: true,
+         mutator: (s) => {
+            for (const pos of selection) {
+               const item = s.songOrder[pos];
+               item.enabled = !item.enabled;
+            }
+         },
+      });
+   };
+
     // const toggleThumbnails = () => {
     //     onSongChange({
     //         description: thumbnailPrefs.size === "off" ? "Enable arrangement thumbnails" : "Disable arrangement thumbnails",
@@ -560,6 +577,7 @@ export const ArrangementEditor: React.FC<{
                     const isInSelection = listSelection.includes(positionIndex);
                     const isPlaying = activeSongPosition === positionIndex;
                     const canDelete = song.songOrder.length > 1;
+                   const isEnabled = orderItem.enabled;
                     const isMatchingCursorPattern = cursorPatternIndex !== undefined && clampedPattern === cursorPatternIndex;
                     const thumbKey = pattern ? pattern.contentSignature() : `nopat-${clampedPattern}`;
                     const effectiveRows = song.getOrderEffectiveRowCount(positionIndex);
@@ -583,6 +601,7 @@ export const ArrangementEditor: React.FC<{
                         isLastInSelection && "arrangement-editor__row--selection-last",
                         isPlaying && "arrangement-editor__row--playing",
                         isMatchingCursorPattern && "arrangement-editor__row--pattern-match",
+                       isEnabled ? "arrangement-editor__row--enabled" : "arrangement-editor__row--disabled",
                     ].filter(Boolean).join(" ");
 
                     const controlsClass = [
@@ -807,6 +826,17 @@ export const ArrangementEditor: React.FC<{
                             <Icon path={mdiArrowDownBold} size={1} />
                         </button>
                     </Tooltip>
+                <Tooltip title="Toggle enabled (excluded from song playback/export)">
+                   <button
+                      type="button"
+                      className="arrangement-editor__command"
+                      onClick={handleToggleEnabled}
+                      disabled={getSelectionRange().length === 0}
+                      aria-label="Toggle enabled"
+                   >
+                      <Icon path={mdiEye} size={1} />
+                   </button>
+                </Tooltip>
                     {/* <Tooltip title={thumbnailsEnabled ? "Hide thumbnails" : "Show thumbnails"}>
                         <button
                             type="button"

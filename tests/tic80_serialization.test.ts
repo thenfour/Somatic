@@ -174,6 +174,51 @@ describe("playroutine export reachability", () => {
       );
       assert.doesNotMatch(details.wholePlayroutineCode, /render_waveform_pwm/);
    });
+
+   it("excludes patterns, instruments, and features reachable only through disabled orders", async () => {
+      const {
+         serializeSongForTic80Bridge,
+         serializeSongToCartDetailed,
+      } = await import("../src/subsystem/tic80/tic80_cart_serializer");
+      const song = new Song({rowsPerPattern: 8});
+      song.patterns.push(song.patterns[0].clone());
+      const experimentalOrder = song.songOrder[0].clone();
+      experimentalOrder.patternIndex = 1;
+      experimentalOrder.enabled = false;
+      song.songOrder.push(experimentalOrder);
+
+      song.patterns[0].setCell(0, 0, {midiNote: 60, instrumentIndex: 0});
+      song.patterns[1].setCell(0, 0, {midiNote: 72, instrumentIndex: 7});
+      song.instruments[7].waveEngine = "pwm";
+      song.instruments[7].pwmDuty = 12;
+      song.instruments[7].pwmDepth = 4;
+      song.instruments[7].lfoRateHz = 2;
+
+      const bridge = serializeSongForTic80Bridge({
+         song,
+         loopMode: "off",
+         cursorSongOrder: 0,
+         cursorChannelIndex: 0,
+         cursorRowIndex: 0,
+         patternSelection: null,
+         audibleChannels: gTic80AllChannelsAudible,
+         startPosition: 0,
+         startRow: 0,
+         songOrderSelection: null,
+         auditionSongOrder: null,
+      });
+      assert.equal(bridge.bakedSong.bakedSong.songOrder.length, 1);
+      assert.deepEqual(bridge.bakedSong.transportConversion.sourceSongOrderIndices, [0]);
+      assert.equal(bridge.preparedSong.patternColumns.some((column) => column.sourcePatternIndex === 1), false);
+
+      for (const optimize of [false, true]) {
+         const details = serializeSongToCartDetailed(song, optimize, "debug", gTic80AllChannelsAudible);
+         assert.equal(details.optimizeResult.usedSfxCount, 1);
+         assert.equal(details.optimizeResult.featureUsage.pwm, false);
+         assert.equal(details.optimizeResult.featureUsage.lfo, false);
+         assert.doesNotMatch(details.wholePlayroutineCode, /render_waveform_pwm/);
+      }
+   });
 });
 
 describe("TIC-80 bridge extra-song transaction", () => {
@@ -222,6 +267,7 @@ describe("TIC-80 bridge extra-song transaction", () => {
          startPosition: 0,
          startRow: 0,
          songOrderSelection: null,
+         auditionSongOrder: null,
       });
 
       const block = serialized.bridgeBlocksToTransmit.find(

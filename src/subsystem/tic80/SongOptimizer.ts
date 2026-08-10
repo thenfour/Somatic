@@ -32,6 +32,8 @@ export function calculateSongUsage(song: Song): SongUsage {
    // patterns that appear in the order list
    const maxPatternIndex = Math.max(song.patterns.length - 1, 0);
    for (let i = 0; i < song.songOrder.length; i++) {
+      if (!song.songOrder[i].enabled)
+         continue;
       const idx = clamp(song.songOrder[i].patternIndex, 0, maxPatternIndex);
       usedPatterns.add(idx);
    }
@@ -247,8 +249,12 @@ export function OptimizeSong(song: Song): OptimizeResult {
          changeLog.push(`Song order entry ${orderPos} clamped from ${item.patternIndex} to ${clamped}.`);
       }
       const mapped = patternRemap.get(clamped) ?? clamped;
-      usedPatternSet.add(mapped);
-      return new SongOrderItem({patternIndex: mapped});
+      if (item.enabled) {
+         usedPatternSet.add(mapped);
+      }
+      const result = item.clone();
+      result.patternIndex = mapped;
+      return result;
    });
 
    // Step 2: move used patterns to the front; keep unused after.
@@ -270,8 +276,11 @@ export function OptimizeSong(song: Song): OptimizeResult {
       }
    });
 
-   working.songOrder =
-      working.songOrder.map((item) => new SongOrderItem({patternIndex: newPatternIndex.get(item.patternIndex) ?? 0}));
+   working.songOrder = working.songOrder.map((item) => {
+      const result = item.clone();
+      result.patternIndex = newPatternIndex.get(item.patternIndex) ?? 0;
+      return result;
+   });
    working.patterns = newPatterns;
    const usedPatternCount = usedPatternSet.size;
    changeLog.push(`Moved ${usedPatternCount} used patterns to the front out of ${newPatterns.length}.`);

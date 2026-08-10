@@ -112,6 +112,8 @@ export function prepareSongColumns(song: Song): PreparedSong {
    const maxPatternIndex = song.patterns.length - 1;
    for (let i = 0; i < song.songOrder.length; i++) {
       const orderEntry = song.songOrder[i];
+      if (!orderEntry.enabled)
+         continue;
       const patternIndex = orderEntry.patternIndex;
       assert(
          Number.isInteger(patternIndex) && patternIndex >= 0 && patternIndex <= maxPatternIndex,
@@ -126,6 +128,15 @@ export function prepareSongColumns(song: Song): PreparedSong {
          patternColumnIndices: columnIndices,
          effectiveRows,
       });
+   }
+
+   // The playroutine requires at least one order. An editor song may legally
+   // disable every order, so represent that zero-length song with a one-row
+   // silent technical payload rather than leaking a disabled pattern into it.
+   if (songOrder.length === 0) {
+      const silentColumn = new PatternChannel();
+      patternColumns.push({sourcePatternIndex: 0, channelIndex: 0, channel: silentColumn});
+      songOrder.push({patternColumnIndices: [0, 0, 0, 0], effectiveRows: 1});
    }
 
    const prepared: PreparedSong = {

@@ -109,6 +109,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
                     startPosition: 0,
                     startRow: 0,
                     songOrderSelection: null,
+                    auditionSongOrder: null,
                 });
             } catch (error) {
                 if (!(error instanceof BridgeExtraSongDataOverflowError))

@@ -289,3 +289,18 @@
 .arrangement-editor__thumbnail rect[data-role="highlight"] {
     fill: var(--arr-thumb-highlight);
 }
+
+/* disabled styling */
+.arrangement-editor__row--disabled .arrangement-editor__marker,
+.arrangement-editor__row--disabled .arrangement-editor__pattern-name,
+.arrangement-editor__row--disabled .arrangement-editor__pattern {
+    opacity: 0.3;
+}
+
+.arrangement-editor__row--disabled .arrangement-editor__marker {
+   filter: grayscale(1);
+}
+
+.arrangement-editor__row--disabled .arrangement-editor__thumbnail rect[data-role="fill"] {
+    opacity: 0.2;
+}

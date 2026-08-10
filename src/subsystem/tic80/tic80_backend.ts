@@ -33,6 +33,7 @@ export type BackendPlaySongArgs = {
    startRow: number,                         //
    loopMode: LoopMode,                       //
    songOrderSelection: SelectionRect2D | null,
+   auditionSongOrder: number | null, // required for inclusion of disabled song orders when auditioning. IOW, if song order 5 is disabled, and you're auditioning it, it becomes enabled for playback.
 };
 
 export type BackendRenderSongToWavArgs = {
@@ -63,6 +64,7 @@ function clonePlaybackSession(args: BackendPlaySongArgs): PlaybackSession {
       audibleChannels: new Set(args.audibleChannels),
       loopMode: args.loopMode,
       songOrderSelection: cloneSelection(args.songOrderSelection),
+      auditionSongOrder: args.auditionSongOrder,
    };
 }
 
@@ -111,6 +113,11 @@ function makeSessionArgs(
          session.patternSelection, Math.max(0, song.subsystem.channelCount - 1), Math.max(0, song.rowsPerPattern - 1)),
       songOrderSelection: clampSelection(
          session.songOrderSelection, 0, Math.max(0, song.songOrder.length - 1)),
+      // downstream, disabled orders are pruned out. make sure it gets included by passing it here, if disabled.
+      // failing to do this, the bridge won't get the correct song order set for auditioning.
+      auditionSongOrder: song.songOrder[startPosition]?.enabled === false
+         ? clamp(startPosition | 0, 0, Math.max(0, song.songOrder.length - 1))
+         : null,
       startPosition,
       startRow,
    };
@@ -238,6 +245,7 @@ export class Tic80Backend {
          startRow: args.startRow,
          loopMode: args.loopMode,
          songOrderSelection: args.songOrderSelection,
+         auditionSongOrder: args.auditionSongOrder,
       });
 
       //console.log("[Tic80Backend] transmitAndPlay uploading song:", serializedSong);
@@ -384,6 +392,7 @@ export class Tic80Backend {
          startPosition: 0,
          startRow: 0,
          songOrderSelection: null,
+         auditionSongOrder: null,
       });
 
       this.playbackEpoch++;
