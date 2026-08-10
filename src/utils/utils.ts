@@ -321,6 +321,12 @@ export const CharMap = {
 };
 
 
+export function yieldToBrowser(): Promise<void> {
+   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+
+
 export const formatBytes = (n: number|null) => {
    if (n == null)
       return "...";

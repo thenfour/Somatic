@@ -2,7 +2,7 @@ import {kSubsystem, SomaticSubsystemBackend, SubsystemTypeKey} from "../subsyste
 import {Tic80SubsystemBackend} from "../subsystem/tic80/tic80SubsystemBackend";
 import {AmigaModSubsystemBackend} from "../subsystem/AmigaMod/AmigaModSubsystemBackend";
 import {SidSubsystemBackend} from "../subsystem/Sid/SidSubsystemBackend";
-import {clamp, CoalesceBoolean, MinutesToMilliseconds, NormalizeClampedFloat, NormalizeFloat, SanitizeFilename} from "../utils/utils";
+import {clamp, CoalesceBoolean, NormalizeClampedFloat, SanitizeFilename} from "../utils/utils";
 
 import {makeDefaultInstrumentForIndex, SomaticInstrument, SomaticInstrumentDto} from "./instruments";
 import {isNoteCut, Pattern, PatternDto} from "./pattern";
@@ -104,6 +104,18 @@ export type CueSheetField = typeof CueSheetFieldValues[number];
 export const AudioRenderFormatValues = ["wav", "mp3", "flac"] as const;
 export type AudioRenderFormat = typeof AudioRenderFormatValues[number];
 
+export const AudioRenderNormalizationTarget = {
+   defaultDbfs: -1,
+   minDbfs: -12,
+   maxDbfs: 0,
+} as const;
+
+export const AudioRenderSilencePadding = {
+   defaultMs: 0,
+   minMs: 0,
+   maxMs: 5000,
+} as const;
+
 export type AudioRenderMetadata = {
    title: string;
    artist: string;
@@ -116,7 +128,7 @@ export type AudioRenderMetadata = {
 export type AudioRenderSettings = {
    format: AudioRenderFormat;
    normalizePeak: boolean;
-   peakDBFS: number;
+   normalizationTargetDbfs: number;
    trimSilence: boolean;
    leadingSilenceMs: number;
    trailingSilenceMs: number;
@@ -132,18 +144,36 @@ function normalizeAudioRenderSettings(
       : "wav";
    const metadata = settings?.metadata;
    const stringOrEmpty = (value: unknown) => typeof value === "string" ? value : "";
+   const booleanOrDefault = (value: unknown, defaultValue: boolean) => (
+      typeof value === "boolean" ? value : defaultValue
+   );
 
    return {
       format,
-      normalizePeak: CoalesceBoolean(settings?.normalizePeak, false),
-      peakDBFS: NormalizeFloat(settings?.peakDBFS, -1),
-      trimSilence: CoalesceBoolean(settings?.trimSilence, false),
+      normalizePeak: booleanOrDefault(settings?.normalizePeak, false),
+      normalizationTargetDbfs: NormalizeClampedFloat(
+         settings?.normalizationTargetDbfs,
+         AudioRenderNormalizationTarget.defaultDbfs,
+         AudioRenderNormalizationTarget.minDbfs,
+         AudioRenderNormalizationTarget.maxDbfs,
+      ),
+      trimSilence: booleanOrDefault(settings?.trimSilence, false),
       // A default leadin (~150ms) is sensible for audio export in general, esp for chiptune that may have a strong sharp attack
       // right off the bat. to allow players to start up, bluetooth to connect, volume to ramp up, that kind of thincg.
       // however, you are often exporting for the purpose of synchronizing animations etc, where leadin would only cause
       // confusion / problems.
-      leadingSilenceMs: NormalizeClampedFloat(settings?.leadingSilenceMs, 0, 0, MinutesToMilliseconds(10)),
-      trailingSilenceMs: NormalizeClampedFloat(settings?.trailingSilenceMs, 0, 0, MinutesToMilliseconds(10)),
+      leadingSilenceMs: NormalizeClampedFloat(
+         settings?.leadingSilenceMs,
+         AudioRenderSilencePadding.defaultMs,
+         AudioRenderSilencePadding.minMs,
+         AudioRenderSilencePadding.maxMs,
+      ),
+      trailingSilenceMs: NormalizeClampedFloat(
+         settings?.trailingSilenceMs,
+         AudioRenderSilencePadding.defaultMs,
+         AudioRenderSilencePadding.minMs,
+         AudioRenderSilencePadding.maxMs,
+      ),
       metadata: {
          title: typeof metadata?.title === "string" ? metadata.title : fallbackTitle,
          artist: stringOrEmpty(metadata?.artist),

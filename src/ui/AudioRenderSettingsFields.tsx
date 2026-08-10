@@ -4,7 +4,9 @@ import {
    AudioRenderFormat,
    AudioRenderFormatValues,
    AudioRenderMetadata,
+   AudioRenderNormalizationTarget,
    AudioRenderSettings,
+   AudioRenderSilencePadding,
 } from "../models/song";
 import {CheckboxButton} from "./Buttons/CheckboxButton";
 import {RadioButton} from "./Buttons/RadioButton";
@@ -91,14 +93,16 @@ export const AudioRenderSettingsFields: React.FC<AudioRenderSettingsFieldsProps>
                Normalize
             </CheckboxButton>
             <Knob
-               label="Headroom (dBFS)"
+               label="Target peak (dBFS)"
                disabled={!settings.normalizePeak}
-               value={settings.peakDBFS}
-               onChange={(peakDBFS) => onChange({...settings, peakDBFS})}
-               min={-12}
-               max={3}
+               value={settings.normalizationTargetDbfs}
+               onChange={(normalizationTargetDbfs) => onChange({...settings, normalizationTargetDbfs})}
+               min={AudioRenderNormalizationTarget.minDbfs}
+               max={AudioRenderNormalizationTarget.maxDbfs}
+               step={0.1}
                centerValue={0}
-               defaultValue={-1}
+               defaultValue={AudioRenderNormalizationTarget.defaultDbfs}
+               formatValue={(value) => value.toFixed(1)}
             />
             </div>
          </div>
@@ -116,19 +120,23 @@ export const AudioRenderSettingsFields: React.FC<AudioRenderSettingsFieldsProps>
                label="Lead-in (ms)"
                value={settings.leadingSilenceMs}
                onChange={(leadingSilenceMs) => onChange({...settings, leadingSilenceMs})}
-               min={0}
-               max={5000}
+               min={AudioRenderSilencePadding.minMs}
+               max={AudioRenderSilencePadding.maxMs}
+               step={10}
                centerValue={0}
-               defaultValue={0}
+               defaultValue={AudioRenderSilencePadding.defaultMs}
+               formatValue={(value) => Math.round(value).toString()}
             />
             <Knob
                label="Lead-out (ms)"
                value={settings.trailingSilenceMs}
                onChange={(trailingSilenceMs) => onChange({...settings, trailingSilenceMs})}
-               min={0}
-               max={5000}
+               min={AudioRenderSilencePadding.minMs}
+               max={AudioRenderSilencePadding.maxMs}
+               step={10}
                centerValue={0}
-               defaultValue={0}
+               defaultValue={AudioRenderSilencePadding.defaultMs}
+               formatValue={(value) => Math.round(value).toString()}
             />
             </div>
          </div>

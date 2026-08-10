@@ -21,6 +21,10 @@ describe("audio render settings", () => {
       song.audioRenderSettings = {
          format: "flac",
          normalizePeak: true,
+         normalizationTargetDbfs: -2.5,
+         trimSilence: true,
+         leadingSilenceMs: 150,
+         trailingSilenceMs: 500,
          metadata: {
             title: "Release title",
             artist: "Artist",
@@ -43,12 +47,20 @@ describe("audio render settings", () => {
          audioRenderSettings: {
             format: "unsupported",
             normalizePeak: "yes",
+            normalizationTargetDbfs: 4,
+            trimSilence: "yes",
+            leadingSilenceMs: -10,
+            trailingSilenceMs: 999999,
             metadata: {title: 42},
          },
       } as any);
 
       assert.equal(song.audioRenderSettings.format, "wav");
       assert.equal(song.audioRenderSettings.normalizePeak, false);
+      assert.equal(song.audioRenderSettings.normalizationTargetDbfs, 0);
+      assert.equal(song.audioRenderSettings.trimSilence, false);
+      assert.equal(song.audioRenderSettings.leadingSilenceMs, 0);
+      assert.equal(song.audioRenderSettings.trailingSilenceMs, 5000);
       assert.equal(song.audioRenderSettings.metadata.title, "Fallback title");
       assert.equal(song.audioRenderSettings.metadata.artist, "");
    });

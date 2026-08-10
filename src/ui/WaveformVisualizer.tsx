@@ -6,8 +6,17 @@ export type WaveformHighlightWindow = {
     frameLength: number;
 };
 
+export type WaveformEnvelope = {
+    frameCount: number;
+    minimums: Float32Array;
+    maximums: Float32Array;
+};
+
+const EmptySamples = new Float32Array(0);
+
 export const WaveformVisualizer: React.FC<{
-    samples: Float32Array;
+    samples?: Float32Array;
+    envelope?: WaveformEnvelope;
     className?: string;
     height?: number;
     highlights?: WaveformHighlightWindow[];
@@ -16,7 +25,8 @@ export const WaveformVisualizer: React.FC<{
     dottedMarkers?: number[];
     ariaLabel?: string;
 }> = ({
-    samples,
+    samples = EmptySamples,
+    envelope,
     className,
     height = 120,
     highlights = [],
@@ -27,7 +37,7 @@ export const WaveformVisualizer: React.FC<{
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [layoutTick, setLayoutTick] = useState(0);
 
-    const frameCount = samples.length;
+    const frameCount = envelope?.frameCount ?? samples.length;
 
     const highlightsClamped = useMemo(() => {
         const safe: WaveformHighlightWindow[] = [];
@@ -156,13 +166,39 @@ export const WaveformVisualizer: React.FC<{
             ctx.lineWidth = 2;
 
             const columns = Math.max(1, Math.floor(w));
-            const framesPerCol = frameCount / columns;
 
             const sampleToY = (s: number) => {
                 // samples are expected in -1..+1. Clamp lightly to avoid weird files.
                 const clamped = Math.max(-1, Math.min(1, Number.isFinite(s) ? s : 0));
                 return (1 - (clamped + 1) / 2) * h;
             };
+
+            if (envelope && envelope.minimums.length > 0 && envelope.maximums.length > 0) {
+                const sourceBinCount = Math.min(envelope.minimums.length, envelope.maximums.length);
+                const binsPerColumn = sourceBinCount / columns;
+                ctx.beginPath();
+                for (let x = 0; x < columns; x++) {
+                    const firstBin = Math.floor(x * binsPerColumn);
+                    const lastBinExclusive = Math.min(
+                        sourceBinCount,
+                        Math.max(firstBin + 1, Math.ceil((x + 1) * binsPerColumn)),
+                    );
+                    if (firstBin >= sourceBinCount) break;
+
+                    let minimum = 1;
+                    let maximum = -1;
+                    for (let sourceBin = firstBin; sourceBin < lastBinExclusive; sourceBin++) {
+                        minimum = Math.min(minimum, envelope.minimums[sourceBin] ?? 0);
+                        maximum = Math.max(maximum, envelope.maximums[sourceBin] ?? 0);
+                    }
+                    ctx.moveTo(x + 0.5, sampleToY(maximum));
+                    ctx.lineTo(x + 0.5, sampleToY(minimum));
+                }
+                ctx.stroke();
+                return;
+            }
+
+            const framesPerCol = frameCount / columns;
 
             // Sparse rendering: there are too few samples per pixel column.
             // here the min/max-per-pixel approach produces glitches
@@ -212,7 +248,7 @@ export const WaveformVisualizer: React.FC<{
             }
             ctx.stroke();
         }
-    }, [samples, frameCount, height, highlightsClamped, secondaryHighlightsClamped, dottedMarkersClamped, layoutTick]);
+    }, [samples, envelope, frameCount, height, highlightsClamped, secondaryHighlightsClamped, dottedMarkersClamped, layoutTick]);
 
     // Redraw on resize (cheap: just re-run effect)
     useEffect(() => {

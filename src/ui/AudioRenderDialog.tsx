@@ -1,7 +1,6 @@
 import React from "react";
 import {Button} from "./Buttons/PushButton";
 import {ModalDialog} from "./basic/ModalDialog";
-import {Tooltip} from "./basic/tooltip";
 import "./AudioRenderDialog.css";
 import {clamp01, formatBytes} from "../utils/utils";
 import {
@@ -11,8 +10,10 @@ import {
 import {AudioRenderSettings} from "../models/song";
 import {AudioRenderSettingsFields} from "./AudioRenderSettingsFields";
 import {WaveformVisualizer} from "./WaveformVisualizer";
+import type {AudioRenderPreview, AudioSourceAnalysis} from "../audio/audio_render_processing";
+import {linearGainToDecibels} from "../utils/music/dsp";
 
-export type AudioRenderPhase = "preparing" | "rendering" | "cancelling" | "review";
+export type AudioRenderPhase = "preparing" | "rendering" | "analyzing" | "encoding" | "cancelling" | "review";
 
 export type AudioRenderDialogProps = {
    open: boolean;
@@ -24,6 +25,8 @@ export type AudioRenderDialogProps = {
    renderCompletedAtMillis: number | null;
    totalAudioSeconds: number;
    sourceWavByteLength: number;
+   analysis: AudioSourceAnalysis | null;
+   preview: AudioRenderPreview | null;
    settings: AudioRenderSettings;
    onSettingsChange: (settings: AudioRenderSettings) => void;
    onCancel: () => void;
@@ -31,21 +34,29 @@ export type AudioRenderDialogProps = {
    onDownload: () => void;
 };
 
-const MockWaveformSamples = (() => {
-   const sampleCount = 4096;
-   const samples = new Float32Array(sampleCount);
-   for (let i = 0; i < sampleCount; i++) {
-      const position01 = i / Math.max(1, sampleCount - 1);
-      const phrase = 0.28 + 0.6 * Math.pow(Math.sin(position01 * Math.PI * 5.5), 2);
-      const fade = Math.min(1, position01 * 12, (1 - position01) * 12);
-      samples[i] = (
-         Math.sin(i * 0.071)
-         + Math.sin(i * 0.019) * 0.48
-         + Math.sin(i * 0.131) * 0.18
-      ) * 0.48 * phrase * fade;
-   }
-   return samples;
-})();
+function formatPeakDbfs(dbfs: number): string {
+   return Number.isFinite(dbfs) ? `${dbfs.toFixed(1)} dBFS` : "−inf dBFS";
+}
+
+function formatGainDb(gain: number): string {
+   const gainDb = linearGainToDecibels(gain);
+   if (!Number.isFinite(gainDb)) return "−inf dB";
+   return `${gainDb >= 0 ? "+" : ""}${gainDb.toFixed(1)} dB`;
+}
+
+function formatPreciseAudioDuration(seconds: number): string {
+   const totalMilliseconds = Math.max(0, Math.round(seconds * 1000));
+   const milliseconds = totalMilliseconds % 1000;
+   const totalSeconds = Math.floor(totalMilliseconds / 1000);
+   const second = totalSeconds % 60;
+   const totalMinutes = Math.floor(totalSeconds / 60);
+   const minute = totalMinutes % 60;
+   const hour = Math.floor(totalMinutes / 60);
+   const secondsPart = `${second.toString().padStart(2, "0")}.${milliseconds.toString().padStart(3, "0")}`;
+   return hour > 0
+      ? `${hour}:${minute.toString().padStart(2, "0")}:${secondsPart}`
+      : `${minute}:${secondsPart}`;
+}
 
 export const AudioRenderDialog: React.FC<AudioRenderDialogProps> = ({
    open,
@@ -57,6 +68,8 @@ export const AudioRenderDialog: React.FC<AudioRenderDialogProps> = ({
    renderCompletedAtMillis,
    totalAudioSeconds,
    sourceWavByteLength,
+   analysis,
+   preview,
    settings,
    onSettingsChange,
    onCancel,
@@ -94,6 +107,8 @@ export const AudioRenderDialog: React.FC<AudioRenderDialogProps> = ({
 
    if (phase === "review") {
       const format = settings.format.toUpperCase();
+      if (!analysis || !preview) return null;
+      const trimmedFrames = Math.max(0, analysis.frameCount - preview.trimmedFrameCount);
 
       return (
          <ModalDialog
@@ -111,27 +126,40 @@ export const AudioRenderDialog: React.FC<AudioRenderDialogProps> = ({
 
                <div className="audio-render-dialog__waveform">
                   <WaveformVisualizer
-                     samples={MockWaveformSamples}
+                     envelope={preview.waveform}
                      height={150}
+                     ariaLabel="Processed audio waveform preview"
                   />
                </div>
 
                <dl className="audio-render-dialog__source-metrics">
                   <div>
                      <dt>Duration</dt>
-                     <dd>{formatAudioRenderDuration(totalAudioSeconds)}</dd>
+                     <dd>{formatPreciseAudioDuration(preview.durationSeconds)}</dd>
                   </div>
                   <div>
                      <dt>Source</dt>
-                     <dd>{formatBytes(sourceWavByteLength)} WAV</dd>
+                     <dd>{formatBytes(sourceWavByteLength)} · {(analysis.sampleRateHz / 1000).toFixed(1)} kHz · {analysis.channelCount} ch</dd>
                   </div>
                   <div>
                      <dt>Render time</dt>
                      <dd>{elapsedText}</dd>
                   </div>
                   <div>
-                     <dt>Peak</dt>
-                     <dd>(todo)</dd>
+                     <dt>Processed peak</dt>
+                     <dd>{formatPeakDbfs(preview.outputPeakDbfs)}</dd>
+                  </div>
+                  <div>
+                     <dt>Source peak</dt>
+                     <dd>{formatPeakDbfs(analysis.peakDbfs)}</dd>
+                  </div>
+                  <div>
+                     <dt>Gain</dt>
+                     <dd>{formatGainDb(preview.gain)}</dd>
+                  </div>
+                  <div>
+                     <dt>Trimmed</dt>
+                     <dd>{formatPreciseAudioDuration(trimmedFrames / analysis.sampleRateHz)}</dd>
                   </div>
                </dl>
 
@@ -152,28 +180,40 @@ export const AudioRenderDialog: React.FC<AudioRenderDialogProps> = ({
 
    const status = phase === "preparing"
       ? "Preparing song data..."
-      : phase === "cancelling"
-         ? "Cancelling render..."
-         : "Rendering audio...";
+      : phase === "analyzing"
+         ? "Analyzing captured audio..."
+         : phase === "encoding"
+            ? `Encoding ${settings.format.toUpperCase()}...`
+            : phase === "cancelling"
+               ? "Cancelling audio export..."
+               : "Rendering audio...";
+   const isExportWork = phase === "analyzing" || phase === "encoding" || (phase === "cancelling" && sourceWavByteLength > 0);
+   const progressIsIndeterminate = phase === "preparing" || phase === "analyzing";
 
    return (
       <ModalDialog isOpen={open} ariaLabelledBy="audio-render-dialog-title">
          <div className="modal-dialog__body audio-render-dialog">
-            <h2 id="audio-render-dialog-title">Render Audio</h2>
+            <h2 id="audio-render-dialog-title">{isExportWork ? "Export Audio" : "Render Audio"}</h2>
             <p>{status}</p>
             <progress
                className="audio-render-dialog__progress"
                max={1}
-               value={phase === "preparing" ? undefined : safeFraction01}
+               value={progressIsIndeterminate ? undefined : safeFraction01}
                aria-label="Audio render progress"
             />
-            {phase !== "preparing" && totalRows > 0 && (
+            {phase === "rendering" && totalRows > 0 && (
                <div className="audio-render-dialog__progress-summary">
                   <span>{Math.min(completedRows, totalRows)} / {totalRows} rows</span>
                   <strong>{percent}%</strong>
                </div>
             )}
-            <dl className="audio-render-dialog__metrics">
+            {phase === "encoding" && (
+               <div className="audio-render-dialog__progress-summary">
+                  <span>Processing captured audio</span>
+                  <strong>{percent}%</strong>
+               </div>
+            )}
+            {!isExportWork && <dl className="audio-render-dialog__metrics">
                <div>
                   <dt>Elapsed</dt>
                   <dd>{elapsedText}</dd>
@@ -186,7 +226,7 @@ export const AudioRenderDialog: React.FC<AudioRenderDialogProps> = ({
                   <dt>Rate</dt>
                   <dd>{rateText}</dd>
                </div>
-            </dl>
+            </dl>}
          </div>
          <div className="modal-dialog__footer">
             <Button type="button" onClick={onCancel} disabled={phase === "cancelling"}>
