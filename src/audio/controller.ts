@@ -2,7 +2,7 @@ import type {Pattern} from "../models/pattern";
 import type {Song} from "../models/song";
 import {Tic80Caps} from "../models/tic80Capabilities";
 import {Tic80BridgeHandle} from "../subsystem/tic80/Tic80Bridged";
-import {BackendPlaySongArgs, Tic80Backend} from "../subsystem/tic80/tic80_backend";
+import {BackendPlaySongArgs, BackendRenderSongToWavArgs, Tic80Backend} from "../subsystem/tic80/tic80_backend";
 import {VoiceManager} from "./voice_manager";
 
 export class Tic80AudioController {
@@ -52,6 +52,11 @@ export class Tic80AudioController {
 
    async transmitEditedSong(args: BackendPlaySongArgs) {
       await this.backend.transmitEditedSong(args);
+   }
+
+   async renderSongToWav(args: BackendRenderSongToWavArgs) {
+      this.voiceManager.releaseAll();
+      return this.backend.renderSongToWav(args);
    }
 
    panic() {

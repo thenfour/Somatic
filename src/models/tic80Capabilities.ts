@@ -16,6 +16,14 @@ const MAX_PATTERN_MIDI = TIC_NOTE_MIDI_BASE + 8 /*Tic80Caps.pattern.octaveCount*
 
 const mem = bridgeConfig.memory;
 
+// The bridge stores a zero-based song-order index in one byte and reserves
+// 0xFF for "not playing". should not be read as a signed value.
+// returns -1 if value is invalid (0xff)
+export function decodeSomaticSongPositionU8(value: number): number {
+   const valueU8 = value & 0xff;
+   return valueU8 === 0xff ? -1 : valueU8;
+}
+
 export const SomaticCaps = {
    maxPatternCount: 256,
    // count is one byte, so an actual song can contain at most 255 orders.
@@ -243,6 +251,9 @@ export const TicMemoryMap = {
    OUTBOX_MUTEX_ADDR: parseAddress(mem.OUTBOX_ADDR) + 12,
    OUTBOX_SEQ_ADDR: parseAddress(mem.OUTBOX_ADDR) + 13,
    OUTBOX_TOKEN_ADDR: parseAddress(mem.OUTBOX_ADDR) + 14,
+   OUTBOX_STATE_FLAGS_ADDR: parseAddress(mem.OUTBOX_ADDR) + 3,
+   OUTBOX_LAST_CMD_ADDR: parseAddress(mem.OUTBOX_ADDR) + 5,
+   OUTBOX_LAST_CMD_RESULT_ADDR: parseAddress(mem.OUTBOX_ADDR) + 6,
 
    LOG_WRITE_PTR_ADDR: parseAddress(mem.OUTBOX_ADDR) + 7,
 
@@ -285,6 +296,7 @@ export const TicBridge = {
 
    // outbox commands are from tic->host
    OUT_CMD_LOG: bridgeConfig.outboxCommands.LOG,
+   OUT_STATE_AUDIO_RENDERING: bridgeConfig.outboxStateFlags.AUDIO_RENDERING,
 
    // inbox cmd IDs
    CMD_NOP: bridgeConfig.inboxCommands.NOP,
@@ -294,5 +306,7 @@ export const TicBridge = {
    CMD_TRANSMIT: bridgeConfig.inboxCommands.TRANSMIT,
    CMD_PLAY_SFX_ON: bridgeConfig.inboxCommands.PLAY_SFX_ON,
    CMD_PLAY_SFX_OFF: bridgeConfig.inboxCommands.PLAY_SFX_OFF,
+   CMD_RENDER_WAV: bridgeConfig.inboxCommands.RENDER_WAV,
+   CMD_CANCEL_RENDER_WAV: bridgeConfig.inboxCommands.CANCEL_RENDER_WAV,
 
 } as const;

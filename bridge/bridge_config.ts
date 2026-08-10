@@ -64,6 +64,10 @@ const bridgeConfig = {
       LOG: 1 //
    },
 
+   outboxStateFlags: {
+      AUDIO_RENDERING: 1,
+   },
+
    // Inbox command IDs (host -> cart)
    inboxCommands: {
       NOP: 0,               //
@@ -72,7 +76,9 @@ const bridgeConfig = {
       PING: 3, //
       TRANSMIT: 4,
       PLAY_SFX_ON: 6,
-      PLAY_SFX_OFF: 7 //
+      PLAY_SFX_OFF: 7,
+      RENDER_WAV: 8,
+      CANCEL_RENDER_WAV: 9,
    },
 
    tic80MemoryMap: Tic80MemoryMap,

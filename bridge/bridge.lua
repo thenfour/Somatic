@@ -34,6 +34,10 @@ local CMD_PING = BRIDGE_CONFIG.inboxCommands.PING
 local CMD_TRANSMIT = BRIDGE_CONFIG.inboxCommands.TRANSMIT
 local CMD_PLAY_SFX_ON = BRIDGE_CONFIG.inboxCommands.PLAY_SFX_ON
 local CMD_PLAY_SFX_OFF = BRIDGE_CONFIG.inboxCommands.PLAY_SFX_OFF
+local CMD_RENDER_WAV = BRIDGE_CONFIG.inboxCommands.RENDER_WAV
+local CMD_CANCEL_RENDER_WAV = BRIDGE_CONFIG.inboxCommands.CANCEL_RENDER_WAV
+
+local STATE_AUDIO_RENDERING = BRIDGE_CONFIG.outboxStateFlags.AUDIO_RENDERING
 
 -- Outbox commands (cart -> host)
 local LOG_CMD_LOG = BRIDGE_CONFIG.outboxCommands.LOG
@@ -88,7 +92,7 @@ local OUTBOX = {
 -- OUTBOX.MAGIC        : magic byte; set to 'B' (0x42) at boot so the host can detect the bridge.
 -- OUTBOX.VERSION      : protocol version; currently hard-coded to 1 at boot.
 -- OUTBOX.HEARTBEAT    : increments every TIC once booted; used by the host as a liveness check.
--- OUTBOX.STATE_FLAGS  : reserved; currently always 0.
+-- OUTBOX.STATE_FLAGS  : bitfield; AUDIO_RENDERING is set during an offline WAV render.
 -- OUTBOX.PLAYING_TRACK: reserved; not written by the cart (host reads music state directly).
 -- OUTBOX.LAST_CMD     : last inbox command ID that completed (copied from INBOX.CMD).
 -- OUTBOX.LAST_CMD_RESULT : result code for LAST_CMD (0 = ok, non‑zero = error-ish).
@@ -196,6 +200,12 @@ local fps_frame_count = 0
 local lastCmd = 0
 local lastCmdResult = 0
 local host_last_seq = 0
+local musicCompletionCallback = nil
+local audioRenderActive = false
+
+local function tf_music_set_completion_callback(callback)
+	musicCompletionCallback = callback
+end
 
 local morphMap = {}
 local morphIds = {}
@@ -336,7 +346,15 @@ local function render_waveform_samples(cfg, ticksPlayed, instrumentId, lfoTicks,
 	end
 end
 
-local function render_tick_cfg(cfg, instrumentId, channel, ticksPlayed, lfoTicks, effectStrengthScaleU8, lowpassStrengthScaleU8)
+local function render_tick_cfg(
+	cfg,
+	instrumentId,
+	channel,
+	ticksPlayed,
+	lfoTicks,
+	effectStrengthScaleU8,
+	lowpassStrengthScaleU8
+)
 	if not cfg_is_k_rate_processing(cfg) then
 		return
 	end
@@ -552,30 +570,85 @@ local function publish_cmd(cmd, result)
 	out_set(OUTBOX.TOKEN, peek(INBOX.TOKEN))
 end
 
--- =========================
--- Commands
-local function handle_transmit()
+local function set_audio_render_active(active)
+	audioRenderActive = active
+	local flags = out_get(OUTBOX.STATE_FLAGS)
+	if active then
+		flags = flags | STATE_AUDIO_RENDERING
+	else
+		flags = flags & ~STATE_AUDIO_RENDERING
+	end
+	out_set(OUTBOX.STATE_FLAGS, flags)
+end
+
+-- reload music data
+-- https://github.com/nesbox/TIC-80/wiki/sync
+-- flags = 8 (sfx) + 16 (music) = 24
+-- bank = 0 (default)
+-- true means sync from runtime -> cart.
+local function load_transmitted_song()
 	local nextMorphMap, nextPatternExtra, nextMorphIds = decode_bridge_extra_song_data()
 	sync(24, 0, true)
 	morphMap = nextMorphMap
 	patternExtra = nextPatternExtra
 	morphIds = nextMorphIds
+end
+
+local function stop_all_audio()
+	music()
+	for channel = 0, SFX_CHANNELS - 1 do
+		sfx(-1, 0, 0, channel)
+		ch_sfx_id[channel + 1] = -1
+		ch_sfx_ticks[channel + 1] = 0
+		ch_pan_override_u8[channel + 1] = nil
+		ch_volume_scale_u8[channel + 1] = nil
+	end
+	lfo_ticks_by_sfx = {}
+	tf_music_reset_state()
+end
+
+local function finish_audio_render() -- called on song completion
+	if not audioRenderActive then
+		log("song completed; !audioRenderActive; ignoring")
+		return
+	end
+
+	tf_music_set_completion_callback(nil) -- uninstall self
+	local ended = audio_capture_end()
+	warp_mode(false)
+	set_audio_render_active(false)
+	if ended then
+		log("RENDER_WAV completed")
+	else
+		log("RENDER_WAV failed to end audio capture")
+	end
+end
+
+local function cancel_audio_render()
+	if not audioRenderActive then
+		return
+	end
+
+	tf_music_set_completion_callback(nil)
+	stop_all_audio()
+	local ended = audio_capture_end()
+	warp_mode(false)
+	set_audio_render_active(false)
+	if not ended then
+		log("CANCEL_RENDER_WAV failed to end audio capture")
+	end
+end
+
+-- =========================
+-- Commands
+local function handle_transmit()
+	load_transmitted_song()
 	publish_cmd(CMD_TRANSMIT, 0)
 end
 
 local function handle_play()
 	-- assumes host has uploaded music data already to RAM.
-	local nextMorphMap, nextPatternExtra, nextMorphIds = decode_bridge_extra_song_data()
-
-	-- Force reload of music data
-	-- https://github.com/nesbox/TIC-80/wiki/sync
-	-- flags = 8 (sfx) + 16 (music) = 24
-	-- bank = 0 (default)
-	-- true means sync from runtime -> cart.
-	sync(24, 0, true)
-	morphMap = nextMorphMap
-	patternExtra = nextPatternExtra
-	morphIds = nextMorphIds
+	load_transmitted_song()
 
 	local songPosition = peek(INBOX.SONG_POSITION)
 	local startRow = peek(INBOX.ROW)
@@ -586,10 +659,66 @@ local function handle_play()
 end
 
 local function handle_stop()
-	music()
-	tf_music_reset_state()
+	if audioRenderActive then
+		cancel_audio_render()
+	end
+	stop_all_audio()
 	publish_cmd(CMD_STOP, 0)
 	--log("STOP")
+end
+
+local function handle_render_wav()
+	if audioRenderActive then
+		publish_cmd(CMD_RENDER_WAV, 1) -- already rendering
+		return
+	end
+
+	if (type(warp_mode) ~= "function") or (type(audio_capture_status) ~= "function") then
+		publish_cmd(CMD_RENDER_WAV, 6) -- wrong tic80 build.
+		return
+	end
+
+	local _, warpSupported = warp_mode()
+	if not warpSupported then
+		publish_cmd(CMD_RENDER_WAV, 2) -- warp not supported in this mode / state / etc.
+		return
+	end
+
+	local captureState = audio_capture_status()
+	if captureState == "capturing" or captureState == "stopping" then
+		publish_cmd(CMD_RENDER_WAV, 3) -- already capturing; require idle / completed.
+		return
+	end
+
+	-- reset playback state.
+	load_transmitted_song()
+	stop_all_audio()
+	loopSongForever = false
+	tf_music_set_completion_callback(finish_audio_render)
+
+	if not audio_capture_start() then
+		tf_music_set_completion_callback(nil)
+		publish_cmd(CMD_RENDER_WAV, 4) -- failed to start capture
+		return
+	end
+
+	local warpEnabled = warp_mode(true)
+	if not warpEnabled then
+		tf_music_set_completion_callback(nil)
+		audio_capture_end()
+		warp_mode(false)
+		publish_cmd(CMD_RENDER_WAV, 5) -- failed to enable warp
+		return
+	end
+
+	set_audio_render_active(true)
+	tf_music_init(0, 0)
+	publish_cmd(CMD_RENDER_WAV, 0)
+end
+
+local function handle_cancel_render_wav()
+	cancel_audio_render()
+	publish_cmd(CMD_CANCEL_RENDER_WAV, 0)
 end
 
 local function handle_ping_fx()
@@ -682,6 +811,10 @@ local function poll_inbox()
 		handle_play_sfx_on()
 	elseif cmd == CMD_PLAY_SFX_OFF then
 		handle_play_sfx_off()
+	elseif cmd == CMD_RENDER_WAV then
+		handle_render_wav()
+	elseif cmd == CMD_CANCEL_RENDER_WAV then
+		handle_cancel_render_wav()
 	else
 		publish_cmd(cmd, 1)
 		log("UNKNOWN CMD " .. tostring(cmd))
@@ -929,6 +1062,9 @@ end
 tf_music_reset_state = function()
 	currentSongOrder = 0
 	lastPlayingFrame = -1
+	last_music_track = nil
+	last_music_frame = nil
+	last_music_row = nil
 	backBufferIsA = false
 	stopPlayingOnNextFrame = false
 	loopSongForever = false
@@ -1006,6 +1142,9 @@ function tf_music_tick()
 		-- log the current & last playing frame
 		music() -- stops playback.
 		tf_music_reset_state()
+		if musicCompletionCallback ~= nil then
+			musicCompletionCallback()
+		end
 		return
 	end
 

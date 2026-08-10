@@ -5,8 +5,17 @@ import {SelectionRect2D} from "../../hooks/useRectSelection2D";
 import {SomaticInstrument} from "../../models/instruments";
 import type {Pattern} from "../../models/pattern";
 import type {Song} from "../../models/song";
-import {gTic80ChannelsArray, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
-import type {Tic80BridgeHandle} from "./Tic80Bridged";
+import {
+   decodeSomaticSongPositionU8,
+   gTic80ChannelsArray,
+   Tic80Caps,
+   TicMemoryMap,
+} from "../../models/tic80Capabilities";
+import type {
+   Tic80AudioCaptureResult,
+   Tic80AudioRenderProgress,
+   Tic80BridgeHandle,
+} from "./Tic80Bridged";
 import {convertTic80MusicStateToSomatic, getBakedSongPosition} from "./bakeSong";
 import {LoopMode, MakeEmptySomaticTransportState, SomaticTransportState, Tic80TransportState} from "../../audio/backend";
 import {serializeSongForTic80Bridge, Tic80SerializedSong} from "./tic80_cart_serializer";
@@ -24,6 +33,14 @@ export type BackendPlaySongArgs = {
    startRow: number,                         //
    loopMode: LoopMode,                       //
    songOrderSelection: SelectionRect2D | null,
+};
+
+export type BackendRenderSongToWavArgs = {
+   reason: string;
+   song: Song;
+   audibleChannels: Set<number>;
+   onProgress?: (progress: Tic80AudioRenderProgress) => void;
+   signal?: AbortSignal;
 };
 
 type PlaybackSession = Omit<BackendPlaySongArgs, "reason" | "song" | "startPosition" | "startRow">;
@@ -350,6 +367,38 @@ export class Tic80Backend {
       return serializedSong;
    }
 
+   async renderSongToWav(args: BackendRenderSongToWavArgs): Promise<Tic80AudioCaptureResult> {
+      const b = this.bridge();
+      if (!b || !b.isReady()) {
+         throw new Error("TIC-80 is not ready to render audio.");
+      }
+
+      const serializedSong = serializeSongForTic80Bridge({
+         song: args.song,
+         loopMode: "off",
+         cursorSongOrder: 0,
+         cursorChannelIndex: 0,
+         cursorRowIndex: 0,
+         patternSelection: null,
+         audibleChannels: args.audibleChannels,
+         startPosition: 0,
+         startRow: 0,
+         songOrderSelection: null,
+      });
+
+      this.playbackEpoch++;
+      this.activePlayback = null;
+      this.lastKnownSomaticTransportState = MakeEmptySomaticTransportState();
+
+      const reason = `renderSongToWav: ${args.reason}`;
+      return b.invokeExclusive(reason, async (tx) => tx.renderSongToWav({
+         data: serializedSong,
+         reason,
+         onProgress: args.onProgress,
+         signal: args.signal,
+      }));
+   }
+
    async panic() {
       this.playbackEpoch++;
       this.activePlayback = null;
@@ -394,7 +443,9 @@ export class Tic80Backend {
       const b = this.bridge()!;
 
       const row = b.peekU8(TicMemoryMap.MUSIC_STATE_ROW);
-      const somaticSongPosition = b.peekS8(TicMemoryMap.MUSIC_STATE_SOMATIC_SONG_POSITION);
+      const somaticSongPosition = decodeSomaticSongPositionU8(
+         b.peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_SONG_POSITION),
+      );
 
       //console.log(`[Tic80Backend] getTic80TransportState: row=${row} somaticSongPosition=${somaticSongPosition}`);
 

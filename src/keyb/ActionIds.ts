@@ -13,6 +13,7 @@ export const GlobalActions = {
     Redo: "Redo",
     ExportReleaseBuild: "ExportReleaseBuild",
     ExportDebugBuild: "ExportDebugBuild",
+    RenderSongToWav: "RenderSongToWav",
     ToggleDebugMode: "ToggleDebugMode",
     TogglePreferencesPanel: "TogglePreferencesPanel",
     ToggleDebugPanel: "ToggleDebugPanel",

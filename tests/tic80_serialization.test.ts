@@ -177,6 +177,25 @@ describe("playroutine export reachability", () => {
 });
 
 describe("TIC-80 bridge extra-song transaction", () => {
+   it("serializes the startup ping before reporting bridge readiness", () => {
+      // important to prevent a traffic jam at app startup before bridge is ready.
+      const bridgeHostSource = fs.readFileSync(
+         new URL("../src/subsystem/tic80/Tic80Bridged.tsx", import.meta.url),
+         "utf8",
+      );
+      const handshakeStart = bridgeHostSource.indexOf("const completeStartupHandshake");
+      const handshakeEnd = bridgeHostSource.indexOf("function readOutboxCommands", handshakeStart);
+      const handshakeSource = bridgeHostSource.slice(handshakeStart, handshakeEnd);
+
+      assert.ok(handshakeStart >= 0 && handshakeEnd > handshakeStart);
+      assert.ok(handshakeSource.indexOf("await ping()") < handshakeSource.indexOf("onReady(handle)"));
+      assert.doesNotMatch(handshakeSource, /sendMailboxCommandRaw/);
+      assert.match(
+         bridgeHostSource,
+         /async function ping\(\)\s*{\s*return invokeExclusive\("ping", \(tx\) => tx\.ping\(\)\);/,
+      );
+   });
+
    it("keeps Base85 export-only and has one table-backed Lua codec path", () => {
       const bridgeSource = fs.readFileSync(new URL("../bridge/bridge.lua", import.meta.url), "utf8");
       const sharedSource = fs.readFileSync(

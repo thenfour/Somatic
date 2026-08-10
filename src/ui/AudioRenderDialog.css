@@ -1,0 +1,15 @@
+.audio-render-dialog {
+   min-width: 360px;
+}
+
+.audio-render-dialog__progress {
+   display: block;
+   width: 100%;
+   height: 18px;
+}
+
+.audio-render-dialog__details {
+   margin-top: 6px;
+   color: var(--muted);
+   text-align: right;
+}

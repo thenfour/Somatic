@@ -93,6 +93,14 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
         defaultBindings: [{ kind: "character", key: "d", primary: true, shift: true }],
     },
 
+    RenderSongToWav: {
+        id: "RenderSongToWav",
+        title: "render song to WAV",
+        description: "render the complete song to a WAV audio file.",
+        category: "File",
+        defaultBindings: [],
+    },
+
     TogglePreferencesPanel: {
         id: "TogglePreferencesPanel",
         title: "toggle preferences panel",

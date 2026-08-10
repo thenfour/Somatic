@@ -9,11 +9,54 @@ import React, {
 } from "react";
 import { Tic80SerializedSong } from "./tic80_cart_serializer";
 import { buildInfo } from "../../buildInfo";
-import { TicBridge, TicMemoryMap } from "../../models/tic80Capabilities";
+import {decodeSomaticSongPositionU8, TicBridge, TicMemoryMap} from "../../models/tic80Capabilities";
 import { AsyncMutex } from "../../utils/async_mutex";
 import { gLog } from "../../utils/logger";
 import { Tic80Iframe, Tic80IframeHandle } from "./Tic80EmbedIframe";
+import {clamp} from "../../utils/utils";
 //import { Tic80TopLevel, Tic80TopLevelHandle } from "./Tic80TopLevel";
+
+const AUDIO_RENDER_TIMEOUT_MS = 5 * 60 * 1000; // 5 minute timeout
+
+export type Tic80AudioCaptureResult = Readonly<{
+   filename: string;
+   mimeType: string;
+   bytes: Uint8Array;
+}>;
+
+export type Tic80AudioRenderProgress = Readonly<{
+   completedRows: number;
+   totalRows: number;
+   fraction01: number;
+   songPosition: number;
+   row: number;
+}>;
+
+export function calculateAudioRenderProgress(
+   data: Tic80SerializedSong,
+   songPosition: number,
+   row: number,
+): Tic80AudioRenderProgress {
+   const song = data.bakedSong.bakedSong;
+   const totalRows = song.getSongLengthRows();
+   const safePosition = clamp(songPosition, 0, song.songOrder.length - 1);
+   const safeRow = Math.max(0, row);
+   const completedRows = songPosition < 0 ? 0 : song.getAbsRowAtSongPosition(safePosition, safeRow);
+   console.log(`capture play progress: songPosition=${songPosition} row=${row} => safePosition=${safePosition} safeRow=${safeRow} completedRows=${completedRows} totalRows=${totalRows}`);
+   return {
+      completedRows,
+      totalRows,
+      fraction01: Math.min(0.999, completedRows / totalRows),
+      songPosition: safePosition,
+      row: safeRow,
+   };
+}
+
+function createAudioRenderAbortError(): Error {
+   const error = new Error("Audio render cancelled.");
+   error.name = "AbortError";
+   return error;
+}
 
 declare global {
     interface Window {
@@ -57,6 +100,12 @@ export type Tic80BridgeTransaction = {
         data: Tic80SerializedSong,
         reason: string,
     }) => Promise<void>;
+   renderSongToWav: (opts: {
+      data: Tic80SerializedSong,
+      reason: string,
+      onProgress?: (progress: Tic80AudioRenderProgress) => void,
+      signal?: AbortSignal,
+   }) => Promise<Tic80AudioCaptureResult>;
     stop: () => Promise<void>;
     ping: () => Promise<void>;
 };
@@ -89,6 +138,24 @@ function getHeapU8(Module: any): Uint8Array {
     return heap;
 }
 
+// Emscripten replaces Module.HEAPU8 whenever WebAssembly.Memory grows. Keep
+// the Module object, not a typed-array view that can become detached during a
+// long audio capture.
+export function createTic80HeapAccess(Module: any) {
+    const currentHeap = () => getHeapU8(Module);
+    return {
+        peekU8: (absoluteAddress: number) => currentHeap()[absoluteAddress] ?? 0,
+        pokeU8: (absoluteAddress: number, value: number) => {
+            currentHeap()[absoluteAddress] = value;
+        },
+        pokeBlock: (absoluteAddress: number, data: Uint8Array) => {
+            currentHeap().set(data, absoluteAddress);
+        },
+        peekBlock: (absoluteAddress: number, length: number) =>
+            currentHeap().slice(absoluteAddress, absoluteAddress + length),
+    };
+}
+
 export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
     function Tic80Bridge(
         {
@@ -102,7 +169,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         const bridgeCartPath = `/bridge-${bridgeBuildId}.tic`;
 
         const moduleRef = useRef<any | null>(null);
-        const heapRef = useRef<Uint8Array | null>(null);
+        const heapAccessRef = useRef<ReturnType<typeof createTic80HeapAccess> | null>(null);
         const ramBaseRef = useRef<number | null>(null);
         const stageRef = useRef<string>("init");
         const pollingCancelledRef = useRef<boolean>(false);
@@ -198,7 +265,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                     }
 
                     moduleRef.current = Module;
-                    heapRef.current = heap;
+                    heapAccessRef.current = createTic80HeapAccess(Module);
                     ramBaseRef.current = ramBase;
 
                     if (!pollingCancelledRef.current) {
@@ -231,41 +298,52 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             };
         }, []);
 
-        // upon ready, send ack
+      // Confirm the cart can accept mailbox commands before exposing the bridge to the app.
         useEffect(() => {
             if (!ready) return;
-            //log("sending ACK to bridge cart");
-            // send ACK command to let the cart know we're ready
+           let cancelled = false;
 
-            // send acknowledgement command to confirm.
-            // fire-and-forget ACK; ignore promise
-            sendMailboxCommandRaw([TicBridge.CMD_PING], "Ping");
+           const completeStartupHandshake = async () => {
+              try {
+                 await ping();
+                 if (cancelled) return;
 
-            // Initialize OUTBOX read pointer/seq to current cart state so we only read new logs.
-            try {
-                hostLogReadPtrRef.current = peekU8(TicMemoryMap.LOG_WRITE_PTR_ADDR);
-                outboxSeqRef.current = peekU8(TicMemoryMap.OUTBOX_SEQ_ADDR);
-            } catch (e) {
-                gLog.info("init outbox read ptr failed", e);
-            }
+                 // Initialize OUTBOX read pointer/seq to current cart state so we only read new logs.
+                 try {
+                    hostLogReadPtrRef.current = peekU8(TicMemoryMap.LOG_WRITE_PTR_ADDR);
+                    outboxSeqRef.current = peekU8(TicMemoryMap.OUTBOX_SEQ_ADDR);
+                 } catch (e) {
+                    gLog.info("init outbox read ptr failed", e);
+                 }
 
-            // Notify parent that bridge is ready
-            if (onReady) {
-                const handle: Tic80BridgeHandle = {
-                    isReady: () => ready,
-                    getModule: () => moduleRef.current,
-                    getRamBase: () => ramBaseRef.current,
-                    peekU8,
-                    peekS8,
-                    pokeU8,
-                    pokeS8,
-                    pokeBlock,
-                    peekBlock,
-                    invokeExclusive,
-                    ping,
-                };
-                onReady(handle);
-            }
+                 // now the parent can push real commands.
+                 if (onReady) {
+                    const handle: Tic80BridgeHandle = {
+                       isReady: () => ready,
+                       getModule: () => moduleRef.current,
+                       getRamBase: () => ramBaseRef.current,
+                       peekU8,
+                       peekS8,
+                       pokeU8,
+                       pokeS8,
+                       pokeBlock,
+                       peekBlock,
+                       invokeExclusive,
+                       ping,
+                    };
+                    onReady(handle);
+                 }
+              } catch (error) {
+                 if (!cancelled) {
+                    gLog.error("bridge startup handshake failed", error);
+                 }
+              }
+           };
+
+           void completeStartupHandshake();
+           return () => {
+              cancelled = true;
+           };
         }, [ready]);
 
         function readOutboxCommands() {
@@ -338,19 +416,19 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
         }, [ready]);
 
         function assertReady() {
-            if (!ready || !moduleRef.current || !heapRef.current || ramBaseRef.current == null) {
+            if (!ready || !moduleRef.current || !heapAccessRef.current || ramBaseRef.current == null) {
                 throw new Error("Tic80Bridge not ready yet.");
             }
         }
 
         function peekU8(addr: number): number {
             assertReady();
-            return heapRef.current![ramBaseRef.current! + addr] ?? 0;
+            return heapAccessRef.current!.peekU8(ramBaseRef.current! + addr);
         }
 
         function peekS8(addr: number): number {
             assertReady();
-            const val = heapRef.current![ramBaseRef.current! + addr] ?? 0;
+            const val = heapAccessRef.current!.peekU8(ramBaseRef.current! + addr);
             return val > 0x7f ? val - 0x100 : val;
         }
 
@@ -360,7 +438,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             if (value < 0 || value > 255) {
                 throw new Error(`pokeU8 value out of range: ${value}`);
             }
-            heapRef.current![ramBaseRef.current! + addr] = value;
+            heapAccessRef.current!.pokeU8(ramBaseRef.current! + addr, value);
         }
 
         function pokeS8(addr: number, value: number) {
@@ -369,18 +447,17 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             if (value < -128 || value > 127) {
                 throw new Error(`pokeS8 value out of range: ${value}`);
             }
-            heapRef.current![ramBaseRef.current! + addr] = value;
+            heapAccessRef.current!.pokeU8(ramBaseRef.current! + addr, value & 0xff);
         }
 
         function pokeBlock(addr: number, data: Uint8Array) {
             assertReady();
-            heapRef.current!.set(data, ramBaseRef.current! + addr);
+            heapAccessRef.current!.pokeBlock(ramBaseRef.current! + addr, data);
         }
 
         function peekBlock(addr: number, length: number): Uint8Array {
             assertReady();
-            const start = ramBaseRef.current! + addr;
-            return heapRef.current!.slice(start, start + length);
+            return heapAccessRef.current!.peekBlock(ramBaseRef.current! + addr, length);
         }
 
         async function playSfxRaw(opts: { sfxId: number; tic80Note: number; channel: number; speed: number; volumeU8?: number; panU8?: number }) {
@@ -457,12 +534,20 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
                         }
                         const seenToken = peekU8(TicMemoryMap.OUTBOX_TOKEN_ADDR);
                         if (seenToken === token) {
-                            resolve();
+                           const result = peekU8(TicMemoryMap.OUTBOX_LAST_CMD_RESULT_ADDR);
+                           if (result === 0) {
+                              resolve();
+                           } else {
+                              const completedCommand = peekU8(TicMemoryMap.OUTBOX_LAST_CMD_ADDR);
+                              reject(new Error(
+                                 `${description} was rejected by the bridge (command ${completedCommand}, result ${result}).`,
+                              ));
+                           }
                             return;
                         }
                         if (performance.now() - start > timeoutMs) {
                             gLog.error(`sendMailboxCommand TIMEOUT: ${description}`);
-                            resolve();
+                           reject(new Error(`${description} timed out waiting for the bridge.`));
                             return;
                         }
                         requestAnimationFrame(poll);
@@ -509,6 +594,190 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             ], "Transmit");
         };
 
+      async function renderSongToWavRaw(opts: {
+         data: Tic80SerializedSong,
+         reason: string,
+         onProgress?: (progress: Tic80AudioRenderProgress) => void,
+         signal?: AbortSignal,
+      }): Promise<Tic80AudioCaptureResult> {
+         assertReady();
+         if (opts.signal?.aborted) {
+            throw createAudioRenderAbortError();
+         }
+
+         const Module = moduleRef.current!;
+         const previousComplete = Module.onAudioCaptureComplete;
+         const previousError = Module.onAudioCaptureError;
+         let progressAnimationFrame = 0;
+         let timeoutId: number | null = null;
+         let cancelFallbackId: number | null = null;
+         let startAcknowledged = false;
+         let terminalError: Error | null = null;
+         let cancelCommandPromise: Promise<void> | null = null;
+         let captureSettled = false;
+         let lastReportedProgress: Tic80AudioRenderProgress | null = null;
+         let resolveCapture!: (result: Tic80AudioCaptureResult) => void;
+         let rejectCapture!: (error: Error) => void;
+
+         const capturePromise = new Promise<Tic80AudioCaptureResult>((resolve, reject) => {
+            resolveCapture = resolve;
+            rejectCapture = reject;
+         });
+         void capturePromise.catch(() => { });
+
+         const settleCaptureError = (error: Error) => {
+            if (captureSettled) return;
+            captureSettled = true;
+            rejectCapture(error);
+         };
+
+         const reportProgress = (progress: Tic80AudioRenderProgress) => {
+            if (lastReportedProgress && progress.completedRows <= lastReportedProgress.completedRows) return;
+            lastReportedProgress = progress;
+            try {
+               opts.onProgress?.(progress);
+            } catch (error) {
+               gLog.error("audio render progress handler failed", error);
+            }
+         };
+
+         // grab current runtime position and report to parent.
+         const pollProgress = () => {
+            if (captureSettled) return;
+            try {
+               const songPosition = decodeSomaticSongPositionU8(
+                  peekU8(TicMemoryMap.MUSIC_STATE_SOMATIC_SONG_POSITION),
+               );
+               const row = peekU8(TicMemoryMap.MUSIC_STATE_ROW);
+               reportProgress(calculateAudioRenderProgress(opts.data, songPosition, row));
+            } catch (error) {
+               settleCaptureError(error as Error);
+               return;
+            }
+            progressAnimationFrame = requestAnimationFrame(pollProgress);
+         };
+
+         const requestCancel = (reason: Error) => {
+            terminalError ??= reason;
+            if (!startAcknowledged || cancelCommandPromise) return;
+
+            cancelCommandPromise = sendMailboxCommandRaw(
+               [TicBridge.CMD_CANCEL_RENDER_WAV],
+               "Cancel WAV render",
+            ).then(() => {
+               // Normally the capture completion callback arrives immediately after the
+               // cancelling TIC is synthesized. Do not hold the bridge forever if it does not.
+               cancelFallbackId = window.setTimeout(() => {
+                  settleCaptureError(terminalError ?? reason);
+               }, 2000);
+            }).catch((error) => {
+               settleCaptureError(error as Error);
+               throw error;
+            });
+         };
+
+         const onAbort = () => requestCancel(createAudioRenderAbortError());
+         opts.signal?.addEventListener("abort", onAbort, {once: true});
+
+         const onAudioCaptureComplete = (rawResult: any) => {
+            // from TIC-80, https://github.com/thenfour/TIC-80-ticbuild#audio-capture-lua-api
+            // Module.onAudioCaptureComplete = ({ filename : string, mimeType : string, bytes: Uint8Array }) => {};
+            // Module.onAudioCaptureError = ({ message }) => {};
+            if (captureSettled) return;
+            if (terminalError) {
+               settleCaptureError(terminalError);
+               return;
+            }
+
+            const rawBytes = rawResult?.bytes;
+            if (!rawBytes || typeof rawBytes.length !== "number") {
+               settleCaptureError(new Error("TIC-80 completed audio capture without WAV bytes."));
+               return;
+            }
+
+            const bytes = new Uint8Array(rawBytes.length);
+            bytes.set(rawBytes);
+            const completeProgress = calculateAudioRenderProgress(opts.data, 0, 0);
+            reportProgress({
+               ...completeProgress,
+               completedRows: completeProgress.totalRows,
+               fraction01: 1,
+            });
+            captureSettled = true;
+            resolveCapture({
+               filename: typeof rawResult.filename === "string" ? rawResult.filename : "audio-capture.wav",
+               mimeType: typeof rawResult.mimeType === "string" ? rawResult.mimeType : "audio/wav",
+               bytes,
+            });
+         };
+
+         const onAudioCaptureError = (rawError: any) => {
+            const message = typeof rawError?.message === "string"
+               ? rawError.message
+               : "Unknown TIC-80 audio capture error.";
+            terminalError ??= new Error(message);
+            settleCaptureError(terminalError);
+         };
+
+         Module.onAudioCaptureComplete = onAudioCaptureComplete;
+         Module.onAudioCaptureError = onAudioCaptureError;
+
+         // here is the main loop, basically poll progress until capture complete web event, error web event, timeout...
+         try {
+            // send the song data.
+            await transmitInternal(opts);
+            if (terminalError || opts.signal?.aborted) {
+               throw terminalError ?? createAudioRenderAbortError();
+            }
+
+            // and kick off render
+            await sendMailboxCommandRaw([TicBridge.CMD_RENDER_WAV], "Render WAV");
+            startAcknowledged = true;
+            progressAnimationFrame = requestAnimationFrame(pollProgress); // begin polling progress
+
+            // early error?
+            if (terminalError || opts.signal?.aborted) {
+               requestCancel(terminalError ?? createAudioRenderAbortError());
+            }
+
+            // if it takes too long, cancel. yes it means renders are never allowed to take longer than N minutes... sanity.
+            timeoutId = window.setTimeout(() => {
+               requestCancel(new Error("Audio render timed out."));
+            }, AUDIO_RENDER_TIMEOUT_MS);
+
+            const result = await capturePromise;
+            if (cancelCommandPromise) {
+               await cancelCommandPromise;
+            }
+            return result;
+         } catch (error) {
+            const renderError = error instanceof Error ? error : new Error(String(error));
+            if (startAcknowledged) {
+               requestCancel(renderError);
+            }
+            if (cancelCommandPromise) {
+               try {
+                  await cancelCommandPromise;
+               } catch {
+                  // Preserve the error that ended the render; the cancel path already logged its own failure.
+               }
+            }
+            throw renderError;
+         } finally {
+            // uninstall
+            if (progressAnimationFrame) cancelAnimationFrame(progressAnimationFrame);
+            if (timeoutId !== null) window.clearTimeout(timeoutId);
+            if (cancelFallbackId !== null) window.clearTimeout(cancelFallbackId);
+            opts.signal?.removeEventListener("abort", onAbort);
+            if (Module.onAudioCaptureComplete === onAudioCaptureComplete) {
+               Module.onAudioCaptureComplete = previousComplete;
+            }
+            if (Module.onAudioCaptureError === onAudioCaptureError) {
+               Module.onAudioCaptureError = previousError;
+            }
+         }
+      } // function renderSongToWavRaw
+
         async function stopRaw() {
             gLog.info("stop() request");
             await sendMailboxCommandRaw([TicBridge.CMD_STOP], "Stop");
@@ -524,6 +793,7 @@ export const Tic80Bridge = forwardRef<Tic80BridgeHandle, Tic80BridgeProps>(
             stopSfx: stopSfxRaw,
             transmitAndPlay: transmitAndPlayRaw,
             transmit: transmitRaw,
+           renderSongToWav: renderSongToWavRaw,
             stop: stopRaw,
             ping: pingRaw,
         };

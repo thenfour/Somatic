@@ -6,7 +6,11 @@ import {describe, it} from "node:test";
 import {SelectionRect2D} from "../src/hooks/useRectSelection2D";
 import {Pattern} from "../src/models/pattern";
 import {Song} from "../src/models/song";
-import {Tic80Caps, TicMemoryMap} from "../src/models/tic80Capabilities";
+import {
+   decodeSomaticSongPositionU8,
+   Tic80Caps,
+   TicMemoryMap,
+} from "../src/models/tic80Capabilities";
 import {BakeSong, getBakedSongPosition} from "../src/subsystem/tic80/bakeSong";
 import type {BackendPlaySongArgs} from "../src/subsystem/tic80/tic80_backend";
 import type {Tic80BridgeHandle, Tic80BridgeTransaction} from "../src/subsystem/tic80/Tic80Bridged";
@@ -87,6 +91,16 @@ describe("hot-restart baked position mapping", () => {
    });
 });
 
+describe("bridge song-position decoding", () => {
+   it("keeps the complete unsigned order range and reserves only FF for stopped", () => {
+      assert.equal(decodeSomaticSongPositionU8(0x00), 0);
+      assert.equal(decodeSomaticSongPositionU8(0x7f), 127);
+      assert.equal(decodeSomaticSongPositionU8(0x80), 128);
+      assert.equal(decodeSomaticSongPositionU8(0xfe), 254);
+      assert.equal(decodeSomaticSongPositionU8(0xff), -1);
+   });
+});
+
 describe("hot-restart playback fingerprint", () => {
    it("ignores instrument-only changes but detects pattern, timing, loop, and audibility changes", async () => {
       const {serializeSongForTic80Bridge} = await import("../src/subsystem/tic80/tic80_cart_serializer");
@@ -121,7 +135,7 @@ describe("hot-restart playback fingerprint", () => {
 });
 
 type BridgeCall = {
-   kind: "transmit"|"play"|"stop";
+   kind: "transmit"|"play"|"render"|"stop";
    data?: Tic80SerializedSong;
 };
 
@@ -141,6 +155,12 @@ class FakeBridge {
       transmitAndPlay: async ({data}) => {
          this.calls.push({kind: "play", data});
          this.setPlayingPosition(data.bakedSong.startPosition, data.bakedSong.startRow);
+      },
+      renderSongToWav: async ({data, onProgress}) => {
+         this.calls.push({kind: "render", data});
+         const totalRows = data.bakedSong.bakedSong.getSongLengthRows();
+         onProgress?.({completedRows: totalRows, totalRows, fraction01: 1, songPosition: 0, row: 0});
+         return {filename: "audio-capture.wav", mimeType: "audio/wav", bytes: new Uint8Array([82, 73, 70, 70])};
       },
       stop: async () => {
          this.calls.push({kind: "stop"});
@@ -194,6 +214,62 @@ class FakeBridge {
 }
 
 describe("Tic80Backend hot restart", () => {
+   it("continues WAV render progress through song order 128", async () => {
+      const {Tic80Backend} = await import("../src/subsystem/tic80/tic80_backend");
+      const {calculateAudioRenderProgress} = await import("../src/subsystem/tic80/Tic80Bridged");
+      const bridge = new FakeBridge();
+      const backend = new Tic80Backend(() => bridge.handle);
+      const song = new Song({
+         rowsPerPattern: 64,
+         patterns: [new Pattern().toData()],
+         songOrder: Array.from({length: 200}, () => 0),
+      });
+
+      await backend.renderSongToWav({
+         reason: "test unsigned position",
+         song,
+         audibleChannels: allChannels,
+      });
+
+      const renderCall = bridge.calls.at(-1);
+      assert.equal(renderCall?.kind, "render");
+      const progress = calculateAudioRenderProgress(
+         renderCall!.data!,
+         decodeSomaticSongPositionU8(0x80),
+         7,
+      );
+      assert.equal(progress.completedRows, 128 * 64 + 7);
+      assert.equal(progress.totalRows, 200 * 64);
+      assert.ok(progress.fraction01 > 0.64);
+   });
+
+   it("renders a non-looping full-song bake from the beginning and preserves audibility", async () => {
+      const {Tic80Backend} = await import("../src/subsystem/tic80/tic80_backend");
+      const bridge = new FakeBridge();
+      const backend = new Tic80Backend(() => bridge.handle);
+      const song = makeSong();
+
+      await backend.renderSongToWav({
+         reason: "test",
+         song,
+         audibleChannels: new Set([1, 2, 3]),
+      });
+
+      const renderCall = bridge.calls.at(-1);
+      assert.equal(renderCall?.kind, "render");
+      assert.equal(renderCall?.data?.bakedSong.wantSongLoop, false);
+      assert.equal(renderCall?.data?.bakedSong.startPosition, 0);
+      assert.equal(renderCall?.data?.bakedSong.startRow, 0);
+      assert.equal(renderCall?.data?.bakedSong.bakedSong.songOrder.length, song.songOrder.length);
+      assert.deepEqual(renderCall?.data?.bakedSong.bakedSong.patterns[0].getCell(0, 0), {});
+
+      const {calculateAudioRenderProgress} = await import("../src/subsystem/tic80/Tic80Bridged");
+      const progress = calculateAudioRenderProgress(renderCall!.data!, 1, 7);
+      assert.equal(progress.completedRows, 71);
+      assert.equal(progress.totalRows, 192);
+      assert.equal(progress.fraction01, 71 / 192);
+   });
+
    it("restarts changed pattern data at the latest logical playhead", async () => {
       const {Tic80Backend} = await import("../src/subsystem/tic80/tic80_backend");
       const bridge = new FakeBridge();
