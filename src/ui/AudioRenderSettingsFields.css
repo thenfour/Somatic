@@ -1,0 +1,34 @@
+
+.audio-render-settings__group {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+   gap: 6px;
+}
+
+.audio-render-settings__control-row {
+   display: flex;
+   flex-direction: row;
+   align-items: center;
+   gap: 6px;
+}
+
+.audio-render-settings__metadata {
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr));
+   gap: 8px 12px;
+   width: 100%;
+}
+
+.audio-render-settings__metadata label {
+   display: flex;
+   flex-direction: column;
+   gap: 3px;
+   min-width: 0;
+}
+
+.audio-render-settings__metadata input,
+.audio-render-settings__metadata textarea {
+   box-sizing: border-box;
+   width: 100%;
+}

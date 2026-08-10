@@ -14,7 +14,16 @@ export const WaveformVisualizer: React.FC<{
     secondaryHighlights?: WaveformHighlightWindow[];
     // Optional start/end markers (dotted) in frame indices.
     dottedMarkers?: number[];
-}> = ({ samples, className, height = 120, highlights = [], secondaryHighlights = [], dottedMarkers = [] }) => {
+    ariaLabel?: string;
+}> = ({
+    samples,
+    className,
+    height = 120,
+    highlights = [],
+    secondaryHighlights = [],
+    dottedMarkers = [],
+    ariaLabel = "Audio waveform",
+}) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [layoutTick, setLayoutTick] = useState(0);
 
@@ -221,6 +230,8 @@ export const WaveformVisualizer: React.FC<{
             ref={canvasRef}
             className={`waveform-visualizer__canvas ${className ?? ""}`}
             style={{ width: "100%", height }}
+            role="img"
+            aria-label={ariaLabel}
         />
     );
 };

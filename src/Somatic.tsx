@@ -48,7 +48,7 @@ import { SongSettingsPanel } from './ui/SongSettingsPanel';
 import { SongStatsAppPanel, useSongStatsData } from './ui/SongStats';
 import { StatusChips } from './ui/StatusChips';
 import { Theme, ThemeEditorPanel } from './ui/theme_editor_panel';
-import { Tic80Bridge, Tic80BridgeHandle } from './subsystem/tic80/Tic80Bridged';
+import {Tic80AudioCaptureResult, Tic80Bridge, Tic80BridgeHandle} from './subsystem/tic80/Tic80Bridged';
 import { useToasts } from './ui/toast_provider';
 import { TransportControls } from './ui/TransportControls';
 import { VersionAvatar } from './ui/VersionAvatar';
@@ -89,7 +89,9 @@ type AudioRenderDialogState = {
    completedRows: number;
    totalRows: number;
    renderStartedAtMillis: number;
+   renderCompletedAtMillis: number | null;
    totalAudioSeconds: number;
+   result: Tic80AudioCaptureResult | null;
 };
 
 const DEFAULT_LOOP_STATE: { loopMode: LoopMode; lastNonOffLoopMode: LoopMode } = {
@@ -642,7 +644,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
       // TODO: check songToRender.subsystemType for tic80
 
-      const filename = songToRender.getFilename(".wav");
       const abortController = new AbortController();
       const totalRows = songToRender.getSongLengthRows();
       // todo: prevent many actions from being invoked (mgr.suspendShortcuts-ish but that's only
@@ -654,10 +655,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
          completedRows: 0,
          totalRows,
          renderStartedAtMillis: performance.now(),
+         renderCompletedAtMillis: null,
          totalAudioSeconds: tic80RowsToSeconds(totalRows, {
             tempo: songToRender.tempo,
             speed: songToRender.speed,
          }),
+         result: null,
       });
 
       try {
@@ -673,8 +676,20 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                   : state);
             },
          });
-         saveSync(new Blob([result.bytes as any], {type: result.mimeType}), filename);
-         pushToast({message: `Rendered and downloaded ${filename}.`, variant: "success"});
+
+         if (audioRenderAbortRef.current !== abortController || abortController.signal.aborted) return;
+
+         // successfully completed render...
+
+         audioRenderAbortRef.current = null;
+         setAudioRenderDialog((state) => state ? {
+            ...state,
+            phase: "review",
+            fraction01: 1,
+            completedRows: state.totalRows,
+            renderCompletedAtMillis: performance.now(),
+            result,
+         } : state);
       } catch (error) {
          if (error instanceof Error && error.name === "AbortError") {
             pushToast({message: "Audio render cancelled.", variant: "info"});
@@ -696,6 +711,32 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
       if (!abortController || abortController.signal.aborted) return;
       setAudioRenderDialog((state) => state ? {...state, phase: "cancelling"} : state);
       abortController.abort();
+   };
+
+   const closeAudioRenderDialog = () => {
+      if (audioRenderAbortRef.current) return;
+      setAudioRenderDialog(null);
+   };
+
+   const downloadAudioRender = () => {
+      const result = audioRenderDialog?.result;
+      if (!result) return;
+
+      const format = song.audioRenderSettings.format;
+
+      // also todo: metadata...
+
+      if (format !== "wav") {
+         pushToast({
+            message: `${format.toUpperCase()} encoding is not supported yet.`,
+            variant: "info",
+         });
+         return;
+      }
+
+      const filename = song.getAudioRenderFilename(".wav");
+      saveSync(new Blob([result.bytes as any], {type: result.mimeType}), filename);
+      pushToast({message: `Downloaded ${filename}.`, variant: "success"});
    };
 
     const exportCart = (variant: "debug" | "release") => {
@@ -1087,7 +1128,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                   void renderSongToWav();
                                }}
                             >
-                               Render Song to WAV...
+                               Render Song to Audio...
                             </DesktopMenu.Item>
                             <DesktopMenu.Divider />
                                     <DesktopMenu.Sub>
@@ -1572,8 +1613,20 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
              completedRows={audioRenderDialog?.completedRows ?? 0}
              totalRows={audioRenderDialog?.totalRows ?? 0}
              renderStartedAtMillis={audioRenderDialog?.renderStartedAtMillis ?? null}
+             renderCompletedAtMillis={audioRenderDialog?.renderCompletedAtMillis ?? null}
              totalAudioSeconds={audioRenderDialog?.totalAudioSeconds ?? 0}
+             sourceWavByteLength={audioRenderDialog?.result?.bytes.byteLength ?? 0}
+             settings={song.audioRenderSettings}
+             onSettingsChange={(audioRenderSettings) => updateSong({
+                description: "Edit audio render settings",
+                undoable: true,
+                mutator: (s) => {
+                   s.audioRenderSettings = audioRenderSettings;
+                },
+             })}
              onCancel={cancelAudioRender}
+             onClose={closeAudioRenderDialog}
+             onDownload={downloadAudioRender}
           />
             <AboutSomaticDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
         </div>

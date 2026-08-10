@@ -22,6 +22,7 @@ const gModalActionRegistry: ActionRegistry<ModalActionId> = {
 export type ModalDialogProps = {
     isOpen: boolean;
     children: React.ReactNode;
+    className?: string;
     /** Called when the user clicks on the backdrop (outside the dialog). */
     onBackdropClick?: () => void;
     /** Optional ARIA label for the dialog when there is no visible title element. */
@@ -33,6 +34,7 @@ export type ModalDialogProps = {
 export const ModalDialogInner: React.FC<ModalDialogProps> = ({
     isOpen,
     children,
+    className,
     onBackdropClick,
     ariaLabel,
     ariaLabelledBy,
@@ -53,7 +55,7 @@ export const ModalDialogInner: React.FC<ModalDialogProps> = ({
     return (
         <div className="modal-backdrop" onClick={handleBackdropClick}>
             <div
-                className="modal-dialog"
+                className={`modal-dialog ${className ?? ""}`}
                 role="dialog"
                 aria-modal="true"
                 aria-label={ariaLabel}

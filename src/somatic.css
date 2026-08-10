@@ -281,6 +281,17 @@ input {
     min-width: 40px;
 }
 
+textarea {
+      font-family: var(--ff-mono);
+      font-size: var(--ff-size-1x);
+      color: var(--text);
+      background-color: var(--bg);
+      /* background: var(--panel); */
+      /* border: 1px solid var(--border); */
+      border: 0;
+      padding: 4px 8px;
+}
+
 select {
     font-family: var(--ff-mono);
     font-size: var(--ff-size-1x);

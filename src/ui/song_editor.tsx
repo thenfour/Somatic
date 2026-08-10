@@ -19,6 +19,7 @@ import {ButtonGroup} from './Buttons/ButtonGroup';
 import {CheckboxButton} from './Buttons/CheckboxButton';
 import {DebugContainer} from './basic/DebugContainer';
 import {LuaOptimizationOptions} from "./LuaOptimizationOptions";
+import {AudioRenderSettingsFields} from "./AudioRenderSettingsFields";
 
 type SongEditorProps = {
    song: Song;
@@ -123,7 +124,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSong
                   description: 'Set song title',
                   undoable: true,
                   mutator: (s) => {
-                     s.name = e.target.value;
+                     s.setName(e.target.value);
                   },
                })}
             />
@@ -145,6 +146,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSong
                </select>
             </div>
          </DebugContainer>
+
          <Tooltip title={`Song tempo (${bpm} BPM); ${mgr.getActionBindingLabelAlways("IncreaseTempo")} / ${mgr.getActionBindingLabelAlways("DecreaseTempo")} to adjust.`}>
             <div className="field-row">
                <label htmlFor="song-tempo">Tempo</label>
@@ -336,6 +338,19 @@ export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSong
                />
             </label>
          </fieldset>
+
+
+         <AudioRenderSettingsFields
+            settings={song.audioRenderSettings}
+            onChange={(audioRenderSettings) => onSongChange({
+               description: "Edit audio render settings",
+               undoable: true,
+               mutator: (s) => {
+                  s.audioRenderSettings = audioRenderSettings;
+               },
+            })}
+         />
+
       </div>
    );
 };

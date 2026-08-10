@@ -2,7 +2,7 @@ import {kSubsystem, SomaticSubsystemBackend, SubsystemTypeKey} from "../subsyste
 import {Tic80SubsystemBackend} from "../subsystem/tic80/tic80SubsystemBackend";
 import {AmigaModSubsystemBackend} from "../subsystem/AmigaMod/AmigaModSubsystemBackend";
 import {SidSubsystemBackend} from "../subsystem/Sid/SidSubsystemBackend";
-import {clamp, CoalesceBoolean, SanitizeFilename} from "../utils/utils";
+import {clamp, CoalesceBoolean, MinutesToMilliseconds, NormalizeClampedFloat, NormalizeFloat, SanitizeFilename} from "../utils/utils";
 
 import {makeDefaultInstrumentForIndex, SomaticInstrument, SomaticInstrumentDto} from "./instruments";
 import {isNoteCut, Pattern, PatternDto} from "./pattern";
@@ -101,6 +101,60 @@ export type SomaticBuildMetadata = {
 export const CueSheetFieldValues = ["pi", "beat", "rows", "icon", "note"] as const;
 export type CueSheetField = typeof CueSheetFieldValues[number];
 
+export const AudioRenderFormatValues = ["wav", "mp3", "flac"] as const;
+export type AudioRenderFormat = typeof AudioRenderFormatValues[number];
+
+export type AudioRenderMetadata = {
+   title: string;
+   artist: string;
+   album: string;
+   year: string;
+   genre: string;
+   comment: string;
+};
+
+export type AudioRenderSettings = {
+   format: AudioRenderFormat;
+   normalizePeak: boolean;
+   peakDBFS: number;
+   trimSilence: boolean;
+   leadingSilenceMs: number;
+   trailingSilenceMs: number;
+   metadata: AudioRenderMetadata;
+};
+
+function normalizeAudioRenderSettings(
+   settings: Partial<AudioRenderSettings> | undefined,
+   fallbackTitle: string,
+): AudioRenderSettings {
+   const format = AudioRenderFormatValues.includes(settings?.format as AudioRenderFormat)
+      ? settings!.format as AudioRenderFormat
+      : "wav";
+   const metadata = settings?.metadata;
+   const stringOrEmpty = (value: unknown) => typeof value === "string" ? value : "";
+
+   return {
+      format,
+      normalizePeak: CoalesceBoolean(settings?.normalizePeak, false),
+      peakDBFS: NormalizeFloat(settings?.peakDBFS, -1),
+      trimSilence: CoalesceBoolean(settings?.trimSilence, false),
+      // A default leadin (~150ms) is sensible for audio export in general, esp for chiptune that may have a strong sharp attack
+      // right off the bat. to allow players to start up, bluetooth to connect, volume to ramp up, that kind of thincg.
+      // however, you are often exporting for the purpose of synchronizing animations etc, where leadin would only cause
+      // confusion / problems.
+      leadingSilenceMs: NormalizeClampedFloat(settings?.leadingSilenceMs, 0, 0, MinutesToMilliseconds(10)),
+      trailingSilenceMs: NormalizeClampedFloat(settings?.trailingSilenceMs, 0, 0, MinutesToMilliseconds(10)),
+      metadata: {
+         title: typeof metadata?.title === "string" ? metadata.title : fallbackTitle,
+         artist: stringOrEmpty(metadata?.artist),
+         album: stringOrEmpty(metadata?.album),
+         year: stringOrEmpty(metadata?.year),
+         genre: stringOrEmpty(metadata?.genre),
+         comment: stringOrEmpty(metadata?.comment),
+      },
+   };
+}
+
 function normalizeCueSheetFields(fields: unknown): CueSheetField[] {
    if (!Array.isArray(fields)) {
       return [...CueSheetFieldValues];
@@ -136,6 +190,8 @@ export type SongDto = {
    arrangementThumbnailSize: ArrangementThumbnailSize;
    exportCueSheet?: boolean;
    cueSheetFields?: CueSheetField[];
+
+   audioRenderSettings?: AudioRenderSettings;
 
    releaseMinificationOptions?: OptimizationRuleOptions;
 };
@@ -222,6 +278,8 @@ export class Song {
    exportCueSheet: boolean;
    cueSheetFields: CueSheetField[];
 
+   audioRenderSettings: AudioRenderSettings;
+
    releaseMinificationOptions: OptimizationRuleOptions;
 
    constructor(data: Partial<SongDto> = {}) {
@@ -261,6 +319,7 @@ export class Song {
       this.arrangementThumbnailSize = (data.arrangementThumbnailSize as ArrangementThumbnailSize) ?? "normal";
       this.exportCueSheet = CoalesceBoolean(data.exportCueSheet, true);
       this.cueSheetFields = normalizeCueSheetFields(data.cueSheetFields);
+      this.audioRenderSettings = normalizeAudioRenderSettings(data.audioRenderSettings, this.name);
 
       if (!data.releaseMinificationOptions) {
          console.log(`gonna use default minification options!`);
@@ -273,6 +332,14 @@ export class Song {
 
    setTempo(value: number) {
       this.tempo = clamp(value, 1, 255);
+   }
+
+   setName(value: string) {
+      const previousName = this.name;
+      this.name = value;
+      if (this.audioRenderSettings.metadata.title === previousName) {
+         this.audioRenderSettings.metadata.title = value;
+      }
    }
 
    setSpeed(value: number) {
@@ -328,6 +395,11 @@ export class Song {
 
    getFilename(extensionWithDot: string): string {
       const safeName = SanitizeFilename(this.name, "untitled");
+      return `${safeName}${extensionWithDot}`;
+   }
+
+   getAudioRenderFilename(extensionWithDot: string): string {
+      const safeName = SanitizeFilename(this.audioRenderSettings.metadata.title, this.name || "untitled");
       return `${safeName}${extensionWithDot}`;
    }
 
@@ -789,6 +861,10 @@ export class Song {
          releaseMinificationOptions: this.releaseMinificationOptions,
          exportCueSheet: this.exportCueSheet,
          cueSheetFields: [...this.cueSheetFields],
+         audioRenderSettings: {
+            ...this.audioRenderSettings,
+            metadata: {...this.audioRenderSettings.metadata},
+         },
       };
    }
 

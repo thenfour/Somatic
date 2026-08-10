@@ -95,8 +95,8 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
 
     RenderSongToWav: {
         id: "RenderSongToWav",
-        title: "render song to WAV",
-        description: "render the complete song to a WAV audio file.",
+        title: "render song to audio",
+        description: "render the complete song and configure an audio download.",
         category: "File",
         defaultBindings: [],
     },

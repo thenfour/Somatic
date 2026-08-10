@@ -66,6 +66,18 @@ export function TryParseInt(value: any): number|null {
    return null;
 };
 
+export function NormalizeFloat(value: unknown, defaultValue: number): number {
+   if (typeof value === "number" && isFinite(value)) {
+      return value;
+   }
+   return defaultValue;
+}
+
+export function NormalizeClampedFloat(value: unknown, defaultValue: number, min: number, max: number): number {
+   const v = NormalizeFloat(value, defaultValue);
+   return clamp(v, min, max);
+}
+
 // you can't just do "value ?? defaultValue" because that treats false as nullish.
 export function CoalesceBoolean(value: boolean|null|undefined, defaultValue: boolean): boolean {
    if (value === null || value === undefined) {
@@ -362,6 +374,9 @@ export const inclusiveRangeStartEnd = (start: number, end: number): number[] => 
    return Array.from({length}, (_, idx) => lower + idx);
 };
 
+
+export const MinutesToMilliseconds = (minutes: number): number => minutes * 60 * 1000;
+export const MinutesToSeconds = (minutes: number): number => minutes * 60;
 
 
 export const numericRange = (start: number, length: number): number[] => {
