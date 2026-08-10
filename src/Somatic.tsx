@@ -6,6 +6,7 @@ import './AppStatusBar.css';
 import './somatic.css';
 
 import { LoopMode, SomaticTransportState } from './audio/backend';
+import {tic80RowsToSeconds} from './utils/music/tic80Music';
 import { Tic80AudioController } from './audio/controller';
 import {serializeSongToCart} from './subsystem/tic80/tic80_cart_serializer';
 import { importSongFromTicCartBytes } from './subsystem/tic80/tic80_import';
@@ -87,6 +88,8 @@ type AudioRenderDialogState = {
    fraction01: number;
    completedRows: number;
    totalRows: number;
+   renderStartedAtMillis: number;
+   totalAudioSeconds: number;
 };
 
 const DEFAULT_LOOP_STATE: { loopMode: LoopMode; lastNonOffLoopMode: LoopMode } = {
@@ -641,6 +644,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
       const filename = songToRender.getFilename(".wav");
       const abortController = new AbortController();
+      const totalRows = songToRender.getSongLengthRows();
       // todo: prevent many actions from being invoked (mgr.suspendShortcuts-ish but that's only
       // for keyboard, and it would prevent a hypothetical "abort audio render" action.
       audioRenderAbortRef.current = abortController;
@@ -648,7 +652,12 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
          phase: "preparing",
          fraction01: 0,
          completedRows: 0,
-         totalRows: songToRender.getSongLengthRows(),
+         totalRows,
+         renderStartedAtMillis: performance.now(),
+         totalAudioSeconds: tic80RowsToSeconds(totalRows, {
+            tempo: songToRender.tempo,
+            speed: songToRender.speed,
+         }),
       });
 
       try {
@@ -659,7 +668,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             signal: abortController.signal,
             onProgress: (progress) => {
                if (audioRenderAbortRef.current !== abortController || abortController.signal.aborted) return;
-               setAudioRenderDialog({phase: "rendering", ...progress});
+               setAudioRenderDialog((state) => state
+                  ? {...state, phase: "rendering", ...progress}
+                  : state);
             },
          });
          saveSync(new Blob([result.bytes as any], {type: result.mimeType}), filename);
@@ -1560,6 +1571,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
              fraction01={audioRenderDialog?.fraction01 ?? 0}
              completedRows={audioRenderDialog?.completedRows ?? 0}
              totalRows={audioRenderDialog?.totalRows ?? 0}
+             renderStartedAtMillis={audioRenderDialog?.renderStartedAtMillis ?? null}
+             totalAudioSeconds={audioRenderDialog?.totalAudioSeconds ?? 0}
              onCancel={cancelAudioRender}
           />
             <AboutSomaticDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />

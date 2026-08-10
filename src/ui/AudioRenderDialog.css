@@ -1,5 +1,5 @@
 .audio-render-dialog {
-   min-width: 360px;
+   min-width: 440px;
 }
 
 .audio-render-dialog__progress {
@@ -8,8 +8,32 @@
    height: 18px;
 }
 
-.audio-render-dialog__details {
+.audio-render-dialog__progress-summary {
+   display: flex;
+   justify-content: space-between;
    margin-top: 6px;
-   color: var(--muted);
-   text-align: right;
+   color: var(--text);
+   font-variant-numeric: tabular-nums;
+}
+
+.audio-render-dialog__metrics {
+   display: grid;
+   grid-template-columns: repeat(3, minmax(0, 1fr));
+   gap: 16px;
+   margin: 18px 0 0;
+}
+
+.audio-render-dialog__metrics > div {
+   min-width: 0;
+}
+
+.audio-render-dialog__metrics dt {
+   color: var(--text);
+   font-size: 0.85em;
+}
+
+.audio-render-dialog__metrics dd {
+   margin: 3px 0 0;
+   font-variant-numeric: tabular-nums;
+   white-space: nowrap;
 }
