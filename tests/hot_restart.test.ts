@@ -92,6 +92,20 @@ describe("hot-restart baked position mapping", () => {
 });
 
 describe("bridge song-position decoding", () => {
+   it("follows Emscripten heap-view replacement after WebAssembly memory grows", async () => {
+      const {createTic80HeapAccess} = await import("../src/subsystem/tic80/Tic80Bridged");
+      const originalHeap = new Uint8Array([1, 2, 3, 4]);
+      const Module = {HEAPU8: originalHeap};
+      const access = createTic80HeapAccess(Module);
+
+      assert.equal(access.peekU8(1), 2);
+      Module.HEAPU8 = new Uint8Array([5, 6, 7, 8]);
+      assert.equal(access.peekU8(1), 6);
+      access.pokeU8(2, 9);
+      assert.equal(Module.HEAPU8[2], 9);
+      assert.equal(originalHeap[2], 3);
+   });
+
    it("keeps the complete unsigned order range and reserves only FF for stopped", () => {
       assert.equal(decodeSomaticSongPositionU8(0x00), 0);
       assert.equal(decodeSomaticSongPositionU8(0x7f), 127);
