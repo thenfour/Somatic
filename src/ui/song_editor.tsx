@@ -17,6 +17,7 @@ import {SomaticCaps} from '../models/tic80Capabilities';
 import {kSubsystem, SubsystemTypeKey} from '../subsystem/base/SubsystemBackendBase';
 import {
    tic80AnalyzeRuntimeCadence,
+   tic80EffectTicksToBeatPercent,
    tic80EffectTicksToSeconds,
    tic80RowsToEffectTicks,
    tic80RuntimeTicksForRows,
@@ -324,8 +325,9 @@ const formatRowTiming = (rowCount: number, tempo: number, speed: number): string
    const runtimeTicks = tic80RuntimeTicksForRows(rowCount, {tempo, speed});
    const timingErrorSeconds = tic80EffectTicksToSeconds(runtimeTicks - ticks);
    const timingError = formatTiming(timingErrorSeconds);
+   const timingErrorAsPercentOfBeat = formatToDecimalPlaces(tic80EffectTicksToBeatPercent(runtimeTicks - ticks, {tempo, speed}, 4), 2);
    return `${rowCount} rows = ${formatToDecimalPlaces(ticks, 2)} TICs `
-      + `(${formatTiming(seconds)}; error: ${timingError})`;
+      + `(${formatTiming(seconds)}; error: ${timingError} [${timingErrorAsPercentOfBeat}% of a beat])`;
 };
 
 export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSongChange, onEditorStateChange, audio}) => {
@@ -428,6 +430,26 @@ export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSong
             </div>
          </DebugContainer>
 
+         <Tooltip title={`Number of rows in each pattern. Affects all patterns in the song.`}>
+            <div className="field-row">
+
+               <label htmlFor="song-rows-per-pattern">Pattern Len</label>
+               <IntegerUpDown
+                  min={1}
+                  max={song.subsystem.maxRowsPerPattern}
+                  value={song.rowsPerPattern}
+                  onChange={onRowsPerPatternChange}
+               />
+            </div>
+         </Tooltip>
+
+         {tic80RuntimeCadence && runtimePatternTicks !== null && (
+            <fieldset className="song-tic80-timing">
+               <legend>
+                  <Tooltip title="One TIC is one 60 Hz TIC-80 runtime tick (16.667 ms)">
+                     <span className="song-tic80-timing__legend" tabIndex={0}>TIC-80 timing</span>
+                  </Tooltip>
+               </legend>
          <Tooltip title={`Song tempo (${bpm} BPM); ${mgr.getActionBindingLabelAlways("IncreaseTempo")} / ${mgr.getActionBindingLabelAlways("DecreaseTempo")} to adjust.`}>
             <div className="field-row">
                <label htmlFor="song-tempo">Tempo</label>
@@ -450,27 +472,18 @@ export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSong
                />
             </div>
          </Tooltip>
-         <Tooltip title={`Number of rows in each pattern. Affects all patterns in the song.`}>
-            <div className="field-row">
 
-               <label htmlFor="song-rows-per-pattern">Pattern Len</label>
-               <IntegerUpDown
-                  min={1}
-                  max={song.subsystem.maxRowsPerPattern}
-                  value={song.rowsPerPattern}
-                  onChange={onRowsPerPatternChange}
-               />
-            </div>
-         </Tooltip>
+               <div>
+                  {formatToDecimalPlaces(bpm, 2)} BPM;
+                  Max row jitter: {formatTiming(
+                     tic80EffectTicksToSeconds(tic80RuntimeCadence.worstRowErrorTicks),
+                  )}; <span style={{fontSize: 'larger', fontWeight: 'bold'}}>{formatToDecimalPlaces(tic80EffectTicksToBeatPercent(
+                     tic80RuntimeCadence.worstRowErrorTicks,
+                     {tempo: song.tempo, speed: song.speed},
+                     rowsPerBeat,
+                  ), 2)}% of a beat</span>
 
-         {tic80RuntimeCadence && runtimePatternTicks !== null && (
-            <fieldset className="song-tic80-timing">
-               <legend>
-                  <Tooltip title="One TIC is one 60 Hz TIC-80 runtime tick (16.667 ms)">
-                     <span className="song-tic80-timing__legend" tabIndex={0}>TIC-80 timing</span>
-                  </Tooltip>
-               </legend>
-               <div>{formatToDecimalPlaces(bpm, 2)} BPM</div>
+               </div>
                <div>{formatRowTiming(1, song.tempo, song.speed)}</div>
                <div>{formatRowTiming(rowsPerBeat, song.tempo, song.speed)}</div>
                <div>{formatRowTiming(song.rowsPerPattern, song.tempo, song.speed)}</div>
@@ -484,11 +497,6 @@ export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSong
                   Actual pattern runtime ={' '}
                   {runtimePatternTicks} TICs ({formatTiming(
                      tic80EffectTicksToSeconds(runtimePatternTicks))})
-               </div>
-               <div>
-                  Worst row error: {formatToDecimalPlaces(tic80RuntimeCadence.worstRowErrorTicks, 2)} TICs ({formatTiming(
-                     tic80EffectTicksToSeconds(tic80RuntimeCadence.worstRowErrorTicks),
-                  )})
                </div>
             </fieldset>
          )}

@@ -3,6 +3,7 @@ import {describe, it} from "node:test";
 
 import {
    tic80AnalyzeRuntimeCadence,
+   tic80EffectTicksToBeatPercent,
    tic80EffectTicksToRows,
    tic80EffectTicksToSeconds,
    tic80MeasureRowDuration,
@@ -89,6 +90,26 @@ describe("TIC-80 timing", () => {
          ticksPerRow: [6],
          worstRowErrorTicks: 0,
       });
+   });
+
+   it("expresses row jitter as a percentage of the configured beat", () => {
+      const timing120 = {tempo: 120, speed: 6};
+      const cadence120 = tic80AnalyzeRuntimeCadence(timing120);
+      assert.ok(Math.abs(
+         tic80EffectTicksToBeatPercent(cadence120.worstRowErrorTicks, timing120, 4)
+         - 1.6666666666666667
+      ) < 1e-12);
+
+      const timing125 = {tempo: 125, speed: 6};
+      const cadence125 = tic80AnalyzeRuntimeCadence(timing125);
+      assert.ok(Math.abs(
+         tic80EffectTicksToBeatPercent(cadence125.worstRowErrorTicks, timing125, 4)
+         - 2.7777777777777777
+      ) < 1e-12);
+
+      const exactTiming = {tempo: 150, speed: 6};
+      const exactCadence = tic80AnalyzeRuntimeCadence(exactTiming);
+      assert.equal(tic80EffectTicksToBeatPercent(exactCadence.worstRowErrorTicks, exactTiming, 4), 0);
    });
 
    it("limits the runtime cadence to the rows encountered before a pattern reset", () => {

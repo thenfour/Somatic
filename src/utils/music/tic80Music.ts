@@ -32,6 +32,14 @@ export function tic80RowsToSeconds(rowCount: number, timing: Tic80Timing): numbe
    return tic80EffectTicksToSeconds(tic80RowsToEffectTicks(rowCount, timing));
 }
 
+export function tic80EffectTicksToBeatPercent(
+   ticks: number,
+   timing: Tic80Timing,
+   rowsPerBeat: number,
+): number {
+   return ticks / tic80RowsToEffectTicks(rowsPerBeat, timing) * 100;
+}
+
 function greatestCommonDivisor(a: number, b: number): number {
    a = Math.abs(a);
    b = Math.abs(b);
