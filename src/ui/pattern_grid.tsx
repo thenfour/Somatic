@@ -24,6 +24,7 @@ import { ButtonGroup } from './Buttons/ButtonGroup';
 import { Button } from './Buttons/PushButton';
 import { CheckboxButton } from './Buttons/CheckboxButton';
 import {Divider} from "./basic/Divider";
+import {describeTic80Effect, formatTic80EffectInsight, formatTic80EffectTooltip, formatTic80EffectTooltipForPatternGrid} from "../subsystem/tic80/tic80_effect_insight";
 
 type ExtendedCellType = 'note' | 'instrument' | 'volume' | 'pan' | 'command' | 'param' | 'somaticCommand' | 'somaticParam';
 
@@ -1908,6 +1909,30 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                             const paramClass = `param-cell${additionalClasses}${paramSelectionClass}${collapsedSomaticClass}`;
                                             const somCmdClass = `somatic-command-cell${additionalClasses}${somCmdSelectionClass}`;
                                             const somParamClass = `somatic-param-cell${additionalClasses}${somParamSelectionClass}`;
+
+                                           // tic80 effect description
+                                           let tic80EffectDesc: string | undefined = undefined;
+
+                                           if (kTic80EffectCommand.isValidKey(row.tic80Effect)) {
+                                              const noteContext = song.getChannelNoteContext(currentPosition, channelIndex, rowIndex);
+                                              const tic80EffectInsight = describeTic80Effect(
+                                                 row,
+                                                 noteContext,
+                                                 {tempo: song.tempo, speed: song.speed},
+                                              );
+                                              if (tic80EffectInsight) {
+                                                 tic80EffectDesc = formatTic80EffectTooltipForPatternGrid(tic80EffectInsight);
+                                              }
+                                           }
+
+                                           // somatic effect description
+                                           let somaticEffectDesc: string | undefined = undefined;
+                                           const somaticEffectInfo = kSomaticPatternCommand.coerceByKey(row.somaticEffect);
+                                           if (!!somaticEffectInfo) {
+                                              const paramStr = (row.somaticParam ?? 0).toString(16).toUpperCase().padStart(2, '0');
+                                              somaticEffectDesc = `${somaticEffectInfo.patternChar}${paramStr}: ${somaticEffectInfo.description}`;
+                                           }
+
                                             return (
                                                 <React.Fragment key={channelIndex}>
                                                     <td
@@ -2008,7 +2033,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-column-index={cmdCol}
                                                         data-cell-value={`[${JSON.stringify(row.tic80Effect)}]`}
                                                     >
+                                                     <Tooltip disabled={!tic80EffectDesc} title={tic80EffectDesc}>
+                                                        <span>
                                                         {cmdText}
+                                                        </span>
+                                                     </Tooltip>
                                                     </td>
                                                     <td
                                                         tabIndex={0}
@@ -2026,7 +2055,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-column-index={paramCol}
                                                         data-cell-value={`[X=${JSON.stringify(row.tic80EffectX)},Y=${JSON.stringify(row.tic80EffectY)}]`}
                                                     >
+                                                     <Tooltip disabled={!tic80EffectDesc} title={tic80EffectDesc}>
+                                                        <span>
                                                         {paramText}
+                                                        </span>
+                                                     </Tooltip>
                                                     </td>
                                                     {showSomaticColumns && (
                                                         <>
@@ -2046,7 +2079,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                                 data-column-index={somCmdCol}
                                                                 data-cell-value={`[${JSON.stringify(row.somaticEffect)}]`}
                                                             >
-                                                                {somCmdText}
+                                                           <Tooltip disabled={!somaticEffectDesc} title={somaticEffectDesc}>
+                                                              <span>
+                                                                 {somCmdText}
+                                                              </span>
+                                                           </Tooltip>
                                                             </td>
                                                             <td
                                                                 tabIndex={0}
@@ -2064,7 +2101,11 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                                 data-column-index={somParamCol}
                                                                 data-cell-value={`[${JSON.stringify(row.somaticParam)}]`}
                                                             >
-                                                                {somParamText}
+                                                           <Tooltip disabled={!somaticEffectDesc} title={somaticEffectDesc}>
+                                                              <span>
+                                                                 {somParamText}
+                                                              </span>
+                                                           </Tooltip>
                                                             </td>
                                                         </>
                                                     )}
