@@ -73,10 +73,11 @@ describe("disabled song orders", () => {
 
    it("omits disabled entries from cue sheets while retaining physical editor assets", () => {
       const song = makeTimingSong();
-      song.cueSheetFields = ["beat", "note"];
+      const exportConfiguration = song.exportConfigurations[0];
+      exportConfiguration.cueSheetFields = ["beat", "note"];
       song.patterns[1].setCell(0, 0, {midiNote: 61, instrumentIndex: 7});
 
-      assert.deepEqual(buildCueSheet(song), [
+      assert.deepEqual(buildCueSheet(song, exportConfiguration.cueSheetFields), [
          {beat: 0, note: "Short"},
          {beat: 1, note: "Final"},
       ]);

@@ -25,6 +25,14 @@ function decodePatternExtras(payload: Uint8Array) {
    return decodeSomaticExtraSongDataPayload(payload).patterns;
 }
 
+function debugConfiguration(song: Song) {
+   return song.exportConfigurations[0];
+}
+
+function releaseConfiguration(song: Song) {
+   return song.exportConfigurations[1];
+}
+
 describe("TIC-80 track speed serialization", () => {
    it("encodes display speeds as signed deltas from TIC-80's default speed", () => {
       const expectedBytes = [
@@ -69,7 +77,12 @@ describe("playroutine generated-data contract", () => {
          const song = new Song();
          testCase.mutate(song);
          assert.throws(
-            () => serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible),
+            () => serializeSongToCartDetailed(
+               song,
+               false,
+               debugConfiguration(song),
+               gTic80AllChannelsAudible,
+            ),
             new RegExp(testCase.label),
          );
       }
@@ -94,8 +107,18 @@ describe("playroutine generated-data contract", () => {
    it("keeps payload sanity errors in debug output but strips them from release", async () => {
       const {serializeSongToCartDetailed} = await import("../src/subsystem/tic80/tic80_cart_serializer");
       const song = new Song();
-      const debug = serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible);
-      const release = serializeSongToCartDetailed(song, false, "release", gTic80AllChannelsAudible);
+      const debug = serializeSongToCartDetailed(
+         song,
+         false,
+         debugConfiguration(song),
+         gTic80AllChannelsAudible,
+      );
+      const release = serializeSongToCartDetailed(
+         song,
+         false,
+         releaseConfiguration(song),
+         gTic80AllChannelsAudible,
+      );
 
       assert.match(debug.wholePlayroutineCode, /invalid LZ match distance/);
       assert.doesNotMatch(release.wholePlayroutineCode, /invalid LZ match distance/);
@@ -116,7 +139,12 @@ describe("playroutine generated-data contract", () => {
       song.patterns[0].setCell(0, 3, {somaticEffect: kSomaticPatternCommand.key.PatternEnd});
       assert.equal(song.getAbsRowAtSongPosition(1, 0), 4, "fixture must use the shortened first order");
 
-      const details = serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible);
+      const details = serializeSongToCartDetailed(
+         song,
+         false,
+         debugConfiguration(song),
+         gTic80AllChannelsAudible,
+      );
       assert.match(
          details.wholePlayroutineCode,
          /function somatic_position_to_beat\(songOrderIndex,\s*row\)[\s\S]*?song_position_to_abs_row\(songOrderIndex,\s*row\)/,
@@ -131,7 +159,13 @@ describe("playroutine generated-data contract", () => {
 describe("playroutine export reachability", () => {
    it("does not serialize a Somatic instrument or waveform for an empty song", async () => {
       const {serializeSongToCartDetailed} = await import("../src/subsystem/tic80/tic80_cart_serializer");
-      const details = serializeSongToCartDetailed(new Song(), true, "debug", gTic80AllChannelsAudible);
+      const song = new Song();
+      const details = serializeSongToCartDetailed(
+         song,
+         true,
+         debugConfiguration(song),
+         gTic80AllChannelsAudible,
+      );
 
       assert.equal(details.optimizeResult.usedSfxCount, 0);
       assert.equal(details.optimizeResult.usedWaveformCount, 0);
@@ -159,7 +193,12 @@ describe("playroutine export reachability", () => {
          panU8: 32,
       });
 
-      const details = serializeSongToCartDetailed(song, true, "debug", gTic80AllChannelsAudible);
+      const details = serializeSongToCartDetailed(
+         song,
+         true,
+         debugConfiguration(song),
+         gTic80AllChannelsAudible,
+      );
 
       assert.equal(details.optimizeResult.usedSfxCount, 1);
       assert.equal(details.optimizeResult.featureUsage.pwm, false);
@@ -212,7 +251,12 @@ describe("playroutine export reachability", () => {
       assert.equal(bridge.preparedSong.patternColumns.some((column) => column.sourcePatternIndex === 1), false);
 
       for (const optimize of [false, true]) {
-         const details = serializeSongToCartDetailed(song, optimize, "debug", gTic80AllChannelsAudible);
+         const details = serializeSongToCartDetailed(
+            song,
+            optimize,
+            debugConfiguration(song),
+            gTic80AllChannelsAudible,
+         );
          assert.equal(details.optimizeResult.usedSfxCount, 1);
          assert.equal(details.optimizeResult.featureUsage.pwm, false);
          assert.equal(details.optimizeResult.featureUsage.lfo, false);
@@ -341,7 +385,12 @@ describe("TIC-80 k-rate waveform rendering", () => {
       );
       assert.deepEqual([...instrument.getUsedWaveformIndices()], [3]);
 
-      const details = serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible);
+      const details = serializeSongToCartDetailed(
+         song,
+         false,
+         debugConfiguration(song),
+         gTic80AllChannelsAudible,
+      );
       assert.match(
          details.wholePlayroutineCode,
          new RegExp(`local\\s+SOUND_REGISTERS_BASE\\s*=\\s*${Tic80MemoryMap.SoundRegisters.address}`),
@@ -380,7 +429,12 @@ describe("TIC-80 per-channel panning", () => {
       assert.equal(cloned.panLfoDepth, 0.5);
       assert.equal(song.clone().patterns[0].getCell(0, 0).panU8, 32);
 
-      const details = serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible);
+      const details = serializeSongToCartDetailed(
+         song,
+         false,
+         debugConfiguration(song),
+         gTic80AllChannelsAudible,
+      );
       assert.equal(kSomaticPatternCommand.infoByKey.Pan.tic80SerializedValue, 5);
       assert.equal(details.extraSongDataDetails.krateInstruments.length, 1);
       assert.equal(details.extraSongDataDetails.krateInstruments[0].cfg.panU8, 159);
@@ -410,7 +464,12 @@ describe("TIC-80 per-channel panning", () => {
       assert.match(details.wholePlayroutineCode, /write_channel_mix\(ch,/);
       assert.match(details.wholePlayroutineCode, /cfg\s+and\s+cfg\.panU8\s+or\s+128/);
 
-      const optimized = serializeSongToCartDetailed(song, true, "debug", gTic80AllChannelsAudible);
+      const optimized = serializeSongToCartDetailed(
+         song,
+         true,
+         debugConfiguration(song),
+         gTic80AllChannelsAudible,
+      );
       assert.equal(optimized.extraSongDataDetails.krateInstruments.length, 1);
       assert.match(optimized.wholePlayroutineCode, /local\s+depth\s*=\s*clamp01/);
 
@@ -424,7 +483,7 @@ describe("TIC-80 per-channel panning", () => {
       const overrideOnly = serializeSongToCartDetailed(
          overrideOnlySong,
          false,
-         "debug",
+         debugConfiguration(overrideOnlySong),
          gTic80AllChannelsAudible,
       );
       assert.equal(overrideOnly.extraSongDataDetails.krateInstruments.length, 0);
@@ -443,7 +502,12 @@ describe("TIC-80 per-instrument volume", () => {
 
       assert.equal(song.clone().instruments[0].volume, 0.5);
 
-      const details = serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible);
+      const details = serializeSongToCartDetailed(
+         song,
+         false,
+         debugConfiguration(song),
+         gTic80AllChannelsAudible,
+      );
       assert.equal(details.extraSongDataDetails.krateInstruments.length, 1);
       assert.equal(details.extraSongDataDetails.krateInstruments[0].cfg.volumeU8, 128);
       assert.match(details.wholePlayroutineCode, /write_channel_mix\(ch,/);
@@ -453,7 +517,12 @@ describe("TIC-80 per-instrument volume", () => {
       assert.match(details.wholePlayroutineCode, /left\s*\*\s*leftGain\s*\*\s*volume/);
       assert.match(details.wholePlayroutineCode, /right\s*\*\s*rightGain\s*\*\s*volume/);
 
-      const optimized = serializeSongToCartDetailed(song, true, "debug", gTic80AllChannelsAudible);
+      const optimized = serializeSongToCartDetailed(
+         song,
+         true,
+         debugConfiguration(song),
+         gTic80AllChannelsAudible,
+      );
       assert.equal(optimized.extraSongDataDetails.krateInstruments[0].cfg.volumeU8, 128);
    });
 
@@ -472,7 +541,12 @@ describe("TIC-80 per-instrument volume", () => {
 
       assert.equal(song.clone().patterns[0].getCell(0, 0).volumeU8, 0);
 
-      const details = serializeSongToCartDetailed(song, false, "debug", gTic80AllChannelsAudible);
+      const details = serializeSongToCartDetailed(
+         song,
+         false,
+         debugConfiguration(song),
+         gTic80AllChannelsAudible,
+      );
       assert.match(details.wholePlayroutineCode, /local function base85Plus1Decode\(s,\s*out\)/);
       assert.match(details.wholePlayroutineCode, /local function lzDecode\(src,\s*srcLen,\s*out\)/);
       assert.doesNotMatch(

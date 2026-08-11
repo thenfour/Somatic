@@ -1,4 +1,4 @@
-import {kDefaultReleaseMinificationOptions} from "../models/song";
+import {kDefaultReleaseMinificationOptions} from "../models/exportConfiguration";
 import {OptimizationRuleOptions} from "../utils/lua/lua_processor";
 import {Dropdown} from "./basic/Dropdown";
 import {IntegerUpDown} from "./basic/NumericUpDown";
@@ -65,10 +65,10 @@ export const LuaOptimizationOptions: React.FC<LuaOptimizationOptionsProps> = ({v
       </ButtonGroup>
       <div className="debug-panel-option-group">
          <label>
-            Max Indent Level:
+            Max Indent Level (0-50):
             <IntegerUpDown
                min={0}
-               max={20}
+               max={50}
                value={value.maxIndentLevel}
                onChange={val => {
                   onChange({

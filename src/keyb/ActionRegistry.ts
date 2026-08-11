@@ -77,22 +77,6 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
         ],
     },
 
-    ExportReleaseBuild: {
-        id: "ExportReleaseBuild",
-        title: "export release build",
-        description: "export the project as a release build.",
-        category: "File",
-        defaultBindings: [{ kind: "character", key: "r", primary: true, shift: true }],
-    },
-
-    ExportDebugBuild: {
-        id: "ExportDebugBuild",
-        title: "export debug build",
-        description: "export the project as a debug build.",
-        category: "File",
-        defaultBindings: [{ kind: "character", key: "d", primary: true, shift: true }],
-    },
-
     RenderSongToWav: {
         id: "RenderSongToWav",
         title: "render song to audio",

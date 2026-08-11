@@ -6,6 +6,7 @@ import { serializeSongForTic80Bridge, serializeSongToCartDetailed, SongCartDetai
 import { useClipboard } from "../hooks/useClipboard";
 import { useRenderAlarm } from "../hooks/useRenderAlarm";
 import { useWriteBehindEffect } from "../hooks/useWriteBehindEffect";
+import { ExportConfiguration } from "../models/exportConfiguration";
 import { Song } from "../models/song";
 import { analyzePatternColumns, OptimizeSong, PatternColumnAnalysisResult } from "../subsystem/tic80/SongOptimizer";
 import {CharMap, compareBuffers, formatBytes} from "../utils/utils";
@@ -19,7 +20,7 @@ import { Tooltip } from "./basic/tooltip";
 import { Button } from "./Buttons/PushButton";
 import { MemoryMapTextSummary, MemoryMapVis } from "./MemoryMapVis";
 import { ButtonGroup } from "./Buttons/ButtonGroup";
-import { CheckboxButton } from "./Buttons/CheckboxButton";
+import { RadioButton } from "./Buttons/RadioButton";
 import { GlobalActions } from "../keyb/ActionIds";
 import { gTic80AllChannelsAudible } from "../models/tic80Capabilities";
 import {BridgeExtraSongDataOverflowError} from "../../bridge/extraSongBridgeTransaction";
@@ -56,7 +57,7 @@ export type SongStatsData = {
     patternCompressionRatio: number;
 };
 
-export const useSongStatsData = (song: Song, variant: "debug" | "release"): SongStatsData => {
+export const useSongStatsData = (song: Song, exportConfigurationIndex: number): SongStatsData => {
     const [input, setInput] = useState<SongSerialized | null>(null);
 
     // These are tuning constants; we currently don't expose UI to tweak them.
@@ -89,10 +90,18 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
         if (!debouncedSong) {
             setInput(null);
             return;
-        }
+      }
 
-        try {
-            const cartDetails = serializeSongToCartDetailed(debouncedSong, true, variant, gTic80AllChannelsAudible);
+      try {
+            const exportConfiguration = debouncedSong.exportConfigurations[
+                Math.min(exportConfigurationIndex, debouncedSong.exportConfigurations.length - 1)
+            ];
+            const cartDetails = serializeSongToCartDetailed(
+                debouncedSong,
+                true,
+                exportConfiguration,
+                gTic80AllChannelsAudible,
+            );
 
             const optimizedDoc = OptimizeSong(debouncedSong).optimizedSong;
             let bridge: Tic80SerializedSong | null = null;
@@ -122,7 +131,7 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
             console.error("Error generating song stats:", error);
             setInput(null);
         }
-    }, [debouncedSong, variant]);
+    }, [debouncedSong, exportConfigurationIndex]);
 
     const breakdown = useMemo<Stats>(() => {
         if (!input) return {
@@ -204,7 +213,19 @@ export const useSongStatsData = (song: Song, variant: "debug" | "release"): Song
     return { input, breakdown, totalSize, patternCompressionRatio };
 };
 
-export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => void; variant: "debug" | "release"; onVariantChange: (variant: "debug" | "release") => void }> = ({ data, onClose, variant, onVariantChange }) => {
+export const SongStatsAppPanel: React.FC<{
+    data: SongStatsData;
+    onClose: () => void;
+    exportConfigurations: readonly ExportConfiguration[];
+    exportConfigurationIndex: number;
+    onExportConfigurationChange: (index: number) => void;
+}> = ({
+    data,
+    onClose,
+    exportConfigurations,
+    exportConfigurationIndex,
+    onExportConfigurationChange,
+}) => {
     const { input, breakdown, totalSize, patternCompressionRatio } = data;
     const clipboard = useClipboard();
 
@@ -217,20 +238,21 @@ export const SongStatsAppPanel: React.FC<{ data: SongStatsData; onClose: () => v
         <div>No data yet.</div>
     ) : (
         <div style={{ minWidth: 420 }}>
-            <ButtonGroup>
-                <CheckboxButton
-                    checked={variant === "debug"}
-                    onChange={() => onVariantChange(variant === "debug" ? "release" : "debug")}
-                >
-                    Debug
-                </CheckboxButton>
-                <CheckboxButton
-                    checked={variant === "release"}
-                    onChange={() => onVariantChange("release")}
-                >
-                    Release
-                </CheckboxButton>
-            </ButtonGroup>
+            <div role="radiogroup" aria-label="Cart statistics export configuration">
+                <ButtonGroup>
+                    {exportConfigurations.map((configuration, index) => (
+                        <RadioButton
+                            key={index}
+                            role="radio"
+                            aria-checked={index === exportConfigurationIndex}
+                            selected={index === exportConfigurationIndex}
+                            onClick={() => onExportConfigurationChange(index)}
+                        >
+                            {configuration.name}
+                        </RadioButton>
+                    ))}
+                </ButtonGroup>
+            </div>
             <div style={{ marginBottom: 8, fontWeight: 600 }}>
                 Cart size: <SizeValue value={input.cartridge.cartridge.length} />
             </div>

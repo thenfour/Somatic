@@ -78,7 +78,8 @@ additional per-pattern effect columns that do Somatic-specific things
 
 To use a Somatic track in your demo,
 
-- export as a cartridge via the file menu
+- configure the song's export configurations in Song Settings
+- export any configured cartridge via File -> Export Cart
 - your demo can now import the music data from this cart
 - and you can copy/paste the code as the playroutine.
 - NOTE: Even though Somatic has a lot of stuff outside of the built-in music routine, all of its data gets stored in music blocks in the .tic cart, and in the Lua playroutine code.

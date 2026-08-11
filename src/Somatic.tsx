@@ -22,7 +22,8 @@ import { useActionHandler } from './keyb/useActionHandler';
 import { KeyboardActionNoteInput } from './midi/keyboard_action_input';
 import { MidiDevice, MidiManager, MidiStatus } from './midi/midi_manager';
 import { EditorState } from './models/editor_state';
-import {buildCueSheet, Song} from './models/song';
+import {CueSheetFieldValues, type ExportConfiguration} from './models/exportConfiguration';
+import {buildSongMetadataPayload, Song} from './models/song';
 import { AmigaModSubsystemFrontend } from './subsystem/AmigaMod/AmigaModSubsystemFrontend';
 import { kSubsystem } from './subsystem/base/SubsystemBackendBase';
 import { SomaticSubsystemFrontend } from './subsystem/base/SubsystemFrontendBase';
@@ -193,7 +194,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const [preferencesPanelOpen, setPreferencesPanelOpen] = useState(false);
     const [themePanelOpen, setThemePanelOpen] = useState(false);
     const [debugPanelOpen, setDebugPanelOpen] = useState(false);
-    const [songStatsVariant, setSongStatsVariant] = useState<"debug" | "release">("release");
+    const [songStatsExportConfigurationIndex, setSongStatsExportConfigurationIndex] = useState(1);
     const [midiStatus, setMidiStatus] = useState<MidiStatus>("pending");
     const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
     const [somaticTransportState, setSomaticTransportState] = useState<SomaticTransportState>(() =>
@@ -205,7 +206,11 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
    const audioRenderAbortRef = React.useRef<AbortController | null>(null);
     const clipboard = useClipboard();
 
-    const songStatsData = useSongStatsData(song, songStatsVariant);
+    const effectiveSongStatsExportConfigurationIndex = Math.min(
+        songStatsExportConfigurationIndex,
+        song.exportConfigurations.length - 1,
+    );
+    const songStatsData = useSongStatsData(song, effectiveSongStatsExportConfigurationIndex);
 
     if (!undoStackRef.current) {
         undoStackRef.current = new UndoStack(200);
@@ -823,8 +828,13 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
       }
    };
 
-    const exportCart = (variant: "debug" | "release") => {
-        const cartData = serializeSongToCart(song, true, variant, editorState.getAudibleChannels(song));
+    const exportCart = (exportConfiguration: ExportConfiguration) => {
+        const cartData = serializeSongToCart(
+            song,
+            true,
+            exportConfiguration,
+            editorState.getAudibleChannels(song),
+        );
 
         // Create a Blob from the Uint8Array
         const blob = new Blob([cartData as any /* workaround for Blob constructor typing */], {
@@ -885,10 +895,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     };
 
    const copySongMetadataJson = async () => {
-      const payload = {
-         transport: song.buildTransportConfig(),
-         cueSheet: buildCueSheet(song),
-      };
+      const payload = buildSongMetadataPayload(song, CueSheetFieldValues);
       await clipboard.copyTextToClipboard(JSON.stringify(payload, null, 2));
    };
 
@@ -1067,7 +1074,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
             });
         });
     });
-    useActionHandler("ExportCartRelease", () => exportCart("release"));
     useActionHandler("TransposeSelectionDownSemitone", () => {
         if (!patternGridRef.current) return;
         patternGridRef.current?.transposeNotes(-1, { scope: "selection", instrumentIndex: null });
@@ -1097,12 +1103,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     });
     mgr.useActionHandler("ToggleSongSettingsPanel", () => {
         setSongSettingsPanelOpen((open) => !open);
-    });
-    mgr.useActionHandler("ExportReleaseBuild", () => {
-        exportCart("release");
-    });
-    mgr.useActionHandler("ExportDebugBuild", () => {
-        exportCart("debug");
     });
    mgr.useActionHandler("RenderSongToWav", () => {
       void renderSongToWav();
@@ -1224,18 +1224,14 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                     <DesktopMenu.Sub>
                                         <DesktopMenu.SubTrigger>Export Cart</DesktopMenu.SubTrigger>
                                         <DesktopMenu.SubContent>
-                                            <DesktopMenu.Item
-                                                onSelect={() => exportCart("debug")}
-                                                shortcut={mgr.getActionBindingLabel("ExportDebugBuild")}
-                                            >
-                                                Debug Build
-                                            </DesktopMenu.Item>
-                                            <DesktopMenu.Item
-                                                onSelect={() => exportCart("release")}
-                                                shortcut={mgr.getActionBindingLabel("ExportReleaseBuild")}
-                                            >
-                                                Release Build
-                                            </DesktopMenu.Item>
+                                            {song.exportConfigurations.map((configuration, index) => (
+                                                <DesktopMenu.Item
+                                                    key={index}
+                                                    onSelect={() => exportCart(configuration)}
+                                                >
+                                                    {configuration.name}
+                                                </DesktopMenu.Item>
+                                            ))}
                                         </DesktopMenu.SubContent>
                                     </DesktopMenu.Sub>
                                 </DesktopMenu.Content>
@@ -1631,8 +1627,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     <SongStatsAppPanel
                         data={songStatsData}
                         onClose={() => setSongStatsPanelOpen(false)}
-                        variant={songStatsVariant}
-                        onVariantChange={setSongStatsVariant}
+                        exportConfigurations={song.exportConfigurations}
+                        exportConfigurationIndex={effectiveSongStatsExportConfigurationIndex}
+                        onExportConfigurationChange={setSongStatsExportConfigurationIndex}
                     />
                 )}
 

@@ -5,14 +5,15 @@ import {modSourceToU8, SomaticEffectKind, SomaticInstrumentWaveEngine, ToWaveEng
 //import {WaveEngineId as WaveEngineIdConst} from "../models/instruments";
 import {SomaticMemoryLayout, Tic80Constants, Tic80MemoryMap} from "../../../bridge/memory_layout";
 import {encodeBridgeExtraSongDataTransaction} from "../../../bridge/extraSongBridgeTransaction";
-import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MorphEntryCodec, MorphEntryFieldNamesToRename, SOMATIC_PATTERN_CELL_COUNT, SOMATIC_PATTERN_MASK_BYTES, SOMATIC_PATTERN_ROW_COUNT, WAVEFORM_MORPH_GRADIENT_NODE_BYTES, WaveformMorphGradientNodeCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked, } from "../../../bridge/morphSchema";
+import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MorphEntryCodec, SOMATIC_PATTERN_CELL_COUNT, SOMATIC_PATTERN_MASK_BYTES, SOMATIC_PATTERN_ROW_COUNT, WAVEFORM_MORPH_GRADIENT_NODE_BYTES, WaveformMorphGradientNodeCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked, } from "../../../bridge/morphSchema";
 import {LoopMode} from "../../audio/backend";
+import {type ExportConfiguration} from "../../models/exportConfiguration";
 import {buildCueSheet, type CueSheetEntry, type Song} from "../../models/song";
 import {gTic80AllChannelsAudible, kSomaticPatternCommand, SomaticCaps, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
 import {emitLuaBitpackPrelude, emitLuaDecoder} from "../../utils/bitpack/emitLuaDecoder";
 import {MemoryRegion} from "../../utils/bitpack/MemoryRegion";
 import {base85Plus1Encode, gSomaticLZDefaultConfig, lzCompress} from "../../utils/encoding";
-import {OptimizationRuleOptions, processLua} from "../../utils/lua/lua_processor";
+import {processLua} from "../../utils/lua/lua_processor";
 import {assert, clamp, removeLuaBlockMarkers, replaceLuaBlock, typedKeys} from "../../utils/utils";
 import {getSomaticVersionAndCommitString} from "../../utils/versionString";
 import {BakedSong, BakeSong} from "./bakeSong";
@@ -21,43 +22,6 @@ import {encodePatternChannelDirect} from "./tic80_pattern_encoding";
 import {encodePreparedSongOrderForBridge, PreparedSong, prepareSongColumns} from "./tic80_prepared_song";
 import {createChunk, encodeSfx, encodeTempo, encodeTrackSpeed, encodeWaveforms, packTrackFrame, packWaveformSamplesToBytes16, removeTrailingZerosFn, stringToAsciiPayload, TicChunkType} from "./tic80_serialization";
 import {toLuaStringLiteral} from "../../utils/lua/lua_fundamentals";
-
-
-// const releaseOptions: OptimizationRuleOptions = {
-//    stripComments: true,
-//    stripDebugBlocks: true,
-//    maxIndentLevel: 1,
-//    lineBehavior: "tight",
-//    maxLineLength: 180,
-//    aliasRepeatedExpressions: true,
-//    renameLocalVariables: true,
-//    aliasLiterals: true,
-//    packLocalDeclarations: true,
-//    simplifyExpressions: true,
-//    removeUnusedLocals: true,
-//    removeUnusedFunctions: false,
-//    functionNamesToKeep: [],
-//    renameTableFields: true,
-//    tableEntryKeysToRename: [...MorphEntryFieldNamesToRename],
-// } as const;
-
-const debugOptions: OptimizationRuleOptions = {
-   stripComments: false,
-   stripDebugBlocks: false,
-   maxIndentLevel: 50,
-   lineBehavior: "pretty",
-   maxLineLength: 120,
-   aliasRepeatedExpressions: false,
-   renameLocalVariables: false,
-   aliasLiterals: false,
-   packLocalDeclarations: false,
-   simplifyExpressions: false,
-   removeUnusedLocals: false,
-   removeUnusedFunctions: false,
-   functionNamesToKeep: [],
-   renameTableFields: false,
-   tableEntryKeysToRename: [],
-} as const;
 
 function assertPlayroutineSongContract(song: Song): void {
    const assertIntegerInRange = (name: string, value: number, min: number, max: number) => {
@@ -710,7 +674,7 @@ export function planPatternMemorySerialization(prepared: PreparedSong): PatternM
 function getCode(
    song: Song,                                  //
    preparedSong: PreparedSong,                  //
-   variant: "debug"|"release",                  //
+   exportConfiguration: ExportConfiguration,    //
    patternSerializationPlan: PatternMemoryPlan, //
    features: PlaybackFeatureUsage,              //
    extraSongDataDetails: ExtraSongDataDetails,
@@ -828,14 +792,18 @@ ${emitLuaDecoder(WaveformMorphGradientNodeCodec, {
    code = code.replace(/__AUTOGEN_BUF_PTR_A/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_A.toString(16)}`)
              .replace(/__AUTOGEN_BUF_PTR_B/g, `0x${TicMemoryMap.__AUTOGEN_BUF_PTR_B.toString(16)}`);
 
-   if (song.useCustomEntrypointLua) {
-      code = replaceLuaBlock(code, "-- BEGIN_CUSTOM_ENTRYPOINT", "-- END_CUSTOM_ENTRYPOINT", song.customEntrypointLua);
+   if (exportConfiguration.useCustomEntrypointLua) {
+      code = replaceLuaBlock(
+         code,
+         "-- BEGIN_CUSTOM_ENTRYPOINT",
+         "-- END_CUSTOM_ENTRYPOINT",
+         exportConfiguration.customEntrypointLua,
+      );
    }
 
    // optimize code
-   const optimizationRuleOptions: OptimizationRuleOptions = variant === "release" ? song.releaseMinificationOptions : debugOptions;
-   console.log(`Applying optimization rules`, optimizationRuleOptions);
-   code = processLua(code, optimizationRuleOptions);
+   console.log(`Applying optimization rules`, exportConfiguration.minificationOptions);
+   code = processLua(code, exportConfiguration.minificationOptions);
 
    // show build info in a comment.
    code = `-- ${getSomaticVersionAndCommitString()}\n` +
@@ -879,10 +847,10 @@ export type SongCartDetails = {
 }
 
 export function serializeSongToCartDetailed(
-   song: Song,                  //
-   optimize: boolean,           //
-   variant: "debug"|"release",  //
-   audibleChannels: Set<number> //
+   song: Song,                              //
+   optimize: boolean,                       //
+   exportConfiguration: ExportConfiguration, //
+   audibleChannels: Set<number>             //
    ):
    SongCartDetails //
 {
@@ -907,7 +875,9 @@ export function serializeSongToCartDetailed(
       }
    }
 
-   const cueSheet = buildCueSheet(song);
+   const cueSheet = exportConfiguration.exportCueSheet
+      ? buildCueSheet(song, exportConfiguration.cueSheetFields)
+      : null;
 
    let optimizeResult: OptimizeResult = MakeOptimizeResultEmpty(song);
    if (optimize) {
@@ -954,7 +924,15 @@ export function serializeSongToCartDetailed(
    const extraSongDataDetails = makeExtraSongDataDetails(song, preparedSong);
 
    const {code, generatedCode} =
-      getCode(song, preparedSong, variant, patternSerializationPlan, optimizeResult.featureUsage, extraSongDataDetails, cueSheet);
+      getCode(
+         song,
+         preparedSong,
+         exportConfiguration,
+         patternSerializationPlan,
+         optimizeResult.featureUsage,
+         extraSongDataDetails,
+         cueSheet,
+      );
 
    // waveforms
    const waveformCount = getMaxWaveformUsedIndex(song) + 1;
@@ -1034,7 +1012,11 @@ export function serializeSongToCartDetailed(
 
 
 export function serializeSongToCart(
-   song: Song, optimize: boolean, variant: "debug"|"release", audibleChannels: Set<number>): Uint8Array {
-   const details = serializeSongToCartDetailed(song, optimize, variant, audibleChannels);
+   song: Song,
+   optimize: boolean,
+   exportConfiguration: ExportConfiguration,
+   audibleChannels: Set<number>,
+): Uint8Array {
+   const details = serializeSongToCartDetailed(song, optimize, exportConfiguration, audibleChannels);
    return details.cartridge;
 }

@@ -12,77 +12,86 @@ import {Tic80Caps} from "./tic80Capabilities";
 import {buildInfo} from "../buildInfo";
 import {getSomaticVersionString} from "../utils/versionString";
 import {OptimizationRuleOptions} from "../utils/lua/lua_processor";
-import {MorphEntryFieldNamesToRename} from "../../bridge/morphSchema";
-
-export const kDefaultReleaseMinificationOptions: OptimizationRuleOptions = {
-   stripComments: true,
-   stripDebugBlocks: true,
-   maxIndentLevel: 1,
-   lineBehavior: "tight",
-   maxLineLength: 180,
-   aliasRepeatedExpressions: true,
-   renameLocalVariables: true,
-   aliasLiterals: true,
-   packLocalDeclarations: true,
-   simplifyExpressions: true,
-   removeUnusedLocals: true,
-   removeUnusedFunctions: false,
-   functionNamesToKeep: [],
-   renameTableFields: true,
-   tableEntryKeysToRename: [...MorphEntryFieldNamesToRename],
-} as const;
+import {
+   CueSheetField,
+   CueSheetFieldValues,
+   ExportConfiguration,
+   ExportConfigurationDto,
+   makeDefaultExportConfigurations,
+} from "./exportConfiguration";
 
 // changing this, document in readme which changes occurred, create a upgrade fn from previous
-const kSomaticSchemaVersion = 1;
+const kSomaticSchemaVersion = 2;
 
 function upgradeSongDtoToLatest(input: SongDto): SongDto {
-   const schemaVersion = (input as any).schemaVersion ?? 0;
+   let schemaVersion = (input as any).schemaVersion ?? 0;
    if (schemaVersion >= kSomaticSchemaVersion)
       return input;
 
-   // v0 -> v1 migration:
-   // - Instrument indices become Somatic-owned (0..N-1), excluding TIC-80 reserved 0/1.
-   // - Note cut/off becomes an explicit boolean flag (noteOff).
-   // - Legacy instrument 1 (off) becomes noteOff=true.
-   // - Legacy instrument indices >=2 are shifted down by 2.
-   // - Legacy instrument 0 becomes null (no instrument).
+   const next = {...input} as SongDto;
 
-   const next: SongDto = {
-      ...input,
-      schemaVersion: kSomaticSchemaVersion,
-   };
+   if (schemaVersion < 1) {
+      // v0 -> v1 migration:
+      // - Instrument indices become Somatic-owned (0..N-1), excluding TIC-80 reserved 0/1.
+      // - Note cut/off becomes an explicit boolean flag (noteOff).
+      // - Legacy instrument 1 (off) becomes noteOff=true.
+      // - Legacy instrument indices >=2 are shifted down by 2.
+      // - Legacy instrument 0 becomes null (no instrument).
 
-   // legacy may not specify subsystem.
-   next.subsystemType = input.subsystemType || kSubsystem.key.TIC80;
+      // legacy may not specify subsystem.
+      next.subsystemType = next.subsystemType || kSubsystem.key.TIC80;
 
-   if (next.subsystemType === kSubsystem.key.TIC80) {
-      // Strip reserved instruments 0/1 from the instrument list.
-      const legacyInstruments = Array.isArray(next.instruments) ? next.instruments : [];
-      const somaticMax = Math.max(0, Tic80Caps.sfx.maxSupported);
-      next.instruments = legacyInstruments.slice(2, 2 + somaticMax);
+      if (next.subsystemType === kSubsystem.key.TIC80) {
+         // Strip reserved instruments 0/1 from the instrument list.
+         const legacyInstruments = Array.isArray(next.instruments) ? next.instruments : [];
+         const somaticMax = Math.max(0, Tic80Caps.sfx.maxSupported);
+         next.instruments = legacyInstruments.slice(2, 2 + somaticMax);
 
-      // Remap pattern cell instrument indices and legacy note-cut encoding.
-      for (const pat of next.patterns ?? []) {
-         for (const ch of pat.channels ?? []) {
-            const rows: any[] = (ch as any).rows ?? [];
-            for (const cell of rows) {
-               if (!cell || typeof cell !== "object")
-                  continue;
-               const inst = (cell as any).instrumentIndex;
+         // Remap pattern cell instrument indices and legacy note-cut encoding.
+         for (const pat of next.patterns ?? []) {
+            for (const ch of pat.channels ?? []) {
+               const rows: any[] = (ch as any).rows ?? [];
+               for (const cell of rows) {
+                  if (!cell || typeof cell !== "object")
+                     continue;
+                  const inst = (cell as any).instrumentIndex;
 
-               if (inst === 1) {
-                  (cell as any).noteOff = true;
-                  (cell as any).instrumentIndex = undefined;
-               } else if (inst === 0) {
-                  (cell as any).instrumentIndex = undefined;
-               } else if (typeof inst === "number" && Number.isFinite(inst) && inst >= 2) {
-                  (cell as any).instrumentIndex = inst - 2;
+                  if (inst === 1) {
+                     (cell as any).noteOff = true;
+                     (cell as any).instrumentIndex = undefined;
+                  } else if (inst === 0) {
+                     (cell as any).instrumentIndex = undefined;
+                  } else if (typeof inst === "number" && Number.isFinite(inst) && inst >= 2) {
+                     (cell as any).instrumentIndex = inst - 2;
+                  }
+
+                  // we could also correct other stuff like effect vs. tic80Effect here; it's handled elsewhere for now.
                }
-
-               // we could also correct other stuff like effect vs. tic80Effect here; it's handled elsewhere for now.
             }
          }
       }
+
+      next.schemaVersion = 1;
+      schemaVersion = 1;
+   }
+
+   if (schemaVersion < 2) {
+      // v1 -> v2 migration:
+      // - Replace hard-coded Debug/Release exports with ordered export configurations.
+      // - Preserve the old shared custom entrypoint in both configurations.
+      next.exportConfigurations = makeDefaultExportConfigurations({
+         releaseMinificationOptions: next.releaseMinificationOptions,
+         useCustomEntrypointLua: next.useCustomEntrypointLua,
+         customEntrypointLua: next.customEntrypointLua,
+         exportCueSheet: next.exportCueSheet,
+         cueSheetFields: next.cueSheetFields,
+      }).map((configuration) => configuration.toData());
+      delete next.releaseMinificationOptions;
+      delete next.useCustomEntrypointLua;
+      delete next.customEntrypointLua;
+      delete next.exportCueSheet;
+      delete next.cueSheetFields;
+      next.schemaVersion = 2;
    }
 
    // no matter what, this song is now been created by this build.
@@ -97,9 +106,6 @@ export type SomaticBuildMetadata = {
    utcDate: string;
    url: string | null;
 };
-
-export const CueSheetFieldValues = ["pi", "beat", "rows", "icon", "note"] as const;
-export type CueSheetField = typeof CueSheetFieldValues[number];
 
 export const AudioRenderFormatValues = ["wav", "mp3", "flac"] as const;
 export type AudioRenderFormat = typeof AudioRenderFormatValues[number];
@@ -185,15 +191,6 @@ function normalizeAudioRenderSettings(
    };
 }
 
-function normalizeCueSheetFields(fields: unknown): CueSheetField[] {
-   if (!Array.isArray(fields)) {
-      return [...CueSheetFieldValues];
-   }
-
-   const selectedFields = new Set(fields);
-   return CueSheetFieldValues.filter((field) => selectedFields.has(field));
-}
-
 export type SongDto = {
    schemaVersion: number; //
    somaticBuild: SomaticBuildMetadata;
@@ -213,17 +210,21 @@ export type SongDto = {
    patterns: PatternDto[];
    songOrder: (number|SongOrderDto)[]; // index into patterns
 
-   // replaces the BEGIN_CUSTOM_ENTRYPOINT block in the exported playroutine.
-   useCustomEntrypointLua: boolean;
-   customEntrypointLua: string;
+   exportConfigurations?: ExportConfigurationDto[];
+
+   // Legacy v1 export settings, consumed only by schema migration.
+   useCustomEntrypointLua?: boolean;
+   customEntrypointLua?: string;
+   releaseMinificationOptions?: OptimizationRuleOptions;
 
    arrangementThumbnailSize: ArrangementThumbnailSize;
+
+   // Legacy v1 cue-sheet settings, consumed only by schema migration.
    exportCueSheet?: boolean;
    cueSheetFields?: CueSheetField[];
 
    audioRenderSettings?: AudioRenderSettings;
 
-   releaseMinificationOptions?: OptimizationRuleOptions;
 };
 
 function getSomaticBuildMetadataForSongSave(): SomaticBuildMetadata {
@@ -301,16 +302,11 @@ export class Song {
    highlightRowCount: number;
    patternEditStep: number;
 
-   useCustomEntrypointLua: boolean;
-   customEntrypointLua: string;
+   exportConfigurations: ExportConfiguration[];
 
    arrangementThumbnailSize: ArrangementThumbnailSize;
-   exportCueSheet: boolean;
-   cueSheetFields: CueSheetField[];
 
    audioRenderSettings: AudioRenderSettings;
-
-   releaseMinificationOptions: OptimizationRuleOptions;
 
    constructor(data: Partial<SongDto> = {}) {
       this.subsystemType = data.subsystemType || kSubsystem.key.TIC80;
@@ -342,22 +338,35 @@ export class Song {
       this.name = data.name ?? "New song";
       this.highlightRowCount = clamp(data.highlightRowCount ?? 4, 1, 64);
       this.patternEditStep = clamp(data.patternEditStep ?? 1, 0, 32);
-      this.useCustomEntrypointLua = CoalesceBoolean(data.useCustomEntrypointLua, false);
-      this.customEntrypointLua = data.customEntrypointLua || "";
+      this.exportConfigurations = Array.isArray(data.exportConfigurations) && data.exportConfigurations.length > 0
+         ? data.exportConfigurations.map((configuration) => new ExportConfiguration(configuration))
+         : makeDefaultExportConfigurations({
+            releaseMinificationOptions: data.releaseMinificationOptions,
+            useCustomEntrypointLua: data.useCustomEntrypointLua,
+            customEntrypointLua: data.customEntrypointLua,
+            exportCueSheet: data.exportCueSheet,
+            cueSheetFields: data.cueSheetFields,
+         });
 
       // Default to showing thumbnails (matches previous behavior).
       this.arrangementThumbnailSize = (data.arrangementThumbnailSize as ArrangementThumbnailSize) ?? "normal";
-      this.exportCueSheet = CoalesceBoolean(data.exportCueSheet, true);
-      this.cueSheetFields = normalizeCueSheetFields(data.cueSheetFields);
       this.audioRenderSettings = normalizeAudioRenderSettings(data.audioRenderSettings, this.name);
 
-      if (!data.releaseMinificationOptions) {
-         console.log(`gonna use default minification options!`);
-      }
-
-      this.releaseMinificationOptions = data.releaseMinificationOptions || kDefaultReleaseMinificationOptions;
-
       this.subsystem.onInitOrSubsystemTypeChange(this);
+   }
+
+   addExportConfiguration(): ExportConfiguration {
+      const configuration = new ExportConfiguration({name: "New export config"});
+      this.exportConfigurations.push(configuration);
+      return configuration;
+   }
+
+   deleteExportConfiguration(index: number): boolean {
+      if (this.exportConfigurations.length <= 1) {
+         throw new Error("Cannot delete the last export configuration.");
+      }
+      this.exportConfigurations.splice(index, 1);
+      return true;
    }
 
    setTempo(value: number) {
@@ -382,16 +391,6 @@ export class Song {
 
    setPatternEditStep(value: number) {
       this.patternEditStep = clamp(value, 0, 32);
-   }
-
-   setCueSheetFieldEnabled(field: CueSheetField, enabled: boolean) {
-      const selectedFields = new Set(this.cueSheetFields);
-      if (enabled) {
-         selectedFields.add(field);
-      } else {
-         selectedFields.delete(field);
-      }
-      this.cueSheetFields = CueSheetFieldValues.filter((candidate) => selectedFields.has(candidate));
    }
 
    setRowsPerPattern(value: number) {
@@ -915,13 +914,9 @@ export class Song {
          name: this.name,
          highlightRowCount: this.highlightRowCount,
          patternEditStep: this.patternEditStep,
-         useCustomEntrypointLua: this.useCustomEntrypointLua,
-         customEntrypointLua: this.customEntrypointLua,
+         exportConfigurations: this.exportConfigurations.map((configuration) => configuration.toData()),
 
          arrangementThumbnailSize: this.arrangementThumbnailSize,
-         releaseMinificationOptions: this.releaseMinificationOptions,
-         exportCueSheet: this.exportCueSheet,
-         cueSheetFields: [...this.cueSheetFields],
          audioRenderSettings: {
             ...this.audioRenderSettings,
             metadata: {...this.audioRenderSettings.metadata},
@@ -963,13 +958,9 @@ export type CueSheetEntry = Partial<{
    note: string;
 }>;
 
-export function buildCueSheet(song: Song): CueSheetEntry[] | null {
-   if (!song.exportCueSheet) {
-      return null;
-   }
-
+export function buildCueSheet(song: Song, cueSheetFields: readonly CueSheetField[]): CueSheetEntry[] {
    const entries: CueSheetEntry[] = [];
-   const fields = new Set(song.cueSheetFields);
+   const fields = new Set(cueSheetFields);
    const maxPatternIndex = song.patterns.length - 1;
    for (let orderIndex = 0; orderIndex < song.songOrder.length; orderIndex++) {
       const orderItem = song.songOrder[orderIndex]!;
@@ -992,6 +983,13 @@ export function buildCueSheet(song: Song): CueSheetEntry[] | null {
    }
 
    return entries;
+}
+
+export function buildSongMetadataPayload(song: Song, fields: readonly CueSheetField[]) {
+   return {
+      transport: song.buildTransportConfig(),
+      cueSheet: fields.length > 0 ? buildCueSheet(song, fields) : undefined,
+   };
 }
 
 
