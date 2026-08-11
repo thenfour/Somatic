@@ -443,3 +443,10 @@ https://github.com/thenfour/Somatic/milestone/3?closed=1
 - #237 evenly distribute notes advanced edit action - for making tuplets
 - #235 adding unity line for bipolar envelopes
 - #226 playroutine public API adds a song completion callback
+
+## 1.0.18 (2026-08-11)
+
+- #252 #257 offline audio export to mp3/flac/wav
+- #252 ability to disable song orders to exclude from export/playback
+- #253 variable # of export configurations
+- #258 ui tweak: pattern effect insights now shown as tooltip
