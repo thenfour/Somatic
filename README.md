@@ -237,7 +237,7 @@ In your `ticbuild` project manifest
 And in your Lua code,
 
 ```Lua
---#include "asset:song:CODE" -- include music routines
+--#include "import:song:CODE" -- include music routines
 
 function TIC()
   local state = somatic_tick() -- music + transport update per frame
