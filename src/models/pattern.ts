@@ -1,5 +1,4 @@
 import {assert, clamp} from "../utils/utils";
-import type {Song} from "./song";
 import {kSomaticPatternCommand, kTic80EffectCommand, SomaticPatternCommand, Tic80EffectCommand} from "./tic80Capabilities";
 
 
@@ -286,20 +285,6 @@ export class Pattern {
    }
 }
 
-export type PatternEffectCarryState = {
-   // Map from effect command index to its last non-zero XY values in this pattern.
-   tic80EffectCommandStates: Map<
-      Tic80EffectCommand,
-      {
-         effectX: number;
-         effectY: number
-      }>;
-
-   // Map from Somatic pattern command index to its carry-over param byte.
-   // Only includes values that are considered non-nominal and should be warned about.
-   somaticCommandStates: Map<SomaticPatternCommand, {paramU8: number}>;
-};
-
 export type PatternRowIssue = {
    rowIndex: number;
    channelIndex?: number;
@@ -368,89 +353,4 @@ export function analyzePatternRowIssues(
    });
 
    return {issuesByRow, issueRowCount, hasStrongIssues};
-}
-
-export type PatternPlaybackAnalysis = {
-   // For each channel, leftover effect state at the end of this pattern only
-   // (does not consider previous patterns).
-   fxCarryByChannel: PatternEffectCarryState[];
-};
-
-export function analyzePatternPlaybackForGrid(song: Song, patternIndex: number): PatternPlaybackAnalysis {
-   const safePatternIndex = clamp(patternIndex | 0, 0, song.patterns.length - 1);
-   const pattern = song.patterns[safePatternIndex];
-   const rowCount = song.rowsPerPattern;
-   const effectiveRowCount = pattern.getEffectiveRowCount(rowCount, song.subsystem.channelCount);
-   const channelCount = song.subsystem.channelCount;
-
-   // Effect carry state per channel.
-   const fxCarryByChannel: PatternEffectCarryState[] =
-      Array.from({length: channelCount}, () => ({
-                                            tic80EffectCommandStates: new Map<
-                                               Tic80EffectCommand, // command
-                                               {
-                                                  effectX: number;
-                                                  effectY: number;
-                                               }>(),
-                                            somaticCommandStates: new Map<
-                                               SomaticPatternCommand, // somatic command index
-                                               {paramU8: number}>(),
-                                         }));
-
-   for (let rowIndex = 0; rowIndex < effectiveRowCount; rowIndex++) {
-      for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
-         const cell = pattern.getCell(channelIndex, rowIndex);
-
-         // Effect carry
-         //if (cell.tic80Effect !== undefined && cell.tic80Effect !== null) {
-         if (kTic80EffectCommand.isValidKey(cell.tic80Effect)) {
-            const cmd = cell.tic80Effect;
-
-            const effectMeta = kTic80EffectCommand.infoByKey[cmd];
-            const nominalX = effectMeta.nominalX;
-            const nominalY = effectMeta.nominalY;
-            if (nominalX === undefined || nominalY === undefined)
-               continue; // ignore carry state for this command
-
-            const x = cell.tic80EffectX ?? 0;
-            const y = cell.tic80EffectY ?? 0;
-            const stateMap = fxCarryByChannel[channelIndex].tic80EffectCommandStates;
-
-            const isNominal = (x === nominalX && y === nominalY);
-
-            if (isNominal) {
-               stateMap.delete(cmd);
-            } else {
-               stateMap.set(cmd, {effectX: x, effectY: y});
-            }
-         }
-
-         // Somatic effect carry (separate command space from TIC-80 effect commands)
-         //if ( cell.somaticEffect !== undefined && cell.somaticEffect !== null) {
-         if (kSomaticPatternCommand.isValidKey(cell.somaticEffect)) {
-            const somCmd = cell.somaticEffect;
-
-            const nominalValue = kSomaticPatternCommand.infoByKey[somCmd].nomivalValue;
-            if (nominalValue === undefined)
-               continue; // ignore carry state for this command
-
-            //const paramU8 = (cell.somaticParam ?? SOMATIC_CMD_EFFECT_STRENGTH_SCALE_NOMINAL) & 0xff;
-            const stateMap = fxCarryByChannel[channelIndex].somaticCommandStates;
-            const cellValue = cell.somaticParam ?? 0;
-
-            const isNominal = (cellValue === nominalValue);
-
-            if (isNominal) {
-               stateMap.delete(somCmd);
-            } else {
-               stateMap.set(somCmd, {paramU8: cellValue});
-            }
-         }
-
-      }
-   }
-
-   return {
-      fxCarryByChannel,
-   };
 }

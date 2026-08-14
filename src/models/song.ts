@@ -12,6 +12,7 @@ import {Tic80Caps} from "./tic80Capabilities";
 import {buildInfo} from "../buildInfo";
 import {getSomaticVersionString} from "../utils/versionString";
 import {OptimizationRuleOptions} from "../utils/lua/lua_processor";
+import {getTic80SongStateAccumulator} from "../subsystem/tic80/tic80_song_state";
 import {
    CueSheetField,
    CueSheetFieldValues,
@@ -760,83 +761,16 @@ export class Song {
       return this.getPatternEffectiveRowCount(orderItem.patternIndex);
    }
 
-   private findActiveNoteBeforeRow(
-      songPosition: number,
-      channelIndex: number,
-      rowIndex: number,
-      ): SongChannelNoteOccurrence|undefined {
-      for (let orderIndex = songPosition; orderIndex >= 0; orderIndex--) {
-         const orderItem = this.songOrder[orderIndex];
-         assert(!!orderItem, `Invalid song order index ${orderIndex}`);
-         // this respects the "current song order always acts as enabled" rule.
-         if (orderIndex !== songPosition && !orderItem.enabled)
-            continue;
-         const pattern = orderItem ? this.patterns[orderItem.patternIndex] : undefined;
-         if (!pattern)
-            continue;
-
-         const effectiveRows = this.getOrderEffectiveRowCount(orderIndex);
-         const rowExclusive = orderIndex === songPosition ? Math.min(rowIndex, effectiveRows) : effectiveRows;
-         for (let candidateRow = rowExclusive - 1; candidateRow >= 0; candidateRow--) {
-            const cell = pattern.getCell(channelIndex, candidateRow);
-            if (isNoteCut(cell))
-               return undefined;
-            if (cell.midiNote !== undefined) {
-               return {
-                  midiNote: cell.midiNote,
-                  songPosition: orderIndex,
-                  rowIndex: candidateRow,
-               };
-            }
-         }
-      }
-      return undefined;
-   }
-
    getChannelNoteContext(
       songPosition: number,
       channelIndex: number,
       rowIndex: number,
       ): SongChannelNoteContext {
-      if (this.songOrder.length === 0) {
-         return {source: "none", rowReachable: false};
-      }
-
-      const safeSongPosition = clamp(songPosition | 0, 0, this.songOrder.length - 1);
-      const safeChannelIndex = clamp(channelIndex | 0, 0, Math.max(0, this.subsystem.channelCount - 1));
-      const safeRowIndex = clamp(rowIndex | 0, 0, Math.max(0, this.rowsPerPattern - 1));
-      const orderItem = this.songOrder[safeSongPosition];
-      const pattern = orderItem ? this.patterns[orderItem.patternIndex] : undefined;
-      const activeBeforeRow = this.findActiveNoteBeforeRow(
-         safeSongPosition, safeChannelIndex, safeRowIndex);
-
-      if (!pattern) {
-         return {activeBeforeRow, source: "none", rowReachable: false};
-      }
-
-      const cell = pattern.getCell(safeChannelIndex, safeRowIndex);
-      const rowReachable = safeRowIndex < this.getOrderEffectiveRowCount(safeSongPosition);
-      if (isNoteCut(cell)) {
-         return {activeBeforeRow, source: "none", rowReachable};
-      }
-      if (cell.midiNote !== undefined) {
-         return {
-            activeBeforeRow,
-            activeAfterNoteColumn: {
-               midiNote: cell.midiNote,
-               songPosition: safeSongPosition,
-               rowIndex: safeRowIndex,
-            },
-            source: "current-cell",
-            rowReachable,
-         };
-      }
-      return {
-         activeBeforeRow,
-         activeAfterNoteColumn: activeBeforeRow,
-         source: activeBeforeRow ? "sustained" : "none",
-         rowReachable,
-      };
+      return getTic80SongStateAccumulator(this).getChannelNoteContext(
+         songPosition,
+         channelIndex,
+         rowIndex,
+      );
    }
 
    // skips disabled orders, mimicing real playback.

@@ -56,7 +56,7 @@ describe("cue sheet field selection", () => {
       song.exportConfigurations[0].exportCueSheet = false;
       song.exportConfigurations[0].cueSheetFields = ["beat"];
 
-      const payload = buildSongMetadataPayload(song);
+      const payload = buildSongMetadataPayload(song, ["pi", "beat", "rows", "icon", "note"]);
       assert.deepEqual(Object.keys(payload), ["transport", "cueSheet"]);
       assert.deepEqual(payload.transport, song.buildTransportConfig());
       assert.deepEqual(payload.cueSheet, [{

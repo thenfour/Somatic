@@ -10,7 +10,7 @@ import { GlobalActionId } from '../keyb/ActionIds';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
 import { useActionHandler } from '../keyb/useActionHandler';
 import { EditorState } from '../models/editor_state';
-import { analyzePatternPlaybackForGrid, analyzePatternRowIssues, isNoteCut, Pattern, PatternCell } from '../models/pattern';
+import { analyzePatternRowIssues, isNoteCut, Pattern, PatternCell } from '../models/pattern';
 import { formatPatternIndex, Song } from '../models/song';
 import { kSomaticPatternCommand, kTic80EffectCommand, SomaticPatternCommand, Tic80EffectCommand } from '../models/tic80Capabilities';
 import { PatternGridHighlightStyle, kPatternGridHighlightStyle } from '../models/patternGridHighlightStyle';
@@ -25,6 +25,7 @@ import { Button } from './Buttons/PushButton';
 import { CheckboxButton } from './Buttons/CheckboxButton';
 import {Divider} from "./basic/Divider";
 import {describeTic80Effect, formatTic80EffectInsight, formatTic80EffectTooltip, formatTic80EffectTooltipForPatternGrid} from "../subsystem/tic80/tic80_effect_insight";
+import {getTic80SongStateAccumulator} from "../subsystem/tic80/tic80_song_state";
 
 type ExtendedCellType = 'note' | 'instrument' | 'volume' | 'pan' | 'command' | 'param' | 'somaticCommand' | 'somaticParam';
 
@@ -128,11 +129,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const pattern: Pattern = song.patterns[safePatternIndex];
         const patternEndRow = pattern.getPatternEndRow(song.rowsPerPattern, song.subsystem.channelCount);
         const effectiveRows = pattern.getEffectiveRowCount(song.rowsPerPattern, song.subsystem.channelCount);
-        const playbackAnalysis = useMemo(
-            () => analyzePatternPlaybackForGrid(song, safePatternIndex),
-            [song, safePatternIndex],
+        const fxCarryByChannel = useMemo(
+            () => getTic80SongStateAccumulator(song).getEffectCarryAtOrderEnd(currentPosition),
+            [song, currentPosition],
         );
-        const { fxCarryByChannel } = playbackAnalysis;
         const rowIssueAnalysis = useMemo(
             () => analyzePatternRowIssues(
                 pattern,
@@ -142,7 +142,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             [pattern, song.rowsPerPattern, song.subsystem.channelCount],
         );
 
-        const fxCarryTooltip = `Effect command state at the end of this pattern (doesn't consider previous patterns)`;
+        const fxCarryTooltip = `Effect command state at the end of this song position`;
 
         const showVolumeColumn = editorState.showVolumeColumn !== false;
       const showPanColumn = editorState.showPanColumn !== false;
