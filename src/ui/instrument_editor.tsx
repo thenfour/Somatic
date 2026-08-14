@@ -350,34 +350,36 @@ export const InstrumentEnvelopeEditor: React.FC<{
       ];
    };
 
+    const loopStartMax = Math.min(Tic80Caps.sfx.loopStartMax, Math.max(0, frameCount - 1));
+    const loopLengthMax = Math.min(Tic80Caps.sfx.loopLengthMax, Math.max(0, frameCount - 1));
+
     const loopStartConfig: ContinuousParamConfig = useMemo(() => ({
-        resolutionSteps: Math.max(1, frameCount),
+        resolutionSteps: loopStartMax + 1,
         default: 0,
         center: 0,
-        convertTo01: (v) => frameCount <= 1 ? 0 : v / (frameCount - 1),
-        convertFrom01: (v01) => frameCount <= 1 ? 0 : v01 * (frameCount - 1),
+        convertTo01: (v) => loopStartMax === 0 ? 0 : v / loopStartMax,
+        convertFrom01: (v01) => v01 * loopStartMax,
         format: (v) => v.toFixed(0),
-    }), [frameCount]);
+    }), [loopStartMax]);
 
     const loopLengthConfig: ContinuousParamConfig = useMemo(() => ({
-        resolutionSteps: Math.max(1, frameCount),
+        resolutionSteps: loopLengthMax + 1,
         default: 0,
         center: 0,
-        convertTo01: (v) => frameCount <= 1 ? 0 : v / (frameCount - 1),
-        convertFrom01: (v01) => frameCount <= 1 ? 0 : v01 * (frameCount - 1),
+        convertTo01: (v) => loopLengthMax === 0 ? 0 : v / loopLengthMax,
+        convertFrom01: (v01) => v01 * loopLengthMax,
         format: (v) => v.toFixed(0),
-    }), [frameCount]);
+    }), [loopLengthMax]);
 
     const handleLoopStartChange = (value: number) => {
-        const nextStart = clamp(value, 0, Math.max(0, frameCount - 1));
-        const nextLength = clamp(loopLength, 0, Math.max(0, frameCount - 1));
+        const nextStart = clamp(value, 0, loopStartMax);
+        const nextLength = clamp(loopLength, 0, loopLengthMax);
         onChange(frames, nextStart, nextLength);
     };
 
     const handleLoopLengthChange = (value: number) => {
-        const maxLen = Math.max(0, frameCount - 1);
-        const nextLength = clamp(value, 0, maxLen);
-        const nextStart = clamp(loopStart, 0, maxLen);
+        const nextLength = clamp(value, 0, loopLengthMax);
+        const nextStart = clamp(loopStart, 0, loopStartMax);
         onChange(frames, nextStart, nextLength);
     };
 

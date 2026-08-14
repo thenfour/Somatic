@@ -237,25 +237,25 @@ export interface SomaticInstrumentDto {
 
    // volume envelope
    volumeFrames: number[];   // volume frames (0-15)
-   volumeLoopStart: number;  // 0-29
-   volumeLoopLength: number; // 0-29
+   volumeLoopStart: number;  // 0-15
+   volumeLoopLength: number; // 0-15
 
    // arpeggio frames
    arpeggioFrames: number[];   // arpeggio frames (0-15)
-   arpeggioLoopStart: number;  // 0-29
-   arpeggioLoopLength: number; // 0-29
+   arpeggioLoopStart: number;  // 0-15
+   arpeggioLoopLength: number; // 0-15
    arpeggioDown: boolean;      // aka "reverse"
 
    // waveform id frames
    waveFrames: number[];   // waveform id frames (0-15)
-   waveLoopStart: number;  // 0-29
-   waveLoopLength: number; // 0-29
+   waveLoopStart: number;  // 0-15
+   waveLoopLength: number; // 0-15
 
    // pitch frames
    // Biased editor storage 0..15; semantic/native pitch is value - 8 (-8..+7).
    pitchFrames: number[];
-   pitchLoopStart: number;  // 0-29
-   pitchLoopLength: number; // 0-29
+   pitchLoopStart: number;  // 0-15
+   pitchLoopLength: number; // 0-15
    pitch16x: boolean;
 
    waveEngine: SomaticInstrumentWaveEngine;
@@ -303,25 +303,25 @@ export class SomaticInstrument {
 
    // volume envelope
    volumeFrames: Int8Array;  // volume frames (0-15)
-   volumeLoopStart: number;  // 0-29
-   volumeLoopLength: number; // 0-29
+   volumeLoopStart: number;  // 0-15
+   volumeLoopLength: number; // 0-15
 
    // arpeggio frames
    arpeggioFrames: Int8Array;  // arpeggio frames (0-15)
-   arpeggioLoopStart: number;  // 0-29
-   arpeggioLoopLength: number; // 0-29
+   arpeggioLoopStart: number;  // 0-15
+   arpeggioLoopLength: number; // 0-15
    arpeggioDown: boolean;
 
    // waveform id frames
    waveFrames: Int8Array;
-   waveLoopStart: number;  // 0-29
-   waveLoopLength: number; // 0-29
+   waveLoopStart: number;  // 0-15
+   waveLoopLength: number; // 0-15
 
    // pitch frames
    // Biased editor storage 0..15; semantic/native pitch is value - 8 (-8..+7).
    pitchFrames: Int8Array;
-   pitchLoopStart: number;  // 0-29
-   pitchLoopLength: number; // 0-29
+   pitchLoopStart: number;  // 0-15
+   pitchLoopLength: number; // 0-15
    pitch16x: boolean;
 
    waveEngine: SomaticInstrumentWaveEngine;
@@ -392,19 +392,19 @@ export class SomaticInstrument {
          }
       }
 
-      this.volumeLoopStart = clamp(data.volumeLoopStart ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
-      this.volumeLoopLength = clamp(data.volumeLoopLength ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
+      this.volumeLoopStart = clamp(data.volumeLoopStart ?? 0, 0, Tic80Caps.sfx.loopStartMax);
+      this.volumeLoopLength = clamp(data.volumeLoopLength ?? 0, 0, Tic80Caps.sfx.loopLengthMax);
 
       this.arpeggioFrames =
          data.arpeggioFrames ? new Int8Array(data.arpeggioFrames) : new Int8Array(Tic80Caps.sfx.envelopeFrameCount);
-      this.arpeggioLoopStart = clamp(data.arpeggioLoopStart ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
-      this.arpeggioLoopLength = clamp(data.arpeggioLoopLength ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
+      this.arpeggioLoopStart = clamp(data.arpeggioLoopStart ?? 0, 0, Tic80Caps.sfx.loopStartMax);
+      this.arpeggioLoopLength = clamp(data.arpeggioLoopLength ?? 0, 0, Tic80Caps.sfx.loopLengthMax);
       this.arpeggioDown = CoalesceBoolean(data.arpeggioDown, false);
 
       this.waveFrames =
          data.waveFrames ? new Int8Array(data.waveFrames) : new Int8Array(Tic80Caps.sfx.envelopeFrameCount);
-      this.waveLoopStart = clamp(data.waveLoopStart ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
-      this.waveLoopLength = clamp(data.waveLoopLength ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
+      this.waveLoopStart = clamp(data.waveLoopStart ?? 0, 0, Tic80Caps.sfx.loopStartMax);
+      this.waveLoopLength = clamp(data.waveLoopLength ?? 0, 0, Tic80Caps.sfx.loopLengthMax);
 
       this.pitchFrames =
          data.pitchFrames ? new Int8Array(data.pitchFrames) : new Int8Array(Tic80Caps.sfx.envelopeFrameCount);
@@ -414,8 +414,8 @@ export class SomaticInstrument {
             this.pitchFrames[i] = -Tic80Caps.sfx.pitchMin;
          }
       }
-      this.pitchLoopStart = clamp(data.pitchLoopStart ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
-      this.pitchLoopLength = clamp(data.pitchLoopLength ?? 0, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
+      this.pitchLoopStart = clamp(data.pitchLoopStart ?? 0, 0, Tic80Caps.sfx.loopStartMax);
+      this.pitchLoopLength = clamp(data.pitchLoopLength ?? 0, 0, Tic80Caps.sfx.loopLengthMax);
       this.pitch16x = CoalesceBoolean(data.pitch16x, false);
 
       this.waveEngine = coerceWaveEngine(data.waveEngine ?? "native");

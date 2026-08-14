@@ -142,12 +142,9 @@ export function encodeWaveforms(song: Song, count: number): Uint8Array {
 }
 
 export const packLoop = (start: number, length: number): number => {
-   const loopStart = clamp(start, 0, Tic80Caps.sfx.envelopeFrameCount - 1);
-   const loopSize = clamp(
-      length,
-      0,
-      Tic80Caps.sfx.envelopeFrameCount - 1); // don't care about logical correctness; just that we don't overflow
-   return (loopSize << 4) | loopStart;
+   const loopStart = clamp(start, 0, Tic80Caps.sfx.loopStartMax);
+   const loopSize = clamp(length, 0, Tic80Caps.sfx.loopLengthMax);
+   return ((loopSize & 0x0f) << 4) | (loopStart & 0x0f);
 };
 
 const wrapInstrumentSpeedValue = (value: number): number => {

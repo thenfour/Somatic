@@ -209,6 +209,9 @@ export const Tic80Caps = {
       //count: 64,
       maxSupported: 62, // 0/1 are reserved for 0 and 1 (note-cut)
       envelopeFrameCount: 30,
+      // TIC-80 stores each envelope loop as one byte: 4-bit length, then 4-bit start.
+      loopStartMax: 0x0f,
+      loopLengthMax: 0x0f,
       speedMin: 0,
       speedMax: 7,
       speedSignedBias: 4,
