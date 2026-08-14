@@ -14,6 +14,7 @@ export interface EditorStateDto {
    showVolumeColumn: boolean;
    showPanColumn: boolean;
    showSomaticColumns: boolean;
+   showSideChannelData: boolean;
    patternEditRow: number;
    patternEditChannel: number;
    selectedArrangementPositions: Rect2D|null;
@@ -24,7 +25,7 @@ export interface EditorStateDto {
    lastNonOffLoopMode: LoopMode;
 }
 
-export type SomaticEditorStateColumnType = "note"|"instrument"|"volume"|"pan"|"command"|"param"|"somaticCommand"|"somaticParam";
+export type SomaticEditorStateColumnType = "note"|"instrument"|"volume"|"pan"|"command"|"param"|"somaticCommand"|"somaticParam"|"sideChannel";
 
 export class EditorState {
    octave: number;
@@ -35,6 +36,7 @@ export class EditorState {
    showVolumeColumn: boolean;
    showPanColumn: boolean;
    showSomaticColumns: boolean;
+   showSideChannelData: boolean;
    patternEditRow: number;
    patternEditChannel: number;
    patternEditColumnType: SomaticEditorStateColumnType;
@@ -54,6 +56,7 @@ export class EditorState {
       showVolumeColumn = true,
       showPanColumn = true,
       showSomaticColumns = true,
+      showSideChannelData = true,
       patternEditRow = 0,
       patternEditChannel = 0,
       selectedArrangementPositions = null,
@@ -71,6 +74,7 @@ export class EditorState {
       this.showVolumeColumn = CoalesceBoolean(showVolumeColumn, true);
       this.showPanColumn = CoalesceBoolean(showPanColumn, true);
       this.showSomaticColumns = CoalesceBoolean(showSomaticColumns, true);
+      this.showSideChannelData = CoalesceBoolean(showSideChannelData, true);
       this.patternEditRow = clamp(patternEditRow, 0, 63);
       this.patternEditChannel = patternEditChannel;
       this.patternEditColumnType = "note"; // default
@@ -134,6 +138,13 @@ export class EditorState {
       }
    }
 
+   setShowSideChannelData(enabled: boolean) {
+      this.showSideChannelData = Boolean(enabled);
+      if (!this.showSideChannelData && this.patternEditColumnType === "sideChannel") {
+         this.patternEditColumnType = "param";
+      }
+   }
+
    setPatternEditTarget({song, rowIndex, channelIndex}: {song: Song, rowIndex: number, channelIndex: number}) {
       this.patternEditRow = clamp(rowIndex, 0, song.rowsPerPattern - 1);
       this.patternEditChannel = channelIndex;
@@ -172,7 +183,7 @@ export class EditorState {
 
    getEditingCell(song: Song): PatternCell|null {
       const pattern = this.getEditingPattern(song);
-      if (!pattern) {
+      if (!pattern || this.patternEditChannel < 0 || this.patternEditChannel >= song.subsystem.channelCount) {
          return null;
       }
       const currentRow = pattern.getCell(this.patternEditChannel, this.patternEditRow);
@@ -248,6 +259,7 @@ export class EditorState {
          showVolumeColumn: this.showVolumeColumn,
          showPanColumn: this.showPanColumn,
          showSomaticColumns: this.showSomaticColumns,
+         showSideChannelData: this.showSideChannelData,
          patternEditRow: this.patternEditRow,
          patternEditChannel: this.patternEditChannel,
          selectedArrangementPositions: this.selectedArrangementPositions ? this.selectedArrangementPositions.toData() :

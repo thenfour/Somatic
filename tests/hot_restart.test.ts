@@ -82,6 +82,27 @@ describe("hot-restart baked position mapping", () => {
       assert.deepEqual(getBakedSongPosition(selectedRows, 1, 12), {songPosition: 0, rowIndex: 2});
    });
 
+   it("copies and repeats side-channel data when baking a pattern-row selection", () => {
+      const song = makeSong();
+      song.patterns[1].setSideChannelCell(10, "slice-start");
+      song.patterns[1].setSideChannelCell(12, "slice-middle");
+      const patternSelection = new SelectionRect2D({
+         start: {x: 0, y: 10},
+         size: {width: 1, height: 4},
+      });
+
+      const baked = BakeSong(makeArgs(song, {
+         loopMode: "selectionInPattern",
+         cursorSongOrder: 1,
+         patternSelection,
+      }));
+      const bakedPattern = baked.bakedSong.patterns[baked.bakedSong.songOrder[0].patternIndex];
+
+      assert.equal(bakedPattern.getSideChannelCell(0), "slice-start");
+      assert.equal(bakedPattern.getSideChannelCell(2), "slice-middle");
+      assert.equal(bakedPattern.getSideChannelCell(4), "slice-start");
+   });
+
    it("maps half- and quarter-pattern loops relative to their source ranges", () => {
       const song = makeSong();
       const half = BakeSong(makeArgs(song, {loopMode: "halfPattern", cursorRowIndex: 40}));

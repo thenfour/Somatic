@@ -42,6 +42,8 @@ do
 	local loopSongForeverEnabled = false
 	local playbackMuted = false
 	local completionCallback = nil
+	local rowCallback = nil
+	local previousCallbackSongRow = nil
 	local PATTERN_BUFFER_BYTES = 192 * 4 -- 192 bytes per pattern-channel * 4 channels
 	local bufferALocation = __AUTOGEN_BUF_PTR_A -- pattern 46
 	local bufferBLocation = __AUTOGEN_BUF_PTR_B -- pattern 50
@@ -706,9 +708,27 @@ do
 		if row < 0 then
 			row = 0
 		end
-		local songPosition, patternRow = somatic_abs_row_to_position(row // 1)
+		local songRow = row // 1
+		if loopSongForeverEnabled and somatic_transport.songRowCount > 0 then
+			songRow = songRow % somatic_transport.songRowCount
+		end
+		local songPosition, patternRow = somatic_abs_row_to_position(songRow)
 		state.demoPatternIndex = songPosition
 		state.demoPatternRow = patternRow
+		local patternIndex = SOMATIC_MUSIC_DATA.patternOrder[songPosition + 1]
+		local patternSideChannelData = SOMATIC_MUSIC_DATA.sideChannel[patternIndex] or nil
+		state.sideChannel = patternSideChannelData and patternSideChannelData[patternRow] or nil
+	end
+
+	local function somatic_notify_row(state)
+		local songRow = song_position_to_abs_row(state.demoPatternIndex, state.demoPatternRow)
+		if songRow == previousCallbackSongRow then
+			return
+		end
+		previousCallbackSongRow = songRow
+		if rowCallback ~= nil then
+			rowCallback(state)
+		end
 	end
 
 	-- Mirror current settings into the public time table.
@@ -913,6 +933,7 @@ do
 
 		somatic_write_settings_fields()
 		somatic_write_position_fields()
+		somatic_notify_row(state)
 		return state
 	end
 
@@ -929,6 +950,12 @@ do
 	-- A new callback replaces the previous one; nil unregisters it.
 	function somatic_set_completion_callback(callback)
 		completionCallback = callback
+	end
+
+	-- Register one callback for observed song-row changes; nil unregisters it.
+	function somatic_set_row_callback(callback)
+		rowCallback = callback
+		previousCallbackSongRow = nil
 	end
 
 	-- Clear one-frame flags after demo code consumes them.

@@ -71,6 +71,8 @@ describe("playroutine generated-data contract", () => {
          {label: "rowsPerPattern", mutate: song => { song.rowsPerPattern = 65; }},
          {label: "song order length", mutate: song => { song.songOrder = []; }},
          {label: "invalid pattern index", mutate: song => { song.songOrder[0].patternIndex = 99; }},
+         {label: "printable 7-bit ASCII", mutate: song => {song.patterns[0].setSideChannelCell(0, "bad\nvalue");}},
+         {label: "1024 characters", mutate: song => {song.patterns[0].setSideChannelCell(0, "x".repeat(1025));}},
       ];
 
       for (const testCase of invalidCases) {

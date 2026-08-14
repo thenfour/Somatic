@@ -1,7 +1,7 @@
 import {describe, it} from "node:test";
 import assert from "node:assert/strict";
 
-import {analyzePatternRowIssues, Pattern} from "../src/models/pattern";
+import {analyzePatternRowIssues, Pattern, PATTERN_SIDE_CHANNEL_MAX_LENGTH} from "../src/models/pattern";
 import {kSomaticPatternCommand, kTic80EffectCommand} from "../src/models/tic80Capabilities";
 
 describe("pattern row issues", () => {
@@ -89,5 +89,19 @@ describe("pattern row issues", () => {
 
       assert.equal(analysis.issueRowCount, 1);
       assert.equal(analysis.issuesByRow[2].length, 2);
+   });
+
+   it("surfaces invalid side-channel strings as pattern-row warnings", () => {
+      const pattern = new Pattern();
+      pattern.setSideChannelCell(1, "bad\nvalue");
+      pattern.setSideChannelCell(2, "x".repeat(PATTERN_SIDE_CHANNEL_MAX_LENGTH + 1));
+
+      const analysis = analyzePatternRowIssues(pattern, 8, 4);
+
+      assert.equal(analysis.issueRowCount, 2);
+      assert.equal(analysis.hasStrongIssues, true);
+      assert.ok(analysis.issuesByRow[1][0].sideChannel);
+      assert.match(analysis.issuesByRow[1][0].message, /printable 7-bit ASCII/);
+      assert.match(analysis.issuesByRow[2][0].message, /1024 characters/);
    });
 });

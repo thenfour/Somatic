@@ -43,6 +43,7 @@ const COLUMN_DESCRIPTIONS: Record<string, React.ReactNode> = {
    param: <>Effect param <LinkButton href="https://github.com/nesbox/TIC-80/issues/261#issuecomment-566043505">TIC-80 effect reference</LinkButton></>,
    somaticCommand: <>Somatic command <LinkButton href="https://github.com/thenfour/Somatic/wiki">Somatic effect reference</LinkButton></>,
    somaticParam: <>Somatic param <LinkButton href="https://github.com/thenfour/Somatic/wiki">Somatic effect reference</LinkButton></>,
+   sideChannel: "side-channel data",
 };
 
 interface AppStatusBarProps {
@@ -75,7 +76,7 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
     const positionParts: string[] = [];
     positionParts.push(`Ord:${songPosition}`);
     positionParts.push(`Pat:${formatPatternIndex(patternIndex)}`);
-    positionParts.push(`Ch:${channel}`);
+   positionParts.push(editorState.patternEditColumnType === "sideChannel" ? "Ch:Sc" : `Ch:${channel}`);
     positionParts.push(`Row:${row.toString().padStart(2, '0')}`);
 
     // Column description

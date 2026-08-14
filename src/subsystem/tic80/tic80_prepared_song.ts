@@ -12,9 +12,12 @@ export type PreparedPatternColumn = {
 };
 
 export type PreparedSongOrderItem = {
+   patternIndex: number;
    patternColumnIndices: [number, number, number, number];
    effectiveRows: number;
 };
+
+export type PreparedSideChannelData = Map<number, Map<number, string>>;
 
 export type PreparedSong = {
    baseSong: Song;                          //
@@ -22,6 +25,7 @@ export type PreparedSong = {
    channelCount: number;                    //
    patternColumns: PreparedPatternColumn[]; //
    songOrder: PreparedSongOrderItem[];
+   sideChannelData: PreparedSideChannelData;
 };
 
 export function assertPreparedSongContract(prepared: PreparedSong): void {
@@ -47,6 +51,12 @@ export function assertPreparedSongContract(prepared: PreparedSong): void {
    );
 
    prepared.songOrder.forEach((entry, orderIndex) => {
+      assert(
+         Number.isInteger(entry.patternIndex)
+            && entry.patternIndex >= 0
+            && entry.patternIndex < prepared.baseSong.patterns.length,
+         `Prepared song order ${orderIndex} has invalid pattern index ${entry.patternIndex}`,
+      );
       assert(
          Number.isInteger(entry.effectiveRows)
             && entry.effectiveRows >= 1
@@ -74,6 +84,7 @@ export function assertPreparedSongContract(prepared: PreparedSong): void {
 export function prepareSongColumns(song: Song): PreparedSong {
    const patternColumns: PreparedPatternColumn[] = [];
    const signatureToIndex = new Map<string, number>();
+   const sideChannelData: PreparedSideChannelData = new Map();
 
    const getColumnIndex = (patternIndex: number, channel: number, effectiveRows: number): number => {
       const pattern = song.patterns[patternIndex]!;
@@ -120,11 +131,25 @@ export function prepareSongColumns(song: Song): PreparedSong {
          `Song order ${i} has invalid pattern index ${patternIndex}`,
       );
       const effectiveRows = song.getPatternEffectiveRowCount(patternIndex);
+      if (!sideChannelData.has(patternIndex)) {
+         const rows = new Map<number, string>();
+         const pattern = song.patterns[patternIndex]!;
+         for (let rowIndex = 0; rowIndex < effectiveRows; rowIndex++) {
+            const value = pattern.peekSideChannelCell(rowIndex) ?? "";
+            if (value !== "") {
+               rows.set(rowIndex, value);
+            }
+         }
+         if (rows.size > 0) {
+            sideChannelData.set(patternIndex, rows);
+         }
+      }
       const columnIndices: [number, number, number, number] = [0, 0, 0, 0];
       for (let ch = 0; ch < Tic80Caps.song.audioChannels; ch++) {
          columnIndices[ch] = getColumnIndex(patternIndex, ch, effectiveRows);
       }
       songOrder.push({
+         patternIndex,
          patternColumnIndices: columnIndices,
          effectiveRows,
       });
@@ -136,13 +161,14 @@ export function prepareSongColumns(song: Song): PreparedSong {
    if (songOrder.length === 0) {
       const silentColumn = new PatternChannel();
       patternColumns.push({sourcePatternIndex: 0, channelIndex: 0, channel: silentColumn});
-      songOrder.push({patternColumnIndices: [0, 0, 0, 0], effectiveRows: 1});
+      songOrder.push({patternIndex: 0, patternColumnIndices: [0, 0, 0, 0], effectiveRows: 1});
    }
 
    const prepared: PreparedSong = {
       baseSong: song,
       patternColumns,
       songOrder,
+      sideChannelData,
       rowsPerPattern: song.rowsPerPattern,
       channelCount: song.subsystem.channelCount,
    };

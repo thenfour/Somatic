@@ -25,6 +25,7 @@ export const GlobalActions = {
     ToggleVolumeColumn: "ToggleVolumeColumn",
     TogglePanColumn: "TogglePanColumn",
     ToggleSomaticColumns: "ToggleSomaticColumns",
+    ToggleSideChannelData: "ToggleSideChannelData",
     TogglePatternEditor: "TogglePatternEditor",
     ToggleCartStatsPanel: "ToggleCartStatsPanel",
     ToggleSongSettingsPanel: "ToggleSongSettingsPanel",

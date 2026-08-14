@@ -47,6 +47,7 @@
     margin: 15px;
     --row-color-mix: 60%;
     --row-number-color-mix: 50%;
+    --side-channel-width: 96px;
 }
 
 .pattern-grid-shell {
@@ -422,6 +423,38 @@
     /* background-color: rgba(255, 255, 255, 0.3); */
     background-color: color-mix(in srgb, var(--bg) 70%, rgba(255, 255, 255, 0.3) 30%);
     color: var(--text);
+}
+
+/*.pattern-grid th.side-channel-header,*/
+.pattern-grid td.side-channel-cell,
+.pattern-grid tfoot th.side-channel-carry-cell
+{
+    box-sizing: border-box;
+    width: var(--side-channel-width);
+    min-width: var(--side-channel-width);
+    max-width: var(--side-channel-width);
+    border-left: 4px solid #fff1;
+}
+
+/*.pattern-grid th.side-channel-header .channel-header-label {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 16px;
+    text-align: center;
+}*/
+
+.pattern-grid td.side-channel-cell {
+    color: var(--cell-somatic-param);
+    white-space: nowrap;
+    overflow: visible;
+}
+
+.pattern-grid td.side-channel-cell > span {
+    position: absolute;
+    left: 6px;
+    top: 1px;
+    white-space: nowrap;
+    pointer-events: none;
 }
 
 .pattern-grid td.note-cell {

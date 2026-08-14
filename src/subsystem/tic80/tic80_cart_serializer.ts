@@ -8,6 +8,7 @@ import {encodeBridgeExtraSongDataTransaction} from "../../../bridge/extraSongBri
 import {encodeSomaticExtraSongDataPayload, MORPH_ENTRY_BYTES, MorphEntryCodec, SOMATIC_PATTERN_CELL_COUNT, SOMATIC_PATTERN_MASK_BYTES, SOMATIC_PATTERN_ROW_COUNT, WAVEFORM_MORPH_GRADIENT_NODE_BYTES, WaveformMorphGradientNodeCodec, type MorphEntryInput, type SomaticPatternEntryPacked, type WaveformMorphGradientNodePacked, } from "../../../bridge/morphSchema";
 import {LoopMode} from "../../audio/backend";
 import {type ExportConfiguration} from "../../models/exportConfiguration";
+import {getPatternSideChannelValidationIssues} from "../../models/pattern";
 import {buildCueSheet, type CueSheetEntry, type Song} from "../../models/song";
 import {gTic80AllChannelsAudible, kSomaticPatternCommand, SomaticCaps, Tic80Caps, TicMemoryMap} from "../../models/tic80Capabilities";
 import {emitLuaBitpackPrelude, emitLuaDecoder} from "../../utils/bitpack/emitLuaDecoder";
@@ -706,16 +707,33 @@ function getCode(
    const orderRowsCompressed = lzCompress(orderRowsPayload, gSomaticLZDefaultConfig);
    const orderRows = toLuaStringLiteral(base85Plus1Encode(orderRowsCompressed));
    const cueSheetSection = buildCueSheetLua(cueSheet);
+   const sideChannelPatternEntries: string[] = [];
+   for (const [patternIndex, rows] of preparedSong.sideChannelData) {
+      const rowEntries: string[] = [];
+      for (const [rowIndex, value] of rows) {
+         const validationIssues = getPatternSideChannelValidationIssues(value);
+         assert(
+            validationIssues.length === 0,
+            `Pattern ${patternIndex} row ${rowIndex} side-channel data is invalid: ${validationIssues.join(" ")}`,
+         );
+         rowEntries.push(`[${rowIndex}] = ${toLuaStringLiteral(value)}`);
+      }
+      sideChannelPatternEntries.push(`[${patternIndex}] = { ${rowEntries.join(", ")} }`);
+   }
+   const sideChannelData = `{ ${sideChannelPatternEntries.join(", ")} }`;
+   const patternOrder = `{ ${preparedSong.songOrder.map((entry) => entry.patternIndex).join(", ")} }`;
 
    const musicDataSection = `-- BEGIN_SOMATIC_MUSIC_DATA
 SOMATIC_MUSIC_DATA = {
  tempo = ${song.tempo},
  speed = ${song.speed},
  rowsPerBeat = ${song.highlightRowCount},
-rowsPerPattern = ${song.rowsPerPattern},
-so = ${songOrder},
+ sideChannel = ${sideChannelData},
+ rowsPerPattern = ${song.rowsPerPattern},
+ so = ${songOrder},
  orows = ${orderRows},
-extraSongData = ${extraSongDataDetails.luaStringLiteral},
+ patternOrder = ${patternOrder},
+ extraSongData = ${extraSongDataDetails.luaStringLiteral},
  -- patterns in RAM
  rp = ${patternSerializationPlan.ramPatternLuaString},
  -- patterns in code

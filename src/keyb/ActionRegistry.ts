@@ -211,6 +211,14 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
         defaultBindings: [{ kind: "character", key: "\\", primary: true }],
     },
 
+    ToggleSideChannelData: {
+        id: "ToggleSideChannelData",
+        title: "toggle side-channel data",
+        description: "show or hide side-channel data in the pattern grid.",
+        category: "View",
+        defaultBindings: [],
+    },
+
     TogglePatternEditor: {
         id: "TogglePatternEditor",
         title: "toggle pattern editor",

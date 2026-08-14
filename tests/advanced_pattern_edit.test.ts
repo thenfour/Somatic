@@ -81,6 +81,29 @@ describe("scale pattern rows", () => {
       assert.deepEqual(pattern.getCell(0, 6), {});
       assert.deepEqual(pattern.getCell(0, 7), {});
    });
+
+   it("scales the side-channel lane independently from audio channels", () => {
+      const pattern = new Pattern();
+      pattern.setCell(0, 1, {midiNote: 60});
+      pattern.setSideChannelCell(1, "one");
+      pattern.setSideChannelCell(2, "two");
+      pattern.setSideChannelCell(3, "three");
+
+      const expanded = expandPatternRows(pattern, [], {start: 1, end: 3}, 8, true);
+
+      assert.equal(expanded.mutated, true);
+      assert.deepEqual(
+         [1, 2, 3, 4, 5, 6].map((row) => pattern.getSideChannelCell(row)),
+         ["one", "", "two", "", "three", ""],
+      );
+      assert.deepEqual(pattern.getCell(0, 1), {midiNote: 60});
+
+      contractPatternRows(pattern, [], expanded.resultingRowRange!, 8, true);
+      assert.deepEqual(
+         [1, 2, 3, 4, 5, 6].map((row) => pattern.getSideChannelCell(row)),
+         ["one", "two", "three", "", "", ""],
+      );
+   });
 });
 
 describe("evenly distribute pattern notes", () => {

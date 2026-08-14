@@ -12,11 +12,14 @@ describe("EditorState pattern-column visibility", () => {
       const state = EditorState.fromData({});
       assert.equal(state.showVolumeColumn, true);
       assert.equal(state.showPanColumn, true);
+      assert.equal(state.showSideChannelData, true);
 
       state.setShowVolumeColumn(false);
       state.setShowPanColumn(false);
+      state.setShowSideChannelData(false);
       assert.equal(state.clone().showVolumeColumn, false);
       assert.equal(state.clone().showPanColumn, false);
+      assert.equal(state.clone().showSideChannelData, false);
    });
 
    it("moves the edit target out of the volume column when it is hidden", () => {
@@ -78,6 +81,14 @@ describe("pan-column app action", () => {
       assert.equal(GlobalActions.TogglePanColumn, "TogglePanColumn");
       assert.equal(gActionRegistry.TogglePanColumn.category, "View");
       assert.deepEqual(gActionRegistry.TogglePanColumn.defaultBindings, []);
+   });
+});
+
+describe("side-channel app action", () => {
+   it("is registered as a configurable View action without a default binding", () => {
+      assert.equal(GlobalActions.ToggleSideChannelData, "ToggleSideChannelData");
+      assert.equal(gActionRegistry.ToggleSideChannelData.category, "View");
+      assert.deepEqual(gActionRegistry.ToggleSideChannelData.defaultBindings, []);
    });
 });
 

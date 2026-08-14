@@ -241,6 +241,10 @@ function copyPatternRows(
          const cell = srcPattern.getCell(ch, srcStartRow + r);
          destPattern.setCell(ch, destStartRow + r, {...cell});
       }
+      destPattern.setSideChannelCell(
+         destStartRow + r,
+         srcPattern.peekSideChannelCell(srcStartRow + r) ?? "",
+      );
    }
 }
 

@@ -116,6 +116,7 @@ somatic_position_to_beat(songOrderIndex, row)       -- convert a 0-based song po
 somatic_seek_position(songOrderIndex, row, syncOffsetMS) -- seek to a zero-based song position and row
 somatic_set_options(options)                        -- tempo/speed/isPlaying/isMuted/loopSongForever/syncOffsetMS
 somatic_set_completion_callback(callback)           -- register a natural song-completion callback; nil unregisters
+somatic_set_row_callback(callback)                  -- register an observed-song-row callback; nil unregisters
 somatic_advance_frame()                             -- advance paused demo time by one 60Hz frame
 somatic_end_frame()                                 -- for internal bookkeeping
 ```
@@ -134,9 +135,23 @@ the callback before the first `somatic_tick()` if the song could finish before l
 
 ```lua
 somatic_set_completion_callback(function()
-	-- quit, change scene, or start another track
+	-- quit, do something...
 end)
 ```
+
+`somatic_set_row_callback()` fires for each encountered new row during playback.
+fires on the first row. Read `state.sideChannel` to get the string. Only one callback supported at a time.
+
+```lua
+somatic_set_row_callback(function(state)
+	if state.sideChannel == "flash" then
+		-- trigger animation
+	end
+end)
+```
+
+Side-channel strings are per pattern-row. Can contain only the printable 7-bit
+ASCII characters. Maximum size enforced.
 
 `syncOffsetMS` is a presentation-only latency correction in system milliseconds. Positive values
 advance the returned external transport time. It does not change internal music playback state;
@@ -168,6 +183,7 @@ state.demoBeats
 state.demoDeltaBeats
 state.demoPatternIndex
 state.demoPatternRow
+state.sideChannel -- current pattern-row string, or nil
 
 state.songPatternCount
 state.songRowCount

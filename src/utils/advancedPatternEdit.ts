@@ -90,6 +90,7 @@ const scalePatternRows = (
    rowRange: RowRange,
    rowsPerPattern: number,
    mode: PatternRowScaleMode,
+   includeSideChannel = false,
 ): PatternRowScaleResult => {
    const plan = planPatternRowScale(rowRange, rowsPerPattern, mode);
    if (!plan)
@@ -128,6 +129,31 @@ const scalePatternRows = (
       }
    }
 
+   if (includeSideChannel) {
+      const sourceCells = Array.from(
+         {length: sourceCount},
+         (_, rowOffset) => pattern.peekSideChannelCell(plan.sourceRowRange.start + rowOffset) ?? "",
+      );
+      for (let rowOffset = 0; rowOffset < affectedCount; rowOffset++) {
+         let sourceOffset: number | null = null;
+         if (mode === "expand") {
+            if (rowOffset % 2 === 0)
+               sourceOffset = rowOffset / 2;
+         } else if (rowOffset < resultingCount) {
+            sourceOffset = rowOffset * 2;
+         }
+
+         const nextValue = sourceOffset !== null && sourceOffset < sourceCells.length
+            ? sourceCells[sourceOffset]
+            : "";
+         const rowIndex = plan.affectedRowRange.start + rowOffset;
+         if ((pattern.peekSideChannelCell(rowIndex) ?? "") === nextValue)
+            continue;
+         pattern.setSideChannelCell(rowIndex, nextValue);
+         mutated = true;
+      }
+   }
+
    return {mutated, resultingRowRange: plan.resultingRowRange};
 };
 
@@ -136,14 +162,16 @@ export const expandPatternRows = (
    channels: number[],
    rowRange: RowRange,
    rowsPerPattern: number,
-): PatternRowScaleResult => scalePatternRows(pattern, channels, rowRange, rowsPerPattern, "expand");
+   includeSideChannel = false,
+): PatternRowScaleResult => scalePatternRows(pattern, channels, rowRange, rowsPerPattern, "expand", includeSideChannel);
 
 export const contractPatternRows = (
    pattern: Pattern,
    channels: number[],
    rowRange: RowRange,
    rowsPerPattern: number,
-): PatternRowScaleResult => scalePatternRows(pattern, channels, rowRange, rowsPerPattern, "contract");
+   includeSideChannel = false,
+): PatternRowScaleResult => scalePatternRows(pattern, channels, rowRange, rowsPerPattern, "contract", includeSideChannel);
 
 const compactPatternCell = (cell: PatternCell): PatternCell =>
    Object.fromEntries(Object.entries(cell).filter(([, value]) => value !== undefined)) as PatternCell;

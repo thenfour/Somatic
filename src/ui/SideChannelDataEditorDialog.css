@@ -1,0 +1,14 @@
+.side-channel-editor-dialog {
+    width: min(680px, calc(100vw - 48px));
+}
+
+.side-channel-editor-input {
+    box-sizing: border-box;
+    width: 100%;
+    font-family: var(--ff-mono);
+}
+
+.side-channel-editor-error {
+    margin-top: 6px;
+    color: var(--error-accent);
+}

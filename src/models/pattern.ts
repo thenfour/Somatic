@@ -46,6 +46,20 @@ type PatternCellLegacy = {
 
 export const MakeEmptyPatternCell = (): PatternCell => ({});
 
+export const PATTERN_SIDE_CHANNEL_MAX_LENGTH = 1024;
+const PATTERN_SIDE_CHANNEL_ASCII_PATTERN = /^[\x20-\x7e]*$/; // printable ascii
+
+export function getPatternSideChannelValidationIssues(value: string): string[] {
+   const issues: string[] = [];
+   if (value.length > PATTERN_SIDE_CHANNEL_MAX_LENGTH) {
+      issues.push(`Side-channel data exceeds the limit of ${PATTERN_SIDE_CHANNEL_MAX_LENGTH} characters.`);
+   }
+   if (!PATTERN_SIDE_CHANNEL_ASCII_PATTERN.test(value)) {
+      issues.push("Side-channel data contains characters outside printable 7-bit ASCII.");
+   }
+   return issues;
+}
+
 export function isNoteCut(cell: PatternCell): boolean {
    return !!cell.noteOff;
 }
@@ -146,9 +160,64 @@ export class PatternChannel {
 }
 
 //////////////////////////////////////////////////////////////////////////////////
+// each pattern row can contain 1 small string of user-defined data.
+export interface PatternSideChannelDataDto {
+   rows: string[];
+};
+export class PatternSideChannelData {
+   private rows: string[];
+
+   constructor(data?: PatternSideChannelDataDto) {
+      // gracefully handle old payloads without rows.
+      this.rows = Array.isArray(data?.rows)
+         ? data.rows.map((value) => typeof value === "string" ? value : "")
+         : [];
+      this.trimTrailingEmptyRows();
+   }
+
+   setCell(index: number, cellValue: string) {
+      if (index < 0)
+         return;
+      this.ensureRows(index + 1);
+      this.rows[index] = typeof cellValue === "string" ? cellValue : "";
+      this.trimTrailingEmptyRows();
+   }
+   getCell(index: number): string {
+      return this.peekCell(index) ?? "";
+   }
+   peekCell(index: number): string | undefined {
+      return index < 0 ? undefined : this.rows[index];
+   }
+   ensureRows(count: number) {
+      while (this.rows.length < count) {
+         this.rows.push("");
+      }
+   }
+
+   private trimTrailingEmptyRows() {
+      while (this.rows.length > 0 && this.rows[this.rows.length - 1] === "") {
+         this.rows.pop();
+      }
+   }
+
+   toData(): PatternSideChannelDataDto {
+      return {rows: [...this.rows]};
+   }
+
+   static fromData(data: PatternSideChannelDataDto): PatternSideChannelData {
+      return new PatternSideChannelData(data);
+   }
+
+   clone(): PatternSideChannelData {
+      return PatternSideChannelData.fromData(this.toData());
+   }
+};
+
+//////////////////////////////////////////////////////////////////////////////////
 export type PatternDto = {
    name: string; //
    channels: PatternChannelDto[];
+   privateSideChannelData?: PatternSideChannelDataDto;
 };
 
 export class Pattern {
@@ -156,21 +225,25 @@ export class Pattern {
 
    // private so that we can enforce channel counts / creations via accessors
    private channels: PatternChannel[];
+   private sideChannelData: PatternSideChannelData;
 
    constructor(data?: PatternDto) {
       if (data) {
          this.name = data.name ?? "";
          this.channels = data.channels.map((ch) => new PatternChannel(ch));
+         this.sideChannelData = new PatternSideChannelData(data.privateSideChannelData);
       } else {
          this.name = "";
          this.channels = [];
+         this.sideChannelData = new PatternSideChannelData();
       }
    }
 
    toData(): PatternDto {
       return {
          name: this.name, //
-            channels: this.channels.map(ch => ch.toData()),
+         channels: this.channels.map(ch => ch.toData()),
+         privateSideChannelData: this.sideChannelData.toData(),
       }
    }
 
@@ -199,6 +272,18 @@ export class Pattern {
       if (channelIndex < 0 || rowIndex < 0)
          return undefined;
       return this.channels[channelIndex]?.peekCell(rowIndex);
+   }
+
+   setSideChannelCell(rowIndex: number, value: string) {
+      this.sideChannelData.setCell(rowIndex, value);
+   }
+
+   getSideChannelCell(rowIndex: number): string {
+      return this.sideChannelData.getCell(rowIndex);
+   }
+
+   peekSideChannelCell(rowIndex: number): string | undefined {
+      return this.sideChannelData.peekCell(rowIndex);
    }
 
    getNoteCellAndDependentRows(channelIndex: number, noteRowIndex: number, rowLimit: number): number[] {
@@ -246,15 +331,9 @@ export class Pattern {
 
    contentSignature(): string {
       const dto = this.toData();
-      return JSON.stringify({channels: dto.channels});
-   }
-
-   contentSignatureForColumn(channelIndex: number): string {
-      const dto = this.toData();
-      assert(
-         channelIndex >= 0 && channelIndex < dto.channels.length,
-         `contentSignatureForColumn: channelIndex out of range: ${channelIndex}`);
-      return JSON.stringify({channel: dto.channels[channelIndex]});
+      // even though side channel data is not musical content, it's still
+      // serialized and needs to be included when de-duplicating pattern data.
+      return JSON.stringify({channels: dto.channels, sideChannelData: dto.privateSideChannelData});
    }
 
    getPatternEndRow(rowLimit: number, channelCount: number): number|null {
@@ -288,6 +367,7 @@ export class Pattern {
 export type PatternRowIssue = {
    rowIndex: number;
    channelIndex?: number;
+   sideChannel?: boolean;
    message: string;
    emphasis: "strong"|"marker";
 };
@@ -312,6 +392,12 @@ export function analyzePatternRowIssues(
    let hasStrongIssues = false;
    const issuesByRow = Array.from({length: rowCount}, (_, rowIndex) => {
       const issues: PatternRowIssue[] = [];
+
+      const sideChannelValue = pattern.peekSideChannelCell(rowIndex) ?? "";
+      for (const message of getPatternSideChannelValidationIssues(sideChannelValue)) {
+         issues.push({rowIndex, sideChannel: true, message, emphasis: "strong"});
+         hasStrongIssues = true;
+      }
 
       for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
          const cell = pattern.getCell(channelIndex, rowIndex);

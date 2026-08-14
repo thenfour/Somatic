@@ -58,7 +58,7 @@ import { gLog } from './utils/logger';
 import { OptimizeSong } from './subsystem/tic80/SongOptimizer';
 import type { UndoSnapshot } from './utils/UndoStack';
 import { UndoStack } from './utils/UndoStack';
-import { numericRange } from './utils/utils';
+import {clamp, numericRange} from './utils/utils';
 import { importSongFromAmigaModBytes } from './subsystem/AmigaMod/AmigaModImport';
 import { kPatternGridHighlightStyle, PatternGridHighlightStyle } from './models/patternGridHighlightStyle';
 import Icon from "@mdi/react";
@@ -284,7 +284,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 song: doc,
                 reason: "auto-save",
                 audibleChannels: editorState.getAudibleChannels(doc),
-                cursorChannelIndex: editorState.patternEditChannel,
+               cursorChannelIndex: clamp(editorState.patternEditChannel, 0, doc.subsystem.channelCount - 1),
                 cursorRowIndex: editorState.patternEditRow,
                 cursorSongOrder: editorState.activeSongPosition,
                 loopMode: editorState.loopMode,
@@ -440,9 +440,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
           if (audioRenderAbortRef.current) return;
             const s = songRef.current;
             const ed = editorRef.current;
-            const channel = ed.patternEditChannel;
+          const channel = clamp(ed.patternEditChannel, 0, s.subsystem.channelCount - 1);
             const allowPatternNoteEntry = isEditingNoteCell();
-          auditionNoteOn(s, ed.currentInstrument, note, ed.patternEditChannel);
+          auditionNoteOn(s, ed.currentInstrument, note, channel);
 
             if (ed.editingEnabled !== false && allowPatternNoteEntry) {
                 const currentPosition = Math.max(0, Math.min(s.songOrder.length - 1, ed.activeSongPosition || 0));
@@ -542,7 +542,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     // handlers for clicking the keyboard view note on / off
     const handleNoteOn = (midiNote: number) => {
-       auditionNoteOn(song, editorState.currentInstrument, midiNote, editorState.patternEditChannel);
+       const channel = clamp(editorState.patternEditChannel, 0, song.subsystem.channelCount - 1);
+       auditionNoteOn(song, editorState.currentInstrument, midiNote, channel);
     };
 
     const handleNoteOff = (midiNote: number) => {
@@ -918,7 +919,8 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     reason,
                     song: songRef.current,
                     cursorSongOrder: editorRef.current.activeSongPosition,
-                    cursorChannelIndex: editorRef.current.patternEditChannel,
+                   // patternEditChannel can be sidechannel (oob for audible channels)
+                   cursorChannelIndex: clamp(editorRef.current.patternEditChannel, 0, songRef.current.subsystem.channelCount - 1),
                     cursorRowIndex: editorRef.current.patternEditRow,
                     patternSelection: editorRef.current.patternSelection,
                     audibleChannels: editorRef.current.getAudibleChannels(songRef.current),
@@ -974,6 +976,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     useActionHandler("ToggleSomaticColumns", () =>
         updateEditorState((s) => s.setShowSomaticColumns(!s.showSomaticColumns))
     );
+   useActionHandler("ToggleSideChannelData", () =>
+      updateEditorState((s) => s.setShowSideChannelData(!s.showSideChannelData))
+   );
     mgr.useActionHandler("TogglePatternEditor", () => {
         setPatternEditorOpen((open) => !open);
     });
@@ -1343,6 +1348,15 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                                         Somatic Columns
                                     </DesktopMenu.Item>
                                     <DesktopMenu.Item
+                               checked={editorState.showSideChannelData}
+                               onSelect={() =>
+                                  updateEditorState((s) => s.setShowSideChannelData(!s.showSideChannelData))
+                               }
+                               shortcut={mgr.getActionBindingLabel("ToggleSideChannelData")}
+                            >
+                               Side-channel Data
+                            </DesktopMenu.Item>
+                            <DesktopMenu.Item
                                         checked={waveformEditorPanelOpen}
                                         onSelect={() => setWaveformEditorPanelOpen((open) => !open)}
                                         shortcut={mgr.getActionBindingLabel("ToggleWaveformEditor")}
