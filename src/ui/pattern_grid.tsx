@@ -24,8 +24,8 @@ import { ButtonGroup } from './Buttons/ButtonGroup';
 import { Button } from './Buttons/PushButton';
 import { CheckboxButton } from './Buttons/CheckboxButton';
 import {Divider} from "./basic/Divider";
-import {describeTic80Effect, formatTic80EffectInsight, formatTic80EffectTooltip, formatTic80EffectTooltipForPatternGrid} from "../subsystem/tic80/tic80_effect_insight";
 import {getTic80SongStateAccumulator} from "../subsystem/tic80/tic80_song_state";
+import {Tic80EffectInsightTooltip} from "./Tic80EffectInsightTooltip";
 
 type ExtendedCellType = 'note' | 'instrument' | 'volume' | 'pan' | 'command' | 'param' | 'somaticCommand' | 'somaticParam';
 
@@ -1907,23 +1907,17 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                            const panClass = `pan-cell${additionalClasses}${panSelectionClass}`;
                                             const cmdClass = `command-cell${additionalClasses}${cmdSelectionClass}`;
                                             const paramClass = `param-cell${additionalClasses}${paramSelectionClass}${collapsedSomaticClass}`;
-                                            const somCmdClass = `somatic-command-cell${additionalClasses}${somCmdSelectionClass}`;
-                                            const somParamClass = `somatic-param-cell${additionalClasses}${somParamSelectionClass}`;
+                                           const somCmdClass = `somatic-command-cell${additionalClasses}${somCmdSelectionClass}`;
+                                           const somParamClass = `somatic-param-cell${additionalClasses}${somParamSelectionClass}`;
 
-                                           // tic80 effect description
-                                           let tic80EffectDesc: string | undefined = undefined;
-
-                                           if (kTic80EffectCommand.isValidKey(row.tic80Effect)) {
-                                              const noteContext = song.getChannelNoteContext(currentPosition, channelIndex, rowIndex);
-                                              const tic80EffectInsight = describeTic80Effect(
-                                                 row,
-                                                 noteContext,
-                                                 {tempo: song.tempo, speed: song.speed},
-                                              );
-                                              if (tic80EffectInsight) {
-                                                 tic80EffectDesc = formatTic80EffectTooltipForPatternGrid(tic80EffectInsight);
-                                              }
-                                           }
+                                           const tic80EffectInsightSource = {
+                                              kind: "song-row" as const,
+                                              song,
+                                              cell: row,
+                                              songPosition: currentPosition,
+                                              channelIndex,
+                                              rowIndex,
+                                           };
 
                                            // somatic effect description
                                            let somaticEffectDesc: string | undefined = undefined;
@@ -2033,11 +2027,13 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-column-index={cmdCol}
                                                         data-cell-value={`[${JSON.stringify(row.tic80Effect)}]`}
                                                     >
-                                                     <Tooltip disabled={!tic80EffectDesc} title={tic80EffectDesc}>
+                                                     <Tic80EffectInsightTooltip
+                                                        source={tic80EffectInsightSource}
+                                                     >
                                                         <span>
                                                         {cmdText}
                                                         </span>
-                                                     </Tooltip>
+                                                     </Tic80EffectInsightTooltip>
                                                     </td>
                                                     <td
                                                         tabIndex={0}
@@ -2055,11 +2051,13 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                                         data-column-index={paramCol}
                                                         data-cell-value={`[X=${JSON.stringify(row.tic80EffectX)},Y=${JSON.stringify(row.tic80EffectY)}]`}
                                                     >
-                                                     <Tooltip disabled={!tic80EffectDesc} title={tic80EffectDesc}>
+                                                     <Tic80EffectInsightTooltip
+                                                        source={tic80EffectInsightSource}
+                                                     >
                                                         <span>
                                                         {paramText}
                                                         </span>
-                                                     </Tooltip>
+                                                     </Tic80EffectInsightTooltip>
                                                     </td>
                                                     {showSomaticColumns && (
                                                         <>

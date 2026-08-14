@@ -7,7 +7,7 @@ import {kSubsystem} from "../subsystem/base/SubsystemBackendBase";
 import {
    describeTic80Effect,
    formatTic80EffectInsight,
-   formatTic80EffectTooltip,
+   type Tic80EffectInsight,
 } from "../subsystem/tic80/tic80_effect_insight";
 import {
    formatTic80Timing,
@@ -18,6 +18,7 @@ import {
 import {clamp, formatToDecimalPlaces} from "../utils/utils";
 import {Tooltip} from "./basic/tooltip";
 import {IconButton} from "./Buttons/IconButton";
+import {Tic80EffectInsightTooltip} from "./Tic80EffectInsightTooltip";
 
 
 const LinkButton: React.FC<{href: string; children: React.ReactNode;}> = ({href, children}) => {
@@ -55,7 +56,7 @@ interface AppStatusBarProps {
 
 type CommandDescription = {
     text: string;
-    tooltip?: string;
+   tic80EffectInsight?: Tic80EffectInsight;
 };
 
 export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, currentColumnType, onSongChange, onEditorStateChange, rightContent }) => {
@@ -103,7 +104,7 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
             if (tic80EffectInsight) {
                 commandDescParts.push({
                     text: formatTic80EffectInsight(tic80EffectInsight),
-                   tooltip: formatTic80EffectTooltip(tic80EffectInsight),
+                   tic80EffectInsight,
                 });
             }
         }
@@ -165,12 +166,16 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
              </div>
           )}
             <div className="app-status-bar-group app-status-bar-commands">
-             {commandDescParts.map((part, index) => part.tooltip ? (
-                <Tooltip key={index} title={part.tooltip} showInStatusBar={false}>
+             {commandDescParts.map((part, index) => part.tic80EffectInsight ? (
+                <Tic80EffectInsightTooltip
+                   key={index}
+                   showInStatusBar={false}
+                   source={{kind: "precomputed", insight: part.tic80EffectInsight}}
+                >
                    <span tabIndex={0}>
                       {index > 0 ? ", " : ""}{part.text}
                    </span>
-                </Tooltip>
+                </Tic80EffectInsightTooltip>
              ) : (
                 <span key={index}>
                         {index > 0 ? ", " : ""}{part.text}

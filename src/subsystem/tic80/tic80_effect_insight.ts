@@ -371,14 +371,8 @@ export function formatTic80EffectInsight(insight: Tic80EffectInsight): string {
    return `${insight.code}: ${insight.summary}${insight.detail ? `: ${insight.detail}` : ""}`;
 }
 
-// for status bar, where the description text is already seen.
-export function formatTic80EffectTooltip(insight: Tic80EffectInsight): string | undefined {
-   const parts = [insight.explanation, insight.warning].filter((part): part is string => !!part);
-   return parts.length > 0 ? parts.join(" ") : undefined;
-}
-
 // for pattern grid tooltip where there's no description text shown (so add to the tooltip)
-export function formatTic80EffectTooltipForPatternGrid(insight: Tic80EffectInsight): string | undefined {
+export function formatTic80EffectTooltip(insight: Tic80EffectInsight): string | undefined {
    const text = formatTic80EffectInsight(insight);
    const parts = [text, insight.explanation, insight.warning].filter((part): part is string => !!part);
    return parts.length > 0 ? parts.join(" ") : undefined;
