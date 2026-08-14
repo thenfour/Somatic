@@ -220,6 +220,14 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                         </CheckboxButton>
                         <div className="pattern-advanced-panel__inputRow div-row">
                             <ButtonGroup>
+                         <Tooltip title="Select current instrument">
+                            <IconButton
+                               className="div-row-shrink"
+                               iconPath={mdiSync}
+                               onClick={() => setScopeInstrumentIndex(currentInstrument)}
+                               disabled={!enabled}
+                            />
+                         </Tooltip>
                                 <Dropdown
                                     value={scopeInstrumentIndex ?? 2}
                                     disabled={scopeInstrumentIndex === null}
@@ -237,15 +245,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                                             />
                                         );
                                     }}
-                                />
-                                <Tooltip title="Set to current instrument">
-                                    <IconButton
-                                        className="div-row-shrink"
-                                        iconPath={mdiSync}
-                                        onClick={() => setScopeInstrumentIndex(currentInstrument)}
-                                        disabled={!enabled}
-                                    />
-                                </Tooltip>
+                         />
                             </ButtonGroup>
                         </div>
                     </ButtonGroup>
@@ -338,6 +338,14 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                                 >
                                     Set {CharMap.RightTriangle}
                                 </Button>
+                         <Tooltip title="Select current instrument">
+                            <IconButton
+                               className="div-row-shrink"
+                               iconPath={mdiSync}
+                               onClick={() => setSetInstrumentValue(currentInstrument)}
+                               disabled={!enabled}
+                            />
+                         </Tooltip>
                                 <Dropdown
                                     value={setInstrumentValue}
                                     onChange={(inst) => setSetInstrumentValue(inst)}
@@ -354,15 +362,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                                             />
                                         );
                                     }}
-                                />
-                                <Tooltip title="Set to current instrument">
-                                    <IconButton
-                                        className="div-row-shrink"
-                                        iconPath={mdiSync}
-                                        onClick={() => setSetInstrumentValue(currentInstrument)}
-                                        disabled={!enabled}
-                                    />
-                                </Tooltip>
+                         />
                             </ButtonGroup>
                         </div>
                         <ButtonGroup>
@@ -387,13 +387,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                         </ButtonGroup>
                     </section>
                 </fieldset>
-                <fieldset>
-                    <legend>Effect</legend>
-                    <ButtonGroup>
-                        <Button onClick={handleClearEffect}>Clear</Button>
-                    </ButtonGroup>
-                </fieldset>
-                <fieldset>
+             <fieldset>
                     <legend>Volume</legend>
                     <ButtonGroup>
                         <Button onClick={handleClearVolume}>Clear</Button>
@@ -410,6 +404,12 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                     </ButtonGroup>
                 </fieldset>
                 <fieldset>
+                <legend>Effect</legend>
+                <ButtonGroup>
+                   <Button onClick={handleClearEffect}>Clear</Button>
+                </ButtonGroup>
+             </fieldset>
+             <fieldset>
                     <legend>Param</legend>
                     <ButtonGroup>
                         <Button onClick={handleClearX}>Clear X</Button>
@@ -425,7 +425,7 @@ export const PatternAdvancedPanel: React.FC<PatternAdvancedPanelProps> = ({
                     </ButtonGroup>
                 </fieldset>
                 <fieldset>
-                    <legend>SFX</legend>
+                <legend>S-FX</legend>
                     <ButtonGroup>
                         <Button onClick={handleClearSFX}>Clear</Button>
                     </ButtonGroup>
