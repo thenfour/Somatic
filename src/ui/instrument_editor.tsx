@@ -47,6 +47,7 @@ import { WaveformSelect } from './waveformEditor';
 import { WaveformSwatch } from './waveformSwatch';
 import { WaveformCanvas, WaveformCanvasHover } from './waveform_canvas';
 import { GlobalActions } from '../keyb/ActionIds';
+import {FormatMusicalInterval} from "../utils/music/pitchClass";
 
 const PWMDutyConfig: ContinuousParamConfig = {
     resolutionSteps: 32,
@@ -1383,7 +1384,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ song, currentI
                             instrument.arpeggioDown,
                          );
                          return `y ${storedValue} ${CharMap.Bullet} ` +
-                            `${formatSigned(effectiveSemitones)} st`;
+                            `${formatSigned(effectiveSemitones)} st ${FormatMusicalInterval(effectiveSemitones)}`;
                       }}
                         />
                         <div className="field-row">

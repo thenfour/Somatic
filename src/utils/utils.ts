@@ -318,6 +318,9 @@ export const CharMap = {
    Quarter: "¼",
    ApproximatelyEquals: "≈",
    Infinity: "∞",
+   NoteFlat: "♭",
+   NoteSharp: "♯",
+   NoteNatural: "♮",
 };
 
 
