@@ -1,5 +1,18 @@
 import {typedKeys} from "../utils/utils";
+import {isSameChord} from "./KeyboardShortcutTypes";
 import type {ActionDef, ActionRegistry, Platform, ShortcutChord, UserBindings} from "./KeyboardShortcutTypes";
+
+export function findActionsSharingChord<TActionId extends string>(
+   actionIds: readonly TActionId[],
+   actionId: TActionId,
+   chord: ShortcutChord,
+   allBindings: Record<TActionId, readonly ShortcutChord[]>,
+): TActionId[] {
+   return actionIds.filter((otherActionId) => (
+      otherActionId !== actionId
+      && (allBindings[otherActionId] ?? []).some((binding) => isSameChord(binding, chord))
+   ));
+}
 
 function getActionDefaultsForPlatform<TActionId extends string>(
    def: ActionDef<TActionId>, platform: Platform): ShortcutChord[] {

@@ -433,7 +433,6 @@
     width: var(--side-channel-width);
     min-width: var(--side-channel-width);
     max-width: var(--side-channel-width);
-    border-left: 4px solid #fff1;
 }
 
 /*.pattern-grid th.side-channel-header .channel-header-label {

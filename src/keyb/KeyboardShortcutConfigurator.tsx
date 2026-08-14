@@ -5,6 +5,7 @@ import { GlobalActionId, kAllActionIds } from "./ActionIds";
 import { gActionRegistry, kAllActions } from "./ActionRegistry";
 import { formatChord } from "./format";
 import "./KeyboardShortcutConfigurator.css";
+import {findActionsSharingChord} from "./KeyboardConflicts";
 import { useShortcutManager } from "./KeyboardShortcutManager";
 import { deserializeUserBindings, isSameChord, serializeUserBindings, ShortcutChord } from "./KeyboardShortcutTypes";
 import { useChordCapture } from "./useChordCapture";
@@ -19,22 +20,15 @@ interface KeyboardChordRowProps {
 }
 
 function KeyboardChordRow({ chord, actionId, onRemove }: KeyboardChordRowProps) {
-    const mgr = useShortcutManager();
+    const mgr = useShortcutManager<GlobalActionId>();
     const clipboard = useClipboard();
     const toast = useToasts();
 
     // find if this chord is used by another action.
     const allBindings = mgr.getResolvedBindings();
-    const conflicts: GlobalActionId[] = [];
-    if (chord !== null) {
-        for (const otherActionId of kAllActionIds) {
-            if (otherActionId === actionId) continue;
-            const bindingsForOtherAction = allBindings[otherActionId] || [];
-            if (bindingsForOtherAction.some((b) => isSameChord(b, chord))) {
-                conflicts.push(otherActionId);
-            }
-        }
-    }
+    const overlaps = chord === null
+        ? []
+        : findActionsSharingChord(kAllActionIds, actionId, chord, allBindings);
 
     const isPhysical = chord?.kind === "physical";
 
@@ -50,23 +44,25 @@ function KeyboardChordRow({ chord, actionId, onRemove }: KeyboardChordRowProps) 
                     {chord === null ? "Unbound" : formatChord(chord, mgr.platform)}
                 </span>
             </Tooltip>
-            {conflicts.length > 0 && (
+            {overlaps.length > 0 && (
                 <Tooltip
                     title={
                         <>
-                            This binding is also used by:
+                            This binding is shared with:
                             <br />
-                            {conflicts.map((aid) => (
+                            {overlaps.map((aid) => (
                                 <div key={aid}>{aid}</div>
                             ))}
+                            <br />
+                            The most-specific active action takes priority.
                         </>
                     }
                 >
                     <span
-                        className="keyboard-binding-chord__conflict"
-                        title="This binding conflicts with another action!"
+                        className="keyboard-binding-chord__overlap"
+                        title="This binding is shared by multiple actions."
                     >
-                        ⚠️
+                        {CharMap.OverlappingSquares}
                     </span>
                 </Tooltip>
             )}

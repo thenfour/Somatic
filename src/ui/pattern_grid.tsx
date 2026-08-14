@@ -8,6 +8,7 @@ import { SelectionRect2D, useRectSelection2D } from '../hooks/useRectSelection2D
 import { useRenderAlarm } from '../hooks/useRenderAlarm';
 import { GlobalActionId } from '../keyb/ActionIds';
 import { useShortcutManager } from '../keyb/KeyboardShortcutManager';
+import {ShortcutHandlerSpecificity} from '../keyb/KeyboardShortcutTypes';
 import { useActionHandler } from '../keyb/useActionHandler';
 import { EditorState } from '../models/editor_state';
 import {analyzePatternRowIssues, isNoteCut, Pattern, PatternCell} from '../models/pattern';
@@ -131,6 +132,14 @@ type ScopeTargets = {
     rowRange: RowRange;
 };
 
+export function getSideChannelCellRowFromShortcutTarget(target: EventTarget | null): number | null {
+   const dataset = (target as HTMLElement | null)?.dataset;
+   if (dataset?.cellType !== "sideChannel") return null;
+
+   const rowIndex = Number.parseInt(dataset.rowIndex ?? "", 10);
+   return Number.isInteger(rowIndex) && rowIndex >= 0 ? rowIndex : null;
+}
+
 export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
     ({ song, audio, musicState, editorState, onEditorStateChange, onSongChange, advancedEditPanelOpen, onSetAdvancedEditPanelOpen, highlightSelectedInstrument, highlightStyle }, ref) => {
         const mgr = useShortcutManager<GlobalActionId>();
@@ -185,6 +194,10 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         const clipboard = useClipboard();
         const { pushToast } = useToasts();
       const [sideChannelEditorRowIndex, setSideChannelEditorRowIndex] = useState<number | null>(null);
+
+      const openSideChannelEditor = useCallback((rowIndex: number) => {
+         setSideChannelEditorRowIndex(rowIndex);
+      }, []);
 
         const pendingInstrumentEntryRef = useRef<{
             rowIndex: number;
@@ -927,6 +940,14 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             const rowIndex = editorState.patternEditRow;
             playRow(rowIndex);
         });
+
+      useActionHandler("EditSideChannelData", (ctx) => {
+         const rowIndex = getSideChannelCellRowFromShortcutTarget(ctx.target);
+         if (rowIndex !== null) openSideChannelEditor(rowIndex);
+      }, {
+         when: (ctx) => getSideChannelCellRowFromShortcutTarget(ctx.target) !== null,
+         specificity: ShortcutHandlerSpecificity.Contextual,
+      });
 
         useActionHandler("InsertNoteCut", () => {
             if (!editingEnabled) return;
@@ -1746,10 +1767,6 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
       const panColumnKeyshortcut = mgr.getActionBindingLabelAsTooltipSuffix("TogglePanColumn") || "(Unbound)";
       const somaticColumnsKeyshortcut = mgr.getActionBindingLabelAsTooltipSuffix("ToggleSomaticColumns") || "(Unbound)";
       const sideChannelDataKeyshortcut = mgr.getActionBindingLabelAsTooltipSuffix("ToggleSideChannelData") || "(Unbound)";
-
-      const openSideChannelEditor = (rowIndex: number) => {
-         setSideChannelEditorRowIndex(rowIndex);
-      };
 
       const cancelSideChannelEditor = () => {
          const rowIndex = sideChannelEditorRowIndex;

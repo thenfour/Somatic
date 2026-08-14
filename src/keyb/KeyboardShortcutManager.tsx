@@ -2,6 +2,7 @@ import React from "react";
 import type {
     ActionDef,
     ActionHandler,
+   ActionHandlerOptions,
     ActionRegistry,
     Platform,
     ShortcutChord,
@@ -15,10 +16,41 @@ import { resolveBindingsForPlatform } from "./KeyboardConflicts";
 import { formatChord } from "./format";
 import { typedEntries } from "../utils/utils";
 
+export type ShortcutInvocationCandidate<TValue, TContext> = {
+   value: TValue;
+   when?: (ctx: TContext) => boolean;
+   specificity?: number;
+};
+
+// Selects the most-specific eligible invocation. Candidate order is retained
+export function chooseShortcutInvocation<TValue, TContext>(
+   candidates: readonly ShortcutInvocationCandidate<TValue, TContext>[],
+   ctx: TContext,
+): TValue | null {
+   let best: ShortcutInvocationCandidate<TValue, TContext> | null = null;
+   let bestSpecificity = Number.NEGATIVE_INFINITY;
+
+   for (const candidate of candidates) {
+      if (candidate.when && !candidate.when(ctx)) continue;
+
+      const specificity = Number.isFinite(candidate.specificity)
+         ? candidate.specificity!
+         : 0;
+      if (best === null || specificity > bestSpecificity) {
+         best = candidate;
+         bestSpecificity = specificity;
+      }
+   }
+
+   return best?.value ?? null;
+}
+
+
 type HandlerReg<TActionId extends string> = {
     id: string;
     actionId: TActionId;
     handler: ActionHandler;
+   options: ActionHandlerOptions;
 };
 
 type ShortcutManagerApi<TActionId extends string> = {
@@ -27,8 +59,8 @@ type ShortcutManagerApi<TActionId extends string> = {
     userBindings: UserBindings<TActionId>;
     setUserBindings: React.Dispatch<React.SetStateAction<UserBindings<TActionId>>>;
 
-    registerHandler: (actionId: TActionId, handler: ActionHandler) => () => void;
-    useActionHandler: (actionId: TActionId, handler: ActionHandler) => void;
+   registerHandler: (actionId: TActionId, handler: ActionHandler, options?: ActionHandlerOptions) => () => void;
+   useActionHandler: (actionId: TActionId, handler: ActionHandler, options?: ActionHandlerOptions) => void;
     getResolvedBindings: () => Record<TActionId, ShortcutChord[]>;
     getActionBindingLabel: (actionId: TActionId) => string | undefined;
     getActionBindingLabelAlways: (actionId: TActionId) => string;
@@ -45,10 +77,6 @@ function defaultShouldHandleAction<TActionId extends string>(def: ActionDef<TAct
     const et = def.eventType ?? "keydown";
     if (et !== "both" && et !== ctx.eventType) return false;
     return true;
-}
-
-function chooseBestHandler<TActionId extends string>(regs: HandlerReg<TActionId>[]): HandlerReg<TActionId> | null {
-    return regs[0] || null;
 }
 
 export function useShortcutManager<TActionId extends string = string>(): ShortcutManagerApi<TActionId> {
@@ -95,9 +123,9 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
         };
     }, []);
 
-    const registerHandler = React.useCallback((actionId: TActionId, handler: ActionHandler) => {
+   const registerHandler = React.useCallback((actionId: TActionId, handler: ActionHandler, options: ActionHandlerOptions = {}) => {
         const id = `${actionId}:${Math.random().toString(36).slice(2)}`;
-        const reg: HandlerReg<TActionId> = { id, actionId, handler };
+      const reg: HandlerReg<TActionId> = {id, actionId, handler, options};
         regsRef.current = [...regsRef.current, reg];
 
         return () => {
@@ -106,13 +134,23 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
     }, []);
 
     // Hook helper exposed on the manager so consumers can write mgr.useActionHandler("Close", ...) without re-specifying generics.
-    const useActionHandlerScoped = (actionId: TActionId, handler: ActionHandler) => {
+   const useActionHandlerScoped = (actionId: TActionId, handler: ActionHandler, options?: ActionHandlerOptions) => {
         const handlerRef = React.useRef(handler);
         handlerRef.current = handler;
+      const whenRef = React.useRef(options?.when);
+      whenRef.current = options?.when;
+      const specificity = options?.specificity ?? 0;
 
         React.useEffect(() => {
-            return registerHandler(actionId, ctx => handlerRef.current(ctx));
-        }, [registerHandler, actionId]);
+           return registerHandler(
+              actionId,
+              ctx => handlerRef.current(ctx),
+              {
+                 when: ctx => whenRef.current?.(ctx) ?? true,
+                 specificity,
+              },
+           );
+        }, [registerHandler, actionId, specificity]);
     };
 
     const getResolvedBindings = React.useCallback(() => {
@@ -158,12 +196,17 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
             //     console.log(`[${props.name}] Candidate action '${candidate.action}' for chord ${formatChord(candidate.chord, platform)}`);
             // };
 
-            // For each candidate, find best handler
+           // Build all eligible action/handler pairs, then let the most
+           // context-specific registration override global fallbacks.
             const regs = regsRef.current;
-            let chosen: HandlerReg<TActionId> | null = null;
-            let chosenChord: ShortcutChord | null = null;
+           type Invocation = {
+              reg: HandlerReg<TActionId>;
+              def: ActionDef<TActionId>;
+              chord: ShortcutChord | null;
+           };
+           const invocations: ShortcutInvocationCandidate<Invocation, ShortcutContext>[] = [];
 
-            for (const { action: actionId } of candidates) {
+           for (const {action: actionId, chord} of candidates) {
                 const def = actions[actionId];
                 if (!def) continue;
 
@@ -174,32 +217,38 @@ export function ShortcutManagerProvider<TActionId extends string = string>(props
                 }
 
                 const matchingRegs = regs.filter(r => r.actionId === actionId);
-                const bestReg = chooseBestHandler(matchingRegs);
-                if (!bestReg) {
+              if (!matchingRegs.length) {
                     //console.log(`[${props.name}] No handler registered for action '${actionId}'.`);
                     continue;
                 }
-                chosen = bestReg;
-                chosenChord = candidates.find(c => c.action === actionId)?.chord || null;
-                break;
+              for (const reg of matchingRegs) {
+                 invocations.push({
+                    value: {
+                       reg,
+                       def,
+                       chord,
+                    },
+                    when: reg.options.when,
+                    specificity: reg.options.specificity,
+                 });
+              }
             }
 
+           const chosen = chooseShortcutInvocation(invocations, ctx);
             if (!chosen) {
                 //console.log(`[${props.name}] No suitable handler found for candidates.`);
                 return;
             }
 
-            const def = actions[chosen.actionId];
-
-            //console.log(`[${props.name}] Handling shortcut for action '${chosen.actionId}' via chord ${formatChord(chosenChord!, platform)}`);
+           //console.log(`[${props.name}] Handling shortcut for action '${chosen.reg.actionId}' via chord ${formatChord(chosen.chord!, platform)}`);
 
             // Apply event policy only when handled
-            const prevent = def.preventDefault ?? true;
-            const stop = def.stopPropagation ?? true;
+           const prevent = chosen.def.preventDefault ?? true;
+           const stop = chosen.def.stopPropagation ?? true;
             if (prevent) e.preventDefault();
             if (stop) e.stopPropagation();
 
-            chosen.handler(ctx);
+           chosen.reg.handler(ctx);
         };
 
         // Resolve the attachment target

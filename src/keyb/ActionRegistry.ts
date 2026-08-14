@@ -259,6 +259,14 @@ export const gActionRegistry: ActionRegistry<GlobalActionId> = {
         defaultBindings: [{ kind: "character", key: "Enter" }],
     },
 
+    EditSideChannelData: {
+        id: "EditSideChannelData",
+        title: "edit side-channel data",
+        description: "open the side-channel data editor for the row under the cursor.",
+        category: "Edit",
+        defaultBindings: [{ kind: "character", key: "Enter" }],
+    },
+
     InsertNoteCut: {
         id: "InsertNoteCut",
         title: "insert note cut",

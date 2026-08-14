@@ -143,6 +143,11 @@
     font-style: normal;
 }
 
+.keyboard-binding-chord__overlap {
+    color: var(--muted);
+    cursor: help;
+}
+
 .keyboard-binding-chord .keyboard-binding-row__button {
     /* font-style: italic; */
     border: 0;

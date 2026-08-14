@@ -78,6 +78,18 @@ export type ShortcutContext = {
    event: KeyboardEvent;
 };
 
+export type ActionHandlerOptions = {
+   // conditionally enable. default: always enabled
+   when?: (ctx: ShortcutContext) => boolean;
+   // Higher values win when multiple eligible handlers match the same chord. Defaults to 0.
+   specificity?: number;
+};
+
+export const ShortcutHandlerSpecificity = {
+   Global: 0,
+   Contextual: 1,
+} as const;
+
 export type UserBindings<TActionId extends string = string> = Partial<Record<TActionId, ShortcutChord[]|null>>;
 
 export type UserBindigsDto = {

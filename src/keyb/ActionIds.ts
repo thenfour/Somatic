@@ -34,6 +34,7 @@ export const GlobalActions = {
     PlayPattern: "PlayPattern",
     PlaySong: "PlaySong",
     PlayRow: "PlayRow",
+    EditSideChannelData: "EditSideChannelData",
     //PlayStop: "PlayStop",
     ToggleEditMode: "ToggleEditMode",
     DecreaseOctave: "DecreaseOctave",
