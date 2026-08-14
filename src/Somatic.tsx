@@ -35,7 +35,7 @@ import { AppStatusBar } from './ui/AppStatusBar';
 import { ArrangementEditor } from './ui/ArrangementEditor';
 import { useConfirmDialog } from './ui/basic/confirm_dialog';
 import { DiscordLogo, GithubLogo } from './ui/basic/Socicon';
-import { Tooltip } from './ui/basic/tooltip';
+import { closeAllTooltips, Tooltip } from './ui/basic/tooltip';
 import { DebugPanel } from './ui/debug_panel';
 import { DesktopMenu } from './ui/DesktopMenu/DesktopMenu';
 import { EditorStateControls } from './ui/EditorStateControls';
@@ -162,6 +162,10 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     );
 
     const [editorState, setEditorState] = useState(() => new EditorState(loopState));
+
+    React.useLayoutEffect(() => {
+        closeAllTooltips();
+    }, [editorState.activeSongPosition]);
 
     const { debugMode, setDebugMode } = useDebugMode();
 

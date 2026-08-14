@@ -8,6 +8,9 @@ import { createPortal } from "react-dom";
 import { useAppStatusBar } from "../../hooks/useAppStatusBar";
 import { computeFloatingPlacement } from "./floatingPlacement";
 import { clamp } from "../../utils/utils";
+import { activateTooltip, deactivateTooltip } from "./tooltipController";
+
+export { closeAllTooltips } from "./tooltipController";
 
 type Side = "top" | "bottom" | "left" | "right";
 type Rect = { left: number; top: number; width: number; height: number };
@@ -92,14 +95,34 @@ export const Tooltip: React.FC<TooltipProps> = ({
 
     const { setMessage, clearMessage } = useAppStatusBar();
 
+    const closeTooltip = React.useCallback(() => {
+        setOpen(false);
+        setCursorPos(null);
+    }, []);
+
+    const dismissTooltip = React.useCallback(() => {
+        deactivateTooltip(closeTooltip);
+        closeTooltip();
+    }, [closeTooltip]);
+
     React.useEffect(() => {
-        if (showInStatusBar && open && typeof title === "string" && title.trim()) {
+        return () => deactivateTooltip(closeTooltip);
+    }, [closeTooltip]);
+
+    React.useEffect(() => {
+        if (disabled || !title) {
+            dismissTooltip();
+        }
+    }, [disabled, dismissTooltip, title]);
+
+    React.useEffect(() => {
+        if (!disabled && showInStatusBar && open && typeof title === "string" && title.trim()) {
             setMessage(title, 10);
         } else {
             clearMessage();
         }
         return () => clearMessage();
-    }, [open, title, showInStatusBar, setMessage, clearMessage]);
+    }, [disabled, open, title, showInStatusBar, setMessage, clearMessage]);
 
     React.useEffect(() => {
         // any time open state changes, we begin not-ready (opacity 0)
@@ -205,6 +228,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
            // React events from portals follow the react tree. only treat
            // events from the trigger's *physical* DOM subtree as tooltip events
            if (!disabled && containsEventTarget(e.currentTarget, e.target)) {
+                activateTooltip(closeTooltip);
                 setCursorPos({ x: e.clientX, y: e.clientY });
                 setOpen(true);
             }
@@ -212,8 +236,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
         },
         onMouseLeave: (e: React.MouseEvent) => {
             if (!disabled) {
-                setOpen(false);
-                setCursorPos(null);
+                dismissTooltip();
             }
             childElement.props.onMouseLeave?.(e);
         },
@@ -221,8 +244,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
           // Unlike React's synthetic mouse-leave boundary, this physical DOM
           // check recognizes moving from the trigger into portaled content.
           if (!disabled && !containsEventTarget(e.currentTarget, e.relatedTarget)) {
-             setOpen(false);
-             setCursorPos(null);
+             dismissTooltip();
           }
           childElement.props.onMouseOut?.(e);
        },
@@ -234,6 +256,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
         },
         onFocus: (e: React.FocusEvent) => {
            if (!disabled && containsEventTarget(e.currentTarget, e.target)) {
+              activateTooltip(closeTooltip);
               setOpen(true);
            }
             childElement.props.onFocus?.(e);
@@ -244,7 +267,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
               containsEventTarget(e.currentTarget, e.target) &&
               !containsEventTarget(e.currentTarget, e.relatedTarget)
            ) {
-              setOpen(false);
+              dismissTooltip();
            }
             childElement.props.onBlur?.(e);
         },
