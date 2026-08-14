@@ -16,7 +16,6 @@ import {kTic80EffectCommand} from "../src/models/tic80Capabilities";
 import {
    describeTic80Effect,
    formatTic80EffectInsight,
-   formatTic80EffectTooltip,
 } from "../src/subsystem/tic80/tic80_effect_insight";
 import {CharMap, formatTiming, formatToDecimalPlaces} from "../src/utils/utils";
 import {
@@ -332,7 +331,6 @@ describe("TIC-80 musical effect insights", () => {
          formatTic80EffectInsight(insight),
          "M8F: Volume: L 8/15 (-5.5dB), R 15/15 (0dB)",
       );
-      assert.match(formatTic80EffectTooltip(insight) ?? "", /linear gains independently/);
    });
 
    it("shows silence as negative infinity dB", () => {
@@ -361,7 +359,6 @@ describe("TIC-80 musical effect insights", () => {
          formatTic80EffectInsight(insight),
          "C37: Arpeggio: C-4 D#4 G-4 (3 TIC cycle, 50ms)",
       );
-      assert.match(formatTic80EffectTooltip(insight) ?? "", /one step per 60 Hz TIC/);
    });
 
    it("shows Cy0 as TIC-80's two-step arpeggio", () => {
@@ -391,7 +388,6 @@ describe("TIC-80 musical effect insights", () => {
          formatTic80EffectInsight(insight),
          `S08: Slide: C-4 ${CharMap.RightArrow} G-4 (+7 st) over 8 ticks (1.07 rows, 133ms)`,
       );
-      assert.match(formatTic80EffectTooltip(insight) ?? "", /not semitones/);
    });
 
    it("shows V cadence and its actual note-dependent sampled range", () => {
@@ -406,9 +402,6 @@ describe("TIC-80 musical effect insights", () => {
          formatTic80EffectInsight(insight),
          "V34: Vibrato: 6 TIC cycle (100ms, 10Hz), depth 4 (-27/+20c)",
       );
-      const tooltip = formatTic80EffectTooltip(insight);
-      assert.match(tooltip ?? "", /32-point native vibrato waveform/);
-      assert.match(tooltip ?? "", /offsets -4 to \+3/);
    });
 
    it("reveals vibrato periods that sample no pitch movement", () => {
@@ -447,10 +440,6 @@ describe("TIC-80 pitch effect insights", () => {
          formatTic80EffectInsight(insight),
          "P44: Pitch: -60 (-4.5 st → G-3 +50c)",
       );
-      const tooltip = formatTic80EffectTooltip(insight);
-      assert.match(tooltip ?? "", /P commands do not accumulate/);
-      assert.match(tooltip ?? "", /At base C-4/);
-      assert.match(tooltip ?? "", /P-only target of G-3 \+50c/);
    });
 
    it("keeps P80 musically neutral", () => {
@@ -473,8 +462,6 @@ describe("TIC-80 pitch effect insights", () => {
 
       assert.ok(insight);
       assert.equal(formatTic80EffectInsight(insight), "P44: Pitch: -60");
-      assert.match(formatTic80EffectTooltip(insight) ?? "", /base note is needed/i);
-      assert.match(formatTic80EffectTooltip(insight) ?? "", /No known base note/);
    });
 
    it("does not report a conventional note when the frequency register wraps", () => {
@@ -486,7 +473,6 @@ describe("TIC-80 pitch effect insights", () => {
 
       assert.ok(insight);
       assert.equal(formatTic80EffectInsight(insight), "P44: Pitch: -60");
-      assert.match(formatTic80EffectTooltip(insight) ?? "", /Overflows and wraps!/);
    });
 
    it("shows that the same P offset has a note-dependent interval", () => {

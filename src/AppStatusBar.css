@@ -7,6 +7,8 @@
     color: var(--text);
     font-size: 13px;
     font-family: var(--ff-mono);
+    /* keep the status bar a single line */
+    white-space: nowrap;
     /* border-top: 1px solid var(--border); */
 }
 
@@ -47,10 +49,15 @@
     color: var(--cell-command);
 }
 
-.app-status-bar-commands {
+.app-status-bar-commands,
+.app-status-bar-commands>span {
     /* margin-left: 12px; */
     color: var(--cell-command);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+
 
 .app-status-bar-message {
     margin-left: auto;

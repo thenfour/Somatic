@@ -57,9 +57,10 @@ function describePitch(
 ): Tic80EffectInsight {
    const offset = tic80PitchOffsetFromParam(paramByte(x, y));
    const offsetText = formatSigned(offset);
+   // example: "P0A" sets the pitch offset to +10 TIC-80 frequency units (P80 = 0). P commands do not accumulate.
    const explanationPrefix =
-      `${code} sets the pitch offset to ${offsetText} TIC-80 frequency units (P80 = 0). ` +
-      `P commands do not accumulate.`;
+      `${code} sets the pitch offset to ${offsetText} frequency units (P80 = 0). ` +
+      `P does not accumulate.`;
    const baseMidiNote = context?.activeAfterNoteColumn?.midiNote;
 
    if (baseMidiNote === undefined) {
@@ -67,9 +68,7 @@ function describePitch(
          code,
          summary: "Pitch",
          detail: offsetText,
-         explanation:
-            `${explanationPrefix} A base note is needed to convert this linear offset ` +
-            `to a semitone interval and target note.`,
+         explanation: explanationPrefix,
          warning: "No known base note.",
       };
    }
@@ -104,7 +103,7 @@ function describePitch(
          detail: offsetText,
          explanation: explanationPrefix,
          warning:
-            `At base ${baseNoteText}, this sets TIC-80's frequency register to zero.`
+            `At base ${baseNoteText}, this sets frequency register to zero.`
       };
    }
 
@@ -116,9 +115,8 @@ function describePitch(
       summary: "Pitch",
       detail: `${offsetText} (${semitoneText} st → ${targetNoteText})`,
       explanation:
-         `${explanationPrefix} At base ${baseNoteText}, this is ${semitoneText} semitones ` +
-         `and a P-only target of ${targetNoteText}. TIC-80 pitch units are linear, so the ` +
-         `semitone interval depends on the base note.`,
+         `${explanationPrefix} ${semitoneText} semitones at base ${baseNoteText}. ` +
+         `Target: ${targetNoteText}.`,
    };
 }
 
@@ -133,7 +131,7 @@ function describeChord(
       return {
          code,
          summary: "Arpeggio off",
-         explanation: `${code} clears the channel's native arpeggio offsets.`,
+         explanation: `${code} clears the channel's arpeggio offsets.`,
       };
    }
 
@@ -142,7 +140,7 @@ function describeChord(
    const offsetText = analysis.noteOffsets.map(formatSigned).join(", ");
    const explanation =
       `${code} cycles semitone offsets ${offsetText}, one step per ` +
-      `${TIC80_EFFECT_TICK_RATE_HZ} Hz TIC.`;
+      `TIC.`;
    if (baseMidiNote === undefined) {
       const offsetLabels = analysis.noteOffsets.map(
          offset => offset === 0 ? "root" : formatSigned(offset));
@@ -151,7 +149,7 @@ function describeChord(
          summary: "Arpeggio",
          detail: `${offsetLabels.join(" ")} (${cadence})`,
          explanation,
-         warning: "No known base note.",
+         warning: "No base note.",
       };
    }
 
@@ -173,7 +171,7 @@ function describeStereoVolume(code: string, x: number, y: number): Tic80EffectIn
          `L ${x}/15 (${formatDecibels(analysis.leftDecibels)}), ` +
          `R ${y}/15 (${formatDecibels(analysis.rightDecibels)})`,
       explanation:
-         `${code} sets this channel's left and right linear gains independently.`,
+         `${code} sets this channel's left and right linear gains.`,
    };
 }
 
@@ -187,7 +185,7 @@ function describeSlide(
 ): Tic80EffectInsight {
    const ticks = paramByte(x, y);
    if (ticks === 0)
-      return {code, summary: "Slide off", explanation: `${code} clears the native slide duration.`};
+      return {code, summary: "Slide off", explanation: `${code} clears slide.`};
 
    const duration = formatTic80Timing(ticks, timing);
    const fromMidiNote = context?.activeBeforeRow?.midiNote;
@@ -201,7 +199,7 @@ function describeSlide(
          summary: "Slide",
          detail: `duration ${duration}`,
          explanation:
-            `${code} sets the native slide duration. Interpolation is over integral frequency register units.`,
+            `${code} sets slide duration. Interpolation is over integral frequency units.`,
       };
    }
 
@@ -216,8 +214,8 @@ function describeSlide(
       explanation:
          `${code} interpolates from frequency register ` +
          `${analysis.fromFrequencyRegister} to ${analysis.toFrequencyRegister} over ` +
-         `${ticks} ticks at ${TIC80_EFFECT_TICK_RATE_HZ} Hz. Linear in integer ` +
-         `frequency-register units, not semitones.`,
+         `${ticks} TIC-80 ticks. Linear in integer ` +
+         `frequency units.`,
    };
 }
 
@@ -231,7 +229,7 @@ function describeVibrato(
       return {
          code,
          summary: "Vibrato off",
-         explanation: `${code} disables native vibrato.`,
+         explanation: `${code} disables vibrato.`,
       };
    }
 
@@ -246,20 +244,17 @@ function describeVibrato(
    const registerRange =
       `${formatSigned(analysis.minPitchOffset)} to ${formatSigned(analysis.maxPitchOffset)}`;
    const explanationPrefix =
-      `${code} samples TIC-80's 32-point native vibrato waveform over ` +
+      `${code} samples TIC-80's 32-point vibrato waveform over ` +
       `${analysis.cycleTicks} ticks at ${TIC80_EFFECT_TICK_RATE_HZ} Hz. Depth ${y} produces ` +
-      `sampled frequency-register offsets ${registerRange}.`;
-   const explanationSuffix =
-      ` Pitch units are linear, so the cents range depends on the base note. ` +
-      `A V command replaces the previous vibrato; V commands do not accumulate.`;
+      `frequency offsets ${registerRange}.`;
 
    if (baseMidiNote === undefined) {
       return {
          code,
          summary: "Vibrato",
          detail,
-         explanation: `${explanationPrefix}${explanationSuffix}`,
-         warning: "No known base note; cents range unavailable.",
+         explanation: `${explanationPrefix}`,
+         warning: "No base note",
       };
    }
 
@@ -268,8 +263,8 @@ function describeVibrato(
          code,
          summary: "Vibrato",
          detail,
-         explanation: `${explanationPrefix}${explanationSuffix}`,
-         warning: "The frequency register overflows or reaches zero across this vibrato range.",
+         explanation: `${explanationPrefix}`,
+         warning: "Frequency overflows or reaches zero.",
       };
    }
 
@@ -279,7 +274,7 @@ function describeVibrato(
       detail,
       explanation:
          `${explanationPrefix} At base ${formatMidiNoteFixedWidth(baseMidiNote)}, this is ` +
-         `${centsText}.${explanationSuffix}`,
+         `${centsText}.`,
    };
 }
 
@@ -369,11 +364,4 @@ export function describeTic80Effect(
 
 export function formatTic80EffectInsight(insight: Tic80EffectInsight): string {
    return `${insight.code}: ${insight.summary}${insight.detail ? `: ${insight.detail}` : ""}`;
-}
-
-// for pattern grid tooltip where there's no description text shown (so add to the tooltip)
-export function formatTic80EffectTooltip(insight: Tic80EffectInsight): string | undefined {
-   const text = formatTic80EffectInsight(insight);
-   const parts = [text, insight.explanation, insight.warning].filter((part): part is string => !!part);
-   return parts.length > 0 ? parts.join(" ") : undefined;
 }

@@ -1,0 +1,14 @@
+
+.effect-insight-tooltip-content {
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
+}
+
+.effect-insight-code {
+   font-weight: bold;
+}
+
+.effect-insight-warning {
+   color: var(--error-accent);
+}

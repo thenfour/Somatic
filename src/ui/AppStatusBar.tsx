@@ -133,7 +133,6 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
           {selectionTiming && (
              <div className="app-status-bar-group app-status-bar-selection">
                 <Tooltip
-                   showInStatusBar={false}
                    title={(
                       <div>
                          <div>
@@ -169,7 +168,6 @@ export const AppStatusBar: React.FC<AppStatusBarProps> = ({ song, editorState, c
              {commandDescParts.map((part, index) => part.tic80EffectInsight ? (
                 <Tic80EffectInsightTooltip
                    key={index}
-                   showInStatusBar={false}
                    source={{kind: "precomputed", insight: part.tic80EffectInsight}}
                 >
                    <span tabIndex={0}>

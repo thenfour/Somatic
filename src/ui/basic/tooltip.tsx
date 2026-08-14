@@ -63,12 +63,7 @@ type TooltipProps = {
     children: React.ReactElement;
     placement?: Side;
     className?: string;
-    disabled?: boolean;
-    /**
-     * Mirrors string tooltip text into the global app status message. Disable
-     * this for triggers inside the status bar to avoid a layout feedback loop.
-     */
-    showInStatusBar?: boolean;
+   disabled?: boolean;
 };
 
 export const Tooltip: React.FC<TooltipProps> = ({
@@ -76,8 +71,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
     children,
     placement = "bottom",
     className,
-    disabled = false,
-    showInStatusBar = true,
+   disabled = false,
 }) => {
     const triggerRef = React.useRef<HTMLElement | null>(null);
     const tooltipRef = React.useRef<HTMLSpanElement | null>(null);

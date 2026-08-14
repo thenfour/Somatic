@@ -5,10 +5,10 @@ import type {Song} from "../models/song";
 import {kTic80EffectCommand} from "../models/tic80Capabilities";
 import {
    describeTic80Effect,
-   formatTic80EffectTooltip,
    type Tic80EffectInsight,
 } from "../subsystem/tic80/tic80_effect_insight";
 import {Tooltip} from "./basic/tooltip";
+import "./Tic80EffectInsightTooltip.css";
 
 type PrecomputedInsightSource = Readonly<{
    kind: "precomputed";
@@ -48,8 +48,12 @@ const Tic80EffectInsightTooltipContent = React.memo<Tic80EffectInsightTooltipCon
       if (!insight)
          return null;
 
-      const text = formatTic80EffectTooltip(insight);
-      return text ? <>{text}</> : null;
+      return <div className="effect-insight-tooltip-content">
+         <div className="effect-insight-code">{insight.code}: {insight.summary}</div>
+         <div className="effect-insight-detail">{insight.detail}</div>
+         <div className="effect-insight-explanation">{insight.explanation}</div>
+         <div className="effect-insight-warning">{insight.warning}</div>
+      </div>;
    },
 );
 
@@ -62,16 +66,16 @@ type Tic80EffectInsightTooltipProps = Readonly<{
 export const Tic80EffectInsightTooltip: React.FC<Tic80EffectInsightTooltipProps> = ({
    source,
    children,
-   showInStatusBar,
 }) => {
+   // if precomputed, disable if no insight.
+   // if not precomputed, disable if the tic80 effect is not valid (e.g. empty cell).
    const disabled = source.kind === "precomputed"
-      ? !formatTic80EffectTooltip(source.insight)
+      ? !source.insight
       : !kTic80EffectCommand.isValidKey(source.cell.tic80Effect);
 
    return (
       <Tooltip
          disabled={disabled}
-         showInStatusBar={showInStatusBar}
          title={(
             <Tic80EffectInsightTooltipContent
                source={source}
