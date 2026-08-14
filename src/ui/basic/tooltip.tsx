@@ -4,8 +4,7 @@
 // - calc scores only once and choose best, instead of looping around (not sure if this is what's going on yet)
 
 import React from "react";
-import { createPortal } from "react-dom";
-import { useAppStatusBar } from "../../hooks/useAppStatusBar";
+import {createPortal} from "react-dom";
 import { computeFloatingPlacement } from "./floatingPlacement";
 import { clamp } from "../../utils/utils";
 import { activateTooltip, deactivateTooltip } from "./tooltipController";
@@ -93,8 +92,6 @@ export const Tooltip: React.FC<TooltipProps> = ({
     // actual side chosen by engine (may flip)
     const [effectivePlacement, setEffectivePlacement] = React.useState<typeof placement>(placement);
 
-    const { setMessage, clearMessage } = useAppStatusBar();
-
     const closeTooltip = React.useCallback(() => {
         setOpen(false);
         setCursorPos(null);
@@ -114,15 +111,6 @@ export const Tooltip: React.FC<TooltipProps> = ({
             dismissTooltip();
         }
     }, [disabled, dismissTooltip, title]);
-
-    React.useEffect(() => {
-        if (!disabled && showInStatusBar && open && typeof title === "string" && title.trim()) {
-            setMessage(title, 10);
-        } else {
-            clearMessage();
-        }
-        return () => clearMessage();
-    }, [disabled, open, title, showInStatusBar, setMessage, clearMessage]);
 
     React.useEffect(() => {
         // any time open state changes, we begin not-ready (opacity 0)
