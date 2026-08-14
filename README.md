@@ -466,3 +466,13 @@ https://github.com/thenfour/Somatic/milestone/3?closed=1
 - #252 ability to disable song orders to exclude from export/playback
 - #253 variable # of export configurations
 - #258 ui tweak: pattern effect insights now shown as tooltip
+
+## 1.0.19 (2026-08-15)
+
+- #261 fixed: Instrument envelope start/length were not within the correct range for native TIC-80 support.
+- #267 fixed: tooltips getting stuck on when underlying context changes
+- #263 pattern grid performance: lazy calculations, more efficient tooltip presentation
+- #263 more accurate pattern row state keeping; state is now calculated from the beginning of the song instead of only the current pattern.
+- #264 better tooltip formatting for effect insights
+- #260 added support for side channel data for driving demos/animation/song events
+- #270 adding musical interval display on arpeggio editor

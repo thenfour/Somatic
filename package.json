@@ -1,7 +1,7 @@
 {
    "name": "somatic",
-   "version": "1.0.18",
-   "description": "TIC-80 music tracker and editor for demoscene, chiptune, and video game music composers",
+   "version": "1.0.19",
+   "description": "TIC-80 music editor / tracker for demoscene, chiptune, and video game music composers",
    "main": "src/index.tsx",
    "scripts": {
       "build-bridge": "ts-node --transpile-only --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/build-bridge.ts",
