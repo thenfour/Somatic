@@ -48,6 +48,7 @@ do
 	local bufferALocation = __AUTOGEN_BUF_PTR_A -- pattern 46
 	local bufferBLocation = __AUTOGEN_BUF_PTR_B -- pattern 50
 	local ROW_EPSILON = 0.000001
+	local TIC_MILLIS = 1000 / 60
 
 	-- Wave morphing
 	local morphMap = {}
@@ -638,6 +639,7 @@ do
 	local baseSongRowCount = song_row_count()
 	local baseSongBeatCount = baseSongRowCount / baseRowsPerBeat
 	local baseSongMillis = baseSongBeatCount * 60000 / somatic_get_bpm(baseTempo, baseSpeed)
+	local demoBeatOffset = 0 -- for looped playback, this is added to absolute demobeats so it remains continuous.
 	local somatic_transport = {
 		-- Base timing stays fixed; overrides derive playbackRate.
 		baseTempo = baseTempo,
@@ -840,6 +842,16 @@ do
 		somatic_write_position_fields()
 	end
 
+	-- called when frame/order changes
+	local function somatic_anchor_time_at_beat(songBeat)
+		local state = somatic_transport.time
+		local demoBeat = songBeat + demoBeatOffset
+		-- difference between the time we calculated in state.demoBeats
+		local error = demoBeat - state.demoBeats
+		state.demoDeltaBeats = state.demoDeltaBeats + error
+		state.demoBeats = demoBeat
+	end
+
 	local function somatic_clamp_abs_row(absRow)
 		local orderCount = song_order_count()
 		if orderCount <= 0 then
@@ -870,7 +882,7 @@ do
 	end
 
 	local function somatic_normalize_beat(beat)
-		local absRow = (beat or 0) * somatic_transport.rowsPerBeat
+		local absRow = beat * somatic_transport.rowsPerBeat
 		absRow = somatic_clamp_abs_row(absRow)
 		return absRow / somatic_transport.rowsPerBeat, absRow
 	end
@@ -900,8 +912,8 @@ do
 		return songPosition, row, normalizedBeat, absRow, pendingAbsRow
 	end
 
-	-- Advance wall clock time; transport time advances only when playing or stepping.
-	local function somatic_update_time(wallDeltaMillisOverride, forceDemoAdvance)
+	-- Wall time follows time(); demo time advances in fixed TIC-80 ticks.
+	local function somatic_update_time(wallDeltaMillisOverride, forceDemoAdvance, suppressDemoAdvance)
 		local state = somatic_transport.time
 		local wallDeltaMillis = wallDeltaMillisOverride
 		if wallDeltaMillis == nil then
@@ -918,23 +930,25 @@ do
 		state.wallMillis = state.wallMillis + wallDeltaMillis
 		state.didSeek = state.didSeek == true
 
-		if somatic_transport.isPlaying or forceDemoAdvance == true then
-			local demoDeltaMillis = wallDeltaMillis * somatic_transport.playbackRate
+		if (somatic_transport.isPlaying and suppressDemoAdvance ~= true) or forceDemoAdvance == true then
 			local bpm = somatic_get_bpm(somatic_transport.baseTempo, somatic_transport.baseSpeed)
-			local demoDeltaBeats = demoDeltaMillis * bpm / 60000
-			state.demoDeltaMillis = demoDeltaMillis
-			state.demoMillis = state.demoMillis + demoDeltaMillis
+			local demoDeltaBeats = TIC_MILLIS * somatic_transport.playbackRate * bpm / 60000
 			state.demoDeltaBeats = demoDeltaBeats
 			state.demoBeats = state.demoBeats + demoDeltaBeats
 		else
-			state.demoDeltaMillis = 0
 			state.demoDeltaBeats = 0
 		end
 
 		somatic_write_settings_fields()
-		somatic_write_position_fields()
-		somatic_notify_row(state)
 		return state
+	end
+
+	local function somatic_publish_time(state)
+		state.demoMillis = somatic_get_millis_at_beat(state.demoBeats)
+		state.demoDeltaMillis = somatic_get_millis_at_beat(state.demoDeltaBeats)
+		somatic_write_position_fields(state)
+		somatic_notify_row(state)
+		return somatic_project_time(state)
 	end
 
 	-- Read current transport state without ticking.
@@ -1032,6 +1046,7 @@ do
 		if preserveTime ~= true then
 			somatic_set_time_from_position(songPosition, startRow)
 		end
+		demoBeatOffset = somatic_transport.time.demoBeats - somatic_position_to_beat(songPosition, startRow)
 		somatic_transport.prevWallMillis = time()
 
 		if somatic_transport.isPlaying then
@@ -1139,7 +1154,7 @@ do
 		if somatic_transport.isPlaying then
 			return somatic_project_time(somatic_transport.time)
 		end
-		return somatic_project_time(somatic_update_time(1000 / 60, true))
+		return somatic_publish_time(somatic_update_time(TIC_MILLIS, true))
 	end
 
 	-- Internal TIC-80 music cursor; not part of public timing API.
@@ -1156,38 +1171,43 @@ do
 	-- Main per-frame API: updates time, then music buffers/SFX.
 	function somatic_tick(wallDeltaMillisOverride, syncOffsetMS)
 		somatic_sync_offset_ms(syncOffsetMS)
-		if not initialized and somatic_transport.isPlaying then
+		local suppressDemoAdvance = not initialized
+		if suppressDemoAdvance and somatic_transport.isPlaying then
 			start_or_schedule_music_at_current_time()
 		end
 
-		local state = somatic_update_time(wallDeltaMillisOverride, false)
+		local state = somatic_update_time(wallDeltaMillisOverride, false, suppressDemoAdvance)
 		if not somatic_transport.isPlaying then
-			return somatic_project_time(state)
+			return somatic_publish_time(state)
 		end
 		if maybe_start_pending_audio(state) then
-			return somatic_project_time(state)
+			return somatic_publish_time(state)
 		end
 
 		local track, _, currentFrame, row = read_tic_music_state()
 		if track == -1 then
-			return somatic_project_time(state)
+			return somatic_publish_time(state)
 		end
-
 		-- If we've advanced to a new music frame, update our order bookkeeping *first*
 		-- so per-row E/L commands are applied to the correct playing order.
 		if currentFrame ~= lastPlayingFrame then
 			if stopPlayingOnNextFrame then
 				-- We already cleared the upcoming buffer when we hit end-of-song;
 				-- once the music engine advances again, stop cleanly.
+				somatic_anchor_time_at_beat(somatic_transport.songBeatCount)
 				stop_music(true)
+				local projected = somatic_publish_time(state)
 				if completionCallback ~= nil then
 					completionCallback()
 				end
-				return somatic_project_time(state)
+				return projected
 			end
 
 			backBufferIsA = not backBufferIsA
 			lastPlayingFrame = currentFrame
+			if currentSongOrder <= playingSongOrder0b then
+				demoBeatOffset = demoBeatOffset + baseSongBeatCount
+			end
 			playingSongOrder0b = currentSongOrder
 			--ch_set_playroutine_regs(currentSongOrder) -- the queued pattern is now playing; inform host.
 			currentSongOrder = currentSongOrder + 1
@@ -1217,10 +1237,11 @@ do
 			else
 				queuePlaybackBuffer(currentSongOrder, destPointer, (currentFrame + 1) % 16)
 			end
+			somatic_anchor_time_at_beat(somatic_position_to_beat(playingSongOrder0b, row))
 		end
 
 		somatic_sfx_tick(track, currentFrame, row)
-		return somatic_project_time(state)
+		return somatic_publish_time(state)
 	end
 end -- do
 -- BEGIN_DISABLE_MINIFICATION
