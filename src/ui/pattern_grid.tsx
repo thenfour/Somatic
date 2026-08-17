@@ -1097,7 +1097,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                         });
                     },
                 });
-                playRow(rowIndex);
+               //playRow(rowIndex); // #275
                 return 'pending';
             }
 
@@ -1117,7 +1117,7 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                     });
                 },
             });
-            playRow(rowIndex);
+           //playRow(rowIndex); // #275
             return 'committed';
         };
 
