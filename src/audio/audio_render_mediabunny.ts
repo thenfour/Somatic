@@ -11,13 +11,18 @@ import {
    Mp3OutputFormat,
    Output,
    type OutputFormat,
-   QUALITY_HIGH,
+   Quality,
    WAVE,
    WavOutputFormat,
    type AudioCodec,
 } from "mediabunny";
 
-import type {AudioRenderFormat, AudioRenderMetadata, AudioRenderSettings} from "../models/song";
+import type {
+   AudioRenderFormat,
+   AudioRenderMetadata,
+   AudioRenderMp3BitrateKbps,
+   AudioRenderSettings,
+} from "../models/song";
 import {
    type AudioRenderPreview,
    type AudioSourceAnalysis,
@@ -25,8 +30,9 @@ import {
    createAudioRenderPreview,
    Pcm16AudioAnalyzer,
 } from "./audio_render_processing";
+import {AudioRenderDcFilter} from "./audio_render_dc_filter";
 import {yieldToBrowser} from "../utils/utils";
-import {applyPcm16Gain, millisecondsToAudioFrames} from "../utils/music/dsp";
+import {millisecondsToAudioFrames} from "../utils/music/dsp";
 
 export type AudioRenderWorkProgress = Readonly<{
    completedFrames: number;
@@ -38,6 +44,11 @@ export type EncodedAudioRender = Readonly<{
    bytes: Uint8Array;
    mimeType: string;
    extensionWithDot: `.${AudioRenderFormat}`;
+}>;
+
+export type RenderedAudioMaster = Readonly<{
+   bytes: Uint8Array;
+   mimeType: "audio/wav";
    preview: AudioRenderPreview;
 }>;
 
@@ -201,30 +212,29 @@ function toMetadataTags(metadata: AudioRenderMetadata): MetadataTags {
    };
 }
 
-export async function encodeAudioRender(args: {
+export async function createAudioRenderMaster(args: {
    sourceWavBytes: Uint8Array;
    analysis: AudioSourceAnalysis;
    settings: AudioRenderSettings;
    signal?: AbortSignal;
    onProgress?: (progress: AudioRenderWorkProgress) => void;
-}): Promise<EncodedAudioRender> {
-   throwIfAborted(args.signal);
-   await ensureAudioEncoder(args.settings.format);
+}): Promise<RenderedAudioMaster> {
    throwIfAborted(args.signal);
 
    const preview = createAudioRenderPreview(args.analysis, args.settings);
-   const codecConfig = createCodecConfig(args.settings.format);
+   const codecConfig = createCodecConfig("wav");
    const target = new BufferTarget();
    const output = new Output({format: codecConfig.format, target});
    const source = new AudioSampleSource({
       codec: codecConfig.codec,
-      ...(codecConfig.codec === "pcm-s16" ? {} : {quality: QUALITY_HIGH}),
       transform: {sampleFormat: "s16"},
    });
    output.addAudioTrack(source);
-   output.setMetadataTags(toMetadataTags(args.settings.metadata));
 
    const input = new Input({formats: [WAVE], source: new BufferSource(args.sourceWavBytes)});
+   const dcFilters = args.settings.removeDcBias
+      ? Array.from({length: args.analysis.channelCount}, () => new AudioRenderDcFilter())
+      : null;
    let emittedFrames = 0;
    let sourceFramesRead = 0;
    let nextYieldFrame = AUDIO_WORK_YIELD_FRAMES;
@@ -237,8 +247,17 @@ export async function encodeAudioRender(args: {
    };
    args.signal?.addEventListener("abort", onAbort, {once: true});
 
-   const emitPcm = async (pcm: Int16Array, frameCount: number) => {
+   const emitPcm = async (inputPcm: ArrayLike<number>, frameCount: number) => {
       throwIfAborted(args.signal);
+      const pcm = new Int16Array(inputPcm.length);
+      for (let i = 0; i < inputPcm.length; i++) {
+         const channel = i % args.analysis.channelCount;
+         const inputSample = inputPcm[i] ?? 0;
+         const filtered = dcFilters
+            ? dcFilters[channel]!.processSample(inputSample)
+            : inputSample;
+         pcm[i] = Math.max(-32768, Math.min(32767, Math.round(filtered)));
+      }
       const sample = new AudioSample({
          data: pcm,
          format: "s16",
@@ -296,9 +315,9 @@ export async function encodeAudioRender(args: {
                const retainedFrameCount = retainedEnd - retainedStart;
                const firstSample = firstLocalFrame * channelCount;
                const retainedSampleCount = retainedFrameCount * channelCount;
-               const processed = new Int16Array(retainedSampleCount);
+               const processed = new Float64Array(retainedSampleCount);
                for (let i = 0; i < retainedSampleCount; i++) {
-                  processed[i] = applyPcm16Gain(pcm[firstSample + i] ?? 0, preview.gain);
+                  processed[i] = (pcm[firstSample + i] ?? 0) * preview.gain;
                }
                await emitPcm(processed, retainedFrameCount);
             }
@@ -327,9 +346,93 @@ export async function encodeAudioRender(args: {
       }
       return {
          bytes: new Uint8Array(target.buffer),
+         mimeType: "audio/wav",
+         preview,
+      };
+   } catch (error) {
+      if (output.state !== "finalized" && output.state !== "canceled") {
+         await output.cancel().catch(() => undefined);
+      }
+      if (args.signal?.aborted) {
+         throw createAudioRenderAbortError();
+      }
+      throw error;
+   } finally {
+      args.signal?.removeEventListener("abort", onAbort);
+      input.dispose();
+   }
+}
+
+export async function encodeAudioRenderDownload(args: {
+   masterWavBytes: Uint8Array;
+   masterFrameCount: number;
+   format: AudioRenderFormat;
+   metadata: AudioRenderMetadata;
+   mp3BitrateKbps: AudioRenderMp3BitrateKbps;
+   signal?: AbortSignal;
+   onProgress?: (progress: AudioRenderWorkProgress) => void;
+}): Promise<EncodedAudioRender> {
+   throwIfAborted(args.signal);
+   await ensureAudioEncoder(args.format);
+   throwIfAborted(args.signal);
+
+   const codecConfig = createCodecConfig(args.format);
+   const target = new BufferTarget();
+   const output = new Output({format: codecConfig.format, target});
+   const source = new AudioSampleSource({
+      codec: codecConfig.codec,
+      ...(codecConfig.codec === "mp3"
+         ? {quality: new Quality({bitrate: args.mp3BitrateKbps * 1000})}
+         : {}),
+      transform: {sampleFormat: "s16"},
+   });
+   output.addAudioTrack(source);
+   output.setMetadataTags(toMetadataTags(args.metadata));
+
+   const input = new Input({formats: [WAVE], source: new BufferSource(args.masterWavBytes)});
+   let completedFrames = 0;
+   let nextYieldFrame = AUDIO_WORK_YIELD_FRAMES;
+   let outputStarted = false;
+   const onAbort = () => {
+      input.dispose();
+      if (outputStarted && output.state !== "finalized" && output.state !== "canceled") {
+         void output.cancel().catch(() => undefined);
+      }
+   };
+   args.signal?.addEventListener("abort", onAbort, {once: true});
+
+   try {
+      const track = await getTic80Pcm16Track(input);
+      await output.start();
+      outputStarted = true;
+
+      const sink = new AudioSampleSink(track);
+      for await (const sample of sink.samples()) {
+         try {
+            throwIfAborted(args.signal);
+            await source.add(sample);
+            completedFrames += sample.numberOfFrames;
+            if (completedFrames >= nextYieldFrame) {
+               reportProgress(args.onProgress, completedFrames, args.masterFrameCount);
+               nextYieldFrame = completedFrames + AUDIO_WORK_YIELD_FRAMES;
+               await yieldToBrowser();
+            }
+         } finally {
+            sample.close();
+         }
+      }
+
+      input.dispose();
+      await output.finalize();
+      throwIfAborted(args.signal);
+      reportProgress(args.onProgress, args.masterFrameCount, args.masterFrameCount);
+      if (!target.buffer) {
+         throw new Error("Audio encoding completed without output bytes??");
+      }
+      return {
+         bytes: new Uint8Array(target.buffer),
          mimeType: codecConfig.mimeType,
          extensionWithDot: codecConfig.extensionWithDot,
-         preview,
       };
    } catch (error) {
       if (output.state !== "finalized" && output.state !== "canceled") {

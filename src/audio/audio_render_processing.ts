@@ -23,7 +23,9 @@ export type AudioSourceAnalysis = Readonly<{
    trimEndFrame: number;
    waveformBuckets: Readonly<{
       bucketSizeFrames: number;
+      /** Interleaved by bucket, then channel. */
       minimums: Float32Array;
+      /** Interleaved by bucket, then channel. */
       maximums: Float32Array;
    }>;
 }>;
@@ -56,8 +58,8 @@ export class Pcm16AudioAnalyzer {
    private firstAudibleFrame: number | null = null;
    private lastAudibleFrameExclusive = 0;
    private bucketFrameCount = 0;
-   private bucketMinimum = 32767;
-   private bucketMaximum = -32768;
+   private readonly bucketMinimums: Int16Array;
+   private readonly bucketMaximums: Int16Array;
    private finished = false;
 
    constructor(
@@ -74,6 +76,10 @@ export class Pcm16AudioAnalyzer {
       if (!Number.isInteger(waveformBucketFrames) || waveformBucketFrames <= 0) {
          throw new Error(`Invalid waveform bucket size: ${waveformBucketFrames}`);
       }
+      this.bucketMinimums = new Int16Array(channelCount);
+      this.bucketMinimums.fill(32767);
+      this.bucketMaximums = new Int16Array(channelCount);
+      this.bucketMaximums.fill(-32768);
    }
 
    accept(interleavedSamples: Int16Array): void {
@@ -92,8 +98,8 @@ export class Pcm16AudioAnalyzer {
             const sample = interleavedSamples[frameOffset + channel] ?? 0;
             const absoluteSample = Math.abs(sample);
             this.peakAbsoluteSample = Math.max(this.peakAbsoluteSample, absoluteSample);
-            this.bucketMinimum = Math.min(this.bucketMinimum, sample);
-            this.bucketMaximum = Math.max(this.bucketMaximum, sample);
+            this.bucketMinimums[channel] = Math.min(this.bucketMinimums[channel]!, sample);
+            this.bucketMaximums[channel] = Math.max(this.bucketMaximums[channel]!, sample);
             audible ||= absoluteSample > PCM16_MASTERING_SILENCE_ABS_SAMPLE;
          }
 
@@ -102,7 +108,6 @@ export class Pcm16AudioAnalyzer {
             this.firstAudibleFrame ??= absoluteFrame;
             this.lastAudibleFrameExclusive = absoluteFrame + 1;
          }
-
          this.bucketFrameCount++;
          if (this.bucketFrameCount === this.waveformBucketFrames) {
             this.flushWaveformBucket();
@@ -140,11 +145,13 @@ export class Pcm16AudioAnalyzer {
    }
 
    private flushWaveformBucket(): void {
-      this.waveformMinimums.push(this.bucketMinimum / PCM16_FULL_SCALE);
-      this.waveformMaximums.push(this.bucketMaximum / PCM16_FULL_SCALE);
+      for (let channel = 0; channel < this.channelCount; channel++) {
+         this.waveformMinimums.push(this.bucketMinimums[channel]! / PCM16_FULL_SCALE);
+         this.waveformMaximums.push(this.bucketMaximums[channel]! / PCM16_FULL_SCALE);
+      }
       this.bucketFrameCount = 0;
-      this.bucketMinimum = 32767;
-      this.bucketMaximum = -32768;
+      this.bucketMinimums.fill(32767);
+      this.bucketMaximums.fill(-32768);
    }
 }
 
@@ -194,14 +201,17 @@ function createProcessedWaveform(
          const firstBucket = Math.floor(sourceStart / analysis.waveformBuckets.bucketSizeFrames);
          const lastBucketExclusive = Math.ceil(sourceEnd / analysis.waveformBuckets.bucketSizeFrames);
          for (let sourceBucket = firstBucket; sourceBucket < lastBucketExclusive; sourceBucket++) {
-            const sourceMinimum = analysis.waveformBuckets.minimums[sourceBucket] ?? 0;
-            const sourceMaximum = analysis.waveformBuckets.maximums[sourceBucket] ?? 0;
-            [minimum, maximum] = addEnvelopeValue(
-               minimum,
-               maximum,
-               Math.max(-1, Math.min(1, sourceMinimum * args.gain)),
-               Math.max(-1, Math.min(1, sourceMaximum * args.gain)),
-            );
+            for (let channel = 0; channel < analysis.channelCount; channel++) {
+               const sourceIndex = sourceBucket * analysis.channelCount + channel;
+               const sourceMinimum = analysis.waveformBuckets.minimums[sourceIndex] ?? 0;
+               const sourceMaximum = analysis.waveformBuckets.maximums[sourceIndex] ?? 0;
+               [minimum, maximum] = addEnvelopeValue(
+                  minimum,
+                  maximum,
+                  Math.max(-1, Math.min(1, sourceMinimum * args.gain)),
+                  Math.max(-1, Math.min(1, sourceMaximum * args.gain)),
+               );
+            }
          }
       }
 

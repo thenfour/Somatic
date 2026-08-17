@@ -16,15 +16,16 @@ describe("audio render settings", () => {
       assert.equal(song.audioRenderSettings.metadata.title, "Release title");
    });
 
-   it("persists format, normalization, and metadata through serialization", () => {
+   it("persists processing, MP3, and metadata settings through serialization", () => {
       const song = new Song({name: "Project title"});
       song.audioRenderSettings = {
-         format: "flac",
+         removeDcBias: false,
          normalizePeak: true,
          normalizationTargetDbfs: -2.5,
          trimSilence: true,
          leadingSilenceMs: 150,
          trailingSilenceMs: 500,
+         mp3BitrateKbps: 192,
          metadata: {
             title: "Release title",
             artist: "Artist",
@@ -46,21 +47,24 @@ describe("audio render settings", () => {
          name: "Fallback title",
          audioRenderSettings: {
             format: "unsupported",
+            removeDcBias: "yes",
             normalizePeak: "yes",
             normalizationTargetDbfs: 4,
             trimSilence: "yes",
             leadingSilenceMs: -10,
             trailingSilenceMs: 999999,
+            mp3BitrateKbps: 123,
             metadata: {title: 42},
          },
       } as any);
 
-      assert.equal(song.audioRenderSettings.format, "wav");
+      assert.equal(song.audioRenderSettings.removeDcBias, true);
       assert.equal(song.audioRenderSettings.normalizePeak, false);
       assert.equal(song.audioRenderSettings.normalizationTargetDbfs, 0);
       assert.equal(song.audioRenderSettings.trimSilence, false);
       assert.equal(song.audioRenderSettings.leadingSilenceMs, 0);
       assert.equal(song.audioRenderSettings.trailingSilenceMs, 5000);
+      assert.equal(song.audioRenderSettings.mp3BitrateKbps, 320);
       assert.equal(song.audioRenderSettings.metadata.title, "Fallback title");
       assert.equal(song.audioRenderSettings.metadata.artist, "");
    });

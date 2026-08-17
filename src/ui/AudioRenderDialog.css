@@ -1,8 +1,10 @@
 .audio-render-dialog {
-   min-width: 440px;
+   min-width: 0;
+   min-height: 0;
+   overflow-y: auto;
 }
 
-.audio-render-modal--review {
+.audio-render-modal {
    box-sizing: border-box;
    display: flex;
    flex-direction: column;
@@ -10,13 +12,17 @@
    max-width: 760px;
    max-height: calc(100vh - 32px);
    background-color: var(--panel);
-   /* overflow: hidden; */
+   overflow: hidden;
 }
 
-.audio-render-dialog--review {
-   min-width: 0;
-   min-height: 0;
-   overflow-y: auto;
+.audio-render-dialog__heading h2,
+.audio-render-dialog__heading p,
+.audio-render-dialog__work p {
+   margin-top: 0;
+}
+
+.audio-render-dialog__heading p {
+   color: var(--text);
 }
 
 .audio-render-dialog__progress {
@@ -53,4 +59,17 @@
    margin: 3px 0 0;
    font-variant-numeric: tabular-nums;
    white-space: nowrap;
+}
+
+
+
+.audio-render-dialog__footer,
+.audio-render-dialog__downloads,
+.audio-render-dialog__actions {
+   display: flex;
+   align-items: center;
+   gap: 6px;
+}
+.audio-render-dialog__footer {
+   justify-content: space-between;
 }

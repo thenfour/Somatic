@@ -32,3 +32,9 @@
    box-sizing: border-box;
    width: 100%;
 }
+
+.audio-render-settings__select {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+}

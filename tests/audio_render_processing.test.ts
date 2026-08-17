@@ -10,12 +10,13 @@ import type {AudioRenderSettings} from "../src/models/song";
 import {linearGainToDecibels} from "../src/utils/music/dsp";
 
 const settings = (overrides: Partial<AudioRenderSettings> = {}): AudioRenderSettings => ({
-   format: "wav",
+   removeDcBias: false,
    normalizePeak: false,
    normalizationTargetDbfs: -1,
    trimSilence: false,
    leadingSilenceMs: 0,
    trailingSilenceMs: 0,
+   mp3BitrateKbps: 320,
    metadata: {title: "Test", artist: "", album: "", year: "", genre: "", comment: ""},
    ...overrides,
 });

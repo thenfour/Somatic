@@ -111,6 +111,10 @@ export type SomaticBuildMetadata = {
 export const AudioRenderFormatValues = ["wav", "mp3", "flac"] as const;
 export type AudioRenderFormat = typeof AudioRenderFormatValues[number];
 
+export const AudioRenderMp3BitrateKbpsValues = [64, 96, 128, 160, 192, 256, 320] as const;
+export type AudioRenderMp3BitrateKbps = typeof AudioRenderMp3BitrateKbpsValues[number];
+export const AudioRenderMp3BitrateDefaultKbps: AudioRenderMp3BitrateKbps = 320;
+
 export const AudioRenderNormalizationTarget = {
    defaultDbfs: -1,
    minDbfs: -12,
@@ -133,12 +137,13 @@ export type AudioRenderMetadata = {
 };
 
 export type AudioRenderSettings = {
-   format: AudioRenderFormat;
+   removeDcBias: boolean;
    normalizePeak: boolean;
    normalizationTargetDbfs: number;
    trimSilence: boolean;
    leadingSilenceMs: number;
    trailingSilenceMs: number;
+   mp3BitrateKbps: AudioRenderMp3BitrateKbps;
    metadata: AudioRenderMetadata;
 };
 
@@ -146,17 +151,19 @@ function normalizeAudioRenderSettings(
    settings: Partial<AudioRenderSettings> | undefined,
    fallbackTitle: string,
 ): AudioRenderSettings {
-   const format = AudioRenderFormatValues.includes(settings?.format as AudioRenderFormat)
-      ? settings!.format as AudioRenderFormat
-      : "wav";
    const metadata = settings?.metadata;
    const stringOrEmpty = (value: unknown) => typeof value === "string" ? value : "";
    const booleanOrDefault = (value: unknown, defaultValue: boolean) => (
       typeof value === "boolean" ? value : defaultValue
    );
+   const mp3BitrateKbps = AudioRenderMp3BitrateKbpsValues.includes(
+      settings?.mp3BitrateKbps as AudioRenderMp3BitrateKbps,
+   )
+      ? settings!.mp3BitrateKbps as AudioRenderMp3BitrateKbps
+      : AudioRenderMp3BitrateDefaultKbps;
 
    return {
-      format,
+      removeDcBias: booleanOrDefault(settings?.removeDcBias, true),
       normalizePeak: booleanOrDefault(settings?.normalizePeak, false),
       normalizationTargetDbfs: NormalizeClampedFloat(
          settings?.normalizationTargetDbfs,
@@ -181,6 +188,7 @@ function normalizeAudioRenderSettings(
          AudioRenderSilencePadding.minMs,
          AudioRenderSilencePadding.maxMs,
       ),
+      mp3BitrateKbps,
       metadata: {
          title: typeof metadata?.title === "string" ? metadata.title : fallbackTitle,
          artist: stringOrEmpty(metadata?.artist),

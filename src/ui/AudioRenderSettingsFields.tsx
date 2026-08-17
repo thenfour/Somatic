@@ -1,24 +1,16 @@
 import React from "react";
 
 import {
-   AudioRenderFormat,
-   AudioRenderFormatValues,
    AudioRenderMetadata,
+   AudioRenderMp3BitrateKbps,
+   AudioRenderMp3BitrateKbpsValues,
    AudioRenderNormalizationTarget,
    AudioRenderSettings,
    AudioRenderSilencePadding,
 } from "../models/song";
 import {CheckboxButton} from "./Buttons/CheckboxButton";
-import {RadioButton} from "./Buttons/RadioButton";
 import "./AudioRenderSettingsFields.css";
-import {ButtonGroup} from "./Buttons/ButtonGroup";
 import {Knob} from "./basic/Knob2";
-
-// const FormatLabels: Record<AudioRenderFormat, {title: AudioRenderFormat; detail: string}> = {
-//    wav: {title: "wav", detail: "Lossless PCM"},
-//    mp3: {title: "mp3", detail: "Compressed"},
-//    flac: {title: "flac", detail: "Compressed lossless"},
-// };
 
 const MetadataFields: ReadonlyArray<{
    key: Exclude<keyof AudioRenderMetadata, "comment">;
@@ -36,18 +28,16 @@ export type AudioRenderSettingsFieldsProps = {
    settings: AudioRenderSettings;
    onChange: (settings: AudioRenderSettings) => void;
    legend?: string;
+   disabled?: boolean;
 };
 
 export const AudioRenderSettingsFields: React.FC<AudioRenderSettingsFieldsProps> = ({
    settings,
    onChange,
    legend = "Render settings",
+   disabled = false,
 }) => {
    const idPrefix = React.useId();
-
-   const setFormat = (format: AudioRenderFormat) => {
-      onChange({...settings, format});
-   };
 
    const setMetadata = (key: keyof AudioRenderMetadata, value: string) => {
       onChange({
@@ -61,84 +51,92 @@ export const AudioRenderSettingsFields: React.FC<AudioRenderSettingsFieldsProps>
          <legend>{legend}</legend>
 
          <div className="audio-render-settings__group">
-            <span className="audio-render-settings__group-label">Format</span>
-            {/* <div className="audio-render-settings__formats" role="radiogroup" aria-label="Audio format"> */}
-            <ButtonGroup orientation="horizontal">
-               {AudioRenderFormatValues.map((format) => {
-                  //const label = FormatLabels[format];
-                  return (
-                     <RadioButton
-                        key={format}
-                        type="button"
-                        selected={settings.format === format}
-                        role="radio"
-                        aria-checked={settings.format === format}
-                        onClick={() => setFormat(format)}
-                     >
-                        <span className="audio-render-settings__format-title">{format}</span>
-                     </RadioButton>
-                  );
-               })}
-            </ButtonGroup>
-            {/* </div> */}
-         </div>
-
-         <div className="audio-render-settings__group">
-            <span className="audio-render-settings__group-label">Peak Normalization</span>
+            <span className="audio-render-settings__group-label">Mastering</span>
             <div className="audio-render-settings__control-row">
-            <CheckboxButton
-               checked={settings.normalizePeak}
-               onChange={(normalizePeak) => onChange({...settings, normalizePeak})}
-            >
-               Normalize
-            </CheckboxButton>
-            <Knob
-               label="Target peak (dBFS)"
-               disabled={!settings.normalizePeak}
-               value={settings.normalizationTargetDbfs}
-               onChange={(normalizationTargetDbfs) => onChange({...settings, normalizationTargetDbfs})}
-               min={AudioRenderNormalizationTarget.minDbfs}
-               max={AudioRenderNormalizationTarget.maxDbfs}
-               step={0.1}
-               centerValue={0}
-               defaultValue={AudioRenderNormalizationTarget.defaultDbfs}
-               formatValue={(value) => value.toFixed(1)}
-            />
+               <CheckboxButton
+                  checked={settings.removeDcBias}
+                  disabled={disabled}
+                  onChange={(removeDcBias) => onChange({...settings, removeDcBias})}
+               >
+                  Remove DC bias
+               </CheckboxButton>
+               <CheckboxButton
+                  checked={settings.normalizePeak}
+                  disabled={disabled}
+                  onChange={(normalizePeak) => onChange({...settings, normalizePeak})}
+               >
+                  Normalize
+               </CheckboxButton>
+               <Knob
+                  label="Target peak (dBFS)"
+                  disabled={disabled || !settings.normalizePeak}
+                  value={settings.normalizationTargetDbfs}
+                  onChange={(normalizationTargetDbfs) => onChange({...settings, normalizationTargetDbfs})}
+                  min={AudioRenderNormalizationTarget.minDbfs}
+                  max={AudioRenderNormalizationTarget.maxDbfs}
+                  step={0.1}
+                  centerValue={0}
+                  defaultValue={AudioRenderNormalizationTarget.defaultDbfs}
+                  formatValue={(value) => value.toFixed(1)}
+               />
             </div>
          </div>
 
          <div className="audio-render-settings__group">
             <span className="audio-render-settings__group-label">Lead-in/out</span>
             <div className="audio-render-settings__control-row">
-            <CheckboxButton
-               checked={settings.trimSilence}
-               onChange={(trimSilence) => onChange({...settings, trimSilence})}
-            >
-               Trim Silence
-            </CheckboxButton>
-            <Knob
-               label="Lead-in (ms)"
-               value={settings.leadingSilenceMs}
-               onChange={(leadingSilenceMs) => onChange({...settings, leadingSilenceMs})}
-               min={AudioRenderSilencePadding.minMs}
-               max={AudioRenderSilencePadding.maxMs}
-               step={10}
-               centerValue={0}
-               defaultValue={AudioRenderSilencePadding.defaultMs}
-               formatValue={(value) => Math.round(value).toString()}
-            />
-            <Knob
-               label="Lead-out (ms)"
-               value={settings.trailingSilenceMs}
-               onChange={(trailingSilenceMs) => onChange({...settings, trailingSilenceMs})}
-               min={AudioRenderSilencePadding.minMs}
-               max={AudioRenderSilencePadding.maxMs}
-               step={10}
-               centerValue={0}
-               defaultValue={AudioRenderSilencePadding.defaultMs}
-               formatValue={(value) => Math.round(value).toString()}
-            />
+               <CheckboxButton
+                  checked={settings.trimSilence}
+                  disabled={disabled}
+                  onChange={(trimSilence) => onChange({...settings, trimSilence})}
+               >
+                  Trim Silence
+               </CheckboxButton>
+               <Knob
+                  label="Lead-in (ms)"
+                  disabled={disabled}
+                  value={settings.leadingSilenceMs}
+                  onChange={(leadingSilenceMs) => onChange({...settings, leadingSilenceMs})}
+                  min={AudioRenderSilencePadding.minMs}
+                  max={AudioRenderSilencePadding.maxMs}
+                  step={10}
+                  centerValue={0}
+                  defaultValue={AudioRenderSilencePadding.defaultMs}
+                  formatValue={(value) => Math.round(value).toString()}
+               />
+               <Knob
+                  label="Lead-out (ms)"
+                  disabled={disabled}
+                  value={settings.trailingSilenceMs}
+                  onChange={(trailingSilenceMs) => onChange({...settings, trailingSilenceMs})}
+                  min={AudioRenderSilencePadding.minMs}
+                  max={AudioRenderSilencePadding.maxMs}
+                  step={10}
+                  centerValue={0}
+                  defaultValue={AudioRenderSilencePadding.defaultMs}
+                  formatValue={(value) => Math.round(value).toString()}
+               />
             </div>
+         </div>
+
+         <div className="audio-render-settings__group">
+            <span className="audio-render-settings__group-label">MP3</span>
+            <label className="audio-render-settings__select" htmlFor={`${idPrefix}-mp3-bitrate`}>
+               <span>Bitrate</span>
+               <select
+                  id={`${idPrefix}-mp3-bitrate`}
+                  disabled={disabled}
+                  value={settings.mp3BitrateKbps}
+                  onChange={(event) => onChange({
+                     ...settings,
+                     mp3BitrateKbps: Number(event.target.value) as AudioRenderMp3BitrateKbps,
+                  })}
+               >
+                  {AudioRenderMp3BitrateKbpsValues.map((bitrate) => (
+                     <option key={bitrate} value={bitrate}>{bitrate} kbps</option>
+                  ))}
+               </select>
+            </label>
          </div>
 
          <div className="audio-render-settings__group">
@@ -153,6 +151,7 @@ export const AudioRenderSettingsFields: React.FC<AudioRenderSettingsFieldsProps>
                            id={id}
                            type="text"
                            maxLength={field.maxLength}
+                           disabled={disabled}
                            value={settings.metadata[field.key]}
                            onChange={(event) => setMetadata(field.key, event.target.value)}
                         />
@@ -165,6 +164,7 @@ export const AudioRenderSettingsFields: React.FC<AudioRenderSettingsFieldsProps>
                      id={`${idPrefix}-comment`}
                      rows={2}
                      maxLength={500}
+                     disabled={disabled}
                      value={settings.metadata.comment}
                      onChange={(event) => setMetadata("comment", event.target.value)}
                   />

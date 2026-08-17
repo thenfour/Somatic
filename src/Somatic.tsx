@@ -6,7 +6,6 @@ import './AppStatusBar.css';
 import './somatic.css';
 
 import { LoopMode, SomaticTransportState } from './audio/backend';
-import {tic80RowsToSeconds} from './utils/music/tic80Music';
 import { Tic80AudioController } from './audio/controller';
 import {serializeSongToCart} from './subsystem/tic80/tic80_cart_serializer';
 import { importSongFromTicCartBytes } from './subsystem/tic80/tic80_import';
@@ -14,6 +13,7 @@ import { useAppInstancePresence } from './hooks/useAppPresence';
 import { useClipboard } from './hooks/useClipboard';
 import { useDebugMode } from './hooks/useDebugMode';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import {useAudioRenderSession} from './hooks/useAudioRenderSession';
 import { useRenderAlarm } from './hooks/useRenderAlarm';
 import { useWriteBehindEffect } from './hooks/useWriteBehindEffect';
 import { GlobalActionId } from './keyb/ActionIds';
@@ -30,7 +30,7 @@ import { SomaticSubsystemFrontend } from './subsystem/base/SubsystemFrontendBase
 import { SidSubsystemFrontend } from './subsystem/Sid/SidSubsystemFrontend';
 import { Tic80SubsystemFrontend } from './subsystem/tic80/tic80SubsystemFrontend';
 import { AboutSomaticDialog } from './ui/AboutSomaticDialog';
-import {AudioRenderDialog, AudioRenderPhase} from './ui/AudioRenderDialog';
+import {AudioRenderDialog} from './ui/AudioRenderDialog';
 import { AppStatusBar } from './ui/AppStatusBar';
 import { ArrangementEditor } from './ui/ArrangementEditor';
 import { useConfirmDialog } from './ui/basic/confirm_dialog';
@@ -49,7 +49,7 @@ import { SongSettingsPanel } from './ui/SongSettingsPanel';
 import { SongStatsAppPanel, useSongStatsData } from './ui/SongStats';
 import { StatusChips } from './ui/StatusChips';
 import { Theme, ThemeEditorPanel } from './ui/theme_editor_panel';
-import {Tic80AudioCaptureResult, Tic80Bridge, Tic80BridgeHandle} from './subsystem/tic80/Tic80Bridged';
+import {Tic80Bridge, Tic80BridgeHandle} from './subsystem/tic80/Tic80Bridged';
 import { useToasts } from './ui/toast_provider';
 import { TransportControls } from './ui/TransportControls';
 import { VersionAvatar } from './ui/VersionAvatar';
@@ -63,15 +63,6 @@ import { importSongFromAmigaModBytes } from './subsystem/AmigaMod/AmigaModImport
 import { kPatternGridHighlightStyle, PatternGridHighlightStyle } from './models/patternGridHighlightStyle';
 import Icon from "@mdi/react";
 import {mdiCog} from "@mdi/js";
-import {
-   analyzeTic80CapturedWav,
-   encodeAudioRender,
-} from "./audio/audio_render_mediabunny";
-import {
-   type AudioRenderPreview,
-   type AudioSourceAnalysis,
-   createAudioRenderPreview,
-} from "./audio/audio_render_processing";
 
 const TIC80_FRAME_SIZES = [
     { id: "small", label: "Small", width: "256px", height: "144px" }, // smaller than this and it disappears
@@ -93,18 +84,6 @@ type SongChangeArgs = {
 };
 type EditorStateMutator = (state: EditorState) => void;
 type PatternCellType = "note" | "instrument" | "volume" | "pan" | "command" | "param" | "somaticCommand" | "somaticParam";
-type AudioRenderDialogState = {
-   phase: AudioRenderPhase;
-   fraction01: number;
-   completedRows: number;
-   totalRows: number;
-   renderStartedAtMillis: number;
-   renderCompletedAtMillis: number | null;
-   totalAudioSeconds: number;
-   result: Tic80AudioCaptureResult | null;
-   analysis: AudioSourceAnalysis | null;
-   preview: AudioRenderPreview | null;
-};
 
 const DEFAULT_LOOP_STATE: { loopMode: LoopMode; lastNonOffLoopMode: LoopMode } = {
     loopMode: "off",
@@ -206,8 +185,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     );
     const [bridgeReady, setBridgeReady] = useState(false);
     const [aboutOpen, setAboutOpen] = useState(false);
-   const [audioRenderDialog, setAudioRenderDialog] = useState<AudioRenderDialogState | null>(null);
-   const audioRenderAbortRef = React.useRef<AbortController | null>(null);
     const clipboard = useClipboard();
 
     const effectiveSongStatsExportConfigurationIndex = Math.min(
@@ -406,6 +383,24 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         editorRef.current = editorState;
     }, [editorState]);
 
+   const audioRender = useAudioRenderSession({
+      song,
+      rendererReady: bridgeReady,
+      isRendererReady: () => bridgeRef.current?.isReady() ?? false,
+      getAudibleChannels: (songToRender) => editorRef.current.getAudibleChannels(songToRender),
+      renderSongToWav: (renderArgs) => audio.renderSongToWav(renderArgs),
+      onSettingsChange: (audioRenderSettings) => {
+         updateSong({
+            description: "Edit audio render settings",
+            undoable: true,
+            mutator: (nextSong) => {
+               nextSong.audioRenderSettings = audioRenderSettings;
+            },
+         });
+      },
+      pushToast,
+   });
+
    // Live audition must wait for the latest instrument configuration to reach the bridge.
    // A serial # prevents a delayed note-on from firing after its note-off.
    const auditionGenerationByNoteRef = React.useRef(new Map<number, number>()); // map note value -> serial
@@ -437,7 +432,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
 
     const handleIncomingNoteOn = useCallback(
         (note: number) => {
-          if (audioRenderAbortRef.current) return;
+          if (audioRender.isBusy()) return;
             const s = songRef.current;
             const ed = editorRef.current;
           const channel = clamp(ed.patternEditChannel, 0, s.subsystem.channelCount - 1);
@@ -474,7 +469,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                 });
             }
         },
-       [auditionNoteOn, updateSong]
+       [audioRender.isBusy, auditionNoteOn, updateSong]
     );
 
     const handleIncomingNoteOff = useCallback(
@@ -651,187 +646,6 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
     const saveSongFile = () => {
         saveSync(song.toJSON(), song.getFilename(".somatic"));
     };
-
-   const renderSongToWav = async () => {
-      if (audioRenderAbortRef.current) return; // no double-invoke
-
-      const bridge = bridgeRef.current;
-      if (!bridge?.isReady()) {
-         pushToast({message: "TIC-80 is not ready to render audio.", variant: "error"});
-         return;
-      }
-
-      // clone song to allow fixups for render-only (no looping, et al.)
-      const songToRender = songRef.current.clone();
-
-      // TODO: check songToRender.subsystemType for tic80
-
-      const abortController = new AbortController();
-      const totalRows = songToRender.getSongLengthRows();
-      // todo: prevent many actions from being invoked (mgr.suspendShortcuts-ish but that's only
-      // for keyboard, and it would prevent a hypothetical "abort audio render" action.
-      audioRenderAbortRef.current = abortController;
-      setAudioRenderDialog({
-         phase: "preparing",
-         fraction01: 0,
-         completedRows: 0,
-         totalRows,
-         renderStartedAtMillis: performance.now(),
-         renderCompletedAtMillis: null,
-         totalAudioSeconds: tic80RowsToSeconds(totalRows, {
-            tempo: songToRender.tempo,
-            speed: songToRender.speed,
-         }),
-         result: null,
-         analysis: null,
-         preview: null,
-      });
-
-      try {
-         const result = await audio.renderSongToWav({
-            reason: "user export",
-            song: songToRender,
-            audibleChannels: editorRef.current.getAudibleChannels(songToRender),
-            signal: abortController.signal,
-            onProgress: (progress) => {
-               if (audioRenderAbortRef.current !== abortController || abortController.signal.aborted) return;
-               setAudioRenderDialog((state) => state
-                  ? {...state, phase: "rendering", ...progress}
-                  : state);
-            },
-         });
-
-         if (audioRenderAbortRef.current !== abortController || abortController.signal.aborted) return;
-
-         // successfully completed render... analyze immediately
-         const renderCompletedAtMillis = performance.now();
-         setAudioRenderDialog((state) => state ? {
-            ...state,
-            phase: "analyzing",
-            fraction01: 0,
-            completedRows: state.totalRows,
-            renderCompletedAtMillis,
-            result,
-         } : state);
-
-         const analysis = await analyzeTic80CapturedWav({
-            wavBytes: result.bytes,
-            signal: abortController.signal,
-            onProgress: (progress) => {
-               if (audioRenderAbortRef.current !== abortController || abortController.signal.aborted) return;
-               setAudioRenderDialog((state) => state?.phase === "analyzing"
-                  ? {...state, fraction01: progress.fraction01}
-                  : state);
-            },
-         });
-         if (audioRenderAbortRef.current !== abortController || abortController.signal.aborted) return;
-
-         const preview = createAudioRenderPreview(analysis, songRef.current.audioRenderSettings);
-         audioRenderAbortRef.current = null;
-         setAudioRenderDialog((state) => state ? {
-            ...state,
-            phase: "review",
-            fraction01: 1,
-            analysis,
-            preview,
-         } : state);
-      } catch (error) {
-         if (error instanceof Error && error.name === "AbortError") {
-            pushToast({message: "Audio render cancelled.", variant: "info"});
-         } else {
-            console.error("Audio render failed", error);
-            const message = error instanceof Error ? error.message : "Unknown error";
-            pushToast({message: `Failed to render audio: ${message}`, variant: "error"});
-         }
-      } finally {
-         if (audioRenderAbortRef.current === abortController) {
-            audioRenderAbortRef.current = null;
-            setAudioRenderDialog(null);
-         }
-      }
-   };
-
-   const cancelAudioRender = () => {
-      const abortController = audioRenderAbortRef.current;
-      if (!abortController || abortController.signal.aborted) return;
-      setAudioRenderDialog((state) => state ? {...state, phase: "cancelling"} : state);
-      abortController.abort();
-   };
-
-   const closeAudioRenderDialog = () => {
-      if (audioRenderAbortRef.current) return;
-      setAudioRenderDialog(null);
-   };
-
-   const updateAudioRenderSettings = (audioRenderSettings: Song["audioRenderSettings"]) => {
-      updateSong({
-         description: "Edit audio render settings",
-         undoable: true,
-         mutator: (s) => {
-            s.audioRenderSettings = audioRenderSettings;
-         },
-      });
-      setAudioRenderDialog((state) => state?.analysis
-         ? {...state, preview: createAudioRenderPreview(state.analysis, audioRenderSettings)}
-         : state);
-   };
-
-   const downloadAudioRender = async () => {
-      const result = audioRenderDialog?.result;
-      const analysis = audioRenderDialog?.analysis;
-      if (!result || !analysis || audioRenderAbortRef.current) return;
-
-      const settings = {
-         ...songRef.current.audioRenderSettings,
-         metadata: {...songRef.current.audioRenderSettings.metadata},
-      };
-      const abortController = new AbortController();
-      audioRenderAbortRef.current = abortController;
-      setAudioRenderDialog((state) => state ? {...state, phase: "encoding", fraction01: 0} : state);
-
-      try {
-         const encoded = await encodeAudioRender({
-            sourceWavBytes: result.bytes,
-            analysis,
-            settings,
-            signal: abortController.signal,
-            onProgress: (progress) => {
-               if (audioRenderAbortRef.current !== abortController || abortController.signal.aborted) return;
-               setAudioRenderDialog((state) => state?.phase === "encoding"
-                  ? {...state, fraction01: progress.fraction01}
-                  : state);
-            },
-         });
-         if (audioRenderAbortRef.current !== abortController || abortController.signal.aborted) return;
-
-         const filename = songRef.current.getAudioRenderFilename(encoded.extensionWithDot);
-         saveSync(new Blob([encoded.bytes as any], {type: encoded.mimeType}), filename);
-         pushToast({message: `Downloaded ${filename}.`, variant: "success"});
-         audioRenderAbortRef.current = null;
-         setAudioRenderDialog((state) => state ? {
-            ...state,
-            phase: "review",
-            fraction01: 1,
-            preview: encoded.preview,
-         } : state);
-      } catch (error) {
-         if (error instanceof Error && error.name === "AbortError") {
-            pushToast({message: "Audio encoding cancelled.", variant: "info"});
-         } else {
-            console.error("Audio encoding failed", error);
-            const message = error instanceof Error ? error.message : "Unknown error";
-            pushToast({message: `Failed to encode audio: ${message}`, variant: "error"});
-         }
-         if (audioRenderAbortRef.current === abortController) {
-            audioRenderAbortRef.current = null;
-            setAudioRenderDialog((state) => state ? {...state, phase: "review", fraction01: 1} : state);
-         }
-      } finally {
-         if (audioRenderAbortRef.current === abortController) {
-            audioRenderAbortRef.current = null;
-         }
-      }
-   };
 
     const exportCart = (exportConfiguration: ExportConfiguration) => {
         const cartData = serializeSongToCart(
@@ -1114,7 +928,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
         setSongSettingsPanelOpen((open) => !open);
     });
    mgr.useActionHandler("RenderSongToWav", () => {
-      void renderSongToWav();
+      audioRender.open();
    });
 
     useActionHandler("OpenFile", openSongFile);
@@ -1221,11 +1035,9 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                             </DesktopMenu.Item>
                             <DesktopMenu.Divider />
                             <DesktopMenu.Item
-                               disabled={!bridgeReady || audioRenderDialog !== null || song.subsystemType !== kSubsystem.key.TIC80}
+                               disabled={!audioRender.canOpen}
                                shortcut={mgr.getActionBindingLabel("RenderSongToWav")}
-                               onSelect={() => {
-                                  void renderSongToWav();
-                               }}
+                               onSelect={audioRender.open}
                             >
                                Render Song to Audio...
                             </DesktopMenu.Item>
@@ -1711,24 +1523,7 @@ export const App: React.FC<{ theme: Theme; onToggleTheme: () => void }> = ({ the
                     }
                 />
             </div>
-          <AudioRenderDialog
-             open={audioRenderDialog !== null}
-             phase={audioRenderDialog?.phase ?? "preparing"}
-             fraction01={audioRenderDialog?.fraction01 ?? 0}
-             completedRows={audioRenderDialog?.completedRows ?? 0}
-             totalRows={audioRenderDialog?.totalRows ?? 0}
-             renderStartedAtMillis={audioRenderDialog?.renderStartedAtMillis ?? null}
-             renderCompletedAtMillis={audioRenderDialog?.renderCompletedAtMillis ?? null}
-             totalAudioSeconds={audioRenderDialog?.totalAudioSeconds ?? 0}
-             sourceWavByteLength={audioRenderDialog?.result?.bytes.byteLength ?? 0}
-             analysis={audioRenderDialog?.analysis ?? null}
-             preview={audioRenderDialog?.preview ?? null}
-             settings={song.audioRenderSettings}
-             onSettingsChange={updateAudioRenderSettings}
-             onCancel={cancelAudioRender}
-             onClose={closeAudioRenderDialog}
-             onDownload={() => void downloadAudioRender()}
-          />
+          <AudioRenderDialog {...audioRender.dialogProps} />
             <AboutSomaticDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
         </div>
     );

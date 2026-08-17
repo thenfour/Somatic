@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import {describe, it} from "node:test";
-import {BufferSource, Input, WAVE} from "mediabunny";
+import {AudioSampleSink, BufferSource, Input, WAVE} from "mediabunny";
 
 import {
    analyzeTic80CapturedWav,
-   encodeAudioRender,
+   createAudioRenderMaster,
+   encodeAudioRenderDownload,
 } from "../src/audio/audio_render_mediabunny";
 import type {AudioRenderSettings} from "../src/models/song";
 
@@ -38,6 +39,29 @@ function createPcm16Wave(args: {
    return bytes;
 }
 
+async function readPcm16Wave(bytes: Uint8Array): Promise<Int16Array> {
+   const input = new Input({formats: [WAVE], source: new BufferSource(bytes)});
+   try {
+      const track = await input.getPrimaryAudioTrack();
+      assert.ok(track);
+      const samples: number[] = [];
+      const sink = new AudioSampleSink(track);
+      for await (const sample of sink.samples()) {
+         try {
+            const byteLength = sample.allocationSize({format: "s16", planeIndex: 0});
+            const pcm = new Int16Array(byteLength / Int16Array.BYTES_PER_ELEMENT);
+            sample.copyTo(pcm, {format: "s16", planeIndex: 0});
+            samples.push(...pcm);
+         } finally {
+            sample.close();
+         }
+      }
+      return Int16Array.from(samples);
+   } finally {
+      input.dispose();
+   }
+}
+
 describe("MediaBunny audio render adapter", () => {
    it("analyzes captured PCM16 and re-encodes processed WAVE audio", async () => {
       const sourceBytes = createPcm16Wave({
@@ -58,12 +82,13 @@ describe("MediaBunny audio render adapter", () => {
       assert.equal(analysis.peakAmplitude, 0.5);
 
       const settings: AudioRenderSettings = {
-         format: "wav",
+         removeDcBias: false,
          normalizePeak: true,
          normalizationTargetDbfs: -12.041199826559248,
          trimSilence: true,
          leadingSilenceMs: 1,
          trailingSilenceMs: 2,
+         mp3BitrateKbps: 320,
          metadata: {
             title: "Adapter test",
             artist: "Somatic",
@@ -73,14 +98,23 @@ describe("MediaBunny audio render adapter", () => {
             comment: "Metadata",
          },
       };
-      const encoded = await encodeAudioRender({
+      const master = await createAudioRenderMaster({
          sourceWavBytes: sourceBytes,
          analysis,
          settings,
       });
+      assert.equal(master.mimeType, "audio/wav");
+      assert.equal(master.preview.outputFrameCount, 5);
+
+      const encoded = await encodeAudioRenderDownload({
+         masterWavBytes: master.bytes,
+         masterFrameCount: master.preview.outputFrameCount,
+         format: "wav",
+         metadata: settings.metadata,
+         mp3BitrateKbps: settings.mp3BitrateKbps,
+      });
       assert.equal(encoded.mimeType, "audio/wav");
       assert.equal(encoded.extensionWithDot, ".wav");
-      assert.equal(encoded.preview.outputFrameCount, 5);
 
       const outputAnalysis = await analyzeTic80CapturedWav({wavBytes: encoded.bytes});
       assert.equal(outputAnalysis.frameCount, 5);
@@ -101,5 +135,40 @@ describe("MediaBunny audio render adapter", () => {
       } finally {
          taggedInput.dispose();
       }
+   });
+
+   it("runs the complete padded PCM stream through the DC filter", async () => {
+      const sourceBytes = createPcm16Wave({
+         sampleRateHz: 1000,
+         channelCount: 2,
+         interleavedSamples: new Int16Array([
+            1000, 2000,
+            1000, 2000,
+            1000, 2000,
+         ]),
+      });
+      const analysis = await analyzeTic80CapturedWav({wavBytes: sourceBytes});
+      const settings: AudioRenderSettings = {
+         removeDcBias: true,
+         normalizePeak: false,
+         normalizationTargetDbfs: -1,
+         trimSilence: false,
+         leadingSilenceMs: 2,
+         trailingSilenceMs: 2,
+         mp3BitrateKbps: 320,
+         metadata: {title: "DC", artist: "", album: "", year: "", genre: "", comment: ""},
+      };
+
+      const master = await createAudioRenderMaster({sourceWavBytes: sourceBytes, analysis, settings});
+      assert.equal(master.preview.outputFrameCount, 7);
+      assert.deepEqual(Array.from(await readPcm16Wave(master.bytes)), [
+         0, 0,
+         0, 0,
+         1000, 2000,
+         998, 1996,
+         996, 1992,
+         -6, -12,
+         -6, -12,
+      ]);
    });
 });
