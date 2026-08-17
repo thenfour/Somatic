@@ -303,7 +303,7 @@ do
 					local cycle = cfg and cfg.lfoCycleTicks12 or 0
 					if cycle > 0 then
 						-- paramU8 0x00..0xFF maps to phase 0..cycle
-						lfo_ticks_by_sfx[instId] = math.floor(cell.paramU8 / 255 * cycle)
+						lfo_ticks_by_sfx[instId] = (cell.paramU8 / 255 * cycle) // 1
 					end
 				end
 				--end

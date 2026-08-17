@@ -57,7 +57,7 @@ local function clamp01(x)
 end
 
 local function clamp_nibble_round(v)
-	return math.floor(clamp(v, 0, 15) + 0.5)
+	return (clamp(v, 0, 15) + 0.5) // 1
 end
 
 -- Codecs use Lua byte tables as their one canonical representation. These
@@ -302,7 +302,7 @@ local function calculate_mod_t(modSource, durationTicks, ticksPlayed, lfoTicks, 
 		end
 		local phase01 = (lfoTicks % cycle) / cycle
 		-- Map sine to 0..1, starting at 0 when phase01=0.
-		return (1 - math.cos(phase01 * math.pi * 2)) * 0.5
+		return (1 - math.cos(phase01 * 6.283)) * 0.5
 	end
 	-- END_FEATURE_LFO
 
@@ -353,8 +353,8 @@ local function write_channel_mix(channel, baseVolumeU8, basePanU8, depthU8, lfoT
 	local engineVolume = peek(addr)
 	local left = engineVolume & 0x0f
 	local right = (engineVolume >> 4) & 0x0f
-	left = math.floor(left * leftGain * volume + 0.5)
-	right = math.floor(right * rightGain * volume + 0.5)
+	left = (left * leftGain * volume + 0.5) // 1
+	right = (right * rightGain * volume + 0.5) // 1
 	poke(addr, left | right << 4)
 end
 
@@ -434,7 +434,8 @@ local function apply_wavefold_effect_to_samples(samples, strength01)
 		local x = (samples[i] / 7.5 - 1) * gain
 
 		-- triangle-ish fold in [-1,1]
-		local y = (2 / math.pi) * math.asin(math.sin(x))
+		-- 2/pi = 0.6366197723675814
+		local y = 0.6366 * math.asin(math.sin(x))
 
 		-- back to 0..15
 		local out = (y + 1) * 7.5
@@ -461,10 +462,10 @@ local function apply_hardsync_effect_to_samples(samples, multiplier)
 
 	for i = 0, N - 1 do
 		local u = (i / N) * multiplier -- slave cycles within master cycle
-		local k = math.floor(u)
+		local k = u // 1
 		local frac = u - k -- 0..1
 		local p = frac * N
-		local idx0 = math.floor(p)
+		local idx0 = p // 1
 		local f = p - idx0
 		local idx1 = (idx0 + 1) % N
 
