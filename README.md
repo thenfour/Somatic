@@ -476,3 +476,9 @@ https://github.com/thenfour/Somatic/milestone/3?closed=1
 - #264 better tooltip formatting for effect insights
 - #260 added support for side channel data for driving demos/animation/song events
 - #270 adding musical interval display on arpeggio editor
+
+## 1.0.20 (2026-08-18)
+
+- #268 Audio render export has an improved workflow, mp3 bitrate setting.
+- #273 DC offset filter added to audio processing pipeline
+- #272 fixed: demo timing was going out of sync when the tic80 stalls.
