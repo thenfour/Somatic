@@ -226,6 +226,8 @@ function buildCueSheetLua(cueSheet: CueSheetEntry[] | null): string {
          fields.push(`pi = ${entry.pi}`);
       if (entry.beat !== undefined)
          fields.push(`beat = ${entry.beat}`);
+      if (entry.ms !== undefined)
+         fields.push(`ms = ${entry.ms}`);
       if (entry.rows !== undefined)
          fields.push(`rows = ${entry.rows}`);
       if (entry.icon !== undefined)
@@ -727,6 +729,7 @@ function getCode(
 SOMATIC_MUSIC_DATA = {
  tempo = ${song.tempo},
  speed = ${song.speed},
+ bpm = ${song.getBpm()},
  rowsPerBeat = ${song.highlightRowCount},
  sideChannel = ${sideChannelData},
  rowsPerPattern = ${song.rowsPerPattern},

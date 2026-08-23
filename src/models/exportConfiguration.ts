@@ -2,7 +2,7 @@ import {MorphEntryFieldNamesToRename} from "../../bridge/morphSchema";
 import {OptimizationRuleOptions} from "../utils/lua/lua_processor";
 import {CoalesceBoolean} from "../utils/utils";
 
-export const CueSheetFieldValues = ["pi", "beat", "rows", "icon", "note"] as const;
+export const CueSheetFieldValues = ["pi", "beat", "ms", "rows", "icon", "note"] as const;
 export type CueSheetField = typeof CueSheetFieldValues[number];
 
 export const kDefaultReleaseMinificationOptions: OptimizationRuleOptions = {

@@ -625,27 +625,25 @@ do
 		end
 	end
 
-	-- TIC-80 tempo/speed pair expressed as BPM-ish beats.
-	local function somatic_get_bpm(tempo, speed)
-		return tempo * 6 / speed
-	end
-
 	-- Shared state for music playback and demo timing.
 	local baseTempo = SOMATIC_MUSIC_DATA.tempo
 	local baseSpeed = SOMATIC_MUSIC_DATA.speed
+	local baseBpm = SOMATIC_MUSIC_DATA.bpm
 	local baseRowsPerBeat = SOMATIC_MUSIC_DATA.rowsPerBeat
 	local baseRowsPerPattern = SOMATIC_MUSIC_DATA.rowsPerPattern
 	local baseSongPatternCount = song_order_count()
 	local baseSongRowCount = song_row_count()
 	local baseSongBeatCount = baseSongRowCount / baseRowsPerBeat
-	local baseSongMillis = baseSongBeatCount * 60000 / somatic_get_bpm(baseTempo, baseSpeed)
+	local baseSongMillis = baseSongBeatCount * 60000 / baseBpm
 	local demoBeatOffset = 0 -- for looped playback, this is added to absolute demobeats so it remains continuous.
 	local somatic_transport = {
 		-- Base timing stays fixed; overrides derive playbackRate.
 		baseTempo = baseTempo,
 		baseSpeed = baseSpeed,
+		baseBpm = baseBpm,
 		tempo = baseTempo,
 		speed = baseSpeed,
+		bpm = baseBpm,
 		rowsPerBeat = baseRowsPerBeat,
 		rowsPerPattern = baseRowsPerPattern,
 		songPatternCount = baseSongPatternCount,
@@ -659,10 +657,11 @@ do
 		pendingAudioAbsRow = nil,
 		prevWallMillis = time(),
 		projectedTime = {},
-		-- Public mutable snapshot returned by somatic_get_time().
+		-- Public mutable snapshot returned by somatic_get_state().
 		time = {
 			tempo = baseTempo,
 			speed = baseSpeed,
+			bpm = baseBpm,
 			rowsPerBeat = baseRowsPerBeat,
 			rowsPerPattern = baseRowsPerPattern,
 			songPatternCount = baseSongPatternCount,
@@ -684,23 +683,24 @@ do
 			demoDeltaMillis = 0,
 			demoBeats = 0,
 			demoDeltaBeats = 0,
-			demoPatternIndex = 0,
-			demoPatternRow = 0,
+			songRow = 0,
+			songPosition = 0,
+			patternRow = 0,
 		},
 	}
 
 	-- Convert canonical demo beats to base-song milliseconds.
 	local function somatic_get_millis_at_beat(beat)
-		local bpm = somatic_get_bpm(somatic_transport.baseTempo, somatic_transport.baseSpeed)
-		return beat * 60000 / bpm
+		return beat * 60000 / somatic_transport.baseBpm
 	end
 
 	local somatic_abs_row_to_position
 
 	-- Override timing as a ratio against the exported song.
 	local function somatic_derive_playback_rate()
-		local baseBpm = somatic_get_bpm(somatic_transport.baseTempo, somatic_transport.baseSpeed)
-		return somatic_get_bpm(somatic_transport.tempo, somatic_transport.speed) / baseBpm
+		return somatic_transport.tempo
+			* somatic_transport.baseSpeed
+			/ (somatic_transport.speed * somatic_transport.baseTempo)
 	end
 
 	-- Refresh row/pattern fields from demoBeats.
@@ -715,19 +715,19 @@ do
 			songRow = songRow % somatic_transport.songRowCount
 		end
 		local songPosition, patternRow = somatic_abs_row_to_position(songRow)
-		state.demoPatternIndex = songPosition
-		state.demoPatternRow = patternRow
+		state.songRow = song_position_to_abs_row(songPosition, patternRow)
+		state.songPosition = songPosition
+		state.patternRow = patternRow
 		local patternIndex = SOMATIC_MUSIC_DATA.patternOrder[songPosition + 1]
 		local patternSideChannelData = SOMATIC_MUSIC_DATA.sideChannel[patternIndex] or nil
 		state.sideChannel = patternSideChannelData and patternSideChannelData[patternRow] or nil
 	end
 
 	local function somatic_notify_row(state)
-		local songRow = song_position_to_abs_row(state.demoPatternIndex, state.demoPatternRow)
-		if songRow == previousCallbackSongRow then
+		if state.songRow == previousCallbackSongRow then
 			return
 		end
-		previousCallbackSongRow = songRow
+		previousCallbackSongRow = state.songRow
 		if rowCallback ~= nil then
 			rowCallback(state)
 		end
@@ -738,6 +738,7 @@ do
 		local state = somatic_transport.time
 		state.tempo = somatic_transport.tempo
 		state.speed = somatic_transport.speed
+		state.bpm = somatic_transport.bpm
 		state.rowsPerBeat = somatic_transport.rowsPerBeat
 		state.rowsPerPattern = somatic_transport.rowsPerPattern
 		state.songPatternCount = somatic_transport.songPatternCount
@@ -751,24 +752,16 @@ do
 		state.syncOffsetMS = 0
 	end
 
-	local function somatic_sync_offset_ms(syncOffsetMS)
-		if syncOffsetMS ~= nil then
-			somatic_transport.syncOffsetMS = tonumber(syncOffsetMS) or 0
-		end
-		return somatic_transport.syncOffsetMS or 0
-	end
-
-	local function somatic_get_sync_offset_beats(syncOffsetMS)
-		local offsetMS = somatic_sync_offset_ms(syncOffsetMS)
+	local function somatic_get_sync_offset_beats()
+		local offsetMS = somatic_transport.syncOffsetMS
 		if offsetMS == 0 then
 			return 0
 		end
-		local bpm = somatic_get_bpm(somatic_transport.baseTempo, somatic_transport.baseSpeed)
-		return offsetMS * somatic_transport.playbackRate * bpm / 60000
+		return offsetMS * somatic_transport.bpm / 60000
 	end
 
-	function somatic_project_time(state, syncOffsetMS)
-		local offsetMS = somatic_sync_offset_ms(syncOffsetMS)
+	local function somatic_project_state(state)
+		local offsetMS = somatic_transport.syncOffsetMS
 		if offsetMS == 0 then
 			state.syncOffsetMS = 0
 			return state
@@ -807,9 +800,6 @@ do
 			end
 			somatic_transport.speed = options.speed
 		end
-		if options.rowsPerBeat ~= nil then
-			error("somatic_set_options: rowsPerBeat is song metadata")
-		end
 		if options.isPlaying ~= nil then
 			somatic_transport.isPlaying = options.isPlaying == true
 		end
@@ -820,20 +810,21 @@ do
 			loopSongForeverEnabled = options.loopSongForever == true
 		end
 		somatic_transport.playbackRate = somatic_derive_playback_rate()
+		somatic_transport.bpm = somatic_transport.baseBpm * somatic_transport.playbackRate
 		somatic_transport.time.demoMillis = somatic_get_millis_at_beat(somatic_transport.time.demoBeats)
 		somatic_write_settings_fields()
 		somatic_write_position_fields()
 	end
 
 	-- 0-based song order index and row --> demo beats.
-	function somatic_position_to_beat(songOrderIndex, row)
-		local absRow = song_position_to_abs_row(songOrderIndex, row)
+	local function somatic_song_position_to_beat(songOrderIndex, row)
+		local absRow = song_position_to_abs_row(songOrderIndex // 1, row)
 		return absRow / somatic_transport.rowsPerBeat
 	end
 
 	-- Sync transport from a somatic position.
 	local function somatic_set_time_from_position(songPosition, row)
-		local beat = somatic_position_to_beat(songPosition, row)
+		local beat = somatic_song_position_to_beat(songPosition, row)
 		local state = somatic_transport.time
 		state.demoBeats = beat
 		state.demoMillis = somatic_get_millis_at_beat(beat)
@@ -887,6 +878,28 @@ do
 		return absRow / somatic_transport.rowsPerBeat, absRow
 	end
 
+	function somatic_resolve_timing(target)
+		local beat
+		if target.demoMillis ~= nil then
+			beat = target.demoMillis * somatic_transport.baseBpm / 60000
+		elseif target.songBeat ~= nil then
+			beat = target.songBeat
+		elseif target.songPosition ~= nil then
+			beat = somatic_song_position_to_beat(target.songPosition, target.patternRow or 0)
+		elseif target.songRow ~= nil then
+			beat = target.songRow / somatic_transport.rowsPerBeat
+		else
+			error("somatic_resolve_timing: invalid args")
+		end
+		local normalizedBeat = somatic_normalize_beat(beat)
+		local timing = {
+			demoMillis = somatic_get_millis_at_beat(normalizedBeat),
+			demoBeats = normalizedBeat,
+		}
+		somatic_write_position_fields(timing)
+		return timing
+	end
+
 	local function somatic_is_integral_row(absRow)
 		local floorRow = absRow // 1
 		if absRow - floorRow <= ROW_EPSILON then
@@ -931,8 +944,7 @@ do
 		state.didSeek = state.didSeek == true
 
 		if (somatic_transport.isPlaying and suppressDemoAdvance ~= true) or forceDemoAdvance == true then
-			local bpm = somatic_get_bpm(somatic_transport.baseTempo, somatic_transport.baseSpeed)
-			local demoDeltaBeats = TIC_MILLIS * somatic_transport.playbackRate * bpm / 60000
+			local demoDeltaBeats = TIC_MILLIS * somatic_transport.bpm / 60000
 			state.demoDeltaBeats = demoDeltaBeats
 			state.demoBeats = state.demoBeats + demoDeltaBeats
 		else
@@ -948,16 +960,21 @@ do
 		state.demoDeltaMillis = somatic_get_millis_at_beat(state.demoDeltaBeats)
 		somatic_write_position_fields(state)
 		somatic_notify_row(state)
-		return somatic_project_time(state)
+		return somatic_project_state(state)
 	end
 
 	-- Read current transport state without ticking.
-	function somatic_get_raw_time()
+	function somatic_get_raw_state()
 		return somatic_transport.time
 	end
 
-	function somatic_get_time(syncOffsetMS)
-		return somatic_project_time(somatic_transport.time, syncOffsetMS)
+	function somatic_get_state()
+		return somatic_project_state(somatic_transport.time)
+	end
+
+	function somatic_set_sync_offset(syncOffsetMS)
+		somatic_transport.syncOffsetMS = syncOffsetMS or 0
+		return somatic_project_state(somatic_transport.time)
 	end
 
 	-- single callback for future natural, non-looping song completions.
@@ -1046,7 +1063,7 @@ do
 		if preserveTime ~= true then
 			somatic_set_time_from_position(songPosition, startRow)
 		end
-		demoBeatOffset = somatic_transport.time.demoBeats - somatic_position_to_beat(songPosition, startRow)
+		demoBeatOffset = somatic_transport.time.demoBeats - somatic_song_position_to_beat(songPosition, startRow)
 		somatic_transport.prevWallMillis = time()
 
 		if somatic_transport.isPlaying then
@@ -1106,10 +1123,12 @@ do
 		return false
 	end
 
-	-- seek by beat; fractional seeks keep public time exact and delay TIC audio to the next row.
-	function somatic_seek(beat, syncOffsetMS)
+	-- seek to projected timing option;
+	-- fractional seeks keep public time exact and delay TIC audio to the next row.
+	function somatic_seek(target)
+		local targetTiming = somatic_resolve_timing(target)
 		local _, _, normalizedBeat =
-			somatic_beat_to_audio_position((beat or 0) - somatic_get_sync_offset_beats(syncOffsetMS))
+			somatic_beat_to_audio_position(targetTiming.demoBeats - somatic_get_sync_offset_beats())
 		local state = somatic_transport.time
 		state.demoBeats = normalizedBeat
 		state.demoMillis = somatic_get_millis_at_beat(normalizedBeat)
@@ -1123,18 +1142,12 @@ do
 		else
 			stop_music(false)
 		end
-		return somatic_project_time(state)
-	end
-
-	-- seek by zero-based song-order index and row while preserving play/pause state.
-	function somatic_seek_position(songOrderIndex, row, syncOffsetMS)
-		return somatic_seek(somatic_position_to_beat(songOrderIndex, row), syncOffsetMS)
+		return somatic_project_state(state)
 	end
 
 	-- apply timing/play state; restarts music when needed.
 	function somatic_set_options(options)
 		options = options or {}
-		somatic_sync_offset_ms(options.syncOffsetMS)
 		local wasPlaying = somatic_transport.isPlaying
 		local restartsMusic = wasPlaying and (options.tempo ~= nil or options.speed ~= nil)
 		somatic_apply_options(options)
@@ -1145,14 +1158,14 @@ do
 			start_or_schedule_music_at_current_time()
 		end
 
-		return somatic_project_time(somatic_transport.time)
+		return somatic_project_state(somatic_transport.time)
 	end
 
 	-- step demo time 1 frame.
 	function somatic_advance_frame()
 		-- somatic cannot do a frame advance while playing.
 		if somatic_transport.isPlaying then
-			return somatic_project_time(somatic_transport.time)
+			return somatic_project_state(somatic_transport.time)
 		end
 		return somatic_publish_time(somatic_update_time(TIC_MILLIS, true))
 	end
@@ -1169,8 +1182,7 @@ do
 	end
 
 	-- Main per-frame API: updates time, then music buffers/SFX.
-	function somatic_tick(wallDeltaMillisOverride, syncOffsetMS)
-		somatic_sync_offset_ms(syncOffsetMS)
+	function somatic_tick(wallDeltaMillisOverride)
 		local suppressDemoAdvance = not initialized
 		if suppressDemoAdvance and somatic_transport.isPlaying then
 			start_or_schedule_music_at_current_time()
@@ -1237,7 +1249,7 @@ do
 			else
 				queuePlaybackBuffer(currentSongOrder, destPointer, (currentFrame + 1) % 16)
 			end
-			somatic_anchor_time_at_beat(somatic_position_to_beat(playingSongOrder0b, row))
+			somatic_anchor_time_at_beat(somatic_song_position_to_beat(playingSongOrder0b, row))
 		end
 
 		somatic_sfx_tick(track, currentFrame, row)
@@ -1255,10 +1267,10 @@ function TIC()
 	local state = somatic_tick()
 
 	if btnp(2) then -- left
-		state = somatic_seek(math.max(0, state.demoBeats - 1))
+		state = somatic_seek({ demoMillis = math.max(0, state.demoMillis - 60000 / SOMATIC_MUSIC_DATA.bpm) })
 	end
 	if btnp(3) then -- right
-		state = somatic_seek(state.demoBeats + 1)
+		state = somatic_seek({ demoMillis = state.demoMillis + 60000 / SOMATIC_MUSIC_DATA.bpm })
 	end
 	if btnp(1) then -- down
 		state = somatic_set_options({ isPlaying = not state.isPlaying })
@@ -1288,8 +1300,8 @@ function TIC()
 			state.isPlaying and "y" or "n",
 			state.isMuted and "y" or "n",
 			state.demoBeats,
-			state.demoPatternIndex,
-			state.demoPatternRow
+			state.songPosition,
+			state.patternRow
 		),
 		0,
 		y,

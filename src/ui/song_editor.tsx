@@ -314,6 +314,7 @@ const ExportConfigurationSettings: React.FC<ExportConfigurationSettingsProps> = 
 const CueSheetFieldLabels: Record<CueSheetField, string> = {
    pi: "Pattern index (pi)",
    beat: "Start beat (beat)",
+   ms: "Start demo time (ms)",
    rows: "Row count (rows)",
    icon: "Arrangement marker (icon)",
    note: "Pattern name (note)",
@@ -352,7 +353,7 @@ export const SongEditor: React.FC<SongEditorProps> = ({song, editorState, onSong
    };
 
    const rowsPerBeat = song.getRowsPerBeat();
-   const bpm = song.subsystem.calculateBpm({songTempo: song.tempo, songSpeed: song.speed, rowsPerBeat});
+   const bpm = song.getBpm();
    const tic80RuntimeCadence = song.subsystemType === kSubsystem.key.TIC80
       ? tic80AnalyzeRuntimeCadence({tempo: song.tempo, speed: song.speed}, song.rowsPerPattern)
       : null;

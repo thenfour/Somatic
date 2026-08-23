@@ -28,6 +28,7 @@ describe("cue sheet field selection", () => {
       assert.deepEqual(buildCueSheet(song, configuration.cueSheetFields), [{
          pi: 0,
          beat: 0,
+         ms: 0,
          rows: song.rowsPerPattern,
          icon: "star",
          note: "Intro",
@@ -51,17 +52,40 @@ describe("cue sheet field selection", () => {
       assert.deepEqual(loaded.exportConfigurations[0].cueSheetFields, ["beat", "note"]);
    });
 
+   it("defaults ms on for new configurations without changing explicit saved selections", () => {
+      const song = makeNamedSong();
+      assert.equal(song.exportConfigurations[0].cueSheetFields.includes("ms"), true);
+
+      const saved = song.toData();
+      saved.exportConfigurations![0].cueSheetFields = ["pi", "beat", "rows", "icon", "note"];
+      const loaded = Song.fromData(saved);
+      assert.deepEqual(loaded.exportConfigurations[0].cueSheetFields, ["pi", "beat", "rows", "icon", "note"]);
+      assert.equal(loaded.toData().schemaVersion, 2);
+   });
+
+   it("uses the song BPM for cue milliseconds", () => {
+      const song = new Song({tempo: 120, speed: 6, highlightRowCount: 8, rowsPerPattern: 8});
+      song.songOrder.push(song.songOrder[0].clone());
+
+      assert.equal(song.getBpm(), 60);
+      assert.deepEqual(buildCueSheet(song, ["beat", "ms"]), [
+         {beat: 0, ms: 0},
+         {beat: 1, ms: 1000},
+      ]);
+   });
+
    it("copies the original metadata payload shape with every cue-sheet field", () => {
       const song = makeNamedSong();
       song.exportConfigurations[0].exportCueSheet = false;
       song.exportConfigurations[0].cueSheetFields = ["beat"];
 
-      const payload = buildSongMetadataPayload(song, ["pi", "beat", "rows", "icon", "note"]);
+      const payload = buildSongMetadataPayload(song, CueSheetFieldValues);
       assert.deepEqual(Object.keys(payload), ["transport", "cueSheet"]);
       assert.deepEqual(payload.transport, song.buildTransportConfig());
       assert.deepEqual(payload.cueSheet, [{
          pi: 0,
          beat: 0,
+         ms: 0,
          rows: song.rowsPerPattern,
          icon: "star",
          note: "Intro",
@@ -83,6 +107,7 @@ describe("cue sheet field selection", () => {
          gTic80AllChannelsAudible,
       );
       assert.ok(selected.wholePlayroutineCode.includes('SOMATIC_CUE_SHEET={{beat=0,note="Intro"}}'));
+      assert.match(selected.wholePlayroutineCode, /\bbpm\s*=\s*120/);
 
       const disabled = serializeSongToCartDetailed(
          song,

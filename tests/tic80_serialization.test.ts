@@ -134,6 +134,38 @@ describe("playroutine generated-data contract", () => {
       assert.doesNotMatch(playroutineSource, /cell\.paramU8 or/);
       assert.doesNotMatch(sharedSource, /baseVolumeU8 or|bytes\[pos\] or 0/);
    });
+
+   it("serializes the editor BPM and exposes the resolved-target PlayRoutine API", async () => {
+      const {serializeSongToCartDetailed} = await import("../src/subsystem/tic80/tic80_cart_serializer");
+      const song = new Song({tempo: 120, speed: 6, highlightRowCount: 8});
+      const details = serializeSongToCartDetailed(
+         song,
+         false,
+         debugConfiguration(song),
+         gTic80AllChannelsAudible,
+      );
+      const source = fs.readFileSync(new URL("../bridge/playroutine.lua", import.meta.url), "utf8");
+
+      assert.equal(song.getBpm(), 60);
+      assert.match(details.wholePlayroutineCode, /\bbpm\s*=\s*60/);
+      assert.doesNotMatch(source, /somatic_get_bpm/);
+      for (const publicFunction of [
+         "somatic_get_state",
+         "somatic_get_raw_state",
+         "somatic_set_sync_offset",
+         "somatic_resolve_timing",
+         "somatic_seek",
+      ]) {
+         assert.match(source, new RegExp(`function\\s+${publicFunction}\\s*\\(`));
+      }
+      assert.doesNotMatch(
+         source,
+         /function\s+somatic_(?:get_time|get_raw_time|project_time|position_to_beat|seek_position)\s*\(/,
+      );
+      assert.doesNotMatch(source, /function\s+somatic_timing_from_/);
+      assert.match(source, /target\.songBeat/);
+      assert.doesNotMatch(source, /state\.patternIndex/);
+   });
 });
 
 describe("playroutine export reachability", () => {

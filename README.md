@@ -90,7 +90,7 @@ All your demo needs to do is
 ```lua
 function TIC()
 	local state = somatic_tick()
-	-- drive visuals from state.demoBeats / state.demoPatternIndex / state.demoPatternRow
+	-- drive visuals from state.demoBeats / state.songPosition / state.patternRow
 	...
 	somatic_end_frame()
 end
@@ -101,32 +101,54 @@ value for animation; pattern and row fields are also included for tracker-style 
 
 ```lua
 local state = somatic_tick()
-print(string.format("beat:%.2f pat:%d row:%d", state.demoBeats, state.demoPatternIndex, state.demoPatternRow), 0, 0)
+print(string.format("beat:%.2f pos:%d row:%d", state.demoBeats, state.songPosition, state.patternRow), 0, 0)
 ```
 
 public API:
 
 ```lua
-somatic_tick(wallDeltaMillisOverride, syncOffsetMS) -- call once per TIC frame; returns state
-somatic_get_time(syncOffsetMS)                      -- read state without advancing time
-somatic_get_raw_time()                              -- read music transport state without sync correction
-somatic_project_time(state, syncOffsetMS)           -- project a state through a time offset
-somatic_seek(beat, syncOffsetMS)                    -- seek to an external beat, including fractional beats
-somatic_position_to_beat(songOrderIndex, row)       -- convert a 0-based song position and row to a beat
-somatic_seek_position(songOrderIndex, row, syncOffsetMS) -- seek to a zero-based song position and row
-somatic_set_options(options)                        -- tempo/speed/isPlaying/isMuted/loopSongForever/syncOffsetMS
-somatic_set_completion_callback(callback)           -- register a natural song-completion callback; nil unregisters
-somatic_set_row_callback(callback)                  -- register an observed-song-row callback; nil unregisters
-somatic_advance_frame()                             -- advance paused demo time by one 60Hz frame
-somatic_end_frame()                                 -- for internal bookkeeping
+somatic_tick(wallDeltaMillisOverride)     -- call once per TIC frame; returns projected state
+somatic_get_state()                       -- read projected state without advancing time
+somatic_get_raw_state()                   -- read music transport state without sync correction
+somatic_set_sync_offset(syncOffsetMS)     -- set latency correction
+somatic_seek(target)                      -- seek to absolute position (see below for target options)
+somatic_resolve_timing(target)            -- convert an absolute song position to full timing struct (same options as seek)
+somatic_set_options(options)              -- tempo/speed/isPlaying/isMuted/loopSongForever
+somatic_set_completion_callback(callback) -- register a natural song-completion callback; nil unregisters
+somatic_set_row_callback(callback)        -- register an observed-song-row callback; nil unregisters
+somatic_advance_frame()                   -- advance paused demo time by one 60Hz frame
+somatic_end_frame()                       -- for internal bookkeeping
 ```
 
-`somatic_seek()` keeps `demoBeats` / `demoMillis` continuous for animation. TIC-80 audio can
-only start on integer rows, so a fractional seek may produce a short silence until the next row
+`somatic_seek()` and `somatic_resolve_timing()` accept these option shapes:
+
+```lua
+somatic_seek({ demoMillis = 9000 })
+somatic_seek({ songPosition = 3 })
+somatic_seek({ songPosition = 3, patternRow = 5 })
+somatic_seek({ songBeat = 75 })
+somatic_seek({ songRow = 75 })
+```
+
+`patternRow` defaults to zero. TIC-80 audio can only start on integer rows,
+so seeking between rows will produce a short silence until the next row
 boundary before music resumes.
 
-Song positions and rows are zero-based. A song position is an index into
-the rendered song order, not the index of an underlying pattern.
+`somatic_resolve_timing()` returns a standalone timing table like:
+
+```
+local timing = somatic_resolve_timing({ demoMillis = 9000 })
+timing.demoMillis
+timing.demoBeats
+timing.songRow
+timing.songPosition
+timing.patternRow
+timing.sideChannel
+```
+
+This can be passed directly to `somatic_seek()`.
+
+Song positions and rows are zero-based.
 
 `somatic_set_completion_callback()` keeps one callback registered until it is replaced or
 unregistered with `nil`. The callback runs once after each natural, non-looping song completion,
@@ -157,9 +179,10 @@ Side-channel strings have a couple caveats:
 - have a max length (1kb per cell atm)
 - can only support ASCII characters, because of TIC-80 Lua.
 
-`syncOffsetMS` is a presentation-only latency correction in system milliseconds. Positive values
-advance the returned external transport time. It does not change internal music playback state;
-`somatic_get_raw_time()` exposes that unprojected state.
+`syncOffsetMS` can be configured at any time through `somatic_set_sync_offset()`.
+It is a presentation-only latency correction. Positive values advance the returned external transport
+time. It does not change internal music playback state; `somatic_get_raw_state()` exposes that
+unprojected state. Row callbacks remain raw/audio-timed even when returned state is projected.
 
 Transport state includes timing settings, play state, wall-clock fields, demo-clock fields, and song
 length fields. "Wall clock" refers to the clock on your wall rather than in the song/demo.
@@ -168,6 +191,7 @@ The wall clock ticks even when the demo is paused. Useful for debug huds etc.
 ```lua
 state.tempo
 state.speed
+state.bpm
 state.rowsPerBeat
 state.rowsPerPattern
 state.isPlaying
@@ -185,8 +209,9 @@ state.demoMillis
 state.demoDeltaMillis
 state.demoBeats
 state.demoDeltaBeats
-state.demoPatternIndex
-state.demoPatternRow
+state.songRow
+state.songPosition
+state.patternRow
 state.sideChannel -- current pattern-row string, or nil
 
 state.songPatternCount
@@ -205,15 +230,17 @@ if btnp(1) then
 	state = somatic_set_options({ isPlaying = not state.isPlaying })
 end
 if btnp(2) then
-	state = somatic_seek(math.max(0, state.demoBeats - 1))
+	state = somatic_seek({ songRow = math.max(0, state.songRow - state.rowsPerBeat) })
 end
 if btnp(3) then
-	state = somatic_seek(math.min(state.songBeatCount, state.demoBeats + 1))
+	state = somatic_seek({ songRow = math.min(state.songRowCount - 1, state.songRow + state.rowsPerBeat) })
 end
 ```
 
 `tempo` and `speed` can be overridden together for slowed playback. `rowsPerBeat`
-is based on Somatic's highlight rows.
+is based on Somatic's highlight rows. `bpm` reflects all three values. Exported transport metadata
+includes the song BPM, and cue-sheet entries can include `ms`. New export configurations enable
+`ms` by default; existing saved field selections remain unchanged until opted in.
 
 ## How to use with ticbuild build system
 

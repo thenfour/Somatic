@@ -750,6 +750,14 @@ export class Song {
       return this.highlightRowCount;
    }
 
+   getBpm(): number {
+      return this.subsystem.calculateBpm({
+         songTempo: this.tempo,
+         songSpeed: this.speed,
+         rowsPerBeat: this.getRowsPerBeat(),
+      });
+   }
+
    getPatternEffectiveRowCount(patternIndex: number): number {
       const maxPatternIndex = Math.max(0, this.patterns.length - 1);
       const safePatternIndex = clamp(patternIndex | 0, 0, maxPatternIndex);
@@ -825,6 +833,7 @@ export class Song {
    //  "transport": {
    //    "tempo": 120,
    //    "speed": 6,
+   //    "bpm": 120,
    //    "rowsPerBeat": 4,
    //    "rowsPerPattern": 64,
    //    "songBeatCount": 90,
@@ -833,6 +842,7 @@ export class Song {
       return {
          tempo: this.tempo,
          speed: this.speed,
+         bpm: this.getBpm(),
          rowsPerPattern: this.rowsPerPattern,
          rowsPerBeat: this.getRowsPerBeat(),
          songBeatCount: this.getSongLengthRows() / this.getRowsPerBeat(),
@@ -896,6 +906,7 @@ export type CueSheetEntry = Partial<{
    icon: string;
    pi: number;
    beat: number;
+   ms: number;
    rows: number;
    note: string;
 }>;
@@ -911,10 +922,13 @@ export function buildCueSheet(song: Song, cueSheetFields: readonly CueSheetField
       const patternIndex = clamp(orderItem.patternIndex ?? 0, 0, maxPatternIndex);
       const patternName = song.patterns[patternIndex]?.name ?? "";
       const entry: CueSheetEntry = {};
+      const beat = song.getAbsRowAtSongPosition(orderIndex, 0) / song.getRowsPerBeat();
       if (fields.has("pi"))
          entry.pi = patternIndex; // order index != pattern index; this is necessary.
       if (fields.has("beat"))
-         entry.beat = song.getAbsRowAtSongPosition(orderIndex, 0) / song.getRowsPerBeat();
+         entry.beat = beat;
+      if (fields.has("ms"))
+         entry.ms = beat * 60000 / song.getBpm();
       if (fields.has("rows"))
          entry.rows = song.getOrderEffectiveRowCount(orderIndex);
       if (fields.has("icon"))
