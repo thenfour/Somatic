@@ -1,4 +1,4 @@
-import {assert, clamp} from "../utils/utils";
+import {clamp} from "../utils/utils";
 import {kSomaticPatternCommand, kTic80EffectCommand, SomaticPatternCommand, Tic80EffectCommand} from "./tic80Capabilities";
 
 

@@ -627,6 +627,45 @@
     visibility: hidden;
 }
 
+.pattern-row-state-tooltip-content {
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+}
+
+.pattern-row-state-tooltip-title {
+   font-weight: 600;
+}
+
+.pattern-row-state-tooltip-table {
+   border-collapse: collapse;
+   font-family: var(--ff-mono);
+   max-width: 100%;
+}
+
+.pattern-row-state-tooltip-table th,
+.pattern-row-state-tooltip-table td {
+   padding: 1px 8px 1px 0;
+   text-align: left;
+   vertical-align: top;
+}
+
+.pattern-row-state-tooltip-table th:not(:last-child),
+.pattern-row-state-tooltip-table td:not(:last-child) {
+   white-space: nowrap;
+}
+
+.pattern-row-state-tooltip-table th:last-child,
+.pattern-row-state-tooltip-table td:last-child {
+   padding-right: 0;
+}
+
+.pattern-row-state-tooltip-table thead th,
+.pattern-row-state-tooltip-table tbody th {
+   color: var(--muted);
+   font-weight: 400;
+}
+
 .pattern-grid-container {
     --pattern-grid-sticky-top: 0px;
     flex-grow: 1;

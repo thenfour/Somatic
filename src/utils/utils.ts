@@ -712,3 +712,12 @@ export function stripExtension(fileName: string): string {
 export function pow2(x: number): number {
    return 2 ** x;
 }
+
+
+export function formatNibble(value: number): string {
+   return (value & 0x0f).toString(16).toUpperCase();
+}
+
+export function formatByte(value: number): string {
+   return (value & 0xff).toString(16).toUpperCase().padStart(2, "0");
+}

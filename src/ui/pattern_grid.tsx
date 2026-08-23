@@ -33,6 +33,7 @@ import {Divider} from "./basic/Divider";
 import {getTic80SongStateAccumulator} from "../subsystem/tic80/tic80_song_state";
 import {Tic80EffectInsightTooltip} from "./Tic80EffectInsightTooltip";
 import {SideChannelDataEditorDialog} from './SideChannelDataEditorDialog';
+import {PatternRowStateTooltip} from './PatternRowStateTooltip';
 
 type ExtendedCellType = 'note' | 'instrument' | 'volume' | 'pan' | 'command' | 'param' | 'somaticCommand' | 'somaticParam' | 'sideChannel';
 
@@ -2092,20 +2093,26 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                                 const rowIssueText = Array.from(new Set(rowIssues.map((issue) => issue.message))).join(" ");
                                 return (
                                     <tr key={rowIndex} className={rowClass}>
-                                        <td
-                                            className={rowNumberClass}
-                                            data-row-index={rowIndex}
-                                            onMouseDown={(e) => handleRowHeaderMouseDown(e, rowIndex)}
+                                        <PatternRowStateTooltip
+                                            song={song}
+                                            songPosition={currentPosition}
+                                            rowIndex={rowIndex}
                                         >
-                                            <div className="row-number-inner">
-                                                <span className="row-number-index">{rowIndex.toString().padStart(2, '0')}</span>
-                                                {rowIssueText ? (
-                                                    <Tooltip title={rowIssueText}>
-                                                        <div className="row-number-issue-dot"></div>
-                                                    </Tooltip>
-                                                ) : <div className="row-number-issue-dot row-number-issue-dot--hidden"></div>}
-                                            </div>
-                                        </td>
+                                            <td
+                                                className={rowNumberClass}
+                                                data-row-index={rowIndex}
+                                                onMouseDown={(e) => handleRowHeaderMouseDown(e, rowIndex)}
+                                            >
+                                                <div className="row-number-inner">
+                                                    <span className="row-number-index">{rowIndex.toString().padStart(2, '0')}</span>
+                                                    {rowIssueText ? (
+                                                        <Tooltip title={rowIssueText}>
+                                                            <div className="row-number-issue-dot"></div>
+                                                        </Tooltip>
+                                                    ) : <div className="row-number-issue-dot row-number-issue-dot--hidden"></div>}
+                                                </div>
+                                            </td>
+                                        </PatternRowStateTooltip>
                                         {Array.from({ length: song.subsystem.channelCount }).map((_, channelIndex) => {
                                             //const channelIndex = ToTic80ChannelIndex(channelIndexRaw);
                                             const channel = pattern.getChannel(channelIndex);
