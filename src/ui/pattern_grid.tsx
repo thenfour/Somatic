@@ -16,6 +16,12 @@ import { formatPatternIndex, Song } from '../models/song';
 import { kSomaticPatternCommand, kTic80EffectCommand, SomaticPatternCommand, Tic80EffectCommand } from '../models/tic80Capabilities';
 import { PatternGridHighlightStyle, kPatternGridHighlightStyle } from '../models/patternGridHighlightStyle';
 import {contractPatternRows, evenlyDistributeNotesInPattern, expandPatternRows, interpolatePatternValues, nudgeInstrumentInPattern, PatternRowScaleMode, planPatternRowScale, RowRange, setInstrumentInPattern, transposeCellsInPattern} from '../utils/advancedPatternEdit';
+import {
+   describeSideChannelPlaintextAdjustments,
+   parseSideChannelPlaintext,
+   serializeSideChannelPlaintext,
+   type SerializedSideChannelPlaintext,
+} from '../utils/sideChannelPlaintextClipboard';
 import {assert, CharMap, clamp, Coord2D, includesOf, numericRange} from '../utils/utils';
 import { Tooltip } from './basic/tooltip';
 import './pattern_grid.css';
@@ -124,6 +130,10 @@ type PatternClipboardPayload = {
    lanes: number;
    cells: PatternClipboardCell[][]; // row-major
 };
+
+type ReadPatternClipboardResult =
+   | {kind: 'patternBlock'; payload: PatternClipboardPayload;}
+   | {kind: 'sideChannelPlaintext'; text: string;};
 
 type ScopeTargets = {
     patternIndices: number[];
@@ -799,6 +809,23 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             };
         };
 
+      const createSideChannelPlaintext = (): SerializedSideChannelPlaintext | null => {
+         const bounds = editorState.patternSelection;
+         if (!bounds) return null;
+         const rowStart = bounds.topInclusive();
+         const laneStart = bounds.leftInclusive();
+         const rows = bounds.rowCount();
+         const lanes = bounds.columnCount();
+         if (rowStart === null || laneStart === null || rows === null || lanes === null) return null;
+         if (laneStart !== sideChannelLaneIndex || lanes !== 1) return null;
+
+         return serializeSideChannelPlaintext(
+            Array.from({length: rows}, (_, rowOffset) => (
+               pattern.peekSideChannelCell(rowStart + rowOffset) ?? ''
+            )),
+         );
+      };
+
         const writePayloadToClipboard = async (payload: PatternClipboardPayload): Promise<boolean> => {
             try {
                 await clipboard.copyObjectToClipboard(payload);
@@ -809,6 +836,26 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
                 return false;
             }
         };
+
+      const writeSideChannelPlaintextToClipboard = async (
+         serialized: SerializedSideChannelPlaintext,
+      ): Promise<boolean> => {
+         try {
+            await clipboard.copyTextToClipboard(serialized.text);
+            const adjustmentDescription = describeSideChannelPlaintextAdjustments(serialized.adjustments);
+            if (adjustmentDescription) {
+               pushToast({
+                  message: `Copied side-channel text: ${adjustmentDescription}.`,
+                  variant: 'info',
+               });
+            }
+            return true;
+         } catch (err) {
+            console.error('Side-channel text copy failed', err);
+            pushToast({message: 'Failed to copy side-channel text.', variant: 'error'});
+            return false;
+         }
+      };
 
         const clearSelectionCells = () => {
             const bounds = editorState.patternSelection;
@@ -834,12 +881,23 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
         };
 
         const handleCopySelection = () => {
+           const sideChannelPlaintext = createSideChannelPlaintext();
+           if (sideChannelPlaintext) {
+              void writeSideChannelPlaintextToClipboard(sideChannelPlaintext);
+              return;
+           }
             const payload = createClipboardPayload();
             if (!payload) return;
             void writePayloadToClipboard(payload);
         };
 
         const handleCutSelection = async () => {
+           const sideChannelPlaintext = createSideChannelPlaintext();
+           if (sideChannelPlaintext) {
+              const copied = await writeSideChannelPlaintextToClipboard(sideChannelPlaintext);
+              if (copied) clearSelectionCells();
+              return;
+           }
             const payload = createClipboardPayload();
             if (!payload) return;
             const copied = await writePayloadToClipboard(payload);
@@ -847,26 +905,45 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
             clearSelectionCells();
         };
 
-        const readClipboardPayload = async (): Promise<PatternClipboardPayload | null> => {
+      const readClipboardSelection = async (): Promise<ReadPatternClipboardResult | null> => {
             try {
-               const data = await clipboard.readObjectFromClipboard<PatternClipboardPayload | PatternClipboardPayloadV1>();
-               if (!data || data.type !== PATTERN_CLIPBOARD_TYPE || !Array.isArray(data.cells)) {
-                    pushToast({ message: 'Clipboard does not contain a pattern block.', variant: 'error' });
-                    return null;
-                }
-               if (data.version === 2 && Number.isInteger(data.lanes)) {
-                  return data;
+               const text = await clipboard.readTextFromClipboard();
+               let data: PatternClipboardPayload | PatternClipboardPayloadV1 | null = null;
+               try {
+                  data = JSON.parse(text) as PatternClipboardPayload | PatternClipboardPayloadV1;
+               } catch {
+                  // freestyle text is valid for side-channel
                }
-               if (data.version === 1 && Number.isInteger(data.channels)) {
-                  return {
-                     type: PATTERN_CLIPBOARD_TYPE,
-                     version: 2,
-                     rows: data.rows,
-                     lanes: data.channels,
-                     cells: data.cells.map((row) => row.map((cell) => ({kind: 'audio', cell: {...cell}}))),
-                  };
+
+               if (data?.type === PATTERN_CLIPBOARD_TYPE) {
+                  if (!Array.isArray(data.cells)) {
+                     pushToast({message: 'unsupported pattern block format', variant: 'error'});
+                     return null;
+                  }
+                  if (data.version === 2 && Number.isInteger(data.lanes)) {
+                     return {kind: 'patternBlock', payload: data};
+                  }
+                  if (data.version === 1 && Number.isInteger(data.channels)) {
+                     return {
+                        kind: 'patternBlock',
+                        payload: {
+                           type: PATTERN_CLIPBOARD_TYPE,
+                           version: 2,
+                           rows: data.rows,
+                           lanes: data.channels,
+                           cells: data.cells.map((row) => row.map((cell) => ({kind: 'audio', cell: {...cell}}))),
+                        },
+                     };
+                  }
+                  pushToast({message: 'Clipboard contains an unsupported pattern block.', variant: 'error'});
+                  return null;
                }
-               pushToast({message: 'Clipboard contains an unsupported pattern block.', variant: 'error'});
+
+               if (editorState.patternEditChannel === sideChannelLaneIndex) {
+                  return {kind: 'sideChannelPlaintext', text};
+               }
+
+               pushToast({message: 'Clipboard does not contain a pattern block.', variant: 'error'});
                return null;
             } catch (err) {
                 console.error('Pattern paste failed', err);
@@ -917,10 +994,46 @@ export const PatternGrid = forwardRef<PatternGridHandle, PatternGridProps>(
            focusCell(startRow, focusColumn);
         };
 
+      const applySideChannelPlaintext = (text: string) => {
+         const startRow = clamp(editorState.patternEditRow, 0, song.rowsPerPattern - 1);
+         const parsed = parseSideChannelPlaintext(text, song.rowsPerPattern - startRow);
+         if (parsed.values.length === 0) return;
+
+         onSongChange({
+            description: 'Paste side-channel text',
+            undoable: true,
+            mutator: (s) => {
+               const pat = s.patterns[safePatternIndex];
+               parsed.values.forEach((value, rowOffset) => {
+                  pat.setSideChannelCell(startRow + rowOffset, value);
+               });
+            },
+         });
+
+         selection2d.setSelection(new SelectionRect2D({
+            start: {x: sideChannelLaneIndex, y: startRow},
+            size: {width: 1, height: parsed.values.length},
+         }));
+         focusCell(startRow, sideChannelColumnIndex);
+
+         const adjustmentDescription = describeSideChannelPlaintextAdjustments(parsed.adjustments);
+         if (adjustmentDescription) {
+            pushToast({
+               message: `Pasted side-channel text: ${adjustmentDescription}.`,
+               variant: 'info',
+            });
+         }
+      };
+
         const handlePasteSelection = async () => {
-            const payload = await readClipboardPayload();
-            if (!payload) return;
-            applyClipboardPayload(payload);
+           console.log('handlePasteSelection called');
+           const clipboardSelection = await readClipboardSelection();
+           if (!clipboardSelection) return;
+           if (clipboardSelection.kind === 'patternBlock') {
+              applyClipboardPayload(clipboardSelection.payload);
+           } else {
+              applySideChannelPlaintext(clipboardSelection.text);
+           }
         };
 
         // Register clipboard action handlers

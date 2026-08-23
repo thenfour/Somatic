@@ -150,8 +150,12 @@ somatic_set_row_callback(function(state)
 end)
 ```
 
-Side-channel strings are per pattern-row. Can contain only the printable 7-bit
-ASCII characters. Maximum size enforced.
+Side-channel strings have a couple caveats:
+
+- can't contain line-breaks. Why? Because these are cells and should look like such.
+  but also because it makes plaintext copy/paste of sidechannel data sane.
+- have a max length (1kb per cell atm)
+- can only support ASCII characters, because of TIC-80 Lua.
 
 `syncOffsetMS` is a presentation-only latency correction in system milliseconds. Positive values
 advance the returned external transport time. It does not change internal music playback state;
