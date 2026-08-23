@@ -679,6 +679,7 @@ do
 			wallFrame = 0,
 			wallDeltaMillis = 0,
 			wallMillis = 0,
+			ticTimingErrorMillis = 0,
 			demoMillis = 0,
 			demoDeltaMillis = 0,
 			demoBeats = 0,
@@ -938,6 +939,11 @@ do
 			wallDeltaMillis = 0
 		end
 
+		-- accumulate actual wall time minus one ideal 60 Hz TIC interval.
+		-- The first update establishes baseline
+		if state.wallFrame > 0 then
+			state.ticTimingErrorMillis = state.ticTimingErrorMillis + wallDeltaMillis - TIC_MILLIS
+		end
 		state.wallFrame = state.wallFrame + 1
 		state.wallDeltaMillis = wallDeltaMillis
 		state.wallMillis = state.wallMillis + wallDeltaMillis

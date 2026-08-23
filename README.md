@@ -204,6 +204,7 @@ state.syncOffsetMS
 state.wallFrame
 state.wallDeltaMillis
 state.wallMillis
+state.ticTimingErrorMillis
 
 state.demoMillis
 state.demoDeltaMillis
@@ -222,6 +223,15 @@ state.songMillis
 state.rawDemoMillis -- internal time with no sync offset applied
 state.rawDemoBeats  -- internal time with no sync offset applied
 ```
+
+`ticTimingErrorMillis` is the cumulative difference between observed wall-clock
+intervals and ideal 60 Hz TIC intervals. Positive values mean
+TIC execution is falling behind 60 Hz; negative values mean it is running ahead.
+This is a diagnostic-only value that should reveal when the demo is not running at the
+intended speed. In such case, you can expect animations to drift out of sync
+with the music. Even if both graphics and music are "in sync", there's a wide
+ring buffer fed to the audio engine that can drift up to 200ms away from TIC()
+execution and there's no way to control it. See: https://github.com/thenfour/Somatic/issues/283
 
 For example:
 
