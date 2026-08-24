@@ -439,12 +439,12 @@ do
 	end
 
 	local function song_position_to_abs_row(songPosition, row)
-		local safeSongPosition = clamp(songPosition or 0, 0, math.max(0, song_order_count() - 1))
+		local safeSongPosition = clamp(songPosition, 0, song_order_count() - 1)
 		local absRow = 0
 		for i = 0, safeSongPosition - 1 do
 			absRow = absRow + song_order_row_count(i)
 		end
-		return absRow + clamp(row or 0, 0, math.max(0, song_order_row_count(safeSongPosition) - 1))
+		return absRow + clamp(row, 0, song_order_row_count(safeSongPosition) - 1)
 	end
 
 	-- decode b85+1 LZ-compressed data into a table of integers with 'bits' bits each.
@@ -747,17 +747,15 @@ do
 		state.songBeatCount = somatic_transport.songBeatCount
 		state.songMillis = somatic_transport.songMillis
 		state.isPlaying = somatic_transport.isPlaying
+		state.playbackRate = somatic_transport.playbackRate
+
 		state.isMuted = playbackMuted
 		state.loopSongForever = loopSongForeverEnabled
-		state.playbackRate = somatic_transport.playbackRate
 		state.syncOffsetMS = 0
 	end
 
 	local function somatic_get_sync_offset_beats()
 		local offsetMS = somatic_transport.syncOffsetMS
-		if offsetMS == 0 then
-			return 0
-		end
 		return offsetMS * somatic_transport.bpm / 60000
 	end
 
@@ -780,25 +778,22 @@ do
 		projected.rawDemoMillis = state.demoMillis
 		projected.rawDemoBeats = state.demoBeats
 		projected.syncOffsetMS = offsetMS
-		projected.demoMillis = math.max(0, state.demoMillis + offsetDemoMillis)
-		projected.demoBeats = math.max(0, state.demoBeats + somatic_get_sync_offset_beats())
+		projected.demoMillis = state.demoMillis + offsetDemoMillis
+		projected.demoBeats = state.demoBeats + somatic_get_sync_offset_beats()
 		somatic_write_position_fields(projected)
 		return projected
 	end
 
-	-- Apply runtime tempo/speed/isPlaying overrides.
 	local function somatic_apply_options(options)
-		options = options or {}
+		if options.syncOffsetMS ~= nil then
+			somatic_set_sync_offset(options.syncOffsetMS)
+		end
 		if options.tempo ~= nil then
-			if options.tempo <= 0 then
-				error("somatic_set_options: tempo must be > 0")
-			end
+			-- assert: tempo > 0
 			somatic_transport.tempo = options.tempo
 		end
 		if options.speed ~= nil then
-			if options.speed <= 0 then
-				error("somatic_set_options: speed must be > 0")
-			end
+			-- assert: speed > 0
 			somatic_transport.speed = options.speed
 		end
 		if options.isPlaying ~= nil then
@@ -1153,7 +1148,6 @@ do
 
 	-- apply timing/play state; restarts music when needed.
 	function somatic_set_options(options)
-		options = options or {}
 		local wasPlaying = somatic_transport.isPlaying
 		local restartsMusic = wasPlaying and (options.tempo ~= nil or options.speed ~= nil)
 		somatic_apply_options(options)
