@@ -23,6 +23,7 @@ import {ButtonGroup} from "./Buttons/ButtonGroup";
 import {IconButton} from "./Buttons/IconButton";
 import {InstrumentChip} from "./InstrumentChip";
 import "./InstrumentsPanel.css";
+import {Divider} from "./basic/Divider";
 
 export type InstrumentsPanelProps = {
    song: Song;
@@ -290,7 +291,9 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                         <InstrumentChip
                            instrumentIndex={idx}
                            instrument={inst}
-                        // showTooltip={false}
+                           // tooltip is noisy, and redundant. it is only useful when the instrument name
+                           // is truncated, but not worth.
+                           showTooltip={false}
                         />
                      </button>
                   );
@@ -322,6 +325,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                            />
                         </span>
                      </Tooltip>
+                     <Divider />
                      <Tooltip title={lastInstrumentIsUsed ? "Cannot insert: last instrument is used" : "Insert new instrument above"}>
                         <span className="instruments-panel__footer-tooltip-trigger">
                            <IconButton
@@ -344,17 +348,6 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                            />
                         </span>
                      </Tooltip>
-                     <Tooltip title={listSelection.count === 1 ? "Reset this instrument to defaults" : "Reset selected instruments to defaults"}>
-                        <span className="instruments-panel__footer-tooltip-trigger">
-                           <IconButton
-                              type="button"
-                              onClick={clearSelected}
-                              disabled={!canClear}
-                              aria-label={listSelection.count === 1 ? "Reset this instrument to defaults" : "Reset selected instruments to defaults"}
-                              iconPath={mdiEraser} // see also: clear, restore, cancel, ...
-                           />
-                        </span>
-                     </Tooltip>
                      <Tooltip title={duplicateTooltip}>
                         <span className="instruments-panel__footer-tooltip-trigger">
                            <IconButton
@@ -363,6 +356,18 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({
                               disabled={!duplicationAnalysis.canDuplicate}
                               aria-label={listSelection.count === 1 ? "Duplicate this instrument" : "Duplicate selected instruments"}
                               iconPath={mdiContentDuplicate}
+                           />
+                        </span>
+                     </Tooltip>
+                     <Divider />
+                     <Tooltip title={listSelection.count === 1 ? "Reset this instrument to defaults" : "Reset selected instruments to defaults"}>
+                        <span className="instruments-panel__footer-tooltip-trigger">
+                           <IconButton
+                              type="button"
+                              onClick={clearSelected}
+                              disabled={!canClear}
+                              aria-label={listSelection.count === 1 ? "Reset this instrument to defaults" : "Reset selected instruments to defaults"}
+                              iconPath={mdiEraser} // see also: clear, restore, cancel, ...
                            />
                         </span>
                      </Tooltip>
