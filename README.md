@@ -523,3 +523,13 @@ https://github.com/thenfour/Somatic/milestone/3?closed=1
 - #268 Audio render export has an improved workflow, mp3 bitrate setting.
 - #273 DC offset filter added to audio processing pipeline
 - #272 fixed: demo timing was going out of sync when the tic80 stalls.
+- #275 no longer previewing note under cursor when typing instrument
+
+## 1.0.21 (2026-08-24)
+
+- #279 Current register state is shown per-row
+- #280 instrument toolbar UI tweaks
+- #281 side channel data can accept & copy as line-delimited plain text
+- #276 more performance and size-optimal build of wasm tic80
+- #282 reworked the public playroutine API, including better song metadata and clearer options/state setting
+- #283 adding timing drift to playroutine state to help detect when animations are out of sync
